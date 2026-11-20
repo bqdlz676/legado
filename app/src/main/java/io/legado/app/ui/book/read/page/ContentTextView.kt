@@ -176,7 +176,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             zoom.transform(canvas)
             drawPage(canvas)
             canvas.restoreToCount(saved)
-            if (isMainView && zoom.scale > 1f) {
+            if (isMainView && zoom.scale > 1f && ReadBook.book?.isPdf == true) {
                 val pages = mutableListOf(textPage to relativeOffset(0))
                 if (callBack.isScroll && pageFactory.hasNext()) {
                     pages.add(relativePage(1) to relativeOffset(1))

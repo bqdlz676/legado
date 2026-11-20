@@ -27,6 +27,7 @@ internal class PdfZoom(private val view: ReadView) {
     private var moved = false
     private var downX = 0f
     private var downY = 0f
+    private var lastTapTime = 0L
     private var lastX = 0f
     private var lastY = 0f
     private val slop = ViewConfiguration.get(view.context).scaledTouchSlop
@@ -55,7 +56,8 @@ internal class PdfZoom(private val view: ReadView) {
             owned = false
             ignoreRemainder = false
         }
-        return book?.isPdf == true
+        // 文字页同样支持缩放，PDF 与普通书籍共用同一套相机
+        return book != null
     }
 
     fun setBounds(rect: RectF) {
@@ -156,6 +158,19 @@ internal class PdfZoom(private val view: ReadView) {
             MotionEvent.ACTION_UP -> {
                 owned = false
                 if (!multiplePointers && !moved) {
+                    val now = android.os.SystemClock.uptimeMillis()
+                    // 放大状态下双击回到 1x，恢复滑动翻页
+                    if (scale > 1f && now - lastTapTime <= ViewConfiguration.getDoubleTapTimeout()) {
+                        scale = 1f
+                        offsetX = 0f
+                        offsetY = 0f
+                        clamp()
+                        lastTapTime = 0L
+                        redraw()
+                        view.autoPager.resume()
+                        return true
+                    }
+                    lastTapTime = now
                     view.pageDelegate?.onDown()
                     tap(downX, downY)
                 }
