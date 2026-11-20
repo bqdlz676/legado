@@ -2,6 +2,7 @@ package io.legado.app.help
 
 import io.legado.app.constant.AppConst
 import io.legado.app.data.appDb
+import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.DictRule
 import io.legado.app.data.entities.HttpTTS
 import io.legado.app.data.entities.KeyboardAssist
@@ -51,6 +52,31 @@ object DefaultData {
             )
         HttpTTS.fromJsonArray(json).getOrElse {
             emptyList()
+        }
+    }
+
+    val bookSources: List<BookSource> by lazy {
+        val json = String(
+            appCtx.assets.open("defaultData${File.separator}bookSources.json").readBytes()
+        )
+        GSON.fromJsonArray<BookSource>(json).getOrElse {
+            emptyList()
+        }
+    }
+
+    /**
+     * 首次启动：书源表为空时导入内置优选书源
+     */
+    fun importDefaultBookSourcesIfEmpty() {
+        Coroutine.async {
+            if (appDb.bookSourceDao.all.isEmpty()) {
+                val list = bookSources
+                if (list.isNotEmpty()) {
+                    appDb.bookSourceDao.insert(*list.toTypedArray())
+                }
+            }
+        }.onError {
+            it.printOnDebug()
         }
     }
 
