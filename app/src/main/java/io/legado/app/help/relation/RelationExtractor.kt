@@ -21,6 +21,9 @@ object RelationExtractor {
         val faction: String,
         val count: Int,
         val appearances: List<Appearance>,
+        val identity: String = "",
+        val lifeSpan: String = "",
+        val aliases: List<String> = emptyList(),
     )
 
     data class Edge(
@@ -66,6 +69,14 @@ object RelationExtractor {
         "李白", "杜甫", "白居易", "韩愈", "柳宗元", "刘禹锡", "元稹", "李贺", "杜牧", "李商隐",
         "苏轼", "苏辙", "苏洵", "王安石", "欧阳修", "曾巩", "司马光", "范仲淹", "辛弃疾", "李清照"
     )
+
+    /** 专名 + 人物档案里的字/号/封号，长的在前，避免「子」抢了「孔子」 */
+    private val TERMS: List<String> by lazy {
+        (KNOWN + PersonProfile.allTerms)
+            .filter { it.length >= 2 }
+            .distinct()
+            .sortedByDescending { it.length }
+    }
 
     private val SPEECH = listOf("曰", "谓", "对", "谏", "问", "答", "云")
 
@@ -137,12 +148,16 @@ object RelationExtractor {
             .take(60)
 
         val nodes = persons.map { (name, cnt) ->
+            val prof = PersonProfile.profileOf(name)
             Node(
                 id = name,
                 name = name,
-                faction = factionOf(name),
+                faction = prof?.state?.takeIf { it.isNotBlank() && it != "?" } ?: factionOf(name),
                 count = cnt,
-                appearances = appearanceMap[name] ?: emptyList()
+                appearances = appearanceMap[name] ?: emptyList(),
+                identity = prof?.identity ?: "",
+                lifeSpan = prof?.let { PersonProfile.lifeSpan(it) } ?: "",
+                aliases = prof?.alias ?: emptyList()
             )
         }
         val edges = pairWeight.entries
@@ -198,19 +213,19 @@ object RelationExtractor {
                 RULER.matchAt(rest, 0)?.let { m ->
                     val name = m.value
                     if (name.length in 3..5) {
-                        hits.add(name to IntRange(i, i + name.length - 1))
+                        hits.add(PersonProfile.canonical(name) to IntRange(i, i + name.length - 1))
                     }
                 }
                 from = i + 1
             }
         }
 
-        for (n in KNOWN) {
+        for (n in TERMS) {
             var from = 0
             while (true) {
                 val i = sentence.indexOf(n, from)
                 if (i < 0) break
-                hits.add(n to IntRange(i, i + n.length - 1))
+                hits.add(PersonProfile.canonical(n) to IntRange(i, i + n.length - 1))
                 from = i + n.length
             }
         }
@@ -224,7 +239,10 @@ object RelationExtractor {
                     val start = maxOf(0, i - 3)
                     val cand = sentence.substring(start, i)
                     pickName(cand)?.let { (n, off) ->
-                        hits.add(n to IntRange(start + off, start + off + n.length - 1))
+                        hits.add(
+                            PersonProfile.canonical(n) to
+                                IntRange(start + off, start + off + n.length - 1)
+                        )
                     }
                 }
                 from = i + 1
@@ -244,7 +262,7 @@ object RelationExtractor {
                 if (m.value.length >= 3) return m.value to idx
             }
         }
-        for (n in KNOWN) {
+        for (n in TERMS) {
             val idx = t.lastIndexOf(n)
             if (idx >= 0) return n to idx
         }

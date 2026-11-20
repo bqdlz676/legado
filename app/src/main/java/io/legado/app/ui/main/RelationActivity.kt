@@ -136,26 +136,31 @@ class RelationActivity : AppCompatActivity() {
     private fun toJson(graph: RelationExtractor.Graph): String {
         val root = JSONObject()
         root.put("source", graph.source)
-        root.put("nodes", JSONArray().apply {
-            graph.nodes.forEach { n ->
-                put(JSONObject().apply {
-                    put("id", n.id)
-                    put("name", n.name)
-                    put("faction", n.faction)
-                    put("count", n.count)
-                })
-            }
-        })
-        root.put("edges", JSONArray().apply {
-            graph.edges.forEach { e ->
-                put(JSONObject().apply {
-                    put("source", e.source)
-                    put("target", e.target)
-                    put("weight", e.weight)
-                    put("label", e.label)
-                })
-            })
-        })
+        val nodeArr = JSONArray()
+        graph.nodes.forEach { n ->
+            val o = JSONObject()
+            o.put("id", n.id)
+            o.put("name", n.name)
+            o.put("faction", n.faction)
+            o.put("count", n.count)
+            o.put("identity", n.identity)
+            o.put("lifeSpan", n.lifeSpan)
+            val al = JSONArray()
+            n.aliases.forEach { al.put(it) }
+            o.put("aliases", al)
+            nodeArr.put(o)
+        }
+        root.put("nodes", nodeArr)
+        val edgeArr = JSONArray()
+        graph.edges.forEach { e ->
+            val o = JSONObject()
+            o.put("source", e.source)
+            o.put("target", e.target)
+            o.put("weight", e.weight)
+            o.put("label", e.label)
+            edgeArr.put(o)
+        }
+        root.put("edges", edgeArr)
         return root.toString()
     }
 

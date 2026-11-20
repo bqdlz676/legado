@@ -48,6 +48,9 @@
   #card.show { transform: translateY(0); }
   #cardName { font-size: 17px; color: #eef3ff; letter-spacing: .06em; }
   #cardMeta { margin-top: 5px; font-size: 11.5px; color: #8091bd; }
+  #cardLife { margin-top: 3px; font-size: 12px; color: #a8b8dc; letter-spacing: .02em; }
+  #cardAlias { margin-top: 6px; font-size: 11.5px; color: #6f82ad; }
+  #cardAlias b { color: #8fa2c8; font-weight: 500; }
   #cardRels { margin-top: 12px; max-height: 34vh; overflow-y: auto; }
   .rel { display: flex; align-items: baseline; gap: 7px; padding: 6px 0; font-size: 12.5px; color: #b9c6e6; border-bottom: 1px solid rgba(120,150,230,.10); }
   .relTag { font-size: 10px; color: #6f7fae; min-width: 42px; }
@@ -74,7 +77,9 @@
 <div id="card">
   <div id="close">×</div>
   <div id="cardName"></div>
+  <div id="cardLife"></div>
   <div id="cardMeta"></div>
+  <div id="cardAlias"></div>
   <div id="cardRels"></div>
 </div>
 <script src="./cytoscape.min.js"></script>
@@ -145,7 +150,8 @@
         group: 'nodes',
         data: {
           id: n.id, label: n.name, faction: n.faction || '其他',
-          weight: n.count || 1, color: colorOf(n.faction)
+          weight: n.count || 1, color: colorOf(n.faction),
+          identity: n.identity || '', lifeSpan: n.lifeSpan || '', aliases: n.aliases || []
         }
       });
     });
@@ -267,9 +273,20 @@
   function showCard(n) {
     var d = n.data();
     document.getElementById('cardName').textContent = d.label;
+    document.getElementById('cardLife').textContent = d.lifeSpan || '';
+    document.getElementById('cardLife').style.display = d.lifeSpan ? '' : 'none';
     var deg = n.degree();
     document.getElementById('cardMeta').textContent =
-      (d.faction && d.faction !== '其他' ? d.faction + ' · ' : '') + '提及 ' + d.weight + ' 次 · 直接关系 ' + deg + ' 条';
+      (d.identity ? d.identity + ' · ' : '') +
+      (d.faction && d.faction !== '其他' ? d.faction + ' · ' : '') +
+      '提及 ' + d.weight + ' 次 · 直接关系 ' + deg + ' 条';
+    var al = document.getElementById('cardAlias');
+    if (d.aliases && d.aliases.length) {
+      al.innerHTML = '<b>称谓</b> ' + d.aliases.map(esc).join(' · ');
+      al.style.display = '';
+    } else {
+      al.style.display = 'none';
+    }
     var rows = [];
     n.connectedEdges().forEach(function (e) {
       var other = e.source() === n ? e.target() : e.source();
