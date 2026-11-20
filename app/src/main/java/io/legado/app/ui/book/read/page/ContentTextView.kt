@@ -7,6 +7,10 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.TextUtils
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
@@ -17,6 +21,7 @@ import android.widget.PopupWindow
 import io.legado.app.R
 import io.legado.app.data.entities.BookHighlight
 import io.legado.app.data.entities.Bookmark
+import io.legado.app.help.AllusionDict
 import io.legado.app.help.HighlightMatcher
 import io.legado.app.help.HighlightRuleMatcher
 import io.legado.app.help.HighlightStyle
@@ -45,6 +50,7 @@ import io.legado.app.utils.getCompatColor
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.startActivity
 import io.legado.app.utils.toastOnUi
+import java.util.WeakHashMap
 import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
@@ -54,6 +60,14 @@ import kotlin.math.min
  */
 class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private var charBubble: PopupWindow? = null
+    private val allusionCache = WeakHashMap<TextPage, Map<TextLine, List<AllusionDict.Hit>>>()
+    private val allusionPaint by lazy {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x80567A46.toInt()
+            style = Paint.Style.STROKE
+            strokeWidth = 1.3f * resources.displayMetrics.density
+        }
+    }
     var selectAble = AppConfig.textSelectAble
     val selectedPaint by lazy {
         Paint().apply {
@@ -182,18 +196,54 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
     private fun drawPage(canvas: Canvas) {
         var relativeOffset = relativeOffset(0)
         textPage.draw(this, canvas, relativeOffset)
+        drawAllusions(canvas, textPage, relativeOffset)
         if (!callBack.isScroll) return
         //滚动翻页
         if (!pageFactory.hasNext()) return
         val textPage1 = relativePage(1)
         relativeOffset += textPage.height
         textPage1.draw(this, canvas, relativeOffset)
+        drawAllusions(canvas, textPage1, relativeOffset)
         if (!pageFactory.hasNextPlus()) return
         relativeOffset += textPage1.height
         if (relativeOffset < ChapterProvider.visibleHeight) {
             val textPage2 = relativePage(2)
             textPage2.draw(this, canvas, relativeOffset)
+            drawAllusions(canvas, textPage2, relativeOffset)
         }
+    }
+
+    /** 正文中命中的典故词，在字下画一道细线 */
+    private fun drawAllusions(canvas: Canvas, page: TextPage, offset: Float) {
+        if (page.lines.isEmpty()) return
+        val hits = allusionCache.getOrPut(page) {
+            val map = HashMap<TextLine, List<AllusionDict.Hit>>()
+            for (line in page.lines) {
+                val t = line.text
+                if (t.length < 2) continue
+                val h = AllusionDict.match(context, t)
+                if (h.isNotEmpty()) map[line] = h
+            }
+            map
+        }
+        if (hits.isEmpty()) return
+        val dy = 2.5f * resources.displayMetrics.density
+        for ((line, list) in hits) {
+            val y = line.lineBottom + offset + dy
+            for (h in list) {
+                val c1 = line.getColumn(h.start) as? TextColumn ?: continue
+                val c2 = line.getColumn(h.end - 1) as? TextColumn ?: continue
+                canvas.drawLine(c1.start, y, c2.end, y, allusionPaint)
+            }
+        }
+    }
+
+    private fun columnIndexOf(line: TextLine, column: TextBaseColumn): Int {
+        val n = line.getColumnsCount()
+        for (i in 0 until n) {
+            if (line.getColumn(i) === column) return i
+        }
+        return -1
     }
 
     override fun computeScroll() {
@@ -477,7 +527,15 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                     } else {
                         val ch = column.charData
                         if (ch.length == 1 && ch[0].code in 0x4E00..0x9FFF) {
-                            showCharBubble(ch, x, y, relativeOffset, textLine)
+                            val colIdx = columnIndexOf(textLine, column)
+                            val hit = if (colIdx >= 0) {
+                                AllusionDict.hitAt(context, textLine.text, colIdx)
+                            } else null
+                            if (hit != null) {
+                                showAllusionBubble(hit.entry, x, y, relativeOffset, textLine)
+                            } else {
+                                showCharBubble(ch, x, y, relativeOffset, textLine)
+                            }
                             handled = true
                         }
                     }
@@ -952,6 +1010,39 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         relativeOffset: Float,
         textLine: TextLine,
     ) {
+        showBubble(
+            ch,
+            charPinyin(context, ch).orEmpty(),
+            charMeaning(context, ch).orEmpty(),
+            x, y, relativeOffset, textLine, false
+        )
+    }
+
+    private fun showAllusionBubble(
+        entry: AllusionDict.Entry,
+        x: Float,
+        y: Float,
+        relativeOffset: Float,
+        textLine: TextLine,
+    ) {
+        showBubble(
+            entry.word,
+            entry.pinyin,
+            entry.meaning + "\n〔出处〕" + entry.source,
+            x, y, relativeOffset, textLine, entry.word.length >= 3
+        )
+    }
+
+    private fun showBubble(
+        ch: String,
+        pinyinText: String,
+        meaningText: String,
+        x: Float,
+        y: Float,
+        relativeOffset: Float,
+        textLine: TextLine,
+        titleSmall: Boolean,
+    ) {
         if (charBubble?.isShowing == true) {
             dismissCharBubble()
             return
@@ -963,7 +1054,9 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         val lineBottomY = lineTopY + textLine.height
         val bubble = BubbleView(context).apply {
             char = ch
-            pinyin = charPinyin(context, ch).orEmpty()
+            pinyin = pinyinText
+            meaning = meaningText
+            this.titleSmall = titleSmall
         }
         bubble.measure(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
@@ -1001,6 +1094,8 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
     private class BubbleView(context: Context) : View(context) {
         var char: String = ""
         var pinyin: String = ""
+        var meaning: String = ""
+        var titleSmall: Boolean = false
         var arrowUp: Boolean = true
         var arrowX: Float = -1f
         private val dm = resources.displayMetrics
@@ -1008,6 +1103,9 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         private val arrowH = 9f * dm.density
         private val arrowW = 8f * dm.density
         private val radius = 12f * dm.density
+        private val maxBoxW = 236f * dm.density
+        private val gap = 4f * dm.density
+        private var meaningLayout: StaticLayout? = null
 
         private val charPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xFF24201A.toInt()
@@ -1019,6 +1117,11 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             textSize = 13f * dm.scaledDensity
             textAlign = Paint.Align.CENTER
         }
+        private val meanPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF3F382E.toInt()
+            textSize = 12f * dm.scaledDensity
+            textAlign = Paint.Align.LEFT
+        }
         private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xFFFBF6EA.toInt()
         }
@@ -1029,21 +1132,36 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         }
 
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            charPaint.textSize = (if (titleSmall) 18f else 26f) * dm.scaledDensity
             val fm = charPaint.fontMetrics
             val hasPy = pinyin.isNotEmpty()
+            val innerMax = (maxBoxW - pad * 2).toInt().coerceAtLeast(1)
+            val ml = if (meaning.isNotEmpty()) {
+                StaticLayout.Builder
+                    .obtain(meaning, 0, meaning.length, meanPaint, innerMax)
+                    .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                    .setLineSpacing(0f, 1.2f)
+                    .setMaxLines(5)
+                    .setEllipsize(TextUtils.TruncateAt.END)
+                    .build()
+            } else null
+            meaningLayout = ml
             val tw = max(
                 charPaint.measureText(char),
-                if (hasPy) pyPaint.measureText(pinyin) else 0f
+                max(
+                    if (hasPy) pyPaint.measureText(pinyin) else 0f,
+                    ml?.width?.toFloat() ?: 0f
+                )
             )
+            val boxW = (tw + pad * 2).coerceAtMost(maxBoxW)
             val th = fm.descent - fm.ascent
             val ph = if (hasPy) {
-                pyPaint.fontMetrics.let { it.descent - it.ascent } + 4f * dm.density
-            } else {
-                0f
-            }
+                pyPaint.fontMetrics.let { it.descent - it.ascent } + 3f * dm.density
+            } else 0f
+            val mh = if (ml != null) ml.height + gap * 2f else 0f
             setMeasuredDimension(
-                (tw + pad * 2).toInt(),
-                (th + ph + pad * 2 + arrowH).toInt()
+                boxW.toInt(),
+                (th + ph + mh + pad * 2 + arrowH).toInt()
             )
         }
 
@@ -1071,12 +1189,20 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             canvas.drawPath(path, bgPaint)
             canvas.drawPath(path, borderPaint)
             val fm = charPaint.fontMetrics
-            var base = rectTop + pad - fm.ascent
-            canvas.drawText(char, w / 2f, base, charPaint)
+            val charBase = rectTop + pad - fm.ascent
+            canvas.drawText(char, w / 2f, charBase, charPaint)
+            var bottom = charBase + fm.descent
             if (pinyin.isNotEmpty()) {
                 val pfm = pyPaint.fontMetrics
-                base += fm.descent + 4f * dm.density - pfm.ascent
-                canvas.drawText(pinyin, w / 2f, base, pyPaint)
+                val pyBase = bottom + 3f * dm.density - pfm.ascent
+                canvas.drawText(pinyin, w / 2f, pyBase, pyPaint)
+                bottom = pyBase + pfm.descent
+            }
+            meaningLayout?.let { ml ->
+                canvas.save()
+                canvas.translate(pad, bottom + gap * 2f)
+                ml.draw(canvas)
+                canvas.restore()
             }
         }
     }
@@ -1269,6 +1395,35 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                         }
                 }
                 pinyinMap = loaded
+                loaded
+            }
+            return map[ch]
+        }
+
+        @Volatile
+        private var dictMap: Map<String, String>? = null
+
+        fun preloadDict(context: Context) {
+            charMeaning(context, "\u0000")
+        }
+
+        fun charMeaning(context: Context, ch: String): String? {
+            val map = dictMap ?: synchronized(this) {
+                val loaded = HashMap<String, String>(18000)
+                runCatching {
+                    context.applicationContext.assets.open("char_dict.txt")
+                        .bufferedReader()
+                        .useLines { lines ->
+                            lines.forEach { line ->
+                                val a = line.indexOf('\t')
+                                val b = line.indexOf('\t', a + 1)
+                                if (a > 0 && b > a) {
+                                    loaded[line.substring(0, a)] = line.substring(b + 1)
+                                }
+                            }
+                        }
+                }
+                dictMap = loaded
                 loaded
             }
             return map[ch]

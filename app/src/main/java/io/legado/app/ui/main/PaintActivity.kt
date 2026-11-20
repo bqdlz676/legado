@@ -18,6 +18,8 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 import java.io.File
@@ -75,6 +77,14 @@ class PaintActivity : AppCompatActivity() {
         webView.webChromeClient = WebChromeClient()
 
         setContentView(webView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        // 透明状态栏主题下内容会画到状态栏底下，这里补上系统栏与挖孔的内边距
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
         val url = if (bgPath != null) {
             val name = File(bgPath).name
             "https://appassets.androidplatform.net/assets/www/index.html" +

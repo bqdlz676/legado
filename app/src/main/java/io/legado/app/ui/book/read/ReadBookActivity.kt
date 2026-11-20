@@ -66,6 +66,7 @@ import io.legado.app.help.book.update
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ReadTipConfig
+import io.legado.app.help.AllusionDict
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.source.getSourceType
 import io.legado.app.help.storage.Backup
@@ -165,6 +166,7 @@ import io.legado.app.utils.postEvent
 import io.legado.app.utils.sendToClip
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.showHelp
+import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.startActivity
 import io.legado.app.utils.startActivityForBook
 import io.legado.app.utils.sysScreenOffTime
@@ -514,6 +516,11 @@ class ReadBookActivity : BaseReadBookActivity(),
     @SuppressLint("ClickableViewAccessibility")
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
+        // 预先加载典故词表与字义表，避免首次绘制、首次点击卡顿
+        Coroutine.async {
+            AllusionDict.preload(this@ReadBookActivity)
+            ContentTextView.preloadDict(this@ReadBookActivity)
+        }.onError { it.printOnDebug() }
         viewModel.pendingSourceReimport.observe(this) { showPendingSourceReimport() }
         viewModel.resourceRefreshing.observe(this) { loading ->
             if (binding.readView.pageFactory.isRefreshingResources != loading) {
