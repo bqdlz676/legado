@@ -30,9 +30,12 @@ jobs:
       - name: Build debug
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Locate APK
+        run: find app/build -name "*.apk" -type f
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: legado-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
