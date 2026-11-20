@@ -15,6 +15,12 @@
         android:layout_height="match_parent"
         android:visibility="gone" />
 
+    <io.legado.app.ui.book.read.page.InkView
+        android:id="@+id/ink_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
     <View
         android:id="@+id/text_menu_position"
         android:layout_width="0dp"
@@ -65,5 +71,52 @@
     <include
         android:id="@+id/read_aloud_float_bar_container"
         layout="@layout/view_read_aloud_float_bar" />
+
+    <LinearLayout
+        android:id="@+id/ink_toolbar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="56dp"
+        android:orientation="horizontal"
+        android:background="#D91A1A1A"
+        android:padding="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/ink_btn_pen"
+            style="@style/InkToolButton"
+            android:text="笔" />
+
+        <TextView
+            android:id="@+id/ink_btn_eraser"
+            style="@style/InkToolButton"
+            android:text="橡皮" />
+
+        <TextView
+            android:id="@+id/ink_btn_red"
+            style="@style/InkToolButton"
+            android:text="红" />
+
+        <TextView
+            android:id="@+id/ink_btn_blue"
+            style="@style/InkToolButton"
+            android:text="蓝" />
+
+        <TextView
+            android:id="@+id/ink_btn_undo"
+            style="@style/InkToolButton"
+            android:text="撤销" />
+
+        <TextView
+            android:id="@+id/ink_btn_clear"
+            style="@style/InkToolButton"
+            android:text="清空" />
+
+        <TextView
+            android:id="@+id/ink_btn_done"
+            style="@style/InkToolButton"
+            android:text="完成" />
+    </LinearLayout>
 
 </FrameLayout>

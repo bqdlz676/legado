@@ -3,6 +3,9 @@ package io.legado.app.ui.book.read
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Looper
@@ -96,6 +99,7 @@ import io.legado.app.ui.book.changesource.ChangeBookSourceDialog
 import io.legado.app.ui.book.changesource.ChangeChapterSourceDialog
 import io.legado.app.ui.book.info.BookInfoActivity
 import io.legado.app.ui.book.read.config.AutoReadDialog
+import io.legado.app.ui.main.PaintActivity
 import io.legado.app.ui.book.read.config.BgTextConfigDialog.Companion.BG_COLOR
 import io.legado.app.ui.book.read.config.BgTextConfigDialog.Companion.REVIEW_ICON_COLOR
 import io.legado.app.ui.book.read.config.BgTextConfigDialog.Companion.TEXT_ACCENT_COLOR
@@ -185,6 +189,7 @@ import com.script.rhino.runScriptWithContext
 import io.legado.app.model.analyzeRule.AnalyzeUrl.Companion.paramPattern
 import io.legado.app.ui.login.SourceLoginJsExtensions
 import io.legado.app.ui.association.ImportBookSourceDialog
+import java.io.File
 
 /**
  * 阅读界面
@@ -1082,6 +1087,7 @@ class ReadBookActivity : BaseReadBookActivity(),
 
             R.id.menu_download -> showDownloadDialog()
             R.id.menu_add_bookmark -> addBookmark()
+            R.id.menu_hand_annotate -> startHandAnnotation()
             R.id.menu_highlight_rule -> startActivity<HighlightRuleActivity>()
             R.id.menu_simulated_reading -> showSimulatedReading()
             R.id.menu_edit_content -> ContentEditDialog.newInstance()?.let {
@@ -1860,6 +1866,10 @@ class ReadBookActivity : BaseReadBookActivity(),
      */
     override fun pageChanged() {
         pageChanged = true
+        if (inkMode) {
+            saveInk()
+            loadInk()
+        }
         if (!isScroll) aloudControls.onMovement(100f)
         binding.readView.onPageChange()
         highlightPopup?.dismiss()
@@ -3023,6 +3033,79 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
     }
 
+    private var inkMode = false
+
+    /**
+     * 手写批注：在书页上直接写，不跳转
+     */
+    private fun startHandAnnotation() {
+        if (inkMode) {
+            exitInkMode()
+            return
+        }
+        if (ReadBook.book == null) return
+        binding.inkView.visibility = View.VISIBLE
+        binding.inkToolbar.visibility = View.VISIBLE
+        binding.inkView.inputEnabled = true
+        inkMode = true
+        bindInkToolbar()
+        loadInk()
+        toastOnUi("手写批注已开启，再点菜单退出")
+    }
+
+    private fun bindInkToolbar() = binding.run {
+        inkBtnPen.setOnClickListener {
+            inkView.eraser = false
+        }
+        inkBtnEraser.setOnClickListener {
+            inkView.eraser = true
+        }
+        inkBtnRed.setOnClickListener {
+            inkView.eraser = false
+            inkView.brushColor = Color.parseColor("#E8453C")
+        }
+        inkBtnBlue.setOnClickListener {
+            inkView.eraser = false
+            inkView.brushColor = Color.parseColor("#1F6FEB")
+        }
+        inkBtnUndo.setOnClickListener { inkView.undo() }
+        inkBtnClear.setOnClickListener { inkView.clearAll() }
+        inkBtnDone.setOnClickListener { exitInkMode() }
+    }
+
+    private fun exitInkMode() {
+        if (!inkMode) return
+        inkMode = false
+        binding.inkView.inputEnabled = false
+        saveInk()
+        binding.inkView.visibility = View.GONE
+        binding.inkToolbar.visibility = View.GONE
+    }
+
+    private fun inkKey(): String {
+        val book = ReadBook.book ?: return "unknown"
+        return "${book.bookUrl.hashCode()}_${ReadBook.durChapterIndex}"
+    }
+
+    private fun inkFile(): File {
+        val dir = File(filesDir, "ink").apply { mkdirs() }
+        return File(dir, "${inkKey()}.json")
+    }
+
+    private fun loadInk() {
+        val f = inkFile()
+        binding.inkView.fromJson(if (f.exists()) f.readText() else null)
+    }
+
+    private fun saveInk() {
+        val f = inkFile()
+        if (binding.inkView.hasInk()) {
+            f.writeText(binding.inkView.toJson())
+        } else if (f.exists()) {
+            f.delete()
+        }
+    }
+
     override fun addBookmark() {
         val book = ReadBook.book
         val page = ReadBook.curTextChapter?.getPage(ReadBook.durPageIndex)
@@ -3248,6 +3331,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     override fun onDestroy() {
+        if (inkMode) saveInk()
         if (ReadBook.paragraphReaderVisibleSession == paragraphReaderSession) {
             ReadBook.paragraphReaderVisibleSession = 0L
         }

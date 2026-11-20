@@ -34,8 +34,18 @@ class PaintActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val bgPath = intent.getStringExtra("bgImage")
+        val bookName = intent.getStringExtra("bookName") ?: ""
+
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .addPathHandler("/annot/", object : WebViewAssetLoader.PathHandler {
+                override fun handle(path: String): WebResourceResponse? {
+                    val file = File(filesDir, "annot_bg/$path")
+                    if (!file.exists()) return null
+                    return WebResourceResponse("image/png", "utf-8", file.inputStream())
+                }
+            })
             .build()
 
         webView = WebView(this)
@@ -65,7 +75,14 @@ class PaintActivity : AppCompatActivity() {
         webView.webChromeClient = WebChromeClient()
 
         setContentView(webView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        webView.loadUrl("https://appassets.androidplatform.net/assets/www/index.html")
+        val url = if (bgPath != null) {
+            val name = File(bgPath).name
+            "https://appassets.androidplatform.net/assets/www/index.html" +
+                "?mode=annotation&bg=/annot/$name&bookName=${Uri.encode(bookName)}"
+        } else {
+            "https://appassets.androidplatform.net/assets/www/index.html"
+        }
+        webView.loadUrl(url)
     }
 
     override fun onDestroy() {
