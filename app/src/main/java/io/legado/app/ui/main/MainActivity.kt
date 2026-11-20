@@ -2,6 +2,7 @@
 
 package io.legado.app.ui.main
 
+import android.content.Intent
 import android.graphics.Rect
 import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
@@ -215,6 +216,11 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             R.id.menu_my_config -> {
                 viewPagerMain.setCurrentItem(realPositions.indexOf(idMy), false)
                 true
+            }
+
+            R.id.menu_paint -> {
+                startActivity(Intent(this@MainActivity, PaintActivity::class.java))
+                false
             }
 
             else -> false

@@ -19,5 +19,9 @@
         android:id="@+id/menu_my_config"
         android:icon="@drawable/ic_bottom_person"
         android:title="@string/my" />
+    <item
+        android:id="@+id/menu_paint"
+        android:icon="@drawable/ic_bottom_paint"
+        android:title="画板" />
 
 </menu>
