@@ -135,14 +135,15 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize" />
-        <!-- 墨板画板 -->
-        <activity
+        <!-- 字典详情 -->
         <activity
             android:name=".ui.main.CharDetailActivity"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:exported="false"
             android:label="字典"
             android:theme="@style/AppTheme.Light" />
+        <!-- 墨板画板 -->
+        <activity
             android:name=".ui.main.PaintActivity"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:exported="false"
