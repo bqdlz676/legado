@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.page
 
+import android.app.Activity
+import android.content.Intent
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -21,8 +23,10 @@ import android.widget.PopupWindow
 import io.legado.app.R
 import io.legado.app.data.entities.BookHighlight
 import io.legado.app.data.entities.Bookmark
+import io.legado.app.help.ChineseDict
 import io.legado.app.help.AllusionDict
 import io.legado.app.help.EnDict
+import io.legado.app.ui.main.CharDetailActivity
 import io.legado.app.help.HighlightMatcher
 import io.legado.app.help.HighlightRuleMatcher
 import io.legado.app.help.HighlightStyle
@@ -543,13 +547,25 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                         val ch = column.charData
                         if (ch.length == 1 && ch[0].code in 0x4E00..0x9FFF) {
                             val colIdx = columnIndexOf(textLine, column)
+                            val lineText = textLine.text
                             val hit = if (colIdx >= 0) {
-                                AllusionDict.hitAt(context, textLine.text, colIdx)
+                                AllusionDict.hitAt(context, lineText, colIdx)
                             } else null
                             if (hit != null) {
                                 showAllusionBubble(hit.entry, x, y, relativeOffset, textLine)
                             } else {
-                                showCharBubble(ch, x, y, relativeOffset, textLine)
+                                val word = if (colIdx >= 0) {
+                                    ChineseDict.wordAt(context, lineText, colIdx)
+                                } else null
+                                if (word != null && word.word.length >= 2) {
+                                    showBubble(
+                                        word.word, "", word.meaning,
+                                        x, y, relativeOffset, textLine,
+                                        word.word.length >= 3, false
+                                    )
+                                } else {
+                                    showCharBubble(ch, x, y, relativeOffset, textLine)
+                                }
                             }
                             handled = true
                         } else if (ch.length == 1 && (ch[0] in 'a'..'z' || ch[0] in 'A'..'Z')) {
@@ -563,7 +579,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                         entry?.phonetic.orEmpty(),
                                         entry?.translation ?: "词库未收录",
                                         x, y, relativeOffset, textLine,
-                                        word.length >= 9
+                                        word.length >= 9, false
                                     )
                                     handled = true
                                 }
@@ -1041,11 +1057,12 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         relativeOffset: Float,
         textLine: TextLine,
     ) {
+        val info = ChineseDict.getChar(context, ch)
         showBubble(
             ch,
-            charPinyin(context, ch).orEmpty(),
-            charMeaning(context, ch).orEmpty(),
-            x, y, relativeOffset, textLine, false
+            info?.pinyin?.takeIf { it.isNotBlank() } ?: charPinyin(context, ch).orEmpty(),
+            info?.meaning.orEmpty(),
+            x, y, relativeOffset, textLine, false, true
         )
     }
 
@@ -1060,7 +1077,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             entry.word,
             entry.pinyin,
             entry.meaning + "\n〔出处〕" + entry.source,
-            x, y, relativeOffset, textLine, entry.word.length >= 3
+            x, y, relativeOffset, textLine, entry.word.length >= 3, false
         )
     }
 
@@ -1073,6 +1090,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         relativeOffset: Float,
         textLine: TextLine,
         titleSmall: Boolean,
+        detail: Boolean,
     ) {
         if (charBubble?.isShowing == true) {
             dismissCharBubble()
@@ -1088,6 +1106,16 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             pinyin = pinyinText
             meaning = meaningText
             this.titleSmall = titleSmall
+            showDetail = detail
+            onDetail = {
+                dismissCharBubble()
+                val intent = Intent(context, CharDetailActivity::class.java)
+                    .putExtra("char", ch)
+                if (context !is Activity) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            }
         }
         bubble.measure(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
@@ -1127,6 +1155,8 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         var pinyin: String = ""
         var meaning: String = ""
         var titleSmall: Boolean = false
+        var showDetail: Boolean = false
+        var onDetail: (() -> Unit)? = null
         var arrowUp: Boolean = true
         var arrowX: Float = -1f
         private val dm = resources.displayMetrics
@@ -1136,7 +1166,18 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         private val radius = 12f * dm.density
         private val maxBoxW = 236f * dm.density
         private val gap = 4f * dm.density
+        private val detH = 22f * dm.density
         private var meaningLayout: StaticLayout? = null
+
+        private val detPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF8A6A3E.toInt()
+            textSize = 12f * dm.scaledDensity
+            textAlign = Paint.Align.RIGHT
+        }
+
+        init {
+            isClickable = true
+        }
 
         private val charPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xFF24201A.toInt()
@@ -1194,9 +1235,10 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 pyPaint.fontMetrics.let { it.descent - it.ascent } + 3f * dm.density
             } else 0f
             val mh = if (ml != null) ml.height + gap * 2f else 0f
+            val dh = if (showDetail) detH else 0f
             setMeasuredDimension(
                 boxW.toInt(),
-                (th + ph + mh + pad * 2 + arrowH).toInt()
+                (th + ph + mh + pad * 2 + arrowH + dh).toInt()
             )
         }
 
@@ -1239,6 +1281,26 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 ml.draw(canvas)
                 canvas.restore()
             }
+            if (showDetail) {
+                val bottomPad = if (arrowUp) pad else pad + arrowH
+                canvas.drawText(
+                    "详情 ›",
+                    w - pad,
+                    h - bottomPad - 3f * dm.density,
+                    detPaint
+                )
+            }
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (!showDetail) return super.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP) {
+                val bottomPad = if (arrowUp) pad else pad + arrowH
+                if (event.y > height - bottomPad - detH) {
+                    onDetail?.invoke()
+                }
+            }
+            return true
         }
     }
 

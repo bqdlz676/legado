@@ -67,6 +67,7 @@ import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ReadTipConfig
 import io.legado.app.help.AllusionDict
+import io.legado.app.help.ChineseDict
 import io.legado.app.help.EnDict
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.source.getSourceType
@@ -521,6 +522,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         Coroutine.async {
             AllusionDict.preload(this@ReadBookActivity)
             EnDict.preload(this@ReadBookActivity)
+            ChineseDict.preload(this@ReadBookActivity)
             ContentTextView.preloadDict(this@ReadBookActivity)
         }.onError { it.printOnDebug() }
         viewModel.pendingSourceReimport.observe(this) { showPendingSourceReimport() }
