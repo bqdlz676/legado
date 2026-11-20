@@ -22,6 +22,7 @@ import io.legado.app.R
 import io.legado.app.data.entities.BookHighlight
 import io.legado.app.data.entities.Bookmark
 import io.legado.app.help.AllusionDict
+import io.legado.app.help.EnDict
 import io.legado.app.help.HighlightMatcher
 import io.legado.app.help.HighlightRuleMatcher
 import io.legado.app.help.HighlightStyle
@@ -238,6 +239,18 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 canvas.drawLine(c1.start, y, c2.end, y, allusionPaint)
             }
         }
+    }
+
+    /** 从行文本里取出包含 pos 的英文单词 */
+    private fun englishWordAt(text: String, pos: Int): String? {
+        if (pos !in text.indices) return null
+        fun isWordChar(c: Char) = c.isLetter() || c == '\'' || c == '-'
+        if (!isWordChar(text[pos])) return null
+        var s = pos
+        while (s > 0 && isWordChar(text[s - 1])) s--
+        var e = pos
+        while (e + 1 < text.length && isWordChar(text[e + 1])) e++
+        return text.substring(s, e + 1).trim('-', '\'').takeIf { it.isNotEmpty() }
     }
 
     private fun columnIndexOf(line: TextLine, column: TextBaseColumn): Int {
@@ -539,6 +552,24 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                 showCharBubble(ch, x, y, relativeOffset, textLine)
                             }
                             handled = true
+                        } else if (ch.length == 1 && (ch[0] in 'a'..'z' || ch[0] in 'A'..'Z')) {
+                            val colIdx = columnIndexOf(textLine, column)
+                            if (colIdx >= 0) {
+                                val word = englishWordAt(textLine.text, colIdx)
+                                if (word != null) {
+                                    val entry = EnDict.lookup(context, word)
+                                    if (entry != null) {
+                                        showBubble(
+                                            word,
+                                            entry.phonetic,
+                                            entry.translation,
+                                            x, y, relativeOffset, textLine,
+                                            word.length >= 9
+                                        )
+                                        handled = true
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1134,7 +1165,11 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         }
 
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-            charPaint.textSize = (if (titleSmall) 18f else 26f) * dm.scaledDensity
+            charPaint.textSize = when {
+                char.length >= 11 -> 13f * dm.scaledDensity
+                titleSmall -> 18f * dm.scaledDensity
+                else -> 26f * dm.scaledDensity
+            }
             val fm = charPaint.fontMetrics
             val hasPy = pinyin.isNotEmpty()
             val innerMax = (maxBoxW - pad * 2).toInt().coerceAtLeast(1)
