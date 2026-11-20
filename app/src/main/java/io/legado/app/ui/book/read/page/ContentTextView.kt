@@ -50,7 +50,7 @@ import io.legado.app.utils.getCompatColor
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.startActivity
 import io.legado.app.utils.toastOnUi
-import java.util.WeakHashMap
+import java.util.IdentityHashMap
 import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
@@ -60,7 +60,7 @@ import kotlin.math.min
  */
 class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private var charBubble: PopupWindow? = null
-    private val allusionCache = WeakHashMap<TextPage, Map<TextLine, List<AllusionDict.Hit>>>()
+    private val allusionCache = IdentityHashMap<TextPage, Map<TextLine, List<AllusionDict.Hit>>>()
     private val allusionPaint by lazy {
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0x80567A46.toInt()
@@ -216,7 +216,8 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
     /** 正文中命中的典故词，在字下画一道细线 */
     private fun drawAllusions(canvas: Canvas, page: TextPage, offset: Float) {
         if (page.lines.isEmpty()) return
-        val hits = allusionCache.getOrPut(page) {
+        val hits = allusionCache[page] ?: run {
+            if (allusionCache.size > 8) allusionCache.clear()
             val map = HashMap<TextLine, List<AllusionDict.Hit>>()
             for (line in page.lines) {
                 val t = line.text
@@ -224,6 +225,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 val h = AllusionDict.match(context, t)
                 if (h.isNotEmpty()) map[line] = h
             }
+            allusionCache[page] = map
             map
         }
         if (hits.isEmpty()) return
