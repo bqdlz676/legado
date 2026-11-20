@@ -55,6 +55,11 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/menu_relation"
+        android:title="人物关系图"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/menu_highlight_rule"
         android:title="@string/highlight_rule"
         app:showAsAction="never" />

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>人物关系</title>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #05060f;
+    font-family: -apple-system, "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  }
+  #stars { position: fixed; inset: 0; z-index: 0; }
+  #glow {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      radial-gradient(60% 42% at 50% 18%, rgba(58,86,180,.28), transparent 70%),
+      radial-gradient(48% 40% at 82% 82%, rgba(140,60,170,.22), transparent 72%),
+      radial-gradient(46% 38% at 16% 76%, rgba(30,120,150,.18), transparent 72%);
+  }
+  #cy { position: fixed; inset: 0; z-index: 2; }
+  #hud {
+    position: fixed; left: 0; right: 0; top: 0; z-index: 4;
+    padding: calc(env(safe-area-inset-top, 0px) + 14px) 20px 10px;
+    pointer-events: none;
+  }
+  #title {
+    font-size: 15px; letter-spacing: .34em; color: #dfe7ff;
+    text-shadow: 0 0 18px rgba(110,150,255,.75);
+  }
+  #sub { margin-top: 6px; font-size: 11px; letter-spacing: .12em; color: #7b88b6; }
+  #legend {
+    position: fixed; right: 14px; top: calc(env(safe-area-inset-top, 0px) + 56px); z-index: 4;
+    display: flex; flex-direction: column; gap: 7px; pointer-events: none;
+  }
+  .lg { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: #93a0c8; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 9px currentColor; }
+  #card {
+    position: fixed; left: 14px; right: 14px; bottom: 0; z-index: 5;
+    transform: translateY(115%); transition: transform .26s cubic-bezier(.2,.9,.3,1);
+    padding: 16px 18px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    border-radius: 18px 18px 0 0;
+    background: linear-gradient(180deg, rgba(15,19,38,.97), rgba(9,11,22,.99));
+    border-top: 1px solid rgba(120,160,255,.28);
+    box-shadow: 0 -12px 40px rgba(30,60,160,.28);
+  }
+  #card.show { transform: translateY(0); }
+  #cardName { font-size: 17px; color: #eef3ff; letter-spacing: .06em; }
+  #cardMeta { margin-top: 5px; font-size: 11.5px; color: #8091bd; }
+  #cardRels { margin-top: 12px; max-height: 34vh; overflow-y: auto; }
+  .rel { display: flex; align-items: baseline; gap: 7px; padding: 6px 0; font-size: 12.5px; color: #b9c6e6; border-bottom: 1px solid rgba(120,150,230,.10); }
+  .relTag { font-size: 10px; color: #6f7fae; min-width: 42px; }
+  #close {
+    position: absolute; right: 14px; top: 10px; width: 30px; height: 30px;
+    line-height: 30px; text-align: center; color: #7f8cb8; font-size: 19px;
+  }
+  #hint {
+    position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+    z-index: 3; text-align: center; font-size: 10.5px; letter-spacing: .18em; color: #566b8f;
+  }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div id="glow"></div>
+<div id="cy"></div>
+<div id="hud">
+  <div id="title">人 物 关 系 网</div>
+  <div id="sub">点节点只看直接关系 · 双指缩放 · 拖动平移</div>
+</div>
+<div id="legend"></div>
+<div id="hint"></div>
+<div id="card">
+  <div id="close">×</div>
+  <div id="cardName"></div>
+  <div id="cardMeta"></div>
+  <div id="cardRels"></div>
+</div>
+<script src="./cytoscape.min.js"></script>
+<script>
+(function () {
+  // ---------- 星空 ----------
+  var cvs = document.getElementById('stars');
+  var ctx = cvs.getContext('2d');
+  var stars = [];
+  function resizeStars() {
+    var dpr = window.devicePixelRatio || 1;
+    cvs.width = innerWidth * dpr;
+    cvs.height = innerHeight * dpr;
+    cvs.style.width = innerWidth + 'px';
+    cvs.style.height = innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stars = [];
+    var n = Math.round(innerWidth * innerHeight / 5400);
+    for (var i = 0; i < n; i++) {
+      stars.push({
+        x: Math.random() * innerWidth,
+        y: Math.random() * innerHeight,
+        r: Math.random() * 1.25 + 0.25,
+        p: Math.random() * Math.PI * 2,
+        s: 0.4 + Math.random() * 0.9,
+        c: Math.random() > 0.86 ? '180,205,255' : '225,235,255'
+      });
+    }
+  }
+  resizeStars();
+  addEventListener('resize', function () { resizeStars(); if (cy) cy.resize(); });
+
+  function drawStars(t) {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      var a = 0.28 + 0.72 * (0.5 + 0.5 * Math.sin(t / 1500 * s.s + s.p));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, 6.2832);
+      ctx.fillStyle = 'rgba(' + s.c + ',' + a.toFixed(3) + ')';
+      ctx.fill();
+    }
+    requestAnimationFrame(drawStars);
+  }
+  requestAnimationFrame(drawStars);
+
+  // ---------- 阵营配色 ----------
+  var FACTION_COLOR = {
+    '周': '#ffe08a', '齐': '#3ec8ff', '晋': '#9b6bff', '楚': '#ff5f8f',
+    '秦': '#ffb547', '鲁': '#4de3a8', '宋': '#ff8a4d', '吴': '#59ffd4',
+    '越': '#c8ff4d', '卫': '#b08cff', '郑': '#ff7bd5', '燕': '#7fb0ff',
+    '其他': '#8fa2c8'
+  };
+  function colorOf(f) { return FACTION_COLOR[f] || FACTION_COLOR['其他']; }
+
+  var cy = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  window.renderGraph = function (data) {
+    var elements = [];
+    (data.nodes || []).forEach(function (n) {
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: n.id, label: n.name, faction: n.faction || '其他',
+          weight: n.count || 1, color: colorOf(n.faction)
+        }
+      });
+    });
+    (data.edges || []).forEach(function (e, i) {
+      elements.push({
+        group: 'edges',
+        data: { id: 'e' + i, source: e.source, target: e.target, weight: e.weight || 1, rel: e.label || '' }
+      });
+    });
+
+    if (cy) { cy.destroy(); cy = null; }
+
+    cy = cytoscape({
+      container: document.getElementById('cy'),
+      elements: elements,
+      style: [
+        { selector: 'node', style: {
+            shape: 'ellipse',
+            width: 'mapData(weight,1,60,32,76)',
+            height: 'mapData(weight,1,60,32,76)',
+            'background-color': 'data(color)',
+            'background-opacity': 0.9,
+            'border-width': 1.6,
+            'border-color': 'data(color)',
+            'border-opacity': 0.55,
+            label: 'data(label)',
+            color: '#eef3ff',
+            'font-size': 12,
+            'text-valign': 'bottom',
+            'text-margin-y': 7,
+            'text-outline-width': 2.2,
+            'text-outline-color': '#05060f',
+            'shadow-blur': 24,
+            'shadow-color': 'data(color)',
+            'shadow-opacity': 0.8,
+            'shadow-offset-x': 0,
+            'shadow-offset-y': 0,
+            'transition-property': 'opacity, border-width, shadow-blur',
+            'transition-duration': 180
+          }
+        },
+        { selector: 'edge', style: {
+            width: 'mapData(weight,1,14,1.1,4.2)',
+            'line-color': '#7fa8ff',
+            'line-opacity': 0.42,
+            'curve-style': 'bezier',
+            'control-point-step-size': 70,
+            'shadow-blur': 14,
+            'shadow-color': '#5b8cff',
+            'shadow-opacity': 0.5,
+            'transition-property': 'opacity, line-opacity',
+            'transition-duration': 180
+          }
+        },
+        { selector: '.faded', style: { opacity: 0.08 } },
+        { selector: 'node.focus', style: {
+            'border-width': 3.4, 'border-color': '#ffffff', 'border-opacity': 1,
+            'shadow-blur': 38, 'shadow-opacity': 1,
+            'background-color': '#ffffff', color: '#05060f',
+            'text-outline-color': '#ffffff', 'text-outline-opacity': 0.9
+          }
+        },
+        { selector: 'edge.focus', style: {
+            'line-color': '#ffffff', 'line-opacity': 0.95,
+            'shadow-color': '#ffffff', 'shadow-opacity': 0.9
+          }
+        }
+      ],
+      layout: {
+        name: 'cose',
+        animate: true,
+        animationDuration: 1500,
+        nodeRepulsion: 480000,
+        idealEdgeLength: 120,
+        gravity: 0.3,
+        numIter: 900,
+        randomize: true
+      },
+      wheelSensitivity: 0.22,
+      minZoom: 0.22,
+      maxZoom: 2.8,
+      boxSelectionEnabled: false,
+      selectionType: 'single',
+      textureOnViewport: true,
+      hideEdgesOnViewport: false
+    });
+
+    cy.on('tap', 'node', function (evt) {
+      var n = evt.target;
+      cy.elements().addClass('faded').removeClass('focus');
+      n.removeClass('faded').addClass('focus');
+      n.connectedEdges().removeClass('faded').addClass('focus');
+      n.connectedEdges().connectedNodes().removeClass('faded');
+      showCard(n);
+    });
+    cy.on('tap', function (evt) {
+      if (evt.target === cy) resetFocus();
+    });
+
+    // 图例
+    var used = {};
+    (data.nodes || []).forEach(function (n) { used[n.faction || '其他'] = 1; });
+    var lg = document.getElementById('legend');
+    lg.innerHTML = Object.keys(used).sort().map(function (f) {
+      return '<div class="lg"><span class="dot" style="background:' + colorOf(f) + ';color:' + colorOf(f) + '"></span>' + esc(f) + '</div>';
+    }).join('');
+
+    document.getElementById('sub').textContent =
+      (data.nodes || []).length + ' 人 · ' + (data.edges || []).length + ' 条关系 · 双指缩放 · 拖动平移';
+    document.getElementById('hint').textContent = data.source || '';
+  };
+
+  function resetFocus() {
+    if (!cy) return;
+    cy.elements().removeClass('faded').removeClass('focus');
+    document.getElementById('card').classList.remove('show');
+  }
+
+  function showCard(n) {
+    var d = n.data();
+    document.getElementById('cardName').textContent = d.label;
+    var deg = n.degree();
+    document.getElementById('cardMeta').textContent =
+      (d.faction && d.faction !== '其他' ? d.faction + ' · ' : '') + '提及 ' + d.weight + ' 次 · 直接关系 ' + deg + ' 条';
+    var rows = [];
+    n.connectedEdges().forEach(function (e) {
+      var other = e.source() === n ? e.target() : e.source();
+      var rel = e.data('rel') || '同现';
+      rows.push('<div class="rel"><span class="relTag">' + esc(rel) + '</span>' +
+        '<span>' + esc(other.data('label')) + '</span></div>');
+    });
+    document.getElementById('cardRels').innerHTML = rows.join('');
+    document.getElementById('card').classList.add('show');
+  }
+
+  document.getElementById('close').addEventListener('click', resetFocus);
+  document.getElementById('card').addEventListener('click', function (e) { e.stopPropagation(); });
+})();
+</script>
+</body>
+</html>

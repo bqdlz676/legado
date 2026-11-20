@@ -1099,6 +1099,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             R.id.menu_download -> showDownloadDialog()
             R.id.menu_add_bookmark -> addBookmark()
             R.id.menu_hand_annotate -> startHandAnnotation()
+            R.id.menu_relation -> startActivity(Intent(this, RelationActivity::class.java))
             R.id.menu_highlight_rule -> startActivity<HighlightRuleActivity>()
             R.id.menu_simulated_reading -> showSimulatedReading()
             R.id.menu_edit_content -> ContentEditDialog.newInstance()?.let {

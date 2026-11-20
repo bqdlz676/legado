@@ -135,6 +135,13 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize" />
+        <!-- 人物关系图 -->
+        <activity
+            android:name=".ui.main.RelationActivity"
+            android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:exported="false"
+            android:label="人物关系图"
+            android:theme="@style/AppTheme.Light" />
         <!-- 字典详情 -->
         <activity
             android:name=".ui.main.CharDetailActivity"
