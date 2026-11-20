@@ -105,6 +105,7 @@ class App : Application() {
                 .setLogger(EventLogger())
             DefaultData.upVersion()
             DefaultData.importDefaultBookSourcesIfEmpty()
+            DefaultData.importBundledBooks()
             AppFreezeMonitor.init(this@App)
             DispatchersMonitor.init()
             URL.setURLStreamHandlerFactory(ObsoleteUrlFactory(okHttpClient))

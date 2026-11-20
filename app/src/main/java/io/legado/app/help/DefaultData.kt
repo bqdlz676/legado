@@ -1,5 +1,7 @@
 package io.legado.app.help
 
+import android.net.Uri
+import io.legado.app.model.localBook.LocalBook
 import io.legado.app.constant.AppConst
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSource
@@ -74,6 +76,41 @@ object DefaultData {
                 if (list.isNotEmpty()) {
                     appDb.bookSourceDao.insert(*list.toTypedArray())
                 }
+            }
+        }.onError {
+            it.printOnDebug()
+        }
+    }
+
+    /**
+     * 首次启动：把 assets/books 里的古籍原文铺到私有目录并导入书架
+     */
+    fun importBundledBooks() {
+        Coroutine.async {
+            try {
+                val dir = File(appCtx.filesDir, "books")
+                if (!dir.exists()) dir.mkdirs()
+                val names = appCtx.assets.list("books") ?: emptyArray()
+                for (n in names) {
+                    if (!n.endsWith(".txt")) continue
+                    val out = File(dir, n)
+                    if (out.exists() && out.length() > 0L) continue
+                    appCtx.assets.open("books/$n").use { ins ->
+                        out.outputStream().use { o -> ins.copyTo(o) }
+                    }
+                }
+                for (f in dir.listFiles() ?: emptyArray()) {
+                    if (!f.name.endsWith(".txt") || f.length() == 0L) continue
+                    val uri = Uri.fromFile(f)
+                    if (appDb.bookDao.getBook(uri.toString()) != null) continue
+                    try {
+                        LocalBook.importFile(uri)
+                    } catch (e: Exception) {
+                        e.printOnDebug()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printOnDebug()
             }
         }.onError {
             it.printOnDebug()
