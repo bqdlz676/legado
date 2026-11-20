@@ -3084,21 +3084,23 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     private fun inkKey(): String {
         val book = ReadBook.book ?: return "unknown"
-        return "${book.bookUrl.hashCode()}_${ReadBook.durChapterIndex}"
+        return "${book.bookUrl.hashCode()}_${ReadBook.durChapterIndex}_${ReadBook.durPageIndex}"
     }
 
-    private fun inkFile(): File {
-        val dir = File(filesDir, "ink").apply { mkdirs() }
-        return File(dir, "${inkKey()}.json")
-    }
+    private var inkLoadedKey: String? = null
 
     private fun loadInk() {
-        val f = inkFile()
+        val key = inkKey()
+        inkLoadedKey = key
+        val dir = File(filesDir, "ink").apply { mkdirs() }
+        val f = File(dir, "$key.json")
         binding.inkView.fromJson(if (f.exists()) f.readText() else null)
     }
 
     private fun saveInk() {
-        val f = inkFile()
+        val key = inkLoadedKey ?: return
+        val dir = File(filesDir, "ink").apply { mkdirs() }
+        val f = File(dir, "$key.json")
         if (binding.inkView.hasInk()) {
             f.writeText(binding.inkView.toJson())
         } else if (f.exists()) {
