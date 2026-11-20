@@ -558,16 +558,14 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                 val word = englishWordAt(textLine.text, colIdx)
                                 if (word != null) {
                                     val entry = EnDict.lookup(context, word)
-                                    if (entry != null) {
-                                        showBubble(
-                                            word,
-                                            entry.phonetic,
-                                            entry.translation,
-                                            x, y, relativeOffset, textLine,
-                                            word.length >= 9
-                                        )
-                                        handled = true
-                                    }
+                                    showBubble(
+                                        word,
+                                        entry?.phonetic.orEmpty(),
+                                        entry?.translation ?: "词库未收录",
+                                        x, y, relativeOffset, textLine,
+                                        word.length >= 9
+                                    )
+                                    handled = true
                                 }
                             }
                         }

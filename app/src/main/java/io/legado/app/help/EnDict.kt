@@ -17,17 +17,17 @@ object EnDict {
     )
 
     @Volatile
-    private var map: Map<String, Entry>? = null
+    private var map: Map<String, String>? = null
 
     fun preload(context: Context) {
         ensure(context)
     }
 
-    private fun ensure(context: Context): Map<String, Entry> {
+    private fun ensure(context: Context): Map<String, String> {
         map?.let { return it }
         synchronized(this) {
             map?.let { return it }
-            val loaded = HashMap<String, Entry>(52000)
+            val loaded = HashMap<String, String>(420000)
             runCatching {
                 context.applicationContext.assets.open("en_dict.txt")
                     .bufferedReader()
@@ -39,11 +39,7 @@ object EnDict {
                             val b = line.indexOf('\t', a + 1)
                             if (b < 0) return@forEach
                             val w = line.substring(0, a)
-                            loaded[w] = Entry(
-                                w,
-                                line.substring(a + 1, b),
-                                line.substring(b + 1)
-                            )
+                            loaded[w] = line.substring(a + 1)
                         }
                     }
             }.onFailure {
@@ -56,16 +52,23 @@ object EnDict {
 
     /** 查词，查不到则尝试还原词形 */
     fun lookup(context: Context, raw: String): Entry? {
-        val w = raw.trim().lowercase()
+        val w = raw.trim()
         if (w.isEmpty()) return null
         val dict = ensure(context)
-        dict[w]?.let { return it }
-        for (cand in candidates(w)) {
-            dict[cand]?.let { e ->
-                return Entry(w, e.phonetic, e.translation)
-            }
+        val lower = w.lowercase()
+        decode(w, dict[w])?.let { return it }
+        if (lower != w) decode(w, dict[lower])?.let { return it }
+        for (cand in candidates(lower)) {
+            decode(w, dict[cand])?.let { return it }
         }
         return null
+    }
+
+    private fun decode(showWord: String, packed: String?): Entry? {
+        if (packed == null) return null
+        val t = packed.indexOf('\t')
+        return if (t < 0) Entry(showWord, "", packed)
+        else Entry(showWord, packed.substring(0, t), packed.substring(t + 1))
     }
 
     private fun candidates(w: String): List<String> {
