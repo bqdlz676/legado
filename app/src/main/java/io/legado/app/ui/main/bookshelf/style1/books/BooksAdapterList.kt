@@ -33,7 +33,7 @@ class BooksAdapterList(
         payloads: MutableList<Any>
     ) = binding.run {
         if (payloads.isEmpty()) {
-            tvName.text = item.name
+            tvName.text = verticalName(item.name)
             tvAuthor.text = authorText(item)
             tvRead.text = readText(item)
             tvLast.text = lastText(item)
@@ -45,7 +45,7 @@ class BooksAdapterList(
                 val bundle = payloads[i] as Bundle
                 bundle.keySet().forEach {
                     when (it) {
-                        "name" -> tvName.text = item.name
+                        "name" -> tvName.text = verticalName(item.name)
                         "author" -> tvAuthor.text = authorText(item)
                         "dur" -> tvRead.text = readText(item)
                         "last" -> tvLast.text = lastText(item)
@@ -62,6 +62,16 @@ class BooksAdapterList(
                 }
             }
         }
+    }
+
+    /** 竖排书名：中文逐字换行，西文保持横排；超过 6 字留省略。 */
+    private fun verticalName(name: String): String {
+        val t = name.trim()
+        if (t.isEmpty()) return t
+        if (t.none { it in '\u4e00'..'\u9fff' }) return t
+        val max = 4
+        val body = if (t.length <= max) t else t.take(max - 1) + "…"
+        return body.toCharArray().joinToString("\n")
     }
 
     private fun authorText(item: Book): String =
@@ -84,6 +94,11 @@ class BooksAdapterList(
 
     private fun upRefresh(binding: ItemBookshelfListBinding, item: Book) {
         binding.pbReadProgress.updateBookshelfReadProgress(item, binding.tvReadPercent)
+        binding.inkProgressLine.ratio = when {
+            item.totalChapterNum > 0 ->
+                (item.durChapterIndex + 1).toFloat() / item.totalChapterNum
+            else -> 0f
+        }
         if (!item.isLocal && callBack.isUpdate(item.bookUrl)) {
             binding.bvUnread.invisible()
             binding.rlLoading.visible()

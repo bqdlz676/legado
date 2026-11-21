@@ -1465,7 +1465,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         private var meaningLayout: StaticLayout? = null
 
         private val detPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF8A6A3E.toInt()
+            color = 0xFFC23B2E.toInt()
             textSize = 12f * dm.scaledDensity
             textAlign = Paint.Align.RIGHT
         }
@@ -1496,6 +1496,61 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             color = 0xFFCFC6B4.toInt()
             style = Paint.Style.STROKE
             strokeWidth = 1.2f * dm.density
+        }
+
+        // —— 撕边纸片 / 金边流光 ——
+        private val bodyPath = Path()
+        private val arrowPath = Path()
+        private var builtW = -1f
+        private var builtH = -1f
+        private val goldPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xC08B6914.toInt()
+            style = Paint.Style.STROKE
+            strokeWidth = 1f * dm.density
+        }
+        private val flowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFFE8C77A.toInt()
+            style = Paint.Style.STROKE
+            strokeWidth = 1.4f * dm.density
+            strokeCap = Paint.Cap.ROUND
+        }
+        private val flowDst = Path()
+        private val flowMeasure = PathMeasure()
+        private var flowOn = false
+        private var flowPos = 0f
+        private var flowAnimator: ValueAnimator? = null
+
+        init {
+            // 暖金辉光走 software layer，撕边 path 的阴影才画得出来
+            setLayerType(LAYER_TYPE_SOFTWARE, null)
+            bgPaint.setShadowLayer(7f * dm.density, 0f, 3f * dm.density, 0x40D4A54A)
+        }
+
+        /** 金边流光跑一圈（2s）后自动熄灭。 */
+        fun startFlow() {
+            flowAnimator?.cancel()
+            flowOn = true
+            flowPos = 0f
+            val anim = ValueAnimator.ofFloat(0f, 1f)
+            anim.duration = 2000
+            anim.addUpdateListener {
+                flowPos = it.animatedValue as Float
+                invalidate()
+            }
+            anim.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    flowOn = false
+                    invalidate()
+                }
+            })
+            flowAnimator = anim
+            anim.start()
+        }
+
+        override fun onDetachedFromWindow() {
+            flowAnimator?.cancel()
+            flowAnimator = null
+            super.onDetachedFromWindow()
         }
 
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
