@@ -596,7 +596,19 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                                     }
                                                     context.startActivity(i)
                                                 }
-                                            } else null
+                                            } else {
+                                                {
+                                                    dismissCharBubble()
+                                                    val i = Intent(
+                                                        context,
+                                                        io.legado.app.ui.main.PlaceMapActivity::class.java
+                                                    ).putExtra("name", nm.name)
+                                                    if (context !is Activity) {
+                                                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    }
+                                                    context.startActivity(i)
+                                                }
+                                            }
                                         showBubble(
                                             nm.name, nm.pinyin, body,
                                             x, y, relativeOffset, textLine,
