@@ -507,7 +507,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 || (fragmentId == idBookshelf2 && any is BookshelfFragment2)
                 || (fragmentId == idExplore && any is ExploreFragment)
                 || (fragmentId == idRss && any is RssFragment)
-                || (fragmentId == idMy && any is MyFragment)
+                || (fragmentId == idMy && any is io.legado.app.ui.main.my.MyInkFragment)
             ) {
                 return POSITION_UNCHANGED
             }
@@ -520,7 +520,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 idBookshelf2 -> BookshelfFragment2(position)
                 idExplore -> ExploreFragment(position)
                 idRss -> RssFragment(position)
-                else -> MyFragment(position)
+                else -> io.legado.app.ui.main.my.MyInkFragment(position)
             }
         }
 
