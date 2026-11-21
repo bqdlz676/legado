@@ -10,26 +10,29 @@
   #map{position:absolute;inset:0;}
   #bar{
     position:absolute;left:0;right:0;top:0;z-index:900;
-    display:flex;align-items:center;gap:8px;padding:10px 14px;
-    background:linear-gradient(180deg,rgba(251,246,234,.96),rgba(251,246,234,.72));
+    padding:10px 14px 8px;
+    background:linear-gradient(180deg,rgba(251,246,234,.97),rgba(251,246,234,.78));
     border-bottom:1px solid rgba(160,140,110,.18);
   }
   #bar .name{font-size:17px;color:#2B2419;letter-spacing:.06em;}
-  #bar .now{font-size:12px;color:#8A7A5E;}
-  #tabs{margin-left:auto;display:flex;gap:6px;}
-  #tabs button{
+  #bar .now{font-size:12px;color:#8A7A5E;margin-top:2px;}
+  .row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .row button{
     border:1px solid #D9CDB6;background:#FFFDF6;color:#5A4E38;
     font-size:12px;padding:5px 10px;border-radius:14px;font-family:inherit;
   }
-  #tabs button.on{background:#2B2419;color:#F6EFDF;border-color:#2B2419;}
+  .row button.on{background:#2B2419;color:#F6EFDF;border-color:#2B2419;}
+  .row button.off{opacity:.42;}
   .lbl{
-    background:rgba(251,246,234,.92);border:1px solid #C9B995;border-radius:3px;
+    background:rgba(251,246,234,.93);border:1px solid #C9B995;border-radius:3px;
     padding:2px 7px;font-size:12px;color:#3A3122;white-space:nowrap;
     box-shadow:0 1px 3px rgba(0,0,0,.12);
   }
-  .lbl.old{border-color:#A8894F;color:#6A4E22;}
-  .dot{width:8px;height:8px;border-radius:50%;background:#8A6A3E;border:1.5px solid #FBF6EA;
+  .lbl.old{border-color:#A8894F;color:#6A4E22;font-weight:600;}
+  .dot{width:9px;height:9px;border-radius:50%;background:#8A6A3E;border:1.5px solid #FBF6EA;
        box-shadow:0 0 0 1px rgba(120,95,55,.5);}
+  .dot.ev{background:#B33A2B;}
+  .dot.st{background:#2E7D6B;}
   #hint{
     position:absolute;left:14px;bottom:14px;z-index:900;
     font-size:11px;color:#8A7A5E;background:rgba(251,246,234,.86);
@@ -40,19 +43,24 @@
 <body>
 <div id="map"></div>
 <div id="bar">
-  <div>
-    <div class="name" id="n"></div>
-    <div class="now" id="m"></div>
-  </div>
-  <div id="tabs">
-    <button id="t1" class="on">古今对照</button>
+  <div class="name" id="n"></div>
+  <div class="now" id="m"></div>
+  <div class="row">
+    <button id="t1" class="on">现代</button>
     <button id="t2">地形</button>
     <button id="t3">卫星</button>
   </div>
+  <div class="row">
+    <button id="o1" class="on">历史事件</button>
+    <button id="o2" class="on">势力范围</button>
+    <button id="o3" class="on">名胜古迹</button>
+  </div>
 </div>
-<div id="hint">双指缩放，拖动平移</div>
-
+<div id="hint">拖动平移，双指缩放</div>
 <script src="leaflet.js"></script>
+<script src="events.js"></script>
+<script src="powers.js"></script>
+<script src="sites.js"></script>
 <script>
 var place = (function () {
   try {
@@ -60,8 +68,7 @@ var place = (function () {
     var m = /(?:^|&)d=([^&]+)/.exec(q);
     if (m) return JSON.parse(decodeURIComponent(m[1]));
   } catch (e) {}
-  return window.__PLACE__ ||
- {name:"", note:"", modern:"", lat:34.6, lng:113.0, old:[]};
+  return window.__PLACE__ || {name:"", note:"", modern:"", lat:34.6, lng:113.0, old:[]};
 })();
 
 document.getElementById('n').textContent = place.name || '古地名';
@@ -71,51 +78,77 @@ document.getElementById('m').textContent =
 var map = L.map('map', {zoomControl:false, attributionControl:false})
     .setView([place.lat, place.lng], place.zoom || 8);
 
-var layers = {};
-layers.modern = L.tileLayer(
-  'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
-  {subdomains:'1234', maxZoom:18});
-layers.terrain = L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
-  {maxZoom:13});
-layers.sat = L.tileLayer(
-  'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-  {subdomains:'1234', maxZoom:18});
+var base = {
+  modern: L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {subdomains:'1234', maxZoom:18}),
+  terrain: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', {maxZoom:13}),
+  sat: L.tileLayer('https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {subdomains:'1234', maxZoom:18})
+};
+base.modern.addTo(map);
 
-layers.modern.addTo(map);
+var gPower = L.layerGroup().addTo(map);
+(window.POWERS || []).forEach(function (p) {
+  if (!p.poly || !p.poly.length) return;
+  var poly = L.polygon(p.poly, {
+    color: p.color, weight: 1.2, opacity: .75,
+    fillColor: p.color, fillOpacity: .16
+  }).addTo(gPower);
+  poly.bindTooltip(p.name + '（' + p.era + '）',
+    {permanent:true, direction:'center', className:'lbl', opacity:1});
+});
 
-// 当前地名
-var cur = L.marker([place.lat, place.lng], {
-  icon: L.divIcon({className:'', html:'<div class="dot"></div>', iconSize:[8,8]})
-}).addTo(map);
-cur.bindTooltip(place.name + (place.modern ? '（今 ' + place.modern + '）' : ''),
-  {permanent:true, direction:'top', className:'lbl old', offset:[0,-6]});
+var gEvent = L.layerGroup().addTo(map);
+(window.EVENTS || []).forEach(function (e) {
+  var m = L.marker([e.lat, e.lng], {
+    icon: L.divIcon({className:'', html:'<div class="dot ev"></div>', iconSize:[9,9]})
+  }).addTo(gEvent);
+  var y = e.year < 0 ? '前' + (-e.year) + '年' : e.year + '年';
+  m.bindTooltip(e.name, {direction:'top', className:'lbl', offset:[0,-6]});
+  m.bindPopup('<div style="font-family:serif;max-width:210px"><b>' + e.name + '</b><br>' +
+    y + '　' + e.tag + '<br>' + e.note + '</div>');
+});
 
-// 同区域古今地名点
+var gSite = L.layerGroup().addTo(map);
+(window.SITES || []).forEach(function (s) {
+  var m = L.marker([s.lat, s.lng], {
+    icon: L.divIcon({className:'', html:'<div class="dot st"></div>', iconSize:[9,9]})
+  }).addTo(gSite);
+  m.bindTooltip(s.name, {direction:'top', className:'lbl', offset:[0,-6]});
+  m.bindPopup('<div style="font-family:serif;max-width:210px"><b>' + s.name + '</b><br>' +
+    s.kind + '　' + s.note + '</div>');
+});
+
+L.marker([place.lat, place.lng], {
+  icon: L.divIcon({className:'', html:'<div class="dot"></div>', iconSize:[9,9]})
+}).addTo(map).bindTooltip(
+  place.name + (place.modern ? '（今 ' + place.modern + '）' : ''),
+  {permanent:true, direction:'top', className:'lbl old', offset:[0,-6], opacity:1});
+
+var gNear = L.layerGroup().addTo(map);
 (place.old || []).forEach(function (p) {
-  var m = L.marker([p.lat, p.lng], {
-    icon: L.divIcon({className:'', html:'<div class="dot" style="background:#7C6BA8"></div>',
-                     iconSize:[8,8]})
-  }).addTo(map);
-  m.bindTooltip(p.name + (p.modern ? '｜' + p.modern : ''),
+  L.marker([p.lat, p.lng], {
+    icon: L.divIcon({className:'', html:'<div class="dot" style="background:#7C6BA8"></div>', iconSize:[8,8]})
+  }).addTo(gNear).bindTooltip(p.name + (p.modern ? '｜' + p.modern : ''),
     {permanent:true, direction:'top', className:'lbl', offset:[0,-6]});
 });
 
-function pick(k, btn) {
-  map.eachLayer(function (l) { if (l instanceof L.TileLayer) map.removeLayer(l); });
-  layers[k].addTo(map);
-  layers[k].bringToBack();
-  ['t1','t2','t3'].forEach(function (id) {
-    document.getElementById(id).className = '';
-  });
+function pickBase(k, btn) {
+  Object.keys(base).forEach(function (x) { if (map.hasLayer(base[x])) map.removeLayer(base[x]); });
+  base[k].addTo(map);
+  base[k].bringToBack();
+  ['t1','t2','t3'].forEach(function (id) { document.getElementById(id).className = ''; });
   btn.className = 'on';
 }
-document.getElementById('t1').onclick = function () { pick('modern', this); };
-document.getElementById('t2').onclick = function () { pick('terrain', this); };
-document.getElementById('t3').onclick = function () { pick('sat', this); };
+document.getElementById('t1').onclick = function () { pickBase('modern', this); };
+document.getElementById('t2').onclick = function () { pickBase('terrain', this); };
+document.getElementById('t3').onclick = function () { pickBase('sat', this); };
 
-// 通知原生：就绪
-if (window.Android && window.Android.onReady) window.Android.onReady();
+function toggle(group, btn) {
+  if (map.hasLayer(group)) { map.removeLayer(group); btn.className = 'off'; }
+  else { map.addLayer(group); btn.className = 'on'; }
+}
+document.getElementById('o1').onclick = function () { toggle(gEvent, this); };
+document.getElementById('o2').onclick = function () { toggle(gPower, this); };
+document.getElementById('o3').onclick = function () { toggle(gSite, this); };
 </script>
 </body>
 </html>
