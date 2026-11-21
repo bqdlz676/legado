@@ -1130,24 +1130,31 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             }
         }
 
-        // 年号纪年
-        val re = KOTLIN_YEAR_RE
-        for (m in re.findAll(lineText)) {
+        // 年号纪年；先秦无年号，退到王公纪年（鲁隐公元年这类）
+        for (m in KOTLIN_YEAR_RE.findAll(lineText)) {
             if (pos < m.range.first || pos > m.range.last) continue
             val era = m.groupValues[1]
-            val e = Chronology.eraOf(era) ?: continue
             val n = chnNumber(m.groupValues[2]) ?: continue
-            val y = e.startYear + n - 1
-            return "${era}${m.groupValues[2]}年" to "${Chronology.yearLabel(y)}（${e.dynasty}）"
+            val e = Chronology.eraOf(era)
+            if (e != null) {
+                val y = e.startYear + n - 1
+                return "${era}${m.groupValues[2]}年" to
+                    "${Chronology.yearLabel(y)}（${e.dynasty}）"
+            }
+            val py = Chronology.princeYear(era, n)
+            if (py != null) {
+                return "${era}${m.groupValues[2]}年" to
+                    "${Chronology.yearLabel(py)}（王公纪年）"
+            }
         }
         return null
     }
 
     private fun yearInLine(lineText: String): Int? {
         for (m in KOTLIN_YEAR_RE.findAll(lineText)) {
-            val e = Chronology.eraOf(m.groupValues[1]) ?: continue
             val n = chnNumber(m.groupValues[2]) ?: continue
-            return e.startYear + n - 1
+            Chronology.eraOf(m.groupValues[1])?.let { return it.startYear + n - 1 }
+            Chronology.princeYear(m.groupValues[1], n)?.let { return it }
         }
         return null
     }

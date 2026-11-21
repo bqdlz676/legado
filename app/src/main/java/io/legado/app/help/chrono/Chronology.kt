@@ -27,6 +27,10 @@ object Chronology {
     @Volatile
     private var eras: Map<String, List<Era>> = emptyMap()
 
+    /** 国名+称号 → 即位年与在位数，如「鲁隐公」 */
+    @Volatile
+    private var princes: Map<String, IntArray> = emptyMap()
+
     @Volatile
     private var loaded = false
 
@@ -52,6 +56,21 @@ object Chronology {
                 }
                 eras = map
             }
+            runCatching {
+                val pm = HashMap<String, IntArray>(260)
+                context.assets.open("princes.txt").bufferedReader().use { r ->
+                    while (true) {
+                        val ln = r.readLine() ?: break
+                        if (ln.isBlank() || ln.startsWith("#")) continue
+                        val f = ln.split('\t')
+                        if (f.size < 4) continue
+                        val start = f[2].toIntOrNull() ?: continue
+                        val span = f[3].toIntOrNull() ?: 1
+                        pm[f[0] + f[1]] = intArrayOf(start, span)
+                    }
+                }
+                princes = pm
+            }
             loaded = true
         }
     }
@@ -64,6 +83,23 @@ object Chronology {
         if (nthYear <= 0) return null
         val y = e.startYear + nthYear - 1
         return if (y > e.endYear) null else y
+    }
+
+    /**
+     * 「鲁隐公元年」→ 前722。
+     * 先秦无年号，《春秋》《左传》用王公纪年；国名省略时按鲁（《春秋》本位）兜底。
+     */
+    fun princeYear(stateTitle: String, nthYear: Int): Int? {
+        if (nthYear <= 0) return null
+        val keys = if (stateTitle.length in 2..6) {
+            listOf(stateTitle, "鲁$stateTitle")
+        } else emptyList()
+        for (k in keys) {
+            val v = princes[k] ?: continue
+            val y = v[0] + nthYear - 1
+            if (nthYear <= v[1] + 1) return y
+        }
+        return null
     }
 
     /** 公元年 → 干支年 */
