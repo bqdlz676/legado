@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import io.legado.app.help.coroutine.Coroutine
+import io.legado.app.help.relation.PersonProfile
 import io.legado.app.help.relation.RelationExtractor
 import io.legado.app.model.ReadBook
 import io.legado.app.utils.printOnDebug
@@ -75,6 +76,7 @@ class RelationActivity : AppCompatActivity() {
             return
         }
         Coroutine.async {
+            PersonProfile.ensureLoaded(this@RelationActivity)
             val text = readLocalText(book.bookUrl)
             if (text.isNullOrBlank()) {
                 onUi {

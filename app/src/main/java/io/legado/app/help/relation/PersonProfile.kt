@@ -147,6 +147,74 @@ object PersonProfile {
         P("陆游", listOf("务观", "放翁"), 1125, 1210, "南宋诗人", "山阴"),
     )
 
+
+    // ---- 外部档案（CBDB 8.8 万条，繁体名，唐以后为主）----
+
+    @Volatile
+    private var cbdb: Map<String, P> = emptyMap()
+
+    /** 繁 → 简，只用来做查询归一键 */
+    private var tsMap: Map<Char, Char> = emptyMap()
+
+    @Volatile
+    private var extLoaded = false
+
+    fun ensureLoaded(context: android.content.Context) {
+        if (extLoaded) return
+        synchronized(this) {
+            if (extLoaded) return
+            runCatching {
+                val lines = context.assets.open("ts.txt").bufferedReader().use { it.readLines() }
+                val m = HashMap<Char, Char>(5200)
+                for (ln in lines) {
+                    if (ln.isEmpty() || ln.startsWith("#")) continue
+                    val parts = ln.split('\t')
+                    if (parts.size >= 2 && parts[0].length == 1) {
+                        val simp = parts[1].substringBefore(' ')
+                        if (simp.length == 1) m[parts[0][0]] = simp[0]
+                    }
+                }
+                tsMap = m
+            }
+            runCatching {
+                val text = context.assets.open("person.txt").bufferedReader().use { it.readText() }
+                val m = HashMap<String, P>(90000)
+                for (ln in text.lineSequence()) {
+                    if (ln.isBlank()) continue
+                    val f = ln.split('\t')
+                    if (f.size < 6) continue
+                    val name = f[0]
+                    if (name.length < 2) continue
+                    val aliases = f[1].split('、').filter { it.length in 2..6 }
+                    val b = f[2].toIntOrNull()
+                    val d = f[3].toIntOrNull()
+                    val prof = P(name, aliases, b, d, f[5], f[4])
+                    val key = toSimp(name)
+                    if (key !in m) m[key] = prof
+                }
+                cbdb = m
+            }
+            extLoaded = true
+        }
+    }
+
+    private fun toSimp(s: String): String {
+        if (tsMap.isEmpty()) return s
+        val sb = StringBuilder(s.length)
+        for (c in s) sb.append(tsMap[c] ?: c)
+        return sb.toString()
+    }
+
+    /** 抽取词表补先秦段：CBDB 只有漢前与秦漢这几百条 */
+    private val extTerms: List<String> by lazy {
+        cbdb.values
+            .asSequence()
+            .filter { it.state == "漢前" || it.state == "秦漢" }
+            .map { it.name }
+            .filter { it.length in 2..5 }
+            .toList()
+    }
+
     private val byName: Map<String, P> by lazy {
         val m = HashMap<String, P>(table.size * 3)
         for (p in table) {
@@ -158,7 +226,7 @@ object PersonProfile {
 
     /** 全部称呼，长词在前，供抽取时优先匹配 */
     val allTerms: List<String> by lazy {
-        (table.flatMap { listOf(it.name) + it.alias })
+        ((table.flatMap { listOf(it.name) + it.alias }) + extTerms)
             .filter { it.length >= 2 }
             .distinct()
             .sortedByDescending { it.length }
@@ -166,9 +234,9 @@ object PersonProfile {
 
     fun find(raw: String): P? = byName[raw]
 
-    fun canonical(raw: String): String = byName[raw]?.name ?: raw
+    fun canonical(raw: String): String = profileOf(raw)?.name ?: raw
 
-    fun profileOf(name: String): P? = byName[name]
+    fun profileOf(name: String): P? = byName[name] ?: cbdb[toSimp(name)]
 
     fun lifeSpan(p: P): String {
         if (p.birth == null && p.death == null) return "生卒无载"
