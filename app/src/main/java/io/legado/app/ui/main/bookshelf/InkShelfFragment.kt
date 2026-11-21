@@ -14,7 +14,7 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.databinding.FragmentInkShelfBinding
 import io.legado.app.databinding.ItemInkBookBinding
-import io.legado.app.help.AppLog
+import io.legado.app.constant.AppLog
 import io.legado.app.ui.book.info.BookInfoActivity
 import io.legado.app.ui.book.search.SearchActivity
 import io.legado.app.ui.main.MainFragmentInterface

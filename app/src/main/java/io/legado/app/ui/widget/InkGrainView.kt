@@ -26,7 +26,7 @@ class InkGrainView @JvmOverloads constructor(
     init {
         isClickable = false
         isFocusable = false
-        isImportantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         paint.shader = makeShader()
         paint.alpha = 255
     }
