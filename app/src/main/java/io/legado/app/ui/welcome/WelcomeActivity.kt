@@ -69,7 +69,6 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
                 }
             }
         }
-        binding.ivBook.setColorFilter(accentColor)
         binding.vwTitleLine.setBackgroundColor(accentColor)
     }
 
@@ -90,18 +89,13 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
     private fun startSplashAnim(durationMs: Long) {
         binding.vStar.start(durationMs)
 
-        if (binding.ivBook.visibility == View.VISIBLE) {
-            binding.ivBook.apply {
-                scaleX = 0.55f
-                scaleY = 0.55f
-                alpha = 0f
-                animate().scaleX(1f).scaleY(1f).alpha(1f)
-                    .setStartDelay(durationMs * 55 / 100)
-                    .setDuration(360)
-                    .setInterpolator(OvershootInterpolator(1.5f))
-                    .start()
-            }
-        }
+        binding.vwTitleLine.scaleY = 0.2f
+        binding.vwTitleLine.animate().scaleY(1f)
+            .setStartDelay(durationMs * 55 / 100)
+            .setDuration(380)
+            .setInterpolator(OvershootInterpolator(1.4f))
+            .start()
+
         if (binding.tvLegado.visibility == View.VISIBLE) {
             binding.tvLegado.apply {
                 translationY = 36f * resources.displayMetrics.density
@@ -113,26 +107,12 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
                     .start()
             }
         }
-        if (binding.tvGzh.visibility == View.VISIBLE) {
-            binding.tvGzh.apply {
-                translationY = 20f * resources.displayMetrics.density
-                alpha = 0f
-                animate().translationY(0f).alpha(1f)
-                    .setStartDelay(durationMs * 80 / 100)
-                    .setDuration(300)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
-            }
-        }
     }
 
     override fun upBackgroundImage() {
         val isDarkTheme = ThemeConfig.getTheme() == Theme.Dark
         val showText = if (isDarkTheme) AppConfig.welcomeShowTextDark else AppConfig.welcomeShowText
-        val showIcon = if (isDarkTheme) AppConfig.welcomeShowIconDark else AppConfig.welcomeShowIcon
         binding.tvLegado.visible(showText)
-        binding.ivBook.visible(showIcon)
-        binding.tvGzh.visible(showText)
         if (getPrefBoolean(PreferKey.customWelcome)) {
             kotlin.runCatching {
                 when (ThemeConfig.getTheme()) {
