@@ -45,4 +45,5 @@
     <color name="reviewContentText">#E6FFFFFF</color>
     <color name="reviewCardStroke">#33FFFFFF</color>
     <color name="reviewBadgeBg">#26FFFFFF</color>
+    <color name="ink_shelf_surface">#16130E</color>
 </resources>

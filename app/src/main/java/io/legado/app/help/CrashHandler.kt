@@ -1,6 +1,8 @@
 package io.legado.app.help
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
 import android.os.Build
@@ -81,7 +83,12 @@ class CrashHandler(val context: Context) : Thread.UncaughtExceptionHandler {
         if ((ex is OutOfMemoryError || ex.cause is OutOfMemoryError) && AppConfig.recordHeapDump) {
             doHeapDump()
         }
-        context.longToastOnUiLegacy(ex.stackTraceStr)
+        // 崩溃堆栈直接复制到剪贴板，便于反馈定位
+        runCatching {
+            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cm.setPrimaryClip(ClipData.newPlainText("luowen-crash", ex.stackTraceStr))
+        }
+        context.longToastOnUiLegacy("落文运行异常，堆栈已复制到剪贴板")
         Thread.sleep(3000)
     }
 

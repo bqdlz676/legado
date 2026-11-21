@@ -62,11 +62,23 @@ class BookshelfFragment1() : BaseBookshelfFragment(R.layout.fragment_bookshelf1)
         setSupportToolbar(binding.titleBar.toolbar)
         bindShelfHeader(binding.shelfHeader)
         initView()
+        initShelfBar()
         initBookGroupData()
     }
 
     private val selectedGroup: BookGroup?
         get() = bookGroups.getOrNull(tabLayout.selectedTabPosition)
+
+    private fun initShelfBar() = binding.inkShelfBar.run {
+        attach(tabLayout)
+        onSearch = { SearchActivity.start(requireContext(), null) }
+        onMap = {
+            startActivity(
+                android.content.Intent(requireContext(), io.legado.app.ui.main.PlaceMapActivity::class.java)
+                    .putExtra("name", "长安")
+            )
+        }
+    }
 
     private fun initView() {
         binding.viewPagerBookshelf.setEdgeEffectColor(primaryColor)
