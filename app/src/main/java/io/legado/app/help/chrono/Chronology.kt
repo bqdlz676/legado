@@ -16,6 +16,9 @@ import java.time.LocalDate
  */
 object Chronology {
 
+    /** 「距今」以 1950 年为基准，考古学通用口径 */
+    const val PRESENT_BASE = 1950
+
     private const val GAN = "甲乙丙丁戊己庚辛壬癸"
     private const val ZHI = "子丑寅卯辰巳午未申酉戌亥"
 
@@ -115,10 +118,13 @@ object Chronology {
         }
     }
 
-    /** 显示用：公元前/公元 + 干支 */
+    /** 距今多少年，基准 1950 */
+    fun yearsAgo(year: Int): Int = PRESENT_BASE - year
+
+    /** 显示用：公元前/公元 + 干支 + 距今 */
     fun yearLabel(year: Int): String {
         val bc = if (year <= 0) "公元前${1 - year}" else "公元${year}"
-        return "$bc 年（${yearGanzhi(year)}）"
+        return "$bc 年（${yearGanzhi(year)}）· 距今${yearsAgo(year)}年"
     }
 
     private fun floorMod(a: Long, b: Int): Int {

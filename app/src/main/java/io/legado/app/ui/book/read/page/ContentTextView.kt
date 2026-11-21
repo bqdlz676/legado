@@ -1122,7 +1122,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                     c to "本年${month}月无${c}日"
                 } else {
                     val ds = days.joinToString(" / ") { "${it.dayOfMonth}日" }
-                    c to "公元${year}年${month}月${ds}（${Chronology.yearGanzhi(year)}年）"
+                    c to "公元${year}年${month}月${ds}（${Chronology.yearGanzhi(year)}年）· 距今${Chronology.yearsAgo(year)}年"
                 }
             } else {
                 c to "干支日；同行无年月，无法落到具体公历"
