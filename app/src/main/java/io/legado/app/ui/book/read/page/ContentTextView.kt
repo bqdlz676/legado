@@ -1,11 +1,15 @@
 package io.legado.app.ui.book.read.page
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PathMeasure
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.os.SystemClock
@@ -19,6 +23,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.animation.OvershootInterpolator
 import android.widget.PopupWindow
 import io.legado.app.R
 import io.legado.app.data.entities.BookHighlight
@@ -1426,6 +1431,17 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             isFocusable = false
         }
         pw.showAtLocation(this, Gravity.NO_GRAVITY, left, top)
+        bubble.startFlow()
+        bubble.pivotX = bubble.arrowX.coerceIn(0f, w.toFloat())
+        bubble.pivotY = if (arrowUp) 0f else h.toFloat()
+        bubble.scaleX = 0.32f
+        bubble.scaleY = 0.32f
+        bubble.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(260)
+            .setInterpolator(OvershootInterpolator(1.35f))
+            .start()
         charBubble = pw
     }
 
@@ -1464,12 +1480,12 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             textAlign = Paint.Align.CENTER
         }
         private val pyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF6B6459.toInt()
+            color = 0xFF3A5C6C.toInt()
             textSize = 13f * dm.scaledDensity
             textAlign = Paint.Align.CENTER
         }
         private val meanPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF3F382E.toInt()
+            color = 0xFF1A1410.toInt()
             textSize = 12f * dm.scaledDensity
             textAlign = Paint.Align.LEFT
         }
@@ -1521,31 +1537,95 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             )
         }
 
+        /**
+         * 撕边纸片。上、右、下、左四条边都由 10 段折线构成，每段抖 1.6dp ——
+         * 远看是直边，近看是手工裁纸的毛口；四角不抖，纸片不会散架。
+         */
+        private fun buildTearPath(w: Float, h: Float) {
+            if (w == builtW && h == builtH) return
+            builtW = w
+            builtH = h
+            val d = dm.density
+            val rt = if (arrowUp) arrowH else 0f
+            val rb = if (arrowUp) h else h - arrowH
+            val jitter = 1.6f * d
+            val calm = 0.15f * d
+            val seg = 10
+            bodyPath.reset()
+            arrowPath.reset()
+
+            for (i in 0..seg) {
+                val x = w * i / seg
+                val y = rt + if (i == 0 || i == seg) 0.7f * d else if (i % 2 == 0) jitter else calm
+                if (i == 0) bodyPath.moveTo(x, y) else bodyPath.lineTo(x, y)
+            }
+            for (i in 1..seg) {
+                val y = rt + (rb - rt) * i / seg
+                val x = w - if (i == seg) 0.7f * d else if (i % 2 == 0) jitter else calm
+                bodyPath.lineTo(x, y)
+            }
+            for (i in seg downTo 0) {
+                val x = w * i / seg
+                val y = rb - if (i == 0 || i == seg) 0.7f * d else if (i % 2 == 0) jitter else calm
+                bodyPath.lineTo(x, y)
+            }
+            for (i in (seg - 1) downTo 1) {
+                val y = rt + (rb - rt) * i / seg
+                val x = if (i % 2 == 0) jitter else calm
+                bodyPath.lineTo(x, y)
+            }
+            bodyPath.close()
+
+            val minX = 10f * d + arrowW
+            val maxX = w - 10f * d - arrowW
+            val tx = if (maxX > minX) {
+                (arrowX.takeIf { it >= 0f } ?: (w / 2f)).coerceIn(minX, maxX)
+            } else {
+                w / 2f
+            }
+            if (arrowUp) {
+                arrowPath.moveTo(tx - arrowW, rt + 1.2f * d)
+                arrowPath.lineTo(tx, 0f)
+                arrowPath.lineTo(tx + arrowW, rt + 1.2f * d)
+            } else {
+                arrowPath.moveTo(tx - arrowW, rb - 1.2f * d)
+                arrowPath.lineTo(tx, h)
+                arrowPath.lineTo(tx + arrowW, rb - 1.2f * d)
+            }
+            arrowPath.close()
+        }
+
         override fun onDraw(canvas: Canvas) {
             val w = width.toFloat()
             val h = height.toFloat()
-            val rectTop = if (arrowUp) arrowH else 0f
-            val rectBottom = if (arrowUp) h else h - arrowH
-            val path = Path()
-            path.addRoundRect(0f, rectTop, w, rectBottom, radius, radius, Path.Direction.CW)
-            val minX = radius + arrowW
-            val maxX = w - radius - arrowW
-            val tx = if (maxX > minX) (arrowX.takeIf { it >= 0f } ?: (w / 2f)).coerceIn(minX, maxX)
-            else w / 2f
-            if (arrowUp) {
-                path.moveTo(tx - arrowW, rectTop + 0.5f)
-                path.lineTo(tx, 0f)
-                path.lineTo(tx + arrowW, rectTop + 0.5f)
-            } else {
-                path.moveTo(tx - arrowW, rectBottom - 0.5f)
-                path.lineTo(tx, h)
-                path.lineTo(tx + arrowW, rectBottom - 0.5f)
+            buildTearPath(w, h)
+            val rt = if (arrowUp) arrowH else 0f
+            canvas.drawPath(bodyPath, bgPaint)
+            canvas.drawPath(arrowPath, bgPaint)
+            canvas.drawPath(bodyPath, goldPaint)
+            if (flowOn) {
+                flowMeasure.setPath(bodyPath, false)
+                val len = flowMeasure.length
+                if (len > 0f) {
+                    val segLen = len * 0.20f
+                    val from = (flowPos * (len + segLen)) % (len + segLen) - segLen
+                    val to = from + segLen
+                    flowDst.reset()
+                    var appended = false
+                    val a = from.coerceIn(0f, len)
+                    val b = to.coerceIn(0f, len)
+                    if (b > a) {
+                        appended = flowMeasure.getSegment(a, b, flowDst, true)
+                    }
+                    if (to > len) {
+                        val head = to - len
+                        flowMeasure.getSegment(0f, head.coerceAtMost(len), flowDst, appended)
+                    }
+                    canvas.drawPath(flowDst, flowPaint)
+                }
             }
-            path.close()
-            canvas.drawPath(path, bgPaint)
-            canvas.drawPath(path, borderPaint)
             val fm = charPaint.fontMetrics
-            val charBase = rectTop + pad - fm.ascent
+            val charBase = rt + pad - fm.ascent
             canvas.drawText(char, w / 2f, charBase, charPaint)
             var bottom = charBase + fm.descent
             if (pinyin.isNotEmpty()) {

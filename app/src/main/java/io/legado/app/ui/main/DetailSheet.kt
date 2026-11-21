@@ -79,7 +79,11 @@ class DetailSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        (dialog as? BottomSheetDialog)?.behavior?.peekHeight = (resources.displayMetrics.heightPixels * 0.55f).toInt()
+        dialog?.window?.setDimAmount(0.4f)
+        (dialog as? BottomSheetDialog)?.behavior?.apply {
+            peekHeight = (resources.displayMetrics.heightPixels * 0.6f).toInt()
+            isDraggable = true
+        }
 
         val type = arguments?.getString(ARG_TYPE) ?: "char"
         val name = arguments?.getString(ARG_NAME).orEmpty()
