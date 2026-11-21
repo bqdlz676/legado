@@ -124,6 +124,26 @@
                 android:textIsSelectable="true" />
 
             <TextView
+                android:id="@+id/tv_label_mnemonic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.2"
+                android:text="辨 析"
+                android:textColor="#A2967F"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_mnemonic"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="6dp"
+                android:textColor="#5A5245"
+                android:textSize="14sp"
+                android:textIsSelectable="true" />
+
+            <TextView
                 android:id="@+id/tv_label_usage"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

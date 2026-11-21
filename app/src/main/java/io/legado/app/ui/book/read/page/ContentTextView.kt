@@ -1716,7 +1716,13 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 pinyinMap = loaded
                 loaded
             }
-            return map[ch]
+            return map[ch]?.substringBefore(',')
+        }
+
+        /** 全部读音，给字详情页 */
+        fun charPinyinAll(context: Context, ch: String): String? {
+            charPinyin(context, ch)
+            return pinyinMap?.get(ch)
         }
 
         @Volatile

@@ -62,6 +62,32 @@ object ChineseDict {
 
     fun getChar(context: Context, ch: String): CharInfo? = ensureChar(context)[ch]
 
+    @Volatile
+    private var pinyinTable: Map<String, List<String>>? = null
+
+    /** 一字的全部读音，来自 Unihan 汉语大字典、现代汉语词典、通用规范字典 */
+    fun getPinyin(context: Context, ch: String): List<String> {
+        val t = pinyinTable ?: synchronized(this) {
+            val m = HashMap<String, List<String>>(20000)
+            runCatching {
+                context.applicationContext.assets.open("char_pinyin.txt")
+                    .bufferedReader().useLines { lines ->
+                        lines.forEach { line ->
+                            val tab = line.indexOf('\t')
+                            if (tab > 0) {
+                                val body = line.substring(tab + 1)
+                                m[line.substring(0, tab)] = body.split(',')
+                                    .map { it.trim() }.filter { it.isNotEmpty() }
+                            }
+                        }
+                    }
+            }
+            pinyinTable = m
+            m
+        }
+        return t[ch] ?: emptyList()
+    }
+
     fun getShuowen(context: Context, ch: String): Shuowen? = ensureShuowen(context)[ch]
 
     fun getUsage(context: Context, ch: String): Usage? = ensureUsage(context)[ch]

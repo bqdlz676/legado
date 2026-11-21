@@ -163,18 +163,26 @@ object NameResolver {
     }
 
     private fun placeAt(context: Context, text: String, pos: Int): Hit? {
-        val e = PlaceDict.matchAt(context, text, pos) ?: return null
+        var e = PlaceDict.matchAt(context, text, pos)
+        if (e == null) {
+            e = PlaceDict.matchEnglish(context, text, pos) ?: return null
+        }
+        val foreign = e.en != null
         return Hit(
             name = e.name,
             kind = Kind.PLACE,
-            meta = "古地名",
+            meta = if (e.world) "世界地名" else "古地名",
             detail = buildString {
                 if (e.note.isNotBlank()) append(e.note)
                 if (e.modern.isNotBlank() && !e.note.contains(e.modern)) {
                     if (isNotEmpty()) append('\n')
                     append("今地：").append(e.modern)
                 }
-                if (isEmpty()) append("先秦地名")
+                if (foreign && e.en != null) {
+                    if (isNotEmpty()) append('\n')
+                    append("原名：").append(e.en)
+                }
+                if (isEmpty()) append(if (e.world) "世界地名" else "先秦地名")
             },
             pinyin = "",
             wlat = if (e.world) e.lat else null,

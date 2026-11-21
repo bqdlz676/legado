@@ -87,6 +87,8 @@ class RelationActivity : AppCompatActivity() {
         buildGraph()
     }
 
+    private var scopeAll = true
+
     private fun buildGraph() {
         val book = ReadBook.book
         if (book == null) {
@@ -96,7 +98,9 @@ class RelationActivity : AppCompatActivity() {
         }
         Coroutine.async {
             PersonProfile.ensureLoaded(this@RelationActivity)
-            val text = readLocalText(book.bookUrl)
+            val text0 = readLocalText(book.bookUrl)
+            val text = if (scopeAll || text0.isNullOrBlank()) text0
+            else chapterTextOf(book, text0)
             if (text.isNullOrBlank()) {
                 onUi {
                     Toast.makeText(
@@ -132,6 +136,17 @@ class RelationActivity : AppCompatActivity() {
     }
 
     inner class PersonBridge {
+        @android.webkit.JavascriptInterface
+        fun toggleScope() {
+            scopeAll = !scopeAll
+            runOnUiThread {
+                webView.evaluateJavascript(
+                    "window.setScope && window.setScope(" + scopeAll + ")", null
+                )
+                if (lastGraph != null) buildGraph()
+            }
+        }
+
         @android.webkit.JavascriptInterface
         fun open(name: String) {
             val g = lastGraph
@@ -193,6 +208,15 @@ class RelationActivity : AppCompatActivity() {
                 android.util.Log.e("RelationGraph", "render failed: $r")
             }
         }
+    }
+
+    /** 取当前阅读位置的本章正文 */
+    private fun chapterTextOf(book: io.legado.app.data.entities.Book, full: String): String {
+        return runCatching {
+            val ch = book.durChapterTitle?.takeIf { it.isNotBlank() } ?: return@runCatching full
+            val idx = full.indexOf(ch)
+            if (idx < 0) full else full.substring(idx, minOf(full.length, idx + 4000))
+        }.getOrDefault(full)
     }
 
     private fun toJson(graph: RelationExtractor.Graph): String {

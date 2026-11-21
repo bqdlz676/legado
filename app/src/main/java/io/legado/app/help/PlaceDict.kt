@@ -16,6 +16,7 @@ object PlaceDict {
         val lat: Double? = null,
         val lng: Double? = null,
         val world: Boolean = false,
+        val en: String? = null,
     )
 
     @Volatile
@@ -23,6 +24,9 @@ object PlaceDict {
 
     @Volatile
     private var byFirst: Map<Char, List<String>>? = null
+
+    @Volatile
+    private var enTable: Map<String, Entry> = HashMap()
 
     fun ensureLoaded(context: Context) {
         if (table == null) load(context)
@@ -45,6 +49,34 @@ object PlaceDict {
                 if (bucket.any { it == cand }) {
                     map[cand]?.let { return it }
                 }
+            }
+        }
+        return null
+    }
+
+    /**
+     * 英文地名匹配：读外文原著时点 Babylon / Troy 这类词也要能出图。
+     * 按单词边界取 token，整词查表（忽略大小写）。
+     */
+    fun matchEnglish(context: Context, text: String, pos: Int): Entry? {
+        if (pos !in text.indices) return null
+        fun isWord(c: Char) = c.isLetter() || c == '\'' || c == '-'
+        if (!text[pos].isLetter()) return null
+        load(context)
+        val map = enTable
+        if (map.isEmpty()) return null
+        var s = pos
+        while (s > 0 && isWord(text[s - 1])) s--
+        var e = pos
+        while (e < text.length - 1 && isWord(text[e + 1])) e++
+        val raw = text.substring(s, e + 1).trim('\'', '-')
+        if (raw.length < 2) return null
+        map[raw.lowercase()]?.let { return it }
+        // 处理 Battle of Troy 这类复合写法：逐词回退
+        val parts = raw.split(' ', '-')
+        if (parts.size > 1) {
+            for (i in parts.indices.reversed()) {
+                map[parts[i].lowercase()]?.let { return it }
             }
         }
         return null
@@ -81,6 +113,19 @@ object PlaceDict {
                                 modern = p.getOrElse(4) { "" },
                                 lat = lat, lng = lng, world = true
                             )
+                        }
+                    }
+                context.applicationContext.assets.open("world_place_en.txt")
+                    .bufferedReader()
+                    .useLines { lines ->
+                        lines.forEach { line ->
+                            if (line.isEmpty() || line.startsWith("#")) return@forEach
+                            val p = line.split('\t')
+                            if (p.size < 2) return@forEach
+                            val cn = p[1]
+                            val old = loaded[cn] ?: return@forEach
+                            loaded[cn] = old.copy(en = p[0])
+                            enTable[p[0].lowercase()] = old.copy(en = p[0])
                         }
                     }
             }.onFailure { it.printOnDebug() }
