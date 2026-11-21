@@ -50,6 +50,7 @@
     <button id="t2">地形</button>
     <button id="t3">卫星</button>
     <button id="t4">世界</button>
+    <button id="t5">3D 沙盘</button>
   </div>
   <div class="row">
     <button id="o1" class="on">史事</button>
@@ -199,6 +200,9 @@ document.getElementById('t1').onclick = function () { pickBase('cn', this); };
 document.getElementById('t2').onclick = function () { pickBase('terrain', this); };
 document.getElementById('t3').onclick = function () { pickBase('sat', this); };
 document.getElementById('t4').onclick = function () { pickBase('world', this); };
+document.getElementById('t5').onclick = function () {
+  location.href = 'three.html' + location.search;
+};
 
 function toggle(group, btn) {
   if (map.hasLayer(group)) { map.removeLayer(group); btn.className = 'off'; }

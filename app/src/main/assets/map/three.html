@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>3D 沙盘</title>
+<style>
+  html,body{margin:0;height:100%;background:#0A0C14;overflow:hidden;font-family:serif;}
+  #c{position:absolute;inset:0;touch-action:none;}
+  #top{position:absolute;left:0;right:0;top:0;z-index:10;padding:10px 14px;
+    display:flex;align-items:center;gap:10px;
+    background:linear-gradient(180deg,rgba(10,12,20,.94),rgba(10,12,20,.5));color:#E8DFC8;}
+  #top .nm{font-size:16px;letter-spacing:.06em;}
+  #top .sub{font-size:11px;color:#8C8570;margin-top:2px;}
+  #top button{margin-left:auto;border:1px solid #4A432F;background:#14161F;color:#D8CEB4;
+    font-size:12px;padding:5px 11px;border-radius:13px;font-family:inherit;}
+  #tips{position:absolute;left:12px;bottom:12px;z-index:10;font-size:11px;color:#7E7866;
+    background:rgba(10,12,20,.8);padding:5px 10px;border-radius:4px;}
+  #panel{position:absolute;right:12px;bottom:12px;z-index:10;display:flex;flex-direction:column;gap:7px;}
+  #panel button{border:1px solid #3E3A2C;background:#12141C;color:#C9C0A6;
+    font-size:12px;padding:6px 11px;border-radius:14px;font-family:inherit;}
+  #panel button.on{background:#B08A3E;color:#0A0C14;border-color:#B08A3E;}
+  #log{position:absolute;left:12px;top:74px;z-index:10;max-width:58%;font-size:11px;
+    color:#A89F87;background:rgba(10,12,20,.82);padding:7px 11px;border-radius:5px;
+    border:1px solid #2C2A22;line-height:1.7;display:none;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="top">
+  <div>
+    <div class="nm" id="nm">沙盘</div>
+    <div class="sub" id="sub"></div>
+  </div>
+  <button onclick="history.length?location.href='index.html'+location.search:0">二维图</button>
+</div>
+<div id="log"></div>
+<div id="tips">单指拖动旋转　双指缩放　点地形落兵</div>
+<div id="panel">
+  <button id="bRoute" class="on">行军路线</button>
+  <button id="bReset">清空</button>
+  <button id="bRot">自动旋转</button>
+</div>
+<script src="three.min.js"></script>
+<script src="cities.js"></script>
+<script src="world_places.js"></script>
+<script>
+var place = (function () {
+  try {
+    var q = location.search.replace(/^\?/, '');
+    var m = /(?:^|&)d=([^&]+)/.exec(q);
+    if (m) return JSON.parse(decodeURIComponent(m[1]));
+  } catch (e) {}
+  return {name:"", lat:34.6, lng:113.0, zoom:7};
+})();
+document.getElementById('nm').textContent = (place.name || '地形沙盘') + ' · 3D';
+document.getElementById('sub').textContent = place.modern ? ('今 ' + place.modern) : '示意地形，非实测高程';
+
+var W = innerWidth, H = innerHeight;
+var canvas = document.getElementById('c');
+var renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(W, H, false);
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0A0C14);
+scene.fog = new THREE.Fog(0x0A0C14, 260, 620);
+
+var camera = new THREE.PerspectiveCamera(46, W / H, 0.1, 2000);
+camera.position.set(0, 135, 190);
+camera.lookAt(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0x8A93A8, 0.55));
+var sun = new THREE.DirectionalLight(0xF0E2C0, 1.05);
+sun.position.set(-120, 190, 90);
+scene.add(sun);
+var rim = new THREE.DirectionalLight(0x5B6EA8, 0.5);
+rim.position.set(150, 70, -140);
+scene.add(rim);
+
+// ---- 程序化地形：低频起伏 + 两三条山脊 + 一条水系 ----
+var SEG = 128, SIZE = 300;
+var geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+geo.rotateX(-Math.PI / 2);
+
+function hash(x, y) {
+  var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+function noise(x, y) {
+  var xi = Math.floor(x), yi = Math.floor(y);
+  var xf = x - xi, yf = y - yi;
+  var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  var a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y) {
+  var s = 0, amp = 0.5, f = 1;
+  for (var i = 0; i < 5; i++) { s += noise(x * f, y * f) * amp; f *= 2.03; amp *= 0.5; }
+  return s;
+}
+
+// 地形高度：中间略低（河谷），两侧抬升成山脊
+var pos = geo.attributes.position;
+for (var i = 0; i < pos.count; i++) {
+  var x = pos.getX(i), z = pos.getZ(i);
+  var r = Math.sqrt(x * x + z * z) / (SIZE * 0.5);
+  var base = fbm(x * 0.012 + 40, z * 0.012 - 20) * 34;
+  var ridge = Math.pow(1 - Math.min(1, Math.abs(x) / (SIZE * 0.5)), 2.1) * 9;
+  var valley = -Math.exp(-(x * x) / 900) * 13;
+  var h = base + ridge * (0.6 + fbm(x * 0.03, z * 0.03)) + valley;
+  pos.setY(i, h);
+}
+geo.computeVertexNormals();
+
+// 按高度着色：低地青灰、坡面赭石、峰顶浅米
+var colors = [];
+var pc = geo.attributes.position;
+for (var j = 0; j < pc.count; j++) {
+  var y = pc.getY(j);
+  var t = Math.min(1, Math.max(0, (y + 16) / 56));
+  var c1 = new THREE.Color(0x27313A); // 谷地
+  var c2 = new THREE.Color(0x4A4A38); // 丘陵
+  var c3 = new THREE.Color(0xA99875); // 高处
+  var col = t < 0.55 ? c1.clone().lerp(c2, t / 0.55) : c2.clone().lerp(c3, (t - 0.55) / 0.45);
+  colors.push(col.r, col.g, col.b);
+}
+geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+var terrain = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors: true}));
+scene.add(terrain);
+
+// 水系：一条沿谷地的细带
+var wpts = [];
+for (var k = -70; k <= 70; k++) {
+  var x2 = k * 2;
+  var z2 = Math.sin(k * 0.12) * 22 + fbm(k * 0.1, 5) * 9;
+  var yy = fbm(x2 * 0.03, z2 * 0.03) * 3;
+  wpts.push(new THREE.Vector3(x2, -10 + yy, z2));
+}
+var wcur = new THREE.CatmullRomCurve3(wpts);
+var wtube = new THREE.TubeGeometry(wcur, 220, 1.5, 5, false);
+scene.add(new THREE.Mesh(wtube, new THREE.MeshBasicMaterial({
+  color: 0x4E7E96, transparent: true, opacity: 0.42
+})));
+
+// 网格线
+var grid = new THREE.GridHelper(SIZE, 24, 0x2B2F38, 0x1B1F27);
+grid.position.y = -18;
+scene.add(grid);
+
+// 地名标签（始终朝向相机）
+function label(text, x, y, z, color) {
+  var cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 64;
+  var g = cv.getContext('2d');
+  g.fillStyle = 'rgba(10,12,20,0.0)';
+  g.fillRect(0, 0, 256, 64);
+  g.font = '28px serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = color || '#E8DFC8';
+  g.fillText(text, 128, 32);
+  var tex = new THREE.CanvasTexture(cv);
+  tex.minFilter = THREE.LinearFilter;
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true, depthTest: false}));
+  sp.position.set(x, y, z);
+  sp.scale.set(26, 6.5, 1);
+  scene.add(sp);
+  return sp;
+}
+
+// 当前地名居中，周边城市标点
+function cityAt(n) { return window.CITIES && window.CITIES[n]; }
+var centerName = place.name;
+var hasCenter = cityAt(centerName);
+if (hasCenter) {
+  label(centerName, 0, 24, 0, '#F2D9A0');
+} else {
+  label(centerName, 0, 24, 0, '#F2D9A0');
+}
+
+// 周边城市：按经纬度差映射到地形平面（1 度 ≈ 6 单位，裁到 ±120）
+var near = [];
+Object.keys(window.CITIES || {}).forEach(function (n) {
+  if (n === centerName) return;
+  var c = window.CITIES[n];
+  var dx = (c[1] - place.lng) * 5.4;
+  var dz = -(c[0] - place.lat) * 6.4;
+  if (Math.abs(dx) < 118 && Math.abs(dz) < 118) near.push({n: n, x: dx, z: dz, d: Math.sqrt(dx * dx + dz * dz)});
+});
+near.sort(function (a, b) { return a.d - b.d; });
+near.slice(0, 22).forEach(function (p) {
+  var h = fbm(p.x * 0.03, p.z * 0.03) * 20;
+  var v = new THREE.Vector3(p.x, h + 2, p.z);
+  var dot = new THREE.Mesh(
+    new THREE.SphereGeometry(1.5, 10, 10),
+    new THREE.MeshBasicMaterial({color: 0x7C6BA8})
+  );
+  dot.position.copy(v);
+  scene.add(dot);
+  label(p.n, p.x, h + 7, p.z, '#B9B09A');
+});
+
+// ---- 交互 ----
+var dragging = false, lastX = 0, lastY = 0, rotY = 0, rotX = 0, dist = 300;
+var autoRot = false;
+var routeMode = true;
+var raycaster = new THREE.Raycaster();
+var routePts = [], routeLine = null;
+var markerGroup = new THREE.Group();
+scene.add(markerGroup);
+
+canvas.addEventListener('pointerdown', function (e) {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', function (e) {
+  if (!dragging) return;
+  rotY += (e.clientX - lastX) * 0.006;
+  rotX = Math.max(-0.55, Math.min(0.5, rotX + (e.clientY - lastY) * 0.004));
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('pointerup', function (e) {
+  dragging = false;
+  if (routeMode && Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) < 3) {
+    dropPoint(e.clientX, e.clientY);
+  }
+});
+canvas.addEventListener('wheel', function (e) {
+  dist = Math.max(90, Math.min(560, dist + e.deltaY * 0.35));
+  e.preventDefault();
+}, {passive: false});
+
+var pinchStart = 0;
+canvas.addEventListener('touchmove', function (e) {
+  if (e.touches.length === 2) {
+    var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    if (!pinchStart) pinchStart = d;
+    dist = Math.max(90, Math.min(560, dist - (d - pinchStart) * 0.8));
+    pinchStart = d;
+    e.preventDefault();
+  }
+}, {passive: false});
+canvas.addEventListener('touchend', function () { pinchStart = 0; });
+
+function dropPoint(cx, cy) {
+  var nx = (cx / W) * 2 - 1, ny = -(cy / H) * 2 + 1;
+  raycaster.setFromCamera({x: nx, y: ny}, camera);
+  var hit = raycaster.intersectObject(terrain);
+  if (!hit.length) return;
+  var p = hit[0].point.clone();
+  var flag = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5, 0.5, 9, 8),
+    new THREE.MeshBasicMaterial({color: 0xB33A2B})
+  );
+  flag.position.set(p.x, p.y + 4.5, p.z);
+  markerGroup.add(flag);
+  routePts.push(p);
+
+  if (routePts.length > 1) {
+    var a = routePts[routePts.length - 2], b = routePts[routePts.length - 1];
+    var d = a.distanceTo(b);
+    // 地形单位换算：300 单位 ≈ 500 公里，古代日行 30 里 ≈ 15 公里
+    var km = (d / 300) * 500;
+    var days = Math.max(1, Math.round(km / 15));
+    if (routeLine) scene.remove(routeLine);
+    var lineGeo = new THREE.BufferGeometry().setFromPoints(routePts.map(function (q) {
+      return new THREE.Vector3(q.x, q.y + 1.2, q.z);
+    }));
+    routeLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({color: 0xE0B459}));
+    scene.add(routeLine);
+    var lg = document.getElementById('log');
+    lg.style.display = 'block';
+    lg.innerHTML = '点位 ' + routePts.length +
+      '<br>直距约 ' + km.toFixed(0) + ' 里换算外<br>按日行 30 里推 ' + days + ' 日';
+  }
+}
+document.getElementById('bReset').onclick = function () {
+  while (markerGroup.children.length) markerGroup.remove(markerGroup.children[0]);
+  if (routeLine) { scene.remove(routeLine); routeLine = null; }
+  routePts = [];
+  document.getElementById('log').style.display = 'none';
+};
+document.getElementById('bRot').onclick = function () {
+  autoRot = !autoRot;
+  this.className = autoRot ? 'on' : '';
+};
+document.getElementById('bRoute').onclick = function () {
+  routeMode = !routeMode;
+  this.className = routeMode ? 'on' : '';
+};
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (autoRot && !dragging) rotY += 0.0016;
+  var cx = Math.sin(rotY) * dist * Math.cos(rotX + 0.28);
+  var cz = Math.cos(rotY) * dist * Math.cos(rotX + 0.28);
+  var cy = 135 + Math.sin(rotX + 0.28) * dist * 0.5;
+  camera.position.set(cx, cy, cz);
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', function () {
+  W = innerWidth; H = innerHeight;
+  camera.aspect = W / H; camera.updateProjectionMatrix();
+  renderer.setSize(W, H, false);
+});
+</script>
+</body>
+</html>
