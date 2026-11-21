@@ -81,13 +81,13 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
     override fun finish() {
         startMainJob?.cancel()
         startMainJob = null
-        runCatching { binding.vStar.stop() }
+        runCatching { binding.vInk.stop() }
         super.finish()
     }
 
-    /** 星点汇聚 + 图标回弹 + 标题错峰上浮，全部原生 View 动画 */
+    /** 墨晕扩散 + 竖线伸长 + 书名错峰上浮，全部原生 View 动画 */
     private fun startSplashAnim(durationMs: Long) {
-        binding.vStar.start(durationMs)
+        binding.vInk.start(durationMs)
 
         binding.vwTitleLine.scaleY = 0.2f
         binding.vwTitleLine.animate().scaleY(1f)
