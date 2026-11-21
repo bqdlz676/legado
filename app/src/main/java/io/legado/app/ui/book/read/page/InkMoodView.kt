@@ -103,16 +103,33 @@ class InkMoodView @JvmOverloads constructor(
         return if (uu < 0.5f) (uu * 2f) * band else w - ((uu - 0.5f) * 2f) * band
     }
 
-    /** 战：远处烽燧，左右各三座，粒子堆成细直的塔影 */
+    /**
+     * 战：天头一条由粒子勾出的远山脊线（城濮那样的旷野轮廓），
+     * 线上极淡、只在明灭，左右留白各浮一列狼烟。不是插图，是粒子自己连成的线。
+     */
     private fun drawWar(canvas: Canvas, t: Float, w: Float, h: Float, d: Float) {
         paint.color = cInk
-        for (i in 0 until PARTICLE) {
-            val tower = (i / 8) % 6
-            val baseX = edgeX((tower + 0.5f) / 6f, w)
-            val x = baseX + sin(t * 0.4f + phase[i] * 6f) * 1.5f * d
-            val y = h * 0.42f + (i % 8) * 9f * d + sin(t * 0.5f + i) * 2f * d
-            paint.alpha = 26 + (i % 3) * 8
-            canvas.drawCircle(x, y, size[i] * d * 0.9f, paint)
+        val n = 46
+        for (i in 0 until n) {
+            val p = i / (n - 1f)
+            val x = w * p
+            val y = h * 0.075f +
+                sin(p * 5.7f + 0.6f) * 9f * d +
+                sin(p * 13.9f + 1.2f) * 3.4f * d +
+                sin(p * 2.1f) * 5f * d
+            val breath = 0.5f + 0.5f * sin(t * 0.7f + p * 8.4f)
+            paint.alpha = (9 + 13 * breath).toInt()
+            canvas.drawCircle(x, y, (1.1f + (i % 4) * 0.45f) * d, paint)
+        }
+        // 狼烟：左右各四点，粒子一粒粒往上飘，越高越淡
+        for (i in 0 until 16) {
+            val column = (i / 4) % 4
+            val baseX = if (column % 2 == 0) w * 0.055f else w * 0.945f
+            val x = baseX + sin(t * 0.5f + column) * 2.4f * d
+            val p = (t * 0.09f + phase[i]) % 1f
+            val y = h * 0.10f + p * h * 0.26f
+            paint.alpha = ((1f - p) * 20f).toInt().coerceAtLeast(3)
+            canvas.drawCircle(x, y, size[i] * d * 0.7f, paint)
         }
     }
 
