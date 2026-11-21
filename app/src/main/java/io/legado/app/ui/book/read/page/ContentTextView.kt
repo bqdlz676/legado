@@ -30,6 +30,8 @@ import io.legado.app.help.AllusionDict
 import io.legado.app.help.EnDict
 import io.legado.app.help.HanConv
 import io.legado.app.ui.main.CharDetailActivity
+import io.legado.app.help.relation.PersonPinyin
+import io.legado.app.help.relation.PersonProfile
 import io.legado.app.help.HighlightMatcher
 import io.legado.app.help.HighlightRuleMatcher
 import io.legado.app.help.HighlightStyle
@@ -572,8 +574,9 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                         ChineseDict.wordAt(context, lineText, colIdx)
                                     } else null
                                     if (word != null && word.word.length >= 2) {
+                                        val py = pinyinForWord(word.word)
                                         showBubble(
-                                            word.word, "", word.meaning,
+                                            word.word, py, word.meaning,
                                             x, y, relativeOffset, textLine,
                                             word.word.length >= 3, false
                                         )
@@ -1102,6 +1105,35 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
      * 点到「己巳」这类干支日，结合同行年月算出公历；
      * 点到「贞观三年」这类年号纪年，直接换公元与干支年。
      */
+    /** 书名/章节名能看出朝代时，用来给重名年号排序 */
+    private fun bookDynastyHint(): String? {
+        val name = io.legado.app.model.ReadBook.book?.name ?: return null
+        val map = listOf(
+            "西汉" to listOf("汉书", "史记", "淮南子", "说苑"),
+            "东汉" to listOf("后汉书", "论衡", "说文"),
+            "三国" to listOf("三国志", "魏书", "蜀书", "吴书"),
+            "晋" to listOf("晋书", "世说新语", "搜神记"),
+            "南北朝" to listOf("宋书", "南齐书", "梁书", "陈书", "魏书", "北齐书", "周书", "文心雕龙"),
+            "隋" to listOf("隋书"),
+            "唐" to listOf("唐书", "全唐", "唐会要", "贞观", "通典"),
+            "五代" to listOf("旧五代", "新五代", "花间"),
+            "宋" to listOf("宋史", "宋书", "东坡", "梦溪", "东京梦华"),
+            "元" to listOf("元史", "元曲"),
+            "明" to listOf("明史", "本草纲目", "永乐"),
+            "清" to listOf("清史", "红楼梦", "聊斋"),
+        )
+        for ((dyn, keys) in map) {
+            if (keys.any { name.contains(it) }) return dyn
+        }
+        return null
+    }
+
+    /** 人名先走专用读音层，普通词回字库逐字拼 */
+    private fun pinyinForWord(word: String): String {
+        PersonProfile.profileOf(word)?.let { return PersonPinyin.of(context, word) }
+        return ChineseDict.pinyinOfWord(context, word)
+    }
+
     private fun chronoHitAt(lineText: String, pos: Int): Pair<String, String>? {
         if (lineText.isEmpty()) return null
 
@@ -1135,11 +1167,22 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             if (pos < m.range.first || pos > m.range.last) continue
             val era = m.groupValues[1]
             val n = chnNumber(m.groupValues[2]) ?: continue
-            val e = Chronology.eraOf(era)
-            if (e != null) {
+            val cands = Chronology.eraCandidates(era)
+            if (cands.size == 1) {
+                val e = cands[0]
                 val y = e.startYear + n - 1
                 return "${era}${m.groupValues[2]}年" to
                     "${Chronology.yearLabel(y)}（${e.dynasty}）"
+            } else if (cands.size > 1) {
+                // 重名年号：全部列出，交给上下文判断，不替用户裁决
+                val hint = bookDynastyHint()
+                val sorted = if (hint == null) cands else
+                    cands.sortedByDescending { it.dynasty == hint || it.dynasty.contains(hint) }
+                val lines = sorted.take(4).joinToString("\n") { e ->
+                    "${e.dynasty}　" + Chronology.yearLabel(e.startYear + n - 1)
+                }
+                return "${era}${m.groupValues[2]}年" to
+                    ("同名年号 ${cands.size} 个，按朝代各算：\n" + lines)
             }
             val py = Chronology.princeYear(era, n)
             if (py != null) {

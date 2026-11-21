@@ -77,6 +77,9 @@ object Chronology {
 
     fun eraOf(name: String): Era? = eras[name]?.firstOrNull()
 
+    /** 同名年号可能被多个政权用过：建元、太平、永平、显德都重名 */
+    fun eraCandidates(name: String): List<Era> = eras[name] ?: emptyList()
+
     /** 「贞观三年」→ 629 */
     fun toGregorianYear(eraName: String, nthYear: Int): Int? {
         val e = eraOf(eraName) ?: return null

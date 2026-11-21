@@ -38,6 +38,22 @@ object ChineseDict {
 
     fun getChar(context: Context, ch: String): CharInfo? = ensureChar(context)[ch]
 
+    /**
+     * 词的拼音：逐字取首音，用于词气泡的注音行。
+     * 多音字按单字表走，人名另有 PersonPinyin 兜。
+     */
+    fun pinyinOfWord(context: Context, word: String): String {
+        val sb = StringBuilder()
+        for (c in word) {
+            val info = getChar(context, c.toString()) ?: continue
+            val py = info.pinyin.split(' ').firstOrNull()?.trim().orEmpty()
+            if (py.isEmpty()) continue
+            if (sb.isNotEmpty()) sb.append(' ')
+            sb.append(py)
+        }
+        return sb.toString()
+    }
+
     /** 从点击位置取词，优先覆盖点击位置的最长词 */
     fun wordAt(context: Context, text: String, pos: Int): WordInfo? {
         if (pos !in text.indices) return null

@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import io.legado.app.help.coroutine.Coroutine
+import io.legado.app.help.relation.PersonPinyin
 import io.legado.app.help.relation.PersonProfile
 import io.legado.app.help.relation.RelationExtractor
 import io.legado.app.model.ReadBook
@@ -175,6 +176,7 @@ class RelationActivity : AppCompatActivity() {
             val al = JSONArray()
             n.aliases.forEach { al.put(it) }
             o.put("aliases", al)
+            o.put("pinyin", PersonPinyin.of(this@RelationActivity, n.name))
             nodeArr.put(o)
         }
         root.put("nodes", nodeArr)

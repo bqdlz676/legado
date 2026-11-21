@@ -48,6 +48,7 @@
   #card.show { transform: translateY(0); }
   #cardName { font-size: 17px; color: #eef3ff; letter-spacing: .06em; }
   #cardMeta { margin-top: 5px; font-size: 11.5px; color: #8091bd; }
+  #cardPy { margin-top: 2px; font-size: 11.5px; color: #7f8fb2; letter-spacing: .04em; }
   #cardLife { margin-top: 3px; font-size: 12px; color: #a8b8dc; letter-spacing: .02em; }
   #cardAlias { margin-top: 6px; font-size: 11.5px; color: #6f82ad; }
   #cardAlias b { color: #8fa2c8; font-weight: 500; }
@@ -82,6 +83,7 @@
 <div id="card">
   <div id="close">×</div>
   <div id="cardName"></div>
+  <div id="cardPy"></div>
   <div id="cardLife"></div>
   <div id="cardMeta"></div>
   <div id="cardAlias"></div>
@@ -157,7 +159,7 @@
         data: {
           id: n.id, label: n.name, faction: n.faction || '其他',
           weight: n.count || 1, color: colorOf(n.faction),
-          identity: n.identity || '', lifeSpan: n.lifeSpan || '', aliases: n.aliases || []
+          identity: n.identity || '', lifeSpan: n.lifeSpan || '', aliases: n.aliases || [], pinyin: n.pinyin || ''
         }
       });
     });
@@ -281,6 +283,9 @@
     curNode = n;
     var d = n.data();
     document.getElementById('cardName').textContent = d.label;
+    var pyEl = document.getElementById('cardPy');
+    pyEl.textContent = d.pinyin || '';
+    pyEl.style.display = d.pinyin ? '' : 'none';
     document.getElementById('cardLife').textContent = d.lifeSpan || '';
     document.getElementById('cardLife').style.display = d.lifeSpan ? '' : 'none';
     var deg = n.degree();

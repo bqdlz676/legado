@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import io.legado.app.R
 import io.legado.app.help.HanConv
 import io.legado.app.help.chrono.Chronology
+import io.legado.app.help.relation.PersonPinyin
 import io.legado.app.help.relation.PersonProfile
 import org.json.JSONArray
 
@@ -39,7 +40,11 @@ class PersonDetailActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.tv_name).text = display
 
-        val life = prof?.let { PersonProfile.lifeSpan(it) }.orEmpty()
+        val py = PersonPinyin.of(this, name)
+        findViewById<TextView>(R.id.tv_name).text = display
+        val lifeTxt = if (py.isNotBlank()) "$py\n" + (prof?.let { PersonProfile.lifeSpan(it) }.orEmpty()) else
+            (prof?.let { PersonProfile.lifeSpan(it) }.orEmpty())
+        val life = lifeTxt
         findViewById<TextView>(R.id.tv_life).apply {
             text = life
             visibility = if (life.isBlank()) View.GONE else View.VISIBLE
