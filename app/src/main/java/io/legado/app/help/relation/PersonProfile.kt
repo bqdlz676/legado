@@ -194,6 +194,7 @@ object PersonProfile {
                 }
                 cbdb = m
             }
+            loadExtTerms(context)
             extLoaded = true
         }
     }
@@ -205,14 +206,25 @@ object PersonProfile {
         return sb.toString()
     }
 
-    /** 抽取词表补先秦段：CBDB 只有漢前与秦漢这几百条 */
-    private val extTerms: List<String> by lazy {
-        cbdb.values
-            .asSequence()
-            .filter { it.state == "漢前" || it.state == "秦漢" }
-            .map { it.name }
-            .filter { it.length in 2..5 }
-            .toList()
+    /** 抽取词表：assets/person_terms.txt，3 万条，隋以前全量保底 + 唐宋高分 */
+    private var extTermsCache: List<String> = emptyList()
+
+    private fun loadExtTerms(context: android.content.Context) {
+        if (extTermsCache.isNotEmpty()) return
+        synchronized(this) {
+            if (extTermsCache.isNotEmpty()) return
+            runCatching {
+                val list = ArrayList<String>(30000)
+                context.assets.open("person_terms.txt").bufferedReader().use { r ->
+                    while (true) {
+                        val ln = r.readLine() ?: break
+                        val t = ln.trim()
+                        if (t.length in 2..5) list.add(t)
+                    }
+                }
+                extTermsCache = list
+            }
+        }
     }
 
     private val byName: Map<String, P> by lazy {
@@ -226,7 +238,7 @@ object PersonProfile {
 
     /** 全部称呼，长词在前，供抽取时优先匹配 */
     val allTerms: List<String> by lazy {
-        ((table.flatMap { listOf(it.name) + it.alias }) + extTerms)
+        ((table.flatMap { listOf(it.name) + it.alias }) + extTermsCache)
             .filter { it.length >= 2 }
             .distinct()
             .sortedByDescending { it.length }

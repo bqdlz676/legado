@@ -70,12 +70,16 @@ object RelationExtractor {
         "苏轼", "苏辙", "苏洵", "王安石", "欧阳修", "曾巩", "司马光", "范仲淹", "辛弃疾", "李清照"
     )
 
-    /** 专名 + 人物档案里的字/号/封号，长的在前，避免「子」抢了「孔子」 */
+    /** 抽取词表：本地档案 + 三万条外部词表 */
     private val TERMS: List<String> by lazy {
         (KNOWN + PersonProfile.allTerms)
             .filter { it.length >= 2 }
             .distinct()
-            .sortedByDescending { it.length }
+    }
+
+    /** 按首字分桶，长词在前；三万词线性 indexOf 会把整页扫描拖死 */
+    private val TERMS_BY_FIRST: Map<Char, List<String>> by lazy {
+        TERMS.groupBy { it[0] }.mapValues { e -> e.value.sortedByDescending { it.length } }
     }
 
     private val SPEECH = listOf("曰", "谓", "对", "谏", "问", "答", "云")
@@ -220,13 +224,12 @@ object RelationExtractor {
             }
         }
 
-        for (n in TERMS) {
-            var from = 0
-            while (true) {
-                val i = sentence.indexOf(n, from)
-                if (i < 0) break
-                hits.add(PersonProfile.canonical(n) to IntRange(i, i + n.length - 1))
-                from = i + n.length
+        for (i in sentence.indices) {
+            val cands = TERMS_BY_FIRST[sentence[i]] ?: continue
+            for (w in cands) {
+                if (sentence.startsWith(w, i)) {
+                    hits.add(PersonProfile.canonical(w) to IntRange(i, i + w.length - 1))
+                }
             }
         }
 
@@ -262,9 +265,11 @@ object RelationExtractor {
                 if (m.value.length >= 3) return m.value to idx
             }
         }
-        for (n in TERMS) {
-            val idx = t.lastIndexOf(n)
-            if (idx >= 0) return n to idx
+        for (i in t.indices) {
+            val cands = TERMS_BY_FIRST[t[i]] ?: continue
+            for (w in cands) {
+                if (t.startsWith(w, i)) return w to i
+            }
         }
         if (t.length >= 2 && t[0] in "子叔伯季孟仲" && t.all { it in '\u4e00'..'\u9fff' }) {
             return t to 0
