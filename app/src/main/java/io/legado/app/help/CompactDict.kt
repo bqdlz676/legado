@@ -79,8 +79,7 @@ object CompactDict {
         }
     }
 
-    @Volatile
-    private val cache = HashMap<String, Table>(4)
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Table>(4)
 
     fun open(context: Context, name: String): Table? {
         cache[name]?.let { return it }
