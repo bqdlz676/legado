@@ -35,6 +35,13 @@ class RelationActivity : AppCompatActivity() {
     @Volatile
     private var lastGraph: RelationExtractor.Graph? = null
 
+    /** 页面没加载完就先存着，onPageFinished 再画 */
+    @Volatile
+    private var pendingJson: String? = null
+
+    @Volatile
+    private var pageReady = false
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +69,14 @@ class RelationActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+
+            override fun onPageFinished(view: WebView, url: String) {
+                pageReady = true
+                val json = pendingJson ?: return
+                view.evaluateJavascript(
+                    "window.renderGraph && window.renderGraph($json)", null
+                )
+            }
         }
         webView.webChromeClient = WebChromeClient()
         webView.addJavascriptInterface(PersonBridge(), "AndroidPerson")
@@ -107,8 +122,11 @@ class RelationActivity : AppCompatActivity() {
                 return@async
             }
             val json = toJson(graph)
+            pendingJson = json
             onUi {
-                webView.evaluateJavascript("window.renderGraph && window.renderGraph($json)", null)
+                if (pageReady) {
+                    webView.evaluateJavascript("window.renderGraph && window.renderGraph($json)", null)
+                }
             }
         }.onError {
             it.printOnDebug()
