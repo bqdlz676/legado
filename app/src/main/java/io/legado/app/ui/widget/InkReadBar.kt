@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.view.View
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -40,6 +41,13 @@ class InkReadBar @JvmOverloads constructor(
             insets
         }
     }
+
+    /** 兼容旧 TitleBar 的调用签名：整条横栏即为可点区域 */
+    val toolbar: View
+        get() = this
+
+    /** 兼容旧 TitleBar 的调用签名：书名，留作后续副标题使用 */
+    var title: CharSequence? = null
 
     /** 兼容旧 TitleBar 的调用签名，改为给章节名着色 */
     fun setTextColor(color: Int) {
