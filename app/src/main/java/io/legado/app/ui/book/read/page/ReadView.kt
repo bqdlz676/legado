@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Build
 import android.util.AttributeSet
@@ -42,6 +43,7 @@ import io.legado.app.ui.book.read.page.entities.column.TextBaseColumn
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.book.read.page.provider.LayoutProgressListener
 import io.legado.app.ui.book.read.page.provider.TextPageFactory
+import io.legado.app.ui.widget.InkPaperDrawable
 import io.legado.app.utils.activity
 import io.legado.app.utils.invisible
 import io.legado.app.utils.longToastOnUi
@@ -265,10 +267,40 @@ class ReadView(context: Context, attrs: AttributeSet) :
         }
     }
 
+    private val inkReadPaint = Paint().apply { color = 0xFFC23B2E.toInt() }
+    private val inkUnreadPaint = Paint().apply { color = 0x2E9B9687 }
+
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
         pageDelegate?.onDraw(canvas)
         autoPager.onDraw(canvas)
+        drawInkReadingProgress(canvas)
+    }
+
+    /**
+     * 页边阅读进度：右侧 1dp 竖线，已读朱砂、未读云灰。
+     * 位置与宽度恒定，翻页时只有朱砂那一段在长。
+     */
+    private fun drawInkReadingProgress(canvas: Canvas) {
+        if (width <= 0 || height <= 0) return
+        val page = curPage.textPage
+        val chapterCount = page.chapterSize
+        if (chapterCount <= 0) return
+        val pageCount = page.pageSize
+        val ratio = (if (pageCount > 0) {
+            (page.chapterIndex + (page.index + 1).toFloat() / pageCount) / chapterCount
+        } else {
+            (page.chapterIndex + 1).toFloat() / chapterCount
+        }).coerceIn(0f, 1f)
+        val density = resources.displayMetrics.density
+        val stroke = density
+        val x = width - 2f * density
+        inkUnreadPaint.strokeWidth = stroke
+        inkReadPaint.strokeWidth = stroke
+        canvas.drawLine(x, 0f, x, height.toFloat(), inkUnreadPaint)
+        if (ratio > 0f) {
+            canvas.drawLine(x, 0f, x, height * ratio, inkReadPaint)
+        }
     }
 
     override fun computeScroll() {
@@ -1064,7 +1096,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
      */
     fun upBg() {
         ReadBookConfig.upBg(width, height)
-        setBackgroundColor(ReadBookConfig.bgMeanColor)
+        setBackground(InkPaperDrawable(ReadBookConfig.bgMeanColor))
         curPage.upBg()
         prevPage.upBg()
         nextPage.upBg()

@@ -1,6 +1,7 @@
 package io.legado.app.ui.book.read.page
 
 import android.content.Context
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.LayerDrawable
 import android.view.LayoutInflater
 import android.view.View
@@ -32,6 +33,7 @@ import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.entities.TextPos
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.widget.BatteryView
+import io.legado.app.ui.widget.InkPaperDrawable
 import io.legado.app.utils.activity
 import io.legado.app.utils.applyNavigationBarPadding
 import io.legado.app.utils.applyStatusBarPadding
@@ -332,12 +334,16 @@ class PageView(context: Context) : FrameLayout(context) {
      * 更新背景
      */
     fun upBg() {
-        binding.vwRoot.background = LayerDrawable(
-            arrayOf(
-                ReadBookConfig.bgMeanColor.toDrawable(),
-                ReadBookConfig.bg
+        val bg = ReadBookConfig.bg
+        binding.vwRoot.background = when {
+            // 纯色底（含默认纸白 / 夜间色）→ 换成带纸浆颗粒与烛光的纸面
+            bg is ColorDrawable -> InkPaperDrawable(bg.color)
+            bg == null -> InkPaperDrawable(ReadBookConfig.bgMeanColor)
+            // 自定义背景图 / 九宫格图：原样保留，不再压噪点，避免把图弄脏
+            else -> LayerDrawable(
+                arrayOf(ReadBookConfig.bgMeanColor.toDrawable(), bg)
             )
-        )
+        }
         upBgAlpha()
     }
 
