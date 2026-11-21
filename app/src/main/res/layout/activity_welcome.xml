@@ -45,4 +45,9 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <io.legado.app.ui.welcome.InkSplashView
+        android:id="@+id/v_splash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

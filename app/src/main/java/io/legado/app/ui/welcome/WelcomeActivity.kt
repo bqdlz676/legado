@@ -61,7 +61,8 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
             if (welcomeShowTime == 0) {
                 startMainActivity()
             } else {
-                val animMs = welcomeShowTime.toLong().coerceIn(1100L, 1600L)
+                // 整段编排 2.8s，墨滴→炸裂→回聚→渗出→远山→金线→标语
+                val animMs = 2800L
                 binding.root.post { startSplashAnim(animMs) }
                 startMainJob = lifecycleScope.launch {
                     delay(animMs + 150L)
@@ -84,32 +85,16 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
         startMainJob = null
         runCatching { binding.vInk.stop() }
         runCatching { binding.vShine.stop() }
+        runCatching { binding.vSplash.stop() }
         super.finish()
     }
 
-    /** 墨晕扩散 + 竖线伸长 + 书名错峰上浮，全部原生 View 动画 */
+    /** 单 View 整段编排：旧版三件套（墨晕/金线/竖线书名）全部让位 */
     private fun startSplashAnim(durationMs: Long) {
-        binding.vInk.start(durationMs)
-        binding.vShine.start(durationMs * 70 / 100, 660L)
-
-        binding.vwTitleLine.scaleY = 0.2f
-        binding.vwTitleLine.animate().scaleY(1f)
-            .setStartDelay(durationMs * 55 / 100)
-            .setDuration(380)
-            .setInterpolator(OvershootInterpolator(1.4f))
-            .start()
-
-        if (binding.tvLegado.visibility == View.VISIBLE) {
-            binding.tvLegado.apply {
-                translationY = 36f * resources.displayMetrics.density
-                alpha = 0f
-                animate().translationY(0f).alpha(1f)
-                    .setStartDelay(durationMs * 68 / 100)
-                    .setDuration(330)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
-            }
-        }
+        binding.tvLegado.visibility = View.GONE
+        binding.vInk.visibility = View.GONE
+        binding.vShine.visibility = View.GONE
+        binding.vSplash.start(durationMs)
     }
 
     override fun upBackgroundImage() {

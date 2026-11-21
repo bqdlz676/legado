@@ -9,4 +9,7 @@
     <color name="ink_brand_gold">#D4A54A</color>
     <color name="ink_brand_copper">#8B6914</color>
     <color name="ink_divider">#141A1410</color>
+    <color name="ink_bg_overlay">#731A1410</color>
+    <color name="ink_color_link">#C23B2E</color>
+    <color name="ink_color_glow">#4DD4A54A</color>
 </resources>

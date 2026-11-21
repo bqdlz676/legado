@@ -19,10 +19,21 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
-    <androidx.viewpager.widget.ViewPager
-        android:id="@+id/view_pager_bookshelf"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <androidx.viewpager.widget.ViewPager
+            android:id="@+id/view_pager_bookshelf"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <io.legado.app.ui.widget.InkDustView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false" />
+    </FrameLayout>
 
 </LinearLayout>
