@@ -28,7 +28,7 @@ class PlaceMapActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.btn_battle).setOnClickListener {
             startActivity(
                 Intent(this, BattleActivity::class.java).apply {
-                    putExtra("campaign", "gaixia")
+                    putExtra("campaign", intent.getStringExtra("campaign") ?: "gaixia")
                     ContextAnchor.getYear()?.let { putExtra("year", it) }
                 }
             )

@@ -505,7 +505,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             val fragmentId = getId(position)
             if ((fragmentId == idBookshelf1 && any is BookshelfFragment1)
                 || (fragmentId == idBookshelf2 && any is BookshelfFragment2)
-                || (fragmentId == idExplore && any is ExploreFragment)
+                || (fragmentId == idExplore && any is io.legado.app.ui.main.explore.ExploreInkFragment)
                 || (fragmentId == idRss && any is RssFragment)
                 || (fragmentId == idMy && any is io.legado.app.ui.main.my.MyInkFragment)
             ) {
@@ -518,7 +518,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             return when (getId(position)) {
                 idBookshelf1 -> BookshelfFragment1(position)
                 idBookshelf2 -> BookshelfFragment2(position)
-                idExplore -> ExploreFragment(position)
+                idExplore -> io.legado.app.ui.main.explore.ExploreInkFragment(position)
                 idRss -> RssFragment(position)
                 else -> io.legado.app.ui.main.my.MyInkFragment(position)
             }
