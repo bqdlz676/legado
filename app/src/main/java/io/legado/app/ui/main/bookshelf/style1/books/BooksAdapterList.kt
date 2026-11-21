@@ -11,6 +11,7 @@ import io.legado.app.databinding.ItemBookshelfListBinding
 import io.legado.app.help.book.isLocal
 import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.main.bookshelf.updateBookshelfReadProgress
+import io.legado.app.ui.widget.InkCardMotion
 import io.legado.app.utils.invisible
 import io.legado.app.utils.toTimeAgo
 import splitties.views.onLongClick
@@ -32,6 +33,7 @@ class BooksAdapterList(
         item: Book,
         payloads: MutableList<Any>
     ) = binding.run {
+        InkCardMotion.reveal(root, holder.layoutPosition)
         if (payloads.isEmpty()) {
             tvName.text = verticalName(item.name)
             tvAuthor.text = authorText(item)
@@ -126,6 +128,10 @@ class BooksAdapterList(
 
     override fun registerListener(holder: ItemViewHolder, binding: ItemBookshelfListBinding) {
         holder.itemView.apply {
+            setOnTouchListener { v, event ->
+                InkCardMotion.touch(v, event)
+                false
+            }
             setOnClickListener {
                 getItem(holder.layoutPosition)?.let {
                     callBack.open(it)
