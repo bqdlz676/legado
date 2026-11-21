@@ -42,6 +42,7 @@ class SplashStarView @JvmOverloads constructor(
     private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val isDark: Boolean =
         runCatching { ThemeConfig.getTheme() == Theme.Dark }.getOrDefault(true)
@@ -49,10 +50,11 @@ class SplashStarView @JvmOverloads constructor(
     init {
         buildStars()
         nodePaint.color = if (isDark) 0xFFD6E4FF.toInt() else 0xFF4C5F80.toInt()
-        haloPaint.color = if (isDark) 0x40A8C8FF.toInt() else 0x30FFFFFF.toInt()
+        haloPaint.color = if (isDark) 0x40A8C8FF.toInt() else 0x28FFFFFF.toInt()
         linePaint.color = if (isDark) 0xFF5B8CFF.toInt() else 0xFF93A6C4.toInt()
         linePaint.strokeWidth = 1.1f * density
         corePaint.color = if (isDark) 0xFF7FB4FF.toInt() else 0xFF6F86A8.toInt()
+        bgPaint.color = if (isDark) 0xFF05060F.toInt() else 0xFFFBF6EA.toInt()
     }
 
     private fun buildStars() {
@@ -115,6 +117,9 @@ class SplashStarView @JvmOverloads constructor(
         val cx = w / 2f
         val cy = h * 0.45f
         val base = min(w, h)
+
+        // 自己铺底，不依赖主题背景，深浅两套都稳
+        canvas.drawColor(bgPaint.color)
 
         fun tx(s: Star): Float = cx + cos(s.ang) * s.rad * base
         fun ty(s: Star): Float = cy + sin(s.ang) * s.rad * base
