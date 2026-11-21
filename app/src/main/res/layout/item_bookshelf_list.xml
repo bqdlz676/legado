@@ -13,7 +13,6 @@
     android:clickable="true"
     android:focusable="true"
     android:scrollbars="none"
-    android:cameraDistance="9600dp"
     tools:ignore="UnusedAttribute">
 
     <io.legado.app.ui.widget.image.CoverImageView
