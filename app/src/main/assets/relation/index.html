@@ -160,6 +160,7 @@
   }
 
   window.renderGraph = function (data) {
+    data = data || {nodes: [], edges: []};
     var elements = [];
     (data.nodes || []).forEach(function (n) {
       elements.push({
@@ -237,16 +238,17 @@
           }
         }
       ],
-      layout: {
-        name: 'cose',
-        animate: true,
-        animationDuration: 1500,
-        nodeRepulsion: 480000,
-        idealEdgeLength: 120,
-        gravity: 0.3,
-        numIter: 900,
-        randomize: true
-      },
+      layout: (elements.filter(function (e) { return e.group === 'nodes'; }).length > 320)
+        ? { name: 'grid', avoidOverlap: true, padding: 40 }
+        : {
+            name: 'cose',
+            animate: false,
+            nodeRepulsion: 480000,
+            idealEdgeLength: 120,
+            gravity: 0.3,
+            numIter: 900,
+            randomize: true
+          },
       wheelSensitivity: 0.22,
       minZoom: 0.22,
       maxZoom: 2.8,
@@ -267,6 +269,8 @@
     cy.on('tap', function (evt) {
       if (evt.target === cy) resetFocus();
     });
+
+    try { cy.resize(); cy.fit(cy.elements(), 40); } catch (e) {}
 
     // 图例
     var used = {};

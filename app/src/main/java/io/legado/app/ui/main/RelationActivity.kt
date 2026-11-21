@@ -73,9 +73,7 @@ class RelationActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 pageReady = true
                 val json = pendingJson ?: return
-                view.evaluateJavascript(
-                    "window.renderGraph && window.renderGraph($json)", null
-                )
+                render(view, json)
             }
         }
         webView.webChromeClient = WebChromeClient()
@@ -125,7 +123,7 @@ class RelationActivity : AppCompatActivity() {
             pendingJson = json
             onUi {
                 if (pageReady) {
-                    webView.evaluateJavascript("window.renderGraph && window.renderGraph($json)", null)
+                    render(webView, json)
                 }
             }
         }.onError {
@@ -177,6 +175,24 @@ class RelationActivity : AppCompatActivity() {
                 f.readText()
             }
         }.getOrNull()
+    }
+
+    /**
+     * 渲染入口：整串 JSON 先做 JS 字符串字面量转义，避免引号/换行把脚本截断；
+     * 捕获异常并把错误回传到日志，不再静默失败。
+     */
+    private fun render(view: WebView, json: String) {
+        val quoted = JSONObject.quote(json)
+        val js = "try{" +
+            "if(!window.renderGraph){throw new Error('renderGraph 未定义');}" +
+            "window.renderGraph(JSON.parse($quoted));" +
+            "'ok'" +
+            "}catch(e){'ERR:'+e.message}"
+        view.evaluateJavascript(js) { r ->
+            if (r != null && r.contains("ERR")) {
+                android.util.Log.e("RelationGraph", "render failed: $r")
+            }
+        }
     }
 
     private fun toJson(graph: RelationExtractor.Graph): String {
