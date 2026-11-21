@@ -7,6 +7,7 @@ import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.lifecycleScope
+import io.legado.app.BuildConfig
 import io.legado.app.base.BaseActivity
 import io.legado.app.constant.PreferKey
 import io.legado.app.constant.Theme
@@ -53,6 +54,8 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
+        binding.tvBuild.text = "构建 ${BuildConfig.VERSION_CODE} · 第6批"
+
         if (broughtToFront) {
             // 避免从桌面启动程序后，会重新实例化入口类的activity
             finish()
