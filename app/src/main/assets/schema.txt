@@ -51,6 +51,12 @@
 
 [person_terms]  30000 行  assets/person_terms.txt（常用人名，抽取兜底）
 
+
+[person_chapter_event]  运行时生成，不随包发行
+book_url	chapter	person	event	relation	note
+粗稿来源：RelationExtractor 段内共现（同句出现即一条，关系词取两人之间那几个字）。
+手录格式：同列 TSV，放 filesDir/pce/ 下，启动时合并；同 key 以手录覆盖粗稿。
+
 [world_place]  301 行  assets/world_place.txt
 地名	纬	经	区域	说明
 

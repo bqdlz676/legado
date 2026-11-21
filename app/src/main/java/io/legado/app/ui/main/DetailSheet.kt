@@ -232,7 +232,11 @@ class DetailSheet : BottomSheetDialogFragment() {
             val co = RelationExtractor.coPresent(ctx, excerpt, name, y)
             if (co.isNotEmpty()) {
                 label("本段同场")
-                body(co.joinToString("\n") { "· ${it.name}（${it.hits} 句同现）" })
+                body(co.joinToString("\n") {
+                    "· ${it.name}" +
+                        (if (it.label.isNotBlank()) "〔${it.label}〕" else "") +
+                        "　${it.hits} 句同现"
+                })
             }
         } else {
             label("本段事迹")
@@ -256,6 +260,14 @@ class DetailSheet : BottomSheetDialogFragment() {
             label("其他称呼")
             body(prof.alias.take(10).joinToString("、"))
         }
+
+        // 来源可追溯：L1 人工 / CBDB / 谭其骧 CHGIS 坐标
+        label("来源")
+        body(
+            if (l1 != null) "L1 人工档案（生卒、身份、事迹均按史书核对）"
+            else if (prof != null) "CBDB（中国历代人物传记资料库，生卒不清的标「约」）"
+            else "未收录：仅按正文出现统计，不作生平结论"
+        )
 
         fullButton {
             startActivity(

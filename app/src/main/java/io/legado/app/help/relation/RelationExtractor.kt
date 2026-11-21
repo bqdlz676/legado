@@ -351,7 +351,13 @@ object RelationExtractor {
         return out
     }
 
-    data class CoPresent(val name: String, val hits: Int, val sample: String)
+    data class CoPresent(
+        val name: String,
+        val hits: Int,
+        val sample: String,
+        /** 君臣 / 父子 / 盟友 / 敌国，取两人之间那几字的relation词 */
+        val label: String = "",
+    )
 
     /** 本段同场人物：和他在同一句里出现的人，按次数排 */
     fun coPresent(
@@ -363,18 +369,30 @@ object RelationExtractor {
         if (text.isBlank()) return emptyList()
         val counts = HashMap<String, Int>(8)
         val samples = HashMap<String, String>(8)
+        val labels = HashMap<String, String>(8)
         for (sen in splitSentences(text)) {
             if (sen.length < 4) continue
             val hits = findPersonHits(context, sen, year)
             if (hits.none { it.first == name }) continue
-            for ((n, _) in hits) {
+            for ((n, r) in hits) {
                 if (n == name || n.length < 2) continue
                 counts[n] = (counts[n] ?: 0) + 1
                 if (!samples.containsKey(n)) samples[n] = sen.trim()
+                if (!labels.containsKey(n)) {
+                    val nr = hits.firstOrNull { it.first == name }?.second
+                    if (nr != null) {
+                        val between = when {
+                            nr.last < r.first -> sen.substring(nr.last + 1, r.first)
+                            r.last < nr.first -> sen.substring(r.last + 1, nr.first)
+                            else -> ""
+                        }
+                        labelOf(between)?.let { labels[n] = it }
+                    }
+                }
             }
         }
         return counts.entries.sortedByDescending { it.value }.take(8)
-            .map { CoPresent(it.key, it.value, samples[it.key].orEmpty()) }
+            .map { CoPresent(it.key, it.value, samples[it.key].orEmpty(), labels[it.key].orEmpty()) }
     }
 
     private fun splitSentences(text: String): List<String> {
