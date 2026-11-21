@@ -142,6 +142,12 @@ object PersonTimeInfo {
 
     fun confidenceOf(context: Context, name: String): String {
         if (of(context, name) != null) return "L1 人工档案"
+        val dup = PersonDup.candidates(context, name)
+        if (dup.size >= 2) {
+            val l3 = dup.count { it.confidence == "L3" }
+            return if (l3 > 0) "同名 ${dup.size} 人，${l3} 条孤证（不默认命中）"
+            else "同名 ${dup.size} 人，均有生卒可辨"
+        }
         val p = PersonProfile.profileOf(name) ?: return "未收录"
         return if (p.birth != null || p.death != null) "L2 CBDB 有生卒"
         else "L3 CBDB 孤证，存疑"

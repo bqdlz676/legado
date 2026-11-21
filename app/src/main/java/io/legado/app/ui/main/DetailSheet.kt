@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.os.bundleOf
@@ -15,9 +16,14 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import io.legado.app.R
 import io.legado.app.help.ChineseDict
 import io.legado.app.help.NameResolver
+import io.legado.app.help.PlaceTimeDict
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
+import io.legado.app.help.relation.PersonDup
 import io.legado.app.help.relation.PersonTimeInfo
+import io.legado.app.help.relation.RelationExtractor
+import org.json.JSONObject
+import java.net.URLEncoder
 
 /**
  * 底部半屏详情：原文不离眼。
@@ -38,13 +44,15 @@ class DetailSheet : BottomSheetDialogFragment() {
             arguments = bundleOf(ARG_TYPE to "char", ARG_NAME to name)
         }
 
-        fun person(name: String, anchorYear: Int?): DetailSheet = DetailSheet().apply {
-            arguments = bundleOf(
-                ARG_TYPE to "person",
-                ARG_NAME to name,
-                ARG_EXTRA to (anchorYear ?: Int.MIN_VALUE)
-            )
-        }
+        fun person(name: String, anchorYear: Int?, excerpt: String? = null): DetailSheet =
+            DetailSheet().apply {
+                arguments = bundleOf(
+                    ARG_TYPE to "person",
+                    ARG_NAME to name,
+                    ARG_EXTRA to (anchorYear ?: Int.MIN_VALUE),
+                    ARG_DETAIL to (excerpt?.take(4000) ?: "")
+                )
+            }
 
         fun year(year: Int): DetailSheet = DetailSheet().apply {
             arguments = bundleOf(ARG_TYPE to "year", ARG_NAME to "", ARG_EXTRA to year)
@@ -85,6 +93,11 @@ class DetailSheet : BottomSheetDialogFragment() {
 
         view.findViewById<TextView>(R.id.tv_sub).visibility =
             if (view.findViewById<TextView>(R.id.tv_sub).text.isNullOrBlank()) View.GONE else View.VISIBLE
+    }
+
+    override fun onDestroyView() {
+        MapWebHolder.detach()
+        super.onDestroyView()
     }
 
     // ---------- 字 ----------
@@ -200,10 +213,37 @@ class DetailSheet : BottomSheetDialogFragment() {
             body("尚未锚定到具体年份。读到「隐公元年」这类纪年，或在地图页选一年，这里就能算年龄。")
         }
 
+        // 本段事迹 / 本段同场：阅读优先于查阅，先看「这段里他干了什么」
+        val excerpt = arguments?.getString(ARG_DETAIL).orEmpty()
+        if (excerpt.isNotBlank()) {
+            val evs = RelationExtractor.sentencesAbout(ctx, excerpt, name, y)
+            label("本段事迹")
+            if (evs.isEmpty()) {
+                body("这一段正文里没有他再次出现的句子。")
+            } else {
+                evs.forEach { body("· ${it}") }
+            }
+            val co = RelationExtractor.coPresent(ctx, excerpt, name, y)
+            if (co.isNotEmpty()) {
+                label("本段同场")
+                body(co.joinToString("\n") { "· ${it.name}（${it.hits} 句同现）" })
+            }
+        } else {
+            label("本段事迹")
+            body("未带入正文片段；从正文里改走人名或地名即可补上这一段的事迹与同场人物。")
+        }
+
         // 最著名一事
         if (l1 != null && l1.deed.isNotBlank()) {
             label("最著名一事")
             body(l1.deed)
+        }
+
+        // 同名候选：不是同一个人，别混成一条
+        val dups = PersonDup.candidates(ctx, name)
+        if (dups.size >= 2) {
+            label("同名 ${dups.size} 人（按时代与身份分）")
+            body(dups.take(8).joinToString("\n") { "· ${it.tag()}　${it.confidence}" })
         }
 
         if (prof != null && prof.alias.isNotEmpty()) {
@@ -264,6 +304,45 @@ class DetailSheet : BottomSheetDialogFragment() {
         if (others.isNotEmpty()) {
             label("还有 ${others.size} 个同名")
             body(others.joinToString("\n"))
+        }
+
+        // 时空本体：点画点，面画辖区；锚点为空不猜
+        val ctxP = requireContext()
+        val yearP = ContextAnchor.get().year
+        PlaceTimeDict.ensureLoaded(ctxP)
+        val st = PlaceTimeDict.resolve(ctxP, name, yearP)
+        val ent = st.hit
+        when {
+            ent != null && ent.isPoint -> {
+                label("位置（${ent.era.takeIf { e -> e.isNotBlank() } ?: "年代未锚定"}·${ent.tierLabel}）")
+                val box = FrameLayout(ctxP)
+                box.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(200)
+                )
+                content().addView(box)
+                val payload = JSONObject().apply {
+                    put("name", ent.name)
+                    put("lat", ent.lat)
+                    put("lng", ent.lng)
+                    put("modern", ent.note)
+                    put("zoom", 7)
+                    put("old", org.json.JSONArray())
+                    put("year", yearP ?: Int.MIN_VALUE)
+                    put("era", ContextAnchor.eraOf(yearP).orEmpty())
+                    put("still", 1)
+                }
+                val url = "file:///android_asset/map/index.html?d=" +
+                    URLEncoder.encode(payload.toString(), "UTF-8")
+                MapWebHolder.attach(box, url)
+            }
+            ent != null -> {
+                label("位置（${ent.era}·辖区）")
+                body("这是面（辖区），不是一座城。它的治所落在 ${ent.name}，全屏图上看范围。")
+            }
+            else -> {
+                label("位置")
+                body("此地在正文里出现，但坐标未收录到时空本体，按三级推定也不给点。")
+            }
         }
 
         val anchor = ContextAnchor.get()

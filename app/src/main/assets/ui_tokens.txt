@@ -1,0 +1,22 @@
+# 落文语义色（原生 res/values/colors_ink.xml 与 WebView 共用同一组值）
+--bg-page        #F7F1E6   阅读页纸白
+--bg-surface     #EFE8D8   卡片/Sheet 微黄
+--bg-overlay     rgba(26,20,16,0.45)  遮罩茶玻
+--text-primary   #1A1410   正文墨色
+--text-secondary #5C4F3A   副文
+--text-tertiary  #9B9687   辅助/占位
+--text-accent    #C23B2E   朱砂
+--brand-gold     #D4A54A   暖金
+--brand-copper   #8B6914   古铜
+--color-link     #C23B2E
+--color-divider  rgba(26,20,16,0.08)
+--color-glow     rgba(212,165,74,0.3)
+
+# 缓动
+卡片浮入   cubic-bezier(0.22, 0.61, 0.36, 1)
+气泡弹入   cubic-bezier(0.34, 1.56, 0.64, 1)
+翻页掀角   cubic-bezier(0.4, 0, 0.2, 1)
+遮罩       cubic-bezier(0.4, 0, 0.6, 1)
+
+# 时长
+微交互 120ms / 卡片·气泡 250ms / 页面转场 350ms / 遮罩 200ms / 启动页粒子 2800ms

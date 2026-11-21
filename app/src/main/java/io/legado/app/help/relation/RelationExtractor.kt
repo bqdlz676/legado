@@ -330,4 +330,67 @@ object RelationExtractor {
         }
         return null
     }
+
+    /** 本段里与他有关的句子（按句切），最多 3 条 */
+    fun sentencesAbout(
+        context: android.content.Context,
+        text: String,
+        name: String,
+        year: Int?,
+    ): List<String> {
+        if (text.isBlank()) return emptyList()
+        val out = ArrayList<String>(4)
+        for (sen in splitSentences(text)) {
+            if (sen.length < 4) continue
+            val hits = findPersonHits(context, sen, year)
+            if (hits.any { it.first == name }) {
+                out.add(sen.trim())
+                if (out.size >= 3) break
+            }
+        }
+        return out
+    }
+
+    data class CoPresent(val name: String, val hits: Int, val sample: String)
+
+    /** 本段同场人物：和他在同一句里出现的人，按次数排 */
+    fun coPresent(
+        context: android.content.Context,
+        text: String,
+        name: String,
+        year: Int?,
+    ): List<CoPresent> {
+        if (text.isBlank()) return emptyList()
+        val counts = HashMap<String, Int>(8)
+        val samples = HashMap<String, String>(8)
+        for (sen in splitSentences(text)) {
+            if (sen.length < 4) continue
+            val hits = findPersonHits(context, sen, year)
+            if (hits.none { it.first == name }) continue
+            for ((n, _) in hits) {
+                if (n == name || n.length < 2) continue
+                counts[n] = (counts[n] ?: 0) + 1
+                if (!samples.containsKey(n)) samples[n] = sen.trim()
+            }
+        }
+        return counts.entries.sortedByDescending { it.value }.take(8)
+            .map { CoPresent(it.key, it.value, samples[it.key].orEmpty()) }
+    }
+
+    private fun splitSentences(text: String): List<String> {
+        val out = ArrayList<String>(12)
+        val sb = StringBuilder()
+        for (c in text) {
+            sb.append(c)
+            if (c == '\u3002' || c == '\uff01' || c == '\uff1f' ||
+                c == '\uff1b' || c == '\n'
+            ) {
+                val v = sb.toString()
+                if (v.isNotBlank()) out.add(v)
+                sb.setLength(0)
+            }
+        }
+        if (sb.isNotBlank()) out.add(sb.toString())
+        return out
+    }
 }

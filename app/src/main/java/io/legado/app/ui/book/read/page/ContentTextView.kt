@@ -602,7 +602,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                                         ?.supportFragmentManager
                                                     if (fm != null) {
                                                         io.legado.app.ui.main.DetailSheet
-                                                            .person(nm.name, nm.anchorYear)
+                                                            .person(nm.name, nm.anchorYear, lineText)
                                                             .show(fm, "detail_person")
                                                     } else {
                                                         val i = Intent(

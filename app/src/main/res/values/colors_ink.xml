@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ink_bg_page">#F7F1E6</color>
+    <color name="ink_bg_surface">#EFE8D8</color>
+    <color name="ink_text_primary">#1A1410</color>
+    <color name="ink_text_secondary">#5C4F3A</color>
+    <color name="ink_text_tertiary">#9B9687</color>
+    <color name="ink_text_accent">#C23B2E</color>
+    <color name="ink_brand_gold">#D4A54A</color>
+    <color name="ink_brand_copper">#8B6914</color>
+    <color name="ink_divider">#141A1410</color>
+</resources>

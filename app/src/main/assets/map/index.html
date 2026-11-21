@@ -95,6 +95,16 @@ var start = (place.wlat != null && place.wlng != null) ? [place.wlat, place.wlng
 var map = L.map('map', {zoomControl:false, attributionControl:false})
     .setView(start, place.zoom || (place.wlat != null ? 4 : 7));
 
+// 半屏 sheet 里的缩略图：只读，禁掉所有手势，避免和 sheet 下拉打架
+if (place.still) {
+  map.dragging.disable();
+  map.touchZoom.disable();
+  map.doubleClickZoom.disable();
+  map.scrollWheelZoom.disable();
+  map.boxZoom.disable();
+  map.keyboard.disable();
+}
+
 var base = {
   cn: L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {subdomains:'1234', maxZoom:18}),
   terrain: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', {maxZoom:13}),

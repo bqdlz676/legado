@@ -1,0 +1,91 @@
+# 落文 · 知识表结构与读取顺序（接手实现照这张表，不用猜格式）
+# 分隔符统一 TAB；# 开头为注释；空字段留空，不写 "无"。
+# 公元年编码：负数=公元前（-722 即前 722 年），无 0 年。
+
+[char_dict]  17050 行  assets/char_dict.txt
+字	拼音	部首	笔画	释义
+释义内含 "1. 2." 编号，按编号切义项。
+
+[char_shuowen]  9452 行  assets/char_shuowen.txt
+字	说文释文	反切
+
+[char_usage]  5725 行  assets/char_usage.txt
+字	书证用例
+用例为原文摘句，保留出处，不改写。
+
+[char_pinyin]  18423 行  assets/char_pinyin.txt
+字	读1,读2,...
+多音字专用；一个字多个读音用逗号分隔，首个为该字常用音，不作文言优先级。
+
+[zh_ci]  261175 条  assets/zh_ci.bin（LDIC 二进制，二分查表）
+词	拼音	释义
+已无 txt 源文件；只在 bin 里。
+
+[ci_pinyin]  120887 条  assets/ci_pinyin.bin（LDIC）
+词	拼音（词级，来自 CC-CEDICT，CC BY-SA）
+多音词取词级读音，不按字拼。
+
+[allusion]  30140 条  assets/allusion.txt
+典故词	拼音	释义	出处原文
+
+[place_entity]  68 行  assets/place_entity.txt
+实体id	类型(P点/A面)	正名	经度	纬度	起年	止年	朝代	tier(1实测/2考证/3推定)	说明	别名(竖线分隔)
+
+[place_name]  179 行  assets/place_name.txt
+名称	实体id	起年	止年	朝代	类型(正名|别名)
+
+[person_l1]  83 行  assets/person_l1.txt
+本名	字	号	封号	生年	卒年	在位起	在位止	国	身份	最著名一事
+生卒不确定留空，不编。
+
+[person_alias]  93 行  assets/person_alias.txt
+别名	归属	类型(谥称|爵称|字|号|本名|省称)	国	起年	止年
+归属以 @ 开头表示「该国当年在位君主」，运行时按锚点年映射。
+
+[person]  88578 行  assets/person.txt（CBDB）
+名	别名(、分隔)	生	卒	朝代	身份
+
+[person_dup]  15451 行  assets/person_dup.txt
+名	生	卒	朝代	身份	置信(L2有生卒|L3孤证)	别名
+仅同名 ≥2 且可区分的组；孤证沉底，不默认命中。
+
+[person_terms]  30000 行  assets/person_terms.txt（常用人名，抽取兜底）
+
+[world_place]  301 行  assets/world_place.txt
+地名	纬	经	区域	说明
+
+# ---------- 读取顺序（同一个字/词必须按这个顺序，否则不同页面会给不同答案） ----------
+点字：
+  1 char_dict（本义/拼音/部首/笔画）
+  2 char_shuowen（说文 + 反切）
+  3 char_usage（书证用例）
+  4 char_pinyin（多音，仅当 1 的拼音与正文语境冲突时展示）
+  全缺 → 「此字未收，只按字形显示」，不编释义。
+
+点词：
+  1 allusion（典故，有出处）
+  2 zh_ci.bin（普通词义）
+  3 ci_pinyin.bin（词级读音）
+  全缺 → 不弹词气泡，退回单字。
+
+点地名：
+  1 place_name 拉候选（可能几十条）
+  2 place_entity 按 起/止年 与锚点年筛
+  3 命中 tier 高优先 → 区间窄优先 → 点优先
+  锚点为空 → hit=null，把候选全列进「还有 N 个同名」，不猜
+  全缺 → PlaceDict/PlaceGeo 旧表兜底；再缺 → 「坐标未收录」
+
+点人名：
+  1 person_l1（83 人人工档案）
+  2 person_alias 双引擎（全名正则 + 短称谓桶）
+  3 锚点年 + 所属国 消歧（楚子 → 当年楚君）
+  锚点为空且无国别 → 短称谓一律不命中
+  4 person.txt CBDB 兜底，同名走 person_dup 分组
+
+# ---------- 空状态 / 错误状态（每种都要有兜底行为） ----------
+不认识的字        → sheet 内一行「此字未收，只按字形显示」
+查不到的年份      → 「此年无考，不给对照」
+空地图（无坐标）  → sheet 内文字说明，不弹空 WebView
+章节无人物数据    → 关系图页「本章未抽出人物，可切整本再看」
+字表加载失败      → 气泡降级为「释义暂不可用」，不闪退
+远程瓦片失败      → 保留本地底图 + 顶部一行「离线底图」
