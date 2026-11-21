@@ -23,6 +23,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewAssetLoader
+import io.legado.app.R
 import org.json.JSONObject
 import java.io.File
 
@@ -138,8 +139,8 @@ class PaintActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    override fun onFinish() {
-        super.onFinish()
+    override fun finish() {
+        super.finish()
         overridePendingTransition(R.anim.ink_none, R.anim.ink_slide_out)
     }
 

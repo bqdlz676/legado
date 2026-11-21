@@ -163,7 +163,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             if (AppConfig.autoRefreshBook && !isAutoRefreshedBook) {
                 // 墨板预热：书架出来 2s 后在后台把 WebView 引擎点着，进画板不等白屏
             binding.viewPagerMain.postDelayed(2000) {
-                runCatching { InkSlatePreloader.warmUp(this) }
+                runCatching { InkSlatePreloader.warmUp(this@MainActivity) }
             }
             binding.viewPagerMain.postDelayed(2000) {
                     viewModel.upAllBookToc()
