@@ -1,0 +1,27 @@
+{
+  "id": "changping", "title": "长平之战", "era": "前260",
+  "context": "秦赵对峙长平，赵括代廉颇，秦断粮道合围。",
+  "terrainFocus": {"center": [112.85, 35.85], "radius": 70},
+  "duration": 60, "procedural": true,
+  "ridges": [{"x":0.5,"y":0.2,"h":0.9,"w":0.25},{"x":0.2,"y":0.7,"h":0.8,"w":0.3}],
+  "rivers": [{"pts":[[0.1,0.45],[0.5,0.52],[0.9,0.48]]}],
+  "victory": {"type": "annihilate", "target": "zhaokuo", "side": "qin"},
+  "sides": [{"id":"qin","name":"秦","color":"#C23B2E"},{"id":"zhao","name":"赵","color":"#3C5C6E"}],
+  "diplomacy": [{"a":"qin","b":"zhao","relation":"hostile"}],
+  "armies": [
+    {"id":"baiqi","name":"白起","side":"qin","initialPos":[112.70,35.95],"strength":14,"type":"elite","fatigue":0,"morale":"high","intent":"advance","target":[112.85,35.85]},
+    {"id":"wanghe","name":"王龁","side":"qin","initialPos":[112.75,35.75],"strength":10,"type":"regular","fatigue":1,"morale":"steady","intent":"advance","target":[112.88,35.82]},
+    {"id":"sima","name":"司马梗","side":"qin","initialPos":[113.00,35.70],"strength":7,"type":"regular","fatigue":0,"morale":"steady","intent":"flank","target":[112.90,35.90]},
+    {"id":"qinr1","name":"秦奇兵","side":"qin","initialPos":[112.98,35.92],"strength":6,"type":"cavalry","fatigue":0,"morale":"high","intent":"flank","target":[112.80,35.78]},
+    {"id":"zhaokuo","name":"赵括","side":"zhao","initialPos":[112.85,35.85],"strength":12,"type":"regular","fatigue":2,"morale":"steady","intent":"advance","target":[112.72,35.90]},
+    {"id":"lianpo","name":"廉颇","side":"zhao","initialPos":[112.88,35.88],"strength":9,"type":"regular","fatigue":1,"morale":"steady","intent":"hold"},
+    {"id":"zhaor1","name":"赵前军","side":"zhao","initialPos":[112.80,35.86],"strength":7,"type":"regular","fatigue":2,"morale":"wavering","intent":"advance","target":[112.70,35.92]},
+    {"id":"zhaor2","name":"赵辎重","side":"zhao","initialPos":[112.92,35.83],"strength":5,"type":"militia","fatigue":1,"morale":"steady","intent":"hold"}
+  ],
+  "events": [
+    {"trigger":{"turn":20},"action":"moraleChange","target":"lianpo","value":"wavering","reason":"赵括代廉颇，军心不服"},
+    {"trigger":{"turn":35},"action":"supplyCut","target":"zhaokuo","reason":"秦奇兵二万五千绝赵军后"},
+    {"trigger":{"army":"zhaokuo","strengthBelow":3},"action":"surrender","target":"zhaokuo"}
+  ],
+  "phases": []
+}

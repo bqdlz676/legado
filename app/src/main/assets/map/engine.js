@@ -352,13 +352,34 @@
       if (a.target) {
         const tc = toCell(T.b, a.target[0], a.target[1], n);
         const d = cheb(a, tc.r, tc.c);
-        if (d <= 1) { setIntent(a, 'hold', null, '规则10：目标已达'); return; }
+        if (d <= 1) {
+          // 到了不等于停战：附近还有敌军，就地接敌，否则推演会在「各自站定」处僵死
+          const near = nearest(a, all);
+          if (near && near.d <= 20) {
+            setIntent(a, 'advance', { r: near.army.r, c: near.army.c }, '规则10：目标已达，就近接敌');
+            return;
+          }
+          setIntent(a, 'hold', null, '规则10：目标已达'); return;
+        }
         const holder = all.find(e => e.r === tc.r && e.c === tc.c);
         if (holder) { setIntent(a, 'advance', { r: holder.r, c: holder.c }, '规则11：目标被敌占，进攻'); return; }
         if (a.intent === 'escape' && d <= 10) { setIntent(a, 'rush', tc, '规则12：接近逃脱点，急行军'); return; }
         if (a.intent === 'hold') { setIntent(a, 'hold', { r: tc.r, c: tc.c }, '规则13：据守目标'); return; }
         setIntent(a, a.intent === 'rush' ? 'rush' : 'advance', tc,
           a.intent === 'escape' ? '规则13：执行突围（朝逃脱点）' : '规则13：执行进军');
+        return;
+      }
+      // 求胜方不设接敌半径：剩两支残军隔二十里也该压上去，否则推演会停在「各守空营」
+      if (campaign.victory && a.side === campaign.victory.side) {
+        const foe = nearest(a, all);
+        if (foe) {
+          setIntent(a, 'advance', { r: foe.army.r, c: foe.army.c }, '规则14：求胜方主动寻敌');
+          return;
+        }
+      }
+      const near2 = nearest(a, all);
+      if (near2 && near2.d <= 20) {
+        setIntent(a, 'advance', { r: near2.army.r, c: near2.army.c }, '规则15：无敌目标，就近接敌');
         return;
       }
       setIntent(a, 'hold', null, '规则15：无目标，据守原地');
@@ -383,8 +404,11 @@
       const defPow = def.strength * (def.intentActive === 'hold' ? 1.3 : 1) *
         (T.high.some(h => Math.hypot(h.r - def.r, h.c - def.c) <= 1) ? 1.5 : 1);
       const ratio = (defPow * defPow) / (attPow * attPow + defPow * defPow || 1);
-      const attLoss = Math.max(1, Math.round(att.strength * ratio));
-      const defLoss = Math.max(1, Math.round(def.strength * (1 - ratio)));
+      // 兰彻斯特平方律给的是「这一战谁压过谁」，不是一次相遇就双双蒸发。
+      // 按日战损耗系数折算，一次遭遇最多削去三成半，连续压迫才见分晓。
+      const LOSS_SCALE = 0.35;
+      const attLoss = Math.min(att.strength, Math.max(1, Math.round(att.strength * ratio * LOSS_SCALE)));
+      const defLoss = Math.min(def.strength, Math.max(1, Math.round(def.strength * (1 - ratio) * LOSS_SCALE)));
       const winner = defPow >= attPow ? def : att;
       const loser = winner === att ? def : att;
       att.strength = Math.max(0, att.strength - attLoss);
@@ -454,6 +478,12 @@
         if (tgt.alive && Math.max(Math.abs(tc.r - tgt.r), Math.abs(tc.c - tgt.c)) <= 1) {
           return { winner: tgt.side, type: 'reachPoint', description: '到达目标点' };
         }
+      }
+      // 通用兜底：只要有一方打光，另一方就赢，不必每个 JSON 都把条件写全
+      const allSides = [...new Set(armies.map(a => a.side))];
+      const live = allSides.filter(sd => armies.some(a => a.side === sd && a.alive && a.strength > 0));
+      if (allSides.length > 1 && live.length === 1) {
+        return { winner: live[0], type: 'annihilate', description: '对方全军覆没' };
       }
       return null;
     }
