@@ -88,6 +88,30 @@
   if (!C) { document.getElementById('hint').textContent = '没有这场战役'; return; }
 
   document.getElementById('title').textContent = C.title;
+  // 战役切换：标题即菜单。数据在 campaigns.js，换一场只换 JSON，引擎一行不动
+  (function campSwitcher() {
+    var list = document.createElement('div');
+    list.id = 'campList';
+    list.style.cssText = 'display:none;position:fixed;top:52px;right:16px;z-index:30;' +
+      'background:rgba(26,20,16,.94);border:1px solid rgba(212,165,74,.45);' +
+      'border-radius:6px;padding:4px 0;max-height:60vh;overflow:auto';
+    var ids = Object.keys(window.CAMPAIGNS || {});
+    ids.forEach(function (k) {
+      var c = window.CAMPAIGNS[k];
+      var it = document.createElement('div');
+      it.textContent = c.title + '　' + (c.era || '');
+      it.style.cssText = 'padding:9px 18px;font-size:13px;letter-spacing:.05em;' +
+        'color:' + (k === id ? '#D4A54A' : '#E8DCC0') + ';cursor:pointer;white-space:nowrap';
+      it.onclick = function () { location.search = '?c=' + k; };
+      list.appendChild(it);
+    });
+    document.body.appendChild(list);
+    var t = document.getElementById('title');
+    t.style.cursor = 'pointer';
+    t.onclick = function () {
+      list.style.display = (list.style.display === 'none') ? 'block' : 'none';
+    };
+  })();
   document.getElementById('era').textContent = C.era;
   document.getElementById('dur').textContent = C.duration || 30;
 
