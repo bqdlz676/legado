@@ -32,6 +32,7 @@ import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.putPrefBoolean
 import io.legado.app.utils.showHelp
+import io.legado.app.ui.widget.inkPress
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 
 /**
@@ -138,10 +139,10 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     )
-                    textSize = 10f
-                    letterSpacing = 0.22f
-                    setTextColor(0xFFA2967F.toInt())
-                    setPadding(dp(21), dp(19), dp(20), dp(6))
+                    textSize = 14f
+                    letterSpacing = 0.16f
+                    setTextColor(0xFF5A6B72.toInt())
+                    setPadding(dp(20), dp(22), dp(20), dp(6))
                     typeface = android.graphics.Typeface.SANS_SERIF
                 }
                 HeadHolder(tv)
@@ -159,6 +160,8 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
             }
             holder as RowHolder
             val b = holder.b
+            b.root.background = ctx.getDrawable(R.drawable.bg_ink_row_line)
+            b.root.inkPress()
             b.tvTitle.text = row.title
             b.tvSub.text = row.sub
             b.tvSub.visibility = if (row.sub.isEmpty()) View.GONE else View.VISIBLE
