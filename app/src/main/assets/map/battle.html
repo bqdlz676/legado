@@ -93,6 +93,9 @@
 
   var sim = LWEngine.Sim(C, { grid: 96, seed: 42 });
   var T = sim.terrain, n = T.n;
+  var MN = (T.minEl != null) ? T.minEl : 0;
+  var MX = (T.maxEl != null) ? T.maxEl : 3000;
+  function elev01(h) { return (h - MN) / Math.max(1, MX - MN); }
   var SIDE = {};
   (C.sides || []).forEach(function (s) { SIDE[s.id] = s; });
 
@@ -142,7 +145,7 @@
   }
   for (var r = 0; r < n; r++) for (var c2 = 0; c2 < n; c2++) {
     var h = T.h[r * n + c2];
-    pos.push((c2 / (n - 1) - 0.5) * W, h / 3000 * H, (r / (n - 1) - 0.5) * W);
+    pos.push((c2 / (n - 1) - 0.5) * W, elev01(h) * H * 0.34, (r / (n - 1) - 0.5) * W);
     var cc = colorAt(h, T.slope[r * n + c2]);
     col.push(cc.r, cc.g, cc.b);
   }
@@ -161,14 +164,14 @@
   scene.add(terrain);
   setTimeout(function () { terrain.scale.y = 1; }, 60);
 
-  function hAt(rc) { return T.heightAt(rc.r, rc.c) / 3000 * H; }
+  function hAt(rc) { return elev01(T.heightAt(rc.r, rc.c)) * H * 0.34; }
   function xz(r, c) { return [(c / (n - 1) - 0.5) * W, (r / (n - 1) - 0.5) * W]; }
 
   // 河流（金色液面）
   var riverGeo = new THREE.BufferGeometry(), rv = [];
   for (var i = 0; i < T.river.length; i++) {
     if (!T.river[i]) continue;
-    var rr = Math.floor(i / n), rc = i % n, p = xz(rr, rc), hy = T.heightAt(rr, rc) / 3000 * H + 0.12;
+    var rr = Math.floor(i / n), rc = i % n, p = xz(rr, rc), hy = elev01(T.heightAt(rr, rc)) * H * 0.34 + 0.12;
     var s = 0.9;
     rv.push(p[0] - s, hy, p[1] - s, p[0] + s, hy, p[1] - s, p[0] + s, hy, p[1] + s,
             p[0] - s, hy, p[1] - s, p[0] + s, hy, p[1] + s, p[0] - s, hy, p[1] + s);
@@ -214,7 +217,7 @@
   var arrows = new THREE.Group(); scene.add(arrows);
   function heightAtLngLat(lng, lat) {
     var cell = LWEngine.toCell(T.b, lng, lat, n);
-    return T.heightAt(cell.r, cell.c) / 3000 * H;
+    return elev01(T.heightAt(cell.r, cell.c)) * H * 0.34;
   }
   function arrow(move) {
     var side = SIDE[move.side] || { color: '#D4A54A' };
@@ -227,7 +230,7 @@
       var lat = move.from[1] + (move.to[1] - move.from[1]) * t;
       var cell = LWEngine.toCell(T.b, lng, lat, n);
       var xz2 = xz(cell.r, cell.c);
-      pts.push(new THREE.Vector3(xz2[0], T.heightAt(cell.r, cell.c) / 3000 * H + 0.55, xz2[1]));
+      pts.push(new THREE.Vector3(xz2[0], elev01(T.heightAt(cell.r, cell.c)) * H * 0.34 + 0.55, xz2[1]));
     }
     var curve = new THREE.CatmullRomCurve3(pts);
     var tube = new THREE.Mesh(

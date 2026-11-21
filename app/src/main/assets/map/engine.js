@@ -49,8 +49,15 @@
     const src = campaign.terrain || {};
     const raw = new Float32Array(n * n);
     if (src.heightPixels && src.heightPixels.length === n * n) {
-      for (let i = 0; i < raw.length; i++) raw[i] = src.heightPixels[i] / 255 * 3000;
-      return { h: raw, source: 'png', label: src.source || '高程图' };
+      const lo = (src.minEl != null) ? src.minEl : 0;
+      const hi = (src.maxEl != null) ? src.maxEl : 3000;
+      for (let i = 0; i < raw.length; i++) {
+        raw[i] = lo + src.heightPixels[i] / 255 * (hi - lo);
+      }
+      return {
+        h: raw, source: 'png', label: src.source || '高程图',
+        minEl: lo, maxEl: hi
+      };
     }
     // 程序化：低频起伏 + 两条山脊 + 一条河谷
     const ridges = src.ridges || [];
@@ -146,6 +153,7 @@
     }
     const t = {
       n, b, cellKm, h, hmSource: hm.source, hmLabel: hm.label,
+      minEl: hm.minEl, maxEl: hm.maxEl,
       slope, trav, river, fords, high, choke,
       heightAt(r, c) { return h[Math.max(0, Math.min(n - 1, r)) * n + Math.max(0, Math.min(n - 1, c))]; },
       passable(r, c, armyType) {
