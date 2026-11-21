@@ -46,6 +46,7 @@
 </div>
 <script src="three.min.js"></script>
 <script src="china_height.js"></script>
+<script src="powers_poly.js"></script>
 <script src="cities.js"></script>
 <script src="world_places.js"></script>
 <script>
@@ -103,6 +104,7 @@ scene.add(rim);
 var SEG = 160, SIZE = 300;
 var HG = { w: 104, e: 122, s: 24, n: 42, px: 512 };
 var hdata = new Uint8Array(HG.px * HG.px);
+var powerMeshes = [], pillars = null, pillarBase = [], rings = [], lastFrame = 0;
 var terrain = null;
 var TARGET = new THREE.Vector3(0, 0, 0);
 
@@ -136,9 +138,135 @@ function yOf(x, z) { return hAt(x, z) * 0.015; }
     if (n > 0) buildTerrain();
     else document.getElementById('sub').textContent = '高程数据未载入';
   } catch (e) {
-    document.getElementById('sub').textContent = '高程数据未载入';
+    document.getElementById('sub').textContent = 'ERR ' + (e && e.message ? e.message : e);
   }
 })();
+
+
+// ===== 第三层：疆域水波 / 光柱粒子 / 冲击环 =====
+// (effect state declared above, before the height-map IIFE)
+
+function buildPowers() {
+  var list = window.POWERS_POLY || [];
+  var year = (typeof place.year === 'number') ? place.year : -202;
+  list.forEach(function (p, pi) {
+    if (!(year >= p.from && year <= p.to)) return;
+    var pts = p.pts || [];
+    if (pts.length < 3) return;
+    var shape = new THREE.Shape();
+    pts.forEach(function (q, i) {
+      var x = lonU(q[1]), z = latV(q[0]);
+      if (i === 0) shape.moveTo(x, z); else shape.lineTo(x, z);
+    });
+    var geo = new THREE.ShapeGeometry(shape);
+    geo.rotateX(Math.PI / 2);
+    var pos = geo.attributes.position;
+    for (var i = 0; i < pos.count; i++) {
+      var x = pos.getX(i), z = pos.getZ(i);
+      pos.setY(i, yOf(x, z) + 1.4);
+    }
+    var col = new THREE.Color(p.color || '#8B6914');
+    var mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color: col, transparent: true, opacity: 0.22,
+      side: THREE.DoubleSide, depthWrite: false
+    }));
+    scene.add(mesh);
+    // 边界描一遍暗金
+    var edge = new THREE.EdgesGeometry(geo);
+    var em = new THREE.LineBasicMaterial({ color: 0xB8904A, transparent: true, opacity: 0.35 });
+    mesh.add(new THREE.LineSegments(edge, em));
+    var baseY = [];
+    for (var q = 0; q < geo.attributes.position.count; q++) {
+      baseY.push(geo.attributes.position.getY(q));
+    }
+    mesh.userData.baseY = baseY;
+    powerMeshes.push(mesh);
+  });
+}
+
+function buildPillars() {
+  var names = Object.keys(window.CITIES || {});
+  if (!names.length) return;
+  var per = 8;
+  var total = names.length * per;
+  var pos = new Float32Array(total * 3);
+  var col = new Float32Array(total * 3);
+  var gold = new THREE.Color(0xB0863C);
+  pillarBase = [];
+  for (var i = 0; i < names.length; i++) {
+    var c = window.CITIES[names[i]];
+    var x = lonU(c[1]), z = latV(c[0]);
+    var y0 = yOf(x, z);
+    for (var k = 0; k < per; k++) {
+      var id = i * per + k;
+      pos[id * 3] = x; pos[id * 3 + 1] = y0; pos[id * 3 + 2] = z;
+      var f = 0.7 + 0.3 * ((k % 3) / 2);
+      col[id * 3] = gold.r * f; col[id * 3 + 1] = gold.g * f; col[id * 3 + 2] = gold.b * f;
+      pillarBase.push({ y0: y0, phase: (k / per) * 3 + i * 0.7 });
+    }
+  }
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  pillars = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.9, vertexColors: true, transparent: true, opacity: 0.62,
+    depthWrite: false, sizeAttenuation: true
+  }));
+  scene.add(pillars);
+}
+
+function spawnRing(p) {
+  var geo = new THREE.RingGeometry(0.92, 1.0, 64);
+  var mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: 0xE8C06A, transparent: true, opacity: 0.9,
+    side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(p.x, (p.y || 0) + 0.8, p.z);
+  scene.add(mesh);
+  rings.push({ mesh: mesh, t: 0 });
+}
+
+function updateEffects(now) {
+  var t = now / 1000;
+  var dt = lastFrame ? Math.min(0.06, (now - lastFrame) / 1000) : 0.016;
+  lastFrame = now;
+
+  for (var i = 0; i < powerMeshes.length; i++) {
+    var m = powerMeshes[i];
+    var w = Math.sin(t * 0.65 + i * 0.9);
+    m.position.y = w * 0.3;
+    m.material.opacity = 0.18 + 0.07 * (w + 1) / 2;
+    var pa = m.geometry.attributes.position;
+    var base = m.userData.baseY;
+    for (var q = 0; q < pa.count; q++) {
+      var px = pa.getX(q), pz = pa.getZ(q);
+      pa.setY(q, base[q] + Math.sin(t * 1.4 + px * 0.05 + pz * 0.05) * 1.5);
+    }
+    pa.needsUpdate = true;
+  }
+
+  if (pillars) {
+    var arr = pillars.geometry.attributes.position.array;
+    for (var j = 0; j < pillarBase.length; j++) {
+      var b = pillarBase[j];
+      arr[j * 3 + 1] = b.y0 + ((t * 1.6 + b.phase) % 9);
+    }
+    pillars.geometry.attributes.position.needsUpdate = true;
+  }
+
+  for (var k = rings.length - 1; k >= 0; k--) {
+    var r = rings[k];
+    r.t += dt;
+    var sc = 1 + r.t * 15;
+    r.mesh.scale.set(sc, sc, sc);
+    r.mesh.material.opacity = Math.max(0, 0.9 - r.t / 1.5);
+    if (r.t > 1.5) {
+      scene.remove(r.mesh);
+      rings.splice(k, 1);
+    }
+  }
+}
 
 function buildTerrain() {
   var geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
@@ -188,6 +316,11 @@ function buildTerrain() {
 
   TARGET.set(lonU(place.lng), 0, latV(place.lat));
   placeLabels();
+  buildPowers();
+  buildPillars();
+  setInterval(function () {
+    spawnRing({ x: TARGET.x, y: yOf(TARGET.x, TARGET.z), z: TARGET.z });
+  }, 3200);
 }
 
 // 地名标签（始终朝向相机）
@@ -293,6 +426,7 @@ function dropPoint(cx, cy) {
   );
   flag.position.set(p.x, p.y + 4.5, p.z);
   markerGroup.add(flag);
+  spawnRing(p);
   routePts.push(p);
 
   if (routePts.length > 1) {
@@ -328,8 +462,9 @@ document.getElementById('bRoute').onclick = function () {
   this.className = routeMode ? 'on' : '';
 };
 
-function animate() {
+function animate(now) {
   requestAnimationFrame(animate);
+  updateEffects(now || performance.now());
   if (autoRot && !dragging) rotY += 0.0016;
   var cx = TARGET.x + Math.sin(rotY) * dist * Math.cos(rotX + 0.28);
   var cz = TARGET.z + Math.cos(rotY) * dist * Math.cos(rotX + 0.28);
