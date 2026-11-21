@@ -18,41 +18,43 @@
 }
 body{background:var(--bg-page);color:var(--text-primary);font-family:var(--font-body);line-height:var(--line-height-body);letter-spacing:var(--letter-spacing-body)}
 
-  html,body{margin:0;padding:0;height:100%;background:#FBF6EA;font-family:serif;}
+  html,body{margin:0;padding:0;height:100%;background:#F1E8D6;font-family:serif;}
+  #grain{position:absolute;inset:0;z-index:890;pointer-events:none;opacity:.42;}
   #map{position:absolute;inset:0;}
   #bar{position:absolute;left:0;right:0;top:0;z-index:900;padding:9px 12px 8px;
-    background:linear-gradient(180deg,rgba(251,246,234,.97),rgba(251,246,234,.80));
-    border-bottom:1px solid rgba(160,140,110,.18);}
+    background:linear-gradient(180deg,rgba(243,236,221,.97),rgba(243,236,221,.82));
+    border-bottom:1px solid rgba(139,105,20,.35);}
   #bar .name{font-size:17px;color:#2B2419;letter-spacing:.06em;}
   #bar .now{font-size:12px;color:#8A7A5E;margin-top:2px;}
   .row{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
-  .row button{border:1px solid #D9CDB6;background:#FFFDF6;color:#5A4E38;
-    font-size:12px;padding:4px 9px;border-radius:13px;font-family:inherit;}
-  .row button.on{background:#2B2419;color:#F6EFDF;border-color:#2B2419;}
+  .row button{border:1px solid rgba(139,105,20,.45);background:rgba(255,251,240,.92);color:#4A3F2C;
+    font-size:12px;padding:4px 10px;border-radius:3px;font-family:inherit;}
+  .row button.on{background:#C23B2E;color:#FFF8EC;border-color:#C23B2E;}
   .row button.off{opacity:.42;}
-  .lbl{background:rgba(251,246,234,.93);border:1px solid #C9B995;border-radius:3px;
-    padding:2px 7px;font-size:12px;color:#3A3122;white-space:nowrap;
-    box-shadow:0 1px 3px rgba(0,0,0,.12);}
-  .lbl.old{border-color:#A8894F;color:#6A4E22;font-weight:600;}
-  .dot{width:9px;height:9px;border-radius:50%;background:#8A6A3E;border:1.5px solid #FBF6EA;
-       box-shadow:0 0 0 1px rgba(120,95,55,.5);}
-  .dot.ev{background:#B33A2B;}
-  .dot.st{background:#2E7D6B;}
-  .dot.wp{background:#3F5C9A;}
-  #hint{position:absolute;left:12px;bottom:12px;z-index:900;font-size:11px;color:#8A7A5E;
-    background:rgba(251,246,234,.86);padding:4px 9px;border-radius:4px;
-    border:1px solid rgba(160,140,110,.2);}
+  .lbl{background:rgba(250,244,230,.94);border:1px solid rgba(139,105,20,.5);border-radius:3px;
+    padding:2px 7px;font-size:12px;color:#332B1E;white-space:nowrap;
+    box-shadow:0 1px 6px rgba(212,165,74,.28);}
+  .lbl.old{border-color:#8B6914;color:#5E4318;font-weight:600;}
+  .dot{width:9px;height:9px;border-radius:50%;background:#8B6914;border:1.5px solid #FAF4E6;
+       box-shadow:0 0 0 1px rgba(139,105,20,.5);}
+  .dot.ev{background:#C23B2E;}
+  .dot.st{background:#3A5C6C;}
+  .dot.wp{background:#8B6914;}
+  #hint{position:absolute;left:12px;bottom:12px;z-index:900;font-size:11px;color:#6E6250;
+    background:rgba(243,236,221,.9);padding:4px 9px;border-radius:3px;
+    border:1px solid rgba(139,105,20,.28);}
   #tl{position:absolute;left:0;right:0;bottom:0;z-index:950;max-height:52%;overflow:auto;
-    background:rgba(251,246,234,.98);border-top:1px solid #D9CDB6;display:none;padding:10px 14px 22px;}
-  #tl h4{margin:0 0 8px;font-size:13px;color:#8A7A5E;letter-spacing:.2em;font-weight:400;}
-  #tl .it{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(160,140,110,.22);font-size:13px;}
-  #tl .y{width:104px;color:#8A6A3E;flex:none;}
-  #tl .c{color:#2B2419;}
-  #tl .w{color:#3F5C9A;}
-  #tl .close{position:absolute;right:12px;top:8px;font-size:12px;color:#8A7A5E;background:none;border:0;}
+    background:rgba(243,236,221,.985);border-top:1px solid rgba(139,105,20,.45);display:none;padding:10px 14px 22px;}
+  #tl h4{margin:0 0 8px;font-size:13px;color:#8B6914;letter-spacing:.2em;font-weight:400;}
+  #tl .it{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(139,105,20,.24);font-size:13px;}
+  #tl .y{width:104px;color:#8B6914;flex:none;}
+  #tl .c{color:#221C12;}
+  #tl .w{color:#3A5C6C;}
+  #tl .close{position:absolute;right:12px;top:8px;font-size:12px;color:#6E6250;background:none;border:0;}
 </style>
 </head>
 <body>
+<div id="grain"></div>
 <div id="map"></div>
 <div id="bar">
   <div class="name" id="n"></div>
@@ -91,6 +93,23 @@ body{background:var(--bg-page);color:var(--text-primary);font-family:var(--font-
 <script src="world_events.js"></script>
 <script src="timeline.js"></script>
 <script>
+// 绢帛织物颗粒
+(function () {
+  var g = document.getElementById('grain');
+  var cv = document.createElement('canvas');
+  cv.width = 64; cv.height = 64;
+  var x = cv.getContext('2d');
+  var img = x.createImageData(64, 64);
+  for (var i = 0; i < img.data.length; i += 4) {
+    var v = 128 + Math.floor(Math.random() * 44 - 22);
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 20;
+  }
+  x.putImageData(img, 0, 0);
+  g.style.backgroundImage = 'url(' + cv.toDataURL() + ')';
+  g.style.backgroundRepeat = 'repeat';
+})();
+
 var place = (function () {
   try {
     var q = location.search.replace(/^\?/, '');

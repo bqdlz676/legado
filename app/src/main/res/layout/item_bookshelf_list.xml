@@ -5,126 +5,121 @@
     android:id="@+id/cv_content"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_marginStart="10dp"
+    android:layout_marginEnd="10dp"
+    android:layout_marginTop="5dp"
+    android:layout_marginBottom="5dp"
     android:background="@drawable/bg_ink_book_card"
-    android:layout_marginStart="8dp"
-    android:layout_marginEnd="8dp"
-    android:layout_marginTop="4dp"
-    android:layout_marginBottom="4dp"
     android:clickable="true"
     android:focusable="true"
-    android:scrollbars="none"
-    tools:ignore="UnusedAttribute">
+    android:minHeight="96dp"
+    android:paddingStart="16dp"
+    android:paddingTop="13dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="14dp"
+    android:scrollbars="none">
 
-    <io.legado.app.ui.widget.image.CoverImageView
-        android:id="@+id/iv_cover"
-        android:visibility="gone"
-        android:layout_width="66dp"
-        android:layout_height="90dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginBottom="4dp"
-        android:contentDescription="@string/img_cover"
-        android:scaleType="centerCrop"
-        android:src="@drawable/image_cover_default"
-        android:transitionName="img_cover"
-        app:layout_constraintBottom_toBottomOf="parent"
+    <!-- 竖排书名：书名就是封面 -->
+    <TextView
+        android:id="@+id/tv_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="serif"
+        android:gravity="center_horizontal"
+        android:includeFontPadding="false"
+        android:lineSpacingExtra="0dp"
+        android:maxLines="4"
+        android:scrollbars="none"
+        android:textColor="#1A1410"
+        android:textSize="17sp"
+        android:textStyle="bold"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        tools:ignore="UnusedAttribute" />
+        tools:text="春\n秋\n左\n传" />
+
+    <!-- 书名右侧一道朱砂竖线，长度 = 阅读进度 -->
+    <io.legado.app.ui.widget.InkProgressLineView
+        android:id="@+id/ink_progress_line"
+        android:layout_width="2dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="11dp"
+        app:layout_constraintBottom_toBottomOf="@+id/tv_name"
+        app:layout_constraintLeft_toRightOf="@+id/tv_name"
+        app:layout_constraintTop_toTopOf="@+id/tv_name" />
 
     <FrameLayout
         android:id="@+id/fl_has_new"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_name"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tv_name">
+        app:layout_constraintTop_toTopOf="parent">
 
         <io.legado.app.ui.widget.text.BadgeView
             android:id="@+id/bv_unread"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="right"
-            android:layout_margin="5dp"
+            android:layout_gravity="end"
             android:includeFontPadding="false"
-            android:scrollbars="none"
-            tools:ignore="RtlHardcoded" />
+            android:scrollbars="none" />
 
         <io.legado.app.ui.widget.anima.RotateLoading
             android:id="@+id/rl_loading"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:layout_gravity="right"
-            android:visibility="invisible"
-            app:loading_width="2dp"
-            tools:ignore="RtlHardcoded" />
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="end"
+            android:visibility="invisible" />
     </FrameLayout>
 
-    <TextView
-        android:id="@+id/tv_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:includeFontPadding="false"
-        android:paddingBottom="4dp"
-        android:scrollbars="none"
-        android:maxLines="4"
-        android:textColor="@color/ink_text_primary"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:gravity="center_horizontal"
-        android:lineSpacingExtra="1dp"
-        android:fontFamily="serif"
-        app:layout_constraintBottom_toTopOf="@+id/tv_author"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:ignore="RtlHardcoded,RtlSymmetry"
-        tools:text="春\n秋\n左\n传"/>
-
-    <io.legado.app.ui.widget.InkProgressLineView
-        android:id="@+id/ink_progress_line"
-        android:layout_width="2dp"
-        android:layout_height="0dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="2dp"
-        android:layout_marginBottom="2dp"
-        app:layout_constraintTop_toTopOf="@+id/tv_name"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_name"
-        app:layout_constraintLeft_toRightOf="@+id/tv_name" />
-
-    <androidx.appcompat.widget.AppCompatImageView
-        android:id="@+id/iv_author"
-        android:layout_width="@dimen/desc_icon_size"
-        android:layout_height="@dimen/desc_icon_size"
-        android:contentDescription="@string/author"
-        android:paddingStart="2dp"
-        android:paddingEnd="2dp"
-        android:scrollbars="none"
-        android:src="@drawable/ic_author"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_author"
-        android:layout_marginStart="6dp"
-        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
-        app:layout_constraintTop_toTopOf="@+id/tv_author"
-        app:tint="@color/tv_text_summary"
-        tools:ignore="RtlHardcoded,RtlSymmetry" />
-
+    <!-- 作者：一行云灰小字 -->
     <TextView
         android:id="@+id/tv_author"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:paddingEnd="6dp"
-        android:scrollbars="none"
         android:singleLine="true"
-        android:text="@string/author"
-        android:textColor="@color/tv_text_summary"
-        android:textSize="12.5sp"
-        app:layout_constraintBottom_toTopOf="@+id/tv_read"
-        app:layout_constraintLeft_toRightOf="@+id/iv_author"
-        app:layout_constraintRight_toLeftOf="@id/tv_last_update_time"
-        app:layout_constraintTop_toBottomOf="@+id/tv_name"
-        tools:ignore="RtlSymmetry,TextContrastCheck" />
+        android:textColor="#6E6250"
+        android:textSize="12sp"
+        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
+        android:layout_marginStart="9dp"
+        app:layout_constraintRight_toLeftOf="@+id/tv_last_update_time"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="杜预 注" />
+
+    <!-- 读到哪一章 -->
+    <TextView
+        android:id="@+id/tv_read"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:singleLine="true"
+        android:textColor="#3D3426"
+        android:textSize="12sp"
+        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
+        android:layout_marginStart="21dp"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tv_author"
+        tools:text="隐公元年" />
+
+    <!-- 最新一章 -->
+    <TextView
+        android:id="@+id/tv_last"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:singleLine="true"
+        android:textColor="#8C8272"
+        android:textSize="11sp"
+        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
+        android:layout_marginStart="21dp"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tv_read"
+        tools:text="共 12 章" />
 
     <TextView
         android:id="@+id/tv_last_update_time"
@@ -132,124 +127,85 @@
         android:layout_height="wrap_content"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:paddingEnd="6dp"
-        android:scrollbars="none"
         android:singleLine="true"
-        android:text=""
-        android:textColor="@color/tv_text_summary"
-        android:textSize="12.5sp"
-        app:layout_constraintBottom_toTopOf="@+id/tv_read"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintLeft_toRightOf="@+id/tv_author"
-        app:layout_constraintRight_toRightOf="@id/fl_has_new"
-        app:layout_constraintTop_toBottomOf="@+id/tv_name"
-        tools:ignore="RtlSymmetry,TextContrastCheck" />
-
-    <androidx.appcompat.widget.AppCompatImageView
-        android:id="@+id/iv_read"
-        android:layout_width="@dimen/desc_icon_size"
-        android:layout_height="@dimen/desc_icon_size"
-        android:contentDescription="@string/read_dur_progress"
-        android:paddingStart="2dp"
-        android:paddingEnd="2dp"
-        android:scrollbars="none"
-        android:src="@drawable/ic_history"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_read"
-        android:layout_marginStart="6dp"
-        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
-        app:layout_constraintTop_toTopOf="@+id/tv_read"
-        app:tint="@color/tv_text_summary"
-        tools:ignore="RtlHardcoded,RtlSymmetry" />
-
-    <TextView
-        android:id="@+id/tv_read"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:includeFontPadding="false"
-        android:scrollbars="none"
-        android:singleLine="true"
-        android:text="@string/read_dur_progress"
-        android:textColor="@color/tv_text_summary"
-        android:textSize="12.5sp"
-        app:layout_constraintBottom_toTopOf="@id/tv_last"
-        app:layout_constraintLeft_toRightOf="@+id/iv_read"
-        app:layout_constraintRight_toRightOf="@+id/fl_has_new"
-        app:layout_constraintTop_toBottomOf="@+id/tv_author"
-        tools:ignore="TextContrastCheck" />
-
-    <androidx.appcompat.widget.AppCompatImageView
-        android:id="@+id/iv_last"
-        android:layout_width="@dimen/desc_icon_size"
-        android:layout_height="@dimen/desc_icon_size"
-        android:contentDescription="@string/lasted_show"
-        android:paddingStart="2dp"
-        android:paddingEnd="2dp"
-        android:scrollbars="none"
-        android:src="@drawable/ic_book_last"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_last"
-        android:layout_marginStart="6dp"
-        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
-        app:layout_constraintTop_toTopOf="@+id/tv_last"
-        app:tint="@color/tv_text_summary"
-        tools:ignore="RtlHardcoded,RtlSymmetry" />
-
-    <TextView
-        android:id="@+id/tv_last"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
-        android:scrollbars="none"
-        android:singleLine="true"
-        android:text="@string/lasted_show"
-        android:textColor="@color/tv_text_summary"
-        android:textSize="12.5sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toRightOf="@+id/iv_last"
-        app:layout_constraintRight_toLeftOf="@+id/tv_read_percent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_read"
-        tools:ignore="TextContrastCheck" />
+        android:textColor="#A2967F"
+        android:textSize="10sp"
+        android:visibility="gone"
+        app:layout_constraintBaseline_toBaselineOf="@+id/tv_author"
+        app:layout_constraintRight_toRightOf="parent"
+        tools:text="3 天前" />
 
     <TextView
         android:id="@+id/tv_read_percent"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
         android:includeFontPadding="false"
-        android:paddingEnd="6dp"
-        android:textColor="@color/tv_text_summary"
+        android:textColor="#C23B2E"
         android:textSize="11sp"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_last"
-        app:layout_constraintLeft_toRightOf="@+id/tv_last"
-        app:layout_constraintRight_toRightOf="@id/fl_has_new"
-        app:layout_constraintTop_toTopOf="@+id/tv_last"
-        tools:text="60%"
-        tools:visibility="visible" />
+        app:layout_constraintBottom_toTopOf="@+id/pb_read_progress"
+        app:layout_constraintRight_toRightOf="parent"
+        tools:text="60%" />
 
-    <com.google.android.material.progressindicator.LinearProgressIndicator
+    <!-- 底部细线进度：朱砂已读 / 云灰未读 -->
+    <io.legado.app.ui.widget.InkThinProgress
         android:id="@+id/pb_read_progress"
         android:layout_width="0dp"
-        android:layout_height="4dp"
-        android:layout_marginBottom="1dp"
-        android:visibility="gone"
-        app:indicatorColor="@color/accent"
+        android:layout_height="3dp"
+        android:layout_marginBottom="2dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="@id/fl_has_new"
-        app:layout_constraintStart_toStartOf="@+id/tv_name"
-        app:trackThickness="2dp"
-        tools:ignore="UnusedAttribute"
-        tools:progress="60"
-        tools:visibility="visible" />
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent" />
+
+    <!-- 封面：默认不显示，书名就是封面 -->
+    <io.legado.app.ui.widget.image.CoverImageView
+        android:id="@+id/iv_cover"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:contentDescription="@string/img_cover"
+        android:scaleType="centerCrop"
+        android:src="@drawable/image_cover_default"
+        android:visibility="gone"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 图标保留 id，不再显示 -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/iv_author"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:contentDescription="@string/author"
+        android:src="@drawable/ic_author"
+        android:visibility="gone"
+        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/iv_read"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:contentDescription="@string/read_dur_progress"
+        android:src="@drawable/ic_history"
+        android:visibility="gone"
+        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/iv_last"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:contentDescription="@string/lasted_show"
+        android:src="@drawable/ic_book_last"
+        android:visibility="gone"
+        app:layout_constraintLeft_toRightOf="@+id/ink_progress_line"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <View
         android:id="@+id/vw_foreground"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:background="?android:attr/selectableItemBackground"
+        android:layout_height="match_parent"
         android:scrollbars="none"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.0"
-        tools:layout_editor_absoluteX="0dp" />
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

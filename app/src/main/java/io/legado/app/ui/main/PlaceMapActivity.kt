@@ -1,6 +1,7 @@
 package io.legado.app.ui.main
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.webkit.WebView
@@ -24,6 +25,14 @@ class PlaceMapActivity : AppCompatActivity() {
         setContentView(R.layout.activity_place_map)
 
         val name = intent.getStringExtra("name").orEmpty()
+        findViewById<TextView>(R.id.btn_battle).setOnClickListener {
+            startActivity(
+                Intent(this, BattleActivity::class.java).apply {
+                    putExtra("campaign", "gaixia")
+                    ContextAnchor.getYear()?.let { putExtra("year", it) }
+                }
+            )
+        }
 
         val wlat = intent.getDoubleExtra("wlat", Double.NaN)
         val wlng = intent.getDoubleExtra("wlng", Double.NaN)
@@ -43,7 +52,7 @@ class PlaceMapActivity : AppCompatActivity() {
             }
             val w = findViewById<WebView>(R.id.web)
             configureWeb(w)
-            w.loadUrl("file:///android_asset/map/three.html?d=" +
+            w.loadUrl("file:///android_asset/map/index.html?d=" +
                 java.net.URLEncoder.encode(payload.toString(), "UTF-8"))
             return
         }
@@ -90,7 +99,7 @@ class PlaceMapActivity : AppCompatActivity() {
         configureWeb(web)
 
         val data = java.net.URLEncoder.encode(payload.toString(), "UTF-8")
-        web.loadUrl("file:///android_asset/map/three.html?d=$data")
+        web.loadUrl("file:///android_asset/map/index.html?d=$data")
     }
 
     private fun configureWeb(web: WebView): WebView {

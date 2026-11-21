@@ -8,11 +8,31 @@ import io.legado.app.help.book.readProgress
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.BookshelfReadProgressMode
 import io.legado.app.lib.theme.accentColor
+import io.legado.app.ui.widget.InkThinProgress
 import io.legado.app.utils.ColorUtils
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.gone
 import io.legado.app.utils.visible
 import kotlin.math.roundToInt
+
+fun InkThinProgress.updateBookshelfReadProgress(
+    book: Book,
+    percentView: TextView? = null,
+) {
+    val progressFraction = book.readProgress()
+        ?.takeIf { AppConfig.showBookshelfReadProgress }
+    if (progressFraction == null) {
+        gone()
+        percentView?.gone()
+        return
+    }
+    ratio = progressFraction
+    visible()
+    percentView?.apply {
+        text = "${(progressFraction * 100).roundToInt()}%"
+        visible()
+    }
+}
 
 fun LinearProgressIndicator.updateBookshelfReadProgress(
     book: Book,
