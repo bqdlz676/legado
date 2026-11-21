@@ -171,12 +171,15 @@ function inEra(y) {
   return y >= 1368 && y < 1912;
 }
 
+// 秦/晋/五代/元/明清没有独立图层时，退到最近的一套，绝不画空图
+var ERA_FALLBACK = { '秦': '战国', '晋': '三国', '五代': '唐', '元': '北宋', '明': '北宋', '清': '北宋' };
 function inEraName(era) {
   if (anchorYear != null) {
     var d = dynastyOfYear(anchorYear);
     if (d === '春秋' || d === '战国') return era === '春秋' || era === '战国';
     if (d === '宋') return era === '北宋' || era === '南宋';
     if (d === '三国') return era === '三国' || era === '东汉' || era === '西汉';
+    if (ERA_FALLBACK[d]) return era === ERA_FALLBACK[d];
     return era === d;
   }
   if (curY === 0) return true;
@@ -357,6 +360,19 @@ document.getElementById('o5').onclick = function () {
   }
   p.style.display = 'block'; this.className = 'on';
 };
+
+// 空图层兜底：锚定年份没有对应疆域时，明说，不留一张什么都没画的地图
+setTimeout(function () {
+  if (anchorYear == null) return;
+  var n = (window.gPoly ? gPoly.getLayers().length : 0) + (window.gCircle ? gCircle.getLayers().length : 0);
+  if (n > 0) return;
+  var h = document.createElement('div');
+  h.textContent = '此年暂无疆域图层 · 仅显示地名';
+  h.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:70px;z-index:999;' +
+    'font-family:serif;font-size:13px;color:#8B6914;background:rgba(247,241,230,.94);' +
+    'border:1px solid rgba(212,165,74,.55);padding:6px 14px;border-radius:2px;';
+  document.body.appendChild(h);
+}, 300);
 </script>
 </body>
 </html>
