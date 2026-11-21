@@ -49,6 +49,7 @@ import io.legado.app.data.entities.Bookmark
 import io.legado.app.data.entities.rule.ReviewRule
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.AppWebDav
+import io.legado.app.help.HanConv
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.HighlightColors
 import io.legado.app.help.HighlightStyle
@@ -526,6 +527,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             EnDict.preload(this@ReadBookActivity)
             ChineseDict.preload(this@ReadBookActivity)
             Chronology.ensureLoaded(this@ReadBookActivity)
+            HanConv.ensureLoaded(this@ReadBookActivity)
             ContentTextView.preloadDict(this@ReadBookActivity)
         }.onError { it.printOnDebug() }
         viewModel.pendingSourceReimport.observe(this) { showPendingSourceReimport() }

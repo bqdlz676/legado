@@ -6,6 +6,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import io.legado.app.R
 import io.legado.app.help.ChineseDict
+import io.legado.app.help.HanConv
 
 /**
  * 字典详情页：大字、全部读音、部首笔画、完整义项
@@ -16,12 +17,24 @@ class CharDetailActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_char_detail)
 
+        HanConv.ensureLoaded(this)
         val ch = intent.getStringExtra("char").orEmpty()
         val info = if (ch.isEmpty()) null else ChineseDict.getChar(this, ch)
 
         findViewById<ImageButton>(R.id.btn_back).setOnClickListener { finish() }
         findViewById<TextView>(R.id.tv_char).text = ch
-        findViewById<TextView>(R.id.tv_pinyin).text = info?.pinyin.orEmpty()
+        val simp = HanConv.toSimp(ch)
+        val pyLine = buildString {
+            val py = info?.pinyin.orEmpty()
+            if (py.isNotBlank()) append(py)
+            if (simp != ch && simp.isNotEmpty()) {
+                if (isNotEmpty()) append("　·　")
+                append("简 ").append(simp)
+            }
+        }
+        findViewById<TextView>(R.id.tv_pinyin).text = pyLine
+        findViewById<TextView>(R.id.tv_pinyin).visibility =
+            if (pyLine.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
 
         val meta = buildString {
             if (!info?.radical.isNullOrBlank()) append("部首 ").append(info?.radical)

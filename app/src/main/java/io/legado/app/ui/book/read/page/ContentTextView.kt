@@ -28,6 +28,7 @@ import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.ChineseDict
 import io.legado.app.help.AllusionDict
 import io.legado.app.help.EnDict
+import io.legado.app.help.HanConv
 import io.legado.app.ui.main.CharDetailActivity
 import io.legado.app.help.HighlightMatcher
 import io.legado.app.help.HighlightRuleMatcher
@@ -1219,10 +1220,14 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         val screenX = loc[0] + x
         val lineTopY = loc[1] + relativeOffset + textLine.lineTop
         val lineBottomY = lineTopY + textLine.height
+        val simpLine = HanConv.simpLine(ch)
+        val meaningFinal = if (simpLine.isNotEmpty()) {
+            if (meaningText.isBlank()) simpLine else "$simpLine\n$meaningText"
+        } else meaningText
         val bubble = BubbleView(context).apply {
             char = ch
             pinyin = pinyinText
-            meaning = meaningText
+            meaning = meaningFinal
             this.titleSmall = titleSmall
             showDetail = detail
             onDetail = {
