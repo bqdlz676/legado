@@ -13,6 +13,9 @@ object PlaceDict {
         val name: String,
         val note: String,
         val modern: String,
+        val lat: Double? = null,
+        val lng: Double? = null,
+        val world: Boolean = false,
     )
 
     @Volatile
@@ -61,6 +64,23 @@ object PlaceDict {
                             val p = line.split('\t')
                             if (p.size < 2) return@forEach
                             loaded[p[0]] = Entry(p[0], p[1], p.getOrElse(2) { "" })
+                        }
+                    }
+                context.applicationContext.assets.open("world_place.txt")
+                    .bufferedReader()
+                    .useLines { lines ->
+                        lines.forEach { line ->
+                            if (line.isEmpty() || line.startsWith("#")) return@forEach
+                            val p = line.split('\t')
+                            if (p.size < 3) return@forEach
+                            val lat = p[1].toDoubleOrNull() ?: return@forEach
+                            val lng = p[2].toDoubleOrNull() ?: return@forEach
+                            loaded[p[0]] = Entry(
+                                name = p[0],
+                                note = p.getOrElse(3) { "" },
+                                modern = p.getOrElse(4) { "" },
+                                lat = lat, lng = lng, world = true
+                            )
                         }
                     }
             }.onFailure { it.printOnDebug() }

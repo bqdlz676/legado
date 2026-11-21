@@ -603,6 +603,8 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                                         context,
                                                         io.legado.app.ui.main.PlaceMapActivity::class.java
                                                     ).putExtra("name", nm.name)
+                                                        .putExtra("wlat", nm.wlat ?: Double.NaN)
+                                                        .putExtra("wlng", nm.wlng ?: Double.NaN)
                                                     if (context !is Activity) {
                                                         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                     }

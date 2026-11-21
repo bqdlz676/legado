@@ -8,36 +8,36 @@
 <style>
   html,body{margin:0;padding:0;height:100%;background:#FBF6EA;font-family:serif;}
   #map{position:absolute;inset:0;}
-  #bar{
-    position:absolute;left:0;right:0;top:0;z-index:900;
-    padding:10px 14px 8px;
-    background:linear-gradient(180deg,rgba(251,246,234,.97),rgba(251,246,234,.78));
-    border-bottom:1px solid rgba(160,140,110,.18);
-  }
+  #bar{position:absolute;left:0;right:0;top:0;z-index:900;padding:9px 12px 8px;
+    background:linear-gradient(180deg,rgba(251,246,234,.97),rgba(251,246,234,.80));
+    border-bottom:1px solid rgba(160,140,110,.18);}
   #bar .name{font-size:17px;color:#2B2419;letter-spacing:.06em;}
   #bar .now{font-size:12px;color:#8A7A5E;margin-top:2px;}
-  .row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
-  .row button{
-    border:1px solid #D9CDB6;background:#FFFDF6;color:#5A4E38;
-    font-size:12px;padding:5px 10px;border-radius:14px;font-family:inherit;
-  }
+  .row{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
+  .row button{border:1px solid #D9CDB6;background:#FFFDF6;color:#5A4E38;
+    font-size:12px;padding:4px 9px;border-radius:13px;font-family:inherit;}
   .row button.on{background:#2B2419;color:#F6EFDF;border-color:#2B2419;}
   .row button.off{opacity:.42;}
-  .lbl{
-    background:rgba(251,246,234,.93);border:1px solid #C9B995;border-radius:3px;
+  .lbl{background:rgba(251,246,234,.93);border:1px solid #C9B995;border-radius:3px;
     padding:2px 7px;font-size:12px;color:#3A3122;white-space:nowrap;
-    box-shadow:0 1px 3px rgba(0,0,0,.12);
-  }
+    box-shadow:0 1px 3px rgba(0,0,0,.12);}
   .lbl.old{border-color:#A8894F;color:#6A4E22;font-weight:600;}
   .dot{width:9px;height:9px;border-radius:50%;background:#8A6A3E;border:1.5px solid #FBF6EA;
        box-shadow:0 0 0 1px rgba(120,95,55,.5);}
   .dot.ev{background:#B33A2B;}
   .dot.st{background:#2E7D6B;}
-  #hint{
-    position:absolute;left:14px;bottom:14px;z-index:900;
-    font-size:11px;color:#8A7A5E;background:rgba(251,246,234,.86);
-    padding:4px 9px;border-radius:4px;border:1px solid rgba(160,140,110,.2);
-  }
+  .dot.wp{background:#3F5C9A;}
+  #hint{position:absolute;left:12px;bottom:12px;z-index:900;font-size:11px;color:#8A7A5E;
+    background:rgba(251,246,234,.86);padding:4px 9px;border-radius:4px;
+    border:1px solid rgba(160,140,110,.2);}
+  #tl{position:absolute;left:0;right:0;bottom:0;z-index:950;max-height:52%;overflow:auto;
+    background:rgba(251,246,234,.98);border-top:1px solid #D9CDB6;display:none;padding:10px 14px 22px;}
+  #tl h4{margin:0 0 8px;font-size:13px;color:#8A7A5E;letter-spacing:.2em;font-weight:400;}
+  #tl .it{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(160,140,110,.22);font-size:13px;}
+  #tl .y{width:104px;color:#8A6A3E;flex:none;}
+  #tl .c{color:#2B2419;}
+  #tl .w{color:#3F5C9A;}
+  #tl .close{position:absolute;right:12px;top:8px;font-size:12px;color:#8A7A5E;background:none;border:0;}
 </style>
 </head>
 <body>
@@ -46,21 +46,36 @@
   <div class="name" id="n"></div>
   <div class="now" id="m"></div>
   <div class="row">
-    <button id="t1" class="on">现代</button>
+    <button id="t1" class="on">中国</button>
     <button id="t2">地形</button>
     <button id="t3">卫星</button>
+    <button id="t4">世界</button>
   </div>
   <div class="row">
-    <button id="o1" class="on">历史事件</button>
-    <button id="o2" class="on">势力范围</button>
-    <button id="o3" class="on">名胜古迹</button>
+    <button id="o1" class="on">史事</button>
+    <button id="o2" class="on">势力</button>
+    <button id="o3" class="on">名胜</button>
+    <button id="o4" class="on">世界</button>
+    <button id="o5">对照</button>
+  </div>
+  <div class="row">
+    <button id="y1" class="on">全部</button>
+    <button id="y2">先秦</button>
+    <button id="y3">汉唐</button>
+    <button id="y4">宋元</button>
+    <button id="y5">明清</button>
   </div>
 </div>
 <div id="hint">拖动平移，双指缩放</div>
+<div id="tl"><button class="close" onclick="document.getElementById('tl').style.display='none'">关闭</button><h4>中 外 同 期</h4><div id="tlb"></div></div>
+
 <script src="leaflet.js"></script>
 <script src="events.js"></script>
 <script src="powers.js"></script>
 <script src="sites.js"></script>
+<script src="world_places.js"></script>
+<script src="world_events.js"></script>
+<script src="timeline.js"></script>
 <script>
 var place = (function () {
   try {
@@ -68,44 +83,61 @@ var place = (function () {
     var m = /(?:^|&)d=([^&]+)/.exec(q);
     if (m) return JSON.parse(decodeURIComponent(m[1]));
   } catch (e) {}
-  return window.__PLACE__ || {name:"", note:"", modern:"", lat:34.6, lng:113.0, old:[]};
+  return window.__PLACE__ || {name:"", note:"", modern:"", lat:34.6, lng:113.0, old:[], wlat:null, wlng:null};
 })();
 
-document.getElementById('n').textContent = place.name || '古地名';
+document.getElementById('n').textContent = place.name || '地名';
 document.getElementById('m').textContent =
   (place.modern ? '今 ' + place.modern : '') + (place.note ? '　' + place.note : '');
 
+var start = (place.wlat != null && place.wlng != null) ? [place.wlat, place.wlng] : [place.lat, place.lng];
 var map = L.map('map', {zoomControl:false, attributionControl:false})
-    .setView([place.lat, place.lng], place.zoom || 8);
+    .setView(start, place.zoom || (place.wlat != null ? 4 : 7));
 
 var base = {
-  modern: L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {subdomains:'1234', maxZoom:18}),
+  cn: L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {subdomains:'1234', maxZoom:18}),
   terrain: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', {maxZoom:13}),
-  sat: L.tileLayer('https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {subdomains:'1234', maxZoom:18})
+  sat: L.tileLayer('https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {subdomains:'1234', maxZoom:18}),
+  world: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom:18})
 };
-base.modern.addTo(map);
+(place.wlat != null ? base.world : base.cn).addTo(map);
+
+var Y = ['全部','先秦','汉唐','宋元','明清'];
+var curY = 0;
+function inEra(y) {
+  if (curY === 0) return true;
+  if (curY === 1) return y < 0;
+  if (curY === 2) return y >= -206 && y < 907;
+  if (curY === 3) return y >= 907 && y < 1368;
+  return y >= 1368 && y < 1912;
+}
 
 var gPower = L.layerGroup().addTo(map);
 (window.POWERS || []).forEach(function (p) {
   if (!p.poly || !p.poly.length) return;
-  var poly = L.polygon(p.poly, {
-    color: p.color, weight: 1.2, opacity: .75,
-    fillColor: p.color, fillOpacity: .16
-  }).addTo(gPower);
-  poly.bindTooltip(p.name + '（' + p.era + '）',
-    {permanent:true, direction:'center', className:'lbl', opacity:1});
+  L.polygon(p.poly, {color:p.color, weight:1.2, opacity:.75, fillColor:p.color, fillOpacity:.16})
+   .addTo(gPower)
+   .bindTooltip(p.name + '（' + p.era + '）', {permanent:true, direction:'center', className:'lbl', opacity:1});
 });
 
+function evLayer(list, color, group) {
+  list.forEach(function (e) {
+    var lat = e.lat, lng = e.lng;
+    if (lat == null && window.CITIES && window.CITIES[e.place]) { lat = window.CITIES[e.place][0]; lng = window.CITIES[e.place][1]; }
+    if (lat == null || lng == null) return;
+    if (!inEra(e.year)) return;
+    var m = L.marker([lat, lng], {
+      icon: L.divIcon({className:'', html:'<div class="dot ev" style="background:' + color + '"></div>', iconSize:[9,9]})
+    }).addTo(group);
+    var y = e.year < 0 ? '前' + (-e.year) + '年' : e.year + '年';
+    m.bindTooltip(e.name, {direction:'top', className:'lbl', offset:[0,-6]});
+    m.bindPopup('<div style="font-family:serif;max-width:220px"><b>' + e.name + '</b><br>' +
+      y + (e.tag ? '　' + e.tag : '') + '<br>' + (e.note || '') + '</div>');
+  });
+}
+
 var gEvent = L.layerGroup().addTo(map);
-(window.EVENTS || []).forEach(function (e) {
-  var m = L.marker([e.lat, e.lng], {
-    icon: L.divIcon({className:'', html:'<div class="dot ev"></div>', iconSize:[9,9]})
-  }).addTo(gEvent);
-  var y = e.year < 0 ? '前' + (-e.year) + '年' : e.year + '年';
-  m.bindTooltip(e.name, {direction:'top', className:'lbl', offset:[0,-6]});
-  m.bindPopup('<div style="font-family:serif;max-width:210px"><b>' + e.name + '</b><br>' +
-    y + '　' + e.tag + '<br>' + e.note + '</div>');
-});
+evLayer(window.EVENTS || [], '#B33A2B', gEvent);
 
 var gSite = L.layerGroup().addTo(map);
 (window.SITES || []).forEach(function (s) {
@@ -113,15 +145,41 @@ var gSite = L.layerGroup().addTo(map);
     icon: L.divIcon({className:'', html:'<div class="dot st"></div>', iconSize:[9,9]})
   }).addTo(gSite);
   m.bindTooltip(s.name, {direction:'top', className:'lbl', offset:[0,-6]});
-  m.bindPopup('<div style="font-family:serif;max-width:210px"><b>' + s.name + '</b><br>' +
-    s.kind + '　' + s.note + '</div>');
+  m.bindPopup('<div style="font-family:serif;max-width:220px"><b>' + s.name + '</b><br>' + s.kind + '　' + s.note + '</div>');
 });
 
-L.marker([place.lat, place.lng], {
-  icon: L.divIcon({className:'', html:'<div class="dot"></div>', iconSize:[9,9]})
-}).addTo(map).bindTooltip(
-  place.name + (place.modern ? '（今 ' + place.modern + '）' : ''),
-  {permanent:true, direction:'top', className:'lbl old', offset:[0,-6], opacity:1});
+// 世界地名
+var gW = L.layerGroup();
+Object.keys(window.WPLACES || {}).forEach(function (k) {
+  var v = window.WPLACES[k];
+  L.marker([v[0], v[1]], {
+    icon: L.divIcon({className:'', html:'<div class="dot wp"></div>', iconSize:[9,9]})
+  }).addTo(gW).bindTooltip(k, {direction:'top', className:'lbl', offset:[0,-6]})
+    .bindPopup('<div style="font-family:serif;max-width:220px"><b>' + k + '</b><br>' + v[2] + '　' + v[3] + '</div>');
+});
+
+// 世界史事
+var gWE = L.layerGroup();
+(window.WEVENTS || []).forEach(function (e, i) {
+  var nm = e[0], yr = e[1], city = e[2], note = e[3], tag = e[4];
+  if (!inEra(yr)) return;
+  var c = window.WPLACES && window.WPLACES[city];
+  if (!c) return;
+  var m = L.marker([c[0], c[1]], {
+    icon: L.divIcon({className:'', html:'<div class="dot ev" style="background:#5B4B8A"></div>', iconSize:[8,8]})
+  }).addTo(gWE);
+  var y = yr < 0 ? '前' + (-yr) + '年' : yr + '年';
+  m.bindTooltip(nm, {direction:'top', className:'lbl', offset:[0,-6]});
+  m.bindPopup('<div style="font-family:serif;max-width:220px"><b>' + nm + '</b><br>' + y + '　' + city + '<br>' + note + '</div>');
+});
+
+// 当前地名
+if (place.lat != null) {
+  L.marker([place.lat, place.lng], {
+    icon: L.divIcon({className:'', html:'<div class="dot"></div>', iconSize:[9,9]})
+  }).addTo(map).bindTooltip(place.name + (place.modern ? '（今 ' + place.modern + '）' : ''),
+    {permanent:true, direction:'top', className:'lbl old', offset:[0,-6], opacity:1});
+}
 
 var gNear = L.layerGroup().addTo(map);
 (place.old || []).forEach(function (p) {
@@ -133,14 +191,14 @@ var gNear = L.layerGroup().addTo(map);
 
 function pickBase(k, btn) {
   Object.keys(base).forEach(function (x) { if (map.hasLayer(base[x])) map.removeLayer(base[x]); });
-  base[k].addTo(map);
-  base[k].bringToBack();
-  ['t1','t2','t3'].forEach(function (id) { document.getElementById(id).className = ''; });
+  base[k].addTo(map); base[k].bringToBack();
+  ['t1','t2','t3','t4'].forEach(function (id) { document.getElementById(id).className = ''; });
   btn.className = 'on';
 }
-document.getElementById('t1').onclick = function () { pickBase('modern', this); };
+document.getElementById('t1').onclick = function () { pickBase('cn', this); };
 document.getElementById('t2').onclick = function () { pickBase('terrain', this); };
 document.getElementById('t3').onclick = function () { pickBase('sat', this); };
+document.getElementById('t4').onclick = function () { pickBase('world', this); };
 
 function toggle(group, btn) {
   if (map.hasLayer(group)) { map.removeLayer(group); btn.className = 'off'; }
@@ -149,6 +207,55 @@ function toggle(group, btn) {
 document.getElementById('o1').onclick = function () { toggle(gEvent, this); };
 document.getElementById('o2').onclick = function () { toggle(gPower, this); };
 document.getElementById('o3').onclick = function () { toggle(gSite, this); };
+document.getElementById('o4').onclick = function () { toggle(gW, this); toggle(gWE, this); };
+
+// 时间切片：重建史事层
+function rebuild() {
+  map.removeLayer(gEvent);
+  gEvent = L.layerGroup();
+  evLayer(window.EVENTS || [], '#B33A2B', gEvent);
+  if (document.getElementById('o1').className === 'on') gEvent.addTo(map);
+  map.removeLayer(gWE);
+  gWE = L.layerGroup();
+  (window.WEVENTS || []).forEach(function (e) {
+    var nm=e[0], yr=e[1], city=e[2], note=e[3];
+    if (!inEra(yr)) return;
+    var c = window.WPLACES && window.WPLACES[city];
+    if (!c) return;
+    var m = L.marker([c[0], c[1]], {
+      icon: L.divIcon({className:'', html:'<div class="dot ev" style="background:#5B4B8A"></div>', iconSize:[8,8]})
+    }).addTo(gWE);
+    var y = yr < 0 ? '前' + (-yr) + '年' : yr + '年';
+    m.bindTooltip(nm, {direction:'top', className:'lbl', offset:[0,-6]});
+    m.bindPopup('<div style="font-family:serif;max-width:220px"><b>' + nm + '</b><br>' + y + '　' + city + '<br>' + note + '</div>');
+  });
+}
+['y1','y2','y3','y4','y5'].forEach(function (id, i) {
+  document.getElementById(id).onclick = function () {
+    curY = i;
+    ['y1','y2','y3','y4','y5'].forEach(function (x) { document.getElementById(x).className = ''; });
+    this.className = 'on';
+    rebuild();
+  };
+});
+
+// 对照表
+document.getElementById('o5').onclick = function () {
+  var p = document.getElementById('tl');
+  if (p.style.display === 'block') { p.style.display = 'none'; this.className = ''; return; }
+  var b = document.getElementById('tlb');
+  if (!b.childNodes.length) {
+    (window.TIMELINE || []).slice().sort(function (a, c) { return a[0] - c[0]; }).forEach(function (t) {
+      var cy = t[0] < 0 ? '前' + (-t[0]) : t[0];
+      var wy = t[2] < 0 ? '前' + (-t[2]) : t[2];
+      var d = document.createElement('div'); d.className = 'it';
+      d.innerHTML = '<div class="y">' + cy + ' / ' + wy + '</div>' +
+        '<div class="c">' + t[1] + '</div><div class="w">' + t[3] + '</div>';
+      b.appendChild(d);
+    });
+  }
+  p.style.display = 'block'; this.className = 'on';
+};
 </script>
 </body>
 </html>

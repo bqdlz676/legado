@@ -17,6 +17,8 @@ object NameResolver {
         val meta: String,
         val detail: String,
         val pinyin: String,
+        val wlat: Double? = null,
+        val wlng: Double? = null,
     )
 
     enum class Kind { PERSON, PLACE }
@@ -174,7 +176,9 @@ object NameResolver {
                 }
                 if (isEmpty()) append("先秦地名")
             },
-            pinyin = ""
+            pinyin = "",
+            wlat = if (e.world) e.lat else null,
+            wlng = if (e.world) e.lng else null,
         )
     }
 

@@ -25,6 +25,29 @@ class PlaceMapActivity : AppCompatActivity() {
         val name = intent.getStringExtra("name").orEmpty()
         findViewById<ImageButton>(R.id.btn_back).setOnClickListener { finish() }
 
+        val wlat = intent.getDoubleExtra("wlat", Double.NaN)
+        val wlng = intent.getDoubleExtra("wlng", Double.NaN)
+        val isWorld = !wlat.isNaN() && !wlng.isNaN()
+
+        if (isWorld) {
+            val payload = JSONObject().apply {
+                put("name", name)
+                put("lat", wlat)
+                put("lng", wlng)
+                put("wlat", wlat)
+                put("wlng", wlng)
+                put("zoom", 5)
+                put("modern", "")
+                put("note", "世界历史地名")
+                put("old", JSONArray())
+            }
+            val w = findViewById<WebView>(R.id.web)
+            configureWeb(w)
+            w.loadUrl("file:///android_asset/map/index.html?d=" +
+                java.net.URLEncoder.encode(payload.toString(), "UTF-8"))
+            return
+        }
+
         val geo = PlaceGeo.of(this, name)
         if (geo == null) {
             findViewById<TextView>(R.id.tv_empty).visibility = View.VISIBLE
@@ -51,6 +74,13 @@ class PlaceMapActivity : AppCompatActivity() {
         }
 
         val web = findViewById<WebView>(R.id.web)
+        configureWeb(web)
+
+        val data = java.net.URLEncoder.encode(payload.toString(), "UTF-8")
+        web.loadUrl("file:///android_asset/map/index.html?d=$data")
+    }
+
+    private fun configureWeb(web: WebView): WebView {
         val settings = web.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -59,8 +89,6 @@ class PlaceMapActivity : AppCompatActivity() {
         settings.loadsImagesAutomatically = true
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
-
-        val data = java.net.URLEncoder.encode(payload.toString(), "UTF-8")
-        web.loadUrl("file:///android_asset/map/index.html?d=$data")
+        return web
     }
 }
