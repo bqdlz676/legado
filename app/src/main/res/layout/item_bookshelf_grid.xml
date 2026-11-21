@@ -84,15 +84,16 @@
             android:id="@+id/tv_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="8dp"
             android:ellipsize="end"
-            android:gravity="top|center_horizontal"
+            android:gravity="top|start"
             android:includeFontPadding="false"
             android:lines="2"
+            android:lineSpacingExtra="2dp"
             android:scrollbars="none"
             android:text="@string/book_name"
             android:textColor="@color/primaryText"
-            android:textSize="12sp"
+            android:textSize="12.5sp"
             tools:ignore="RtlHardcoded,RtlSymmetry" />
 
     </LinearLayout>

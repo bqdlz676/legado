@@ -40,4 +40,9 @@
             tools:ignore="HardcodedText,RtlHardcoded" />
     </LinearLayout>
 
+    <io.legado.app.ui.welcome.SplashShineView
+        android:id="@+id/v_shine"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

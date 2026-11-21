@@ -33,6 +33,8 @@ class SplashInkView @JvmOverloads constructor(
     private val inkPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val fibrePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rulePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rimPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
         paperPaint.color = PAPER
@@ -41,6 +43,9 @@ class SplashInkView @JvmOverloads constructor(
         fibrePaint.strokeWidth = 0.8f
         rulePaint.color = INK
         rulePaint.strokeWidth = 1.2f * density
+        glowPaint.color = GOLD
+        rimPaint.color = GOLD
+        rimPaint.strokeWidth = 1.0f * density
         buildFibres()
     }
 
@@ -103,6 +108,24 @@ class SplashInkView @JvmOverloads constructor(
         val cy = h * 0.45f
         val base = min(w, h)
 
+        // 暖金光：像纸背后透上来的一层灯
+        val kg = ease(0.0f, 0.62f)
+        if (kg > 0f) {
+            val r = base * (0.50f + 0.34f * kg)
+            glowPaint.shader = RadialGradient(
+                cx, cy, r,
+                intArrayOf(
+                    withAlpha(GOLD, (0.14f * kg * 255).toInt()),
+                    withAlpha(GOLD, (0.05f * kg * 255).toInt()),
+                    0
+                ),
+                floatArrayOf(0f, 0.46f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(cx, cy, r, glowPaint)
+        }
+        glowPaint.shader = null
+
         // 三层墨晕：大团慢、核心快，叠出不规则边缘感
         val layers = floatArrayOf(0.72f, 0.46f, 0.26f)
         val starts = floatArrayOf(0.02f, 0.12f, 0.24f)
@@ -122,6 +145,12 @@ class SplashInkView @JvmOverloads constructor(
                 Shader.TileMode.CLAMP
             )
             canvas.drawCircle(cx, cy, r, inkPaint)
+
+            // 墨晕外圈一道极细金边，光从墨里透出来
+            if (i == 2) {
+                rimPaint.alpha = (0.22f * k * 255).toInt().coerceIn(0, 255)
+                canvas.drawCircle(cx, cy, r * 1.006f, rimPaint)
+            }
         }
         inkPaint.shader = null
 
@@ -141,5 +170,6 @@ class SplashInkView @JvmOverloads constructor(
         private const val PAPER = 0xFFF4EDDD.toInt()
         private const val INK = 0xFF2A2320.toInt()
         private const val FIBRE = 0xFF6B5F4E.toInt()
+        private const val GOLD = 0xFFC9A063.toInt()
     }
 }
