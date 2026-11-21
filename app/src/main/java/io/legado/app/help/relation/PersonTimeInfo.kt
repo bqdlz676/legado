@@ -68,6 +68,14 @@ object PersonTimeInfo {
     /** 全部已知短称谓，供抽取时按首字立桶 */
     fun allAliases(context: Context): List<String> = loadAlias(context).keys.toList()
 
+    /** 全部可命中人名（本名 + 别名），灌逐章出场表用 */
+    fun allNames(context: Context): List<String> {
+        val out = ArrayList<String>(loadL1(context).size + 512)
+        out.addAll(loadL1(context).keys)
+        out.addAll(loadAlias(context).keys)
+        return out
+    }
+
     /**
      * 按锚点选本名。
      * 谥称按「当前文本所属国」优先；爵称（楚子/齐侯）指向该国当年在位的君主，
@@ -159,19 +167,24 @@ object PersonTimeInfo {
         l1?.let { return it }
         synchronized(this) {
             l1?.let { return it }
-            val m = HashMap<String, L1>(100)
+            val m = HashMap<String, L1>(260)
             runCatching {
-                context.applicationContext.assets.open("person_l1.txt")
+                // person_core：id/canonical/dynasty/birth/death/identity/feat/state/source/confidence/proofread/zi/hao/fief
+                context.applicationContext.assets.open("person_core.txt")
                     .bufferedReader().useLines { lines ->
                         lines.forEach { line ->
                             if (line.isEmpty() || line.startsWith("#")) return@forEach
                             val p = line.split('\t')
-                            if (p.size < 11) return@forEach
+                            if (p.size < 14) return@forEach
+                            val feat = p[6]
+                            val rg = Regex("\uFF08(-?\\d+)\u2014(-?\\d+)\uFF09").find(feat)
+                            val rs = rg?.groupValues?.getOrNull(1)?.toIntOrNull()
+                            val re = rg?.groupValues?.getOrNull(2)?.toIntOrNull()
                             val e = L1(
-                                name = p[0], zi = p[1], hao = p[2], fief = p[3],
-                                birth = p[4].toIntOrNull(), death = p[5].toIntOrNull(),
-                                reignStart = p[6].toIntOrNull(), reignEnd = p[7].toIntOrNull(),
-                                state = p[8], identity = p[9], deed = p[10],
+                                name = p[1], zi = p[11], hao = p[12], fief = p[13],
+                                birth = p[3].toIntOrNull(), death = p[4].toIntOrNull(),
+                                reignStart = rs, reignEnd = re,
+                                state = p[7], identity = p[5], deed = p[6],
                             )
                             m[e.name] = e
                         }

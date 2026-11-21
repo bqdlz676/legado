@@ -154,6 +154,11 @@
             android:name=".ui.main.PlaceMapActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.main.BattleActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:exported="false"
+            android:label="战役推演" />
+        <activity
             android:name=".ui.main.AllusionDetailActivity"
             android:exported="false" />
         <activity

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>落文 · 战役推演</title>
+<style>
+  :root{
+    --gold:#D4A54A; --copper:#8B6914; --cinnabar:#C23B2E;
+    --paper:#F7F1E6; --ink:#1A1410; --stone:#3A5C6C; --bg:#1C1A14;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+    font-family:"Noto Serif SC","Source Han Serif SC",serif;color:var(--paper)}
+  #c{position:fixed;inset:0}
+  .grain{position:fixed;inset:0;pointer-events:none;opacity:.5;
+    background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);
+    background-size:2px 2px;mix-blend-mode:overlay}
+  .top{position:fixed;top:0;left:0;right:0;padding:18px 16px 10px;display:flex;
+    align-items:center;gap:12px;transition:opacity .4s;z-index:9}
+  .back{width:34px;height:34px;line-height:32px;text-align:center;font-size:19px;
+    color:var(--gold);border:1px solid rgba(212,165,74,.35);border-radius:50%}
+  .title{font-size:16px;letter-spacing:.06em}
+  .era{font-size:12px;color:#9B9687;margin-left:2px}
+  .top.fade{opacity:0}
+  .bottom{position:fixed;left:0;right:0;bottom:0;z-index:9;
+    background:rgba(30,20,12,.72);backdrop-filter:blur(10px);
+    border-top:1px solid rgba(212,165,74,.35);transition:transform .35s,opacity .35s}
+  .row1{display:flex;align-items:center;gap:14px;padding:12px 16px 6px}
+  .turn{font-size:13px;letter-spacing:.04em;color:var(--paper)}
+  .turn b{color:var(--gold);font-size:17px;margin:0 3px}
+  .bar{flex:1;height:1px;background:rgba(247,241,230,.35);position:relative}
+  .bar i{position:absolute;top:-3px;left:0;width:0;height:7px;border-radius:50%;
+    background:var(--cinnabar);box-shadow:0 0 6px rgba(194,59,46,.8);transition:left .3s}
+  .row2{display:flex;gap:10px;padding:4px 16px 14px;align-items:center}
+  .btn{flex:1;text-align:center;padding:9px 0;font-size:13px;letter-spacing:.08em;
+    color:var(--gold);border:1px solid rgba(212,165,74,.5);border-radius:4px;
+    background:rgba(212,165,74,.06)}
+  .btn:active{background:rgba(194,59,46,.18);color:var(--paper)}
+  .btn.main{color:#F7F1E6;background:rgba(212,165,74,.22)}
+  .note{position:fixed;left:16px;right:16px;bottom:96px;font-size:12.5px;line-height:1.7;
+    color:var(--gold);text-shadow:0 1px 4px #000;opacity:0;transition:opacity .3s;z-index:8}
+  .note.on{opacity:1}
+  .end{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;background:rgba(20,16,10,.82);z-index:20;text-align:center;padding:30px}
+  .end h2{font-size:22px;letter-spacing:.1em;color:var(--gold);margin-bottom:14px}
+  .end p{font-size:14px;line-height:2;color:#D8CDB8}
+  .end .btn{margin-top:26px;padding:10px 26px;flex:none}
+  .hint{position:fixed;top:54%;left:0;right:0;text-align:center;font-size:13px;
+    color:rgba(247,241,230,.5);letter-spacing:.12em;z-index:6;transition:opacity .6s}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="grain"></div>
+<div class="hint" id="hint">地形隆起中</div>
+<div class="top" id="top">
+  <div class="back" onclick="history.back()">&#8249;</div>
+  <div class="title" id="title">垓下之战</div>
+  <div class="era" id="era">前202年</div>
+</div>
+<div class="note" id="note"></div>
+<div class="bottom" id="bottom">
+  <div class="row1">
+    <div class="turn">回合 <b id="t">0</b>/<span id="dur">30</span></div>
+    <div class="bar"><i id="dot"></i></div>
+  </div>
+  <div class="row2">
+    <div class="btn" id="reset">重置</div>
+    <div class="btn main" id="next">下一回合</div>
+    <div class="btn" id="auto">自动推演</div>
+  </div>
+</div>
+<div class="end" id="end">
+  <h2 id="endTitle">战役结束</h2>
+  <p id="endBody"></p>
+  <div class="btn" onclick="location.reload()">再推一遍</div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="engine.js"></script>
+<script src="campaigns.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var id = q.get('c') || 'gaixia';
+  var C = (window.CAMPAIGNS || {})[id];
+  if (!C) { document.getElementById('hint').textContent = '没有这场战役'; return; }
+
+  document.getElementById('title').textContent = C.title;
+  document.getElementById('era').textContent = C.era;
+  document.getElementById('dur').textContent = C.duration || 30;
+
+  var sim = LWEngine.Sim(C, { grid: 96, seed: 42 });
+  var T = sim.terrain, n = T.n;
+  var SIDE = {};
+  (C.sides || []).forEach(function (s) { SIDE[s.id] = s; });
+
+  // ---------- 场景 ----------
+  var canvas = document.getElementById('c');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x1C1A14, 1);
+
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x1C1A14, 0.0075);
+  var camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 600);
+  var cam = { dist: 118, yaw: -0.5, pitch: 0.95, tx: 0, tz: 0, y: 0 };
+  function placeCam() {
+    var cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    camera.position.set(
+      cam.tx + cam.dist * cp * Math.sin(cam.yaw),
+      cam.y + cam.dist * sp,
+      cam.tz + cam.dist * cp * Math.cos(cam.yaw)
+    );
+    camera.lookAt(cam.tx, cam.y, cam.tz);
+  }
+  placeCam();
+
+  scene.add(new THREE.AmbientLight(0x4a3928, 1.1));
+  var sun = new THREE.DirectionalLight(0xffd9a0, 1.45);
+  sun.position.set(-60, 90, 55);
+  scene.add(sun);
+  var fill = new THREE.DirectionalLight(0x3A5C6C, 0.55);
+  fill.position.set(70, 30, -60);
+  scene.add(fill);
+
+  // ---------- 地形 ----------
+  var W = 100, H = 22, half = W / 2;
+  var pos = [], col = [], idx = [];
+  var cols = [new THREE.Color(0x3A4048), new THREE.Color(0x5E5646),
+              new THREE.Color(0x8E7F68), new THREE.Color(0xB8A88A)];
+  function colorAt(h, sl) {
+    var t = Math.min(1, h / 2600);
+    var c = cols[0].clone().lerp(cols[1], Math.min(1, t * 2));
+    if (t > 0.35) c.lerp(cols[2], (t - 0.35) / 0.4);
+    if (t > 0.7) c.lerp(cols[3], (t - 0.7) / 0.3);
+    var k = 1 - Math.min(0.45, sl / 90);        // 陡坡压暗
+    c.multiplyScalar(k);
+    return c;
+  }
+  for (var r = 0; r < n; r++) for (var c2 = 0; c2 < n; c2++) {
+    var h = T.h[r * n + c2];
+    pos.push((c2 / (n - 1) - 0.5) * W, h / 3000 * H, (r / (n - 1) - 0.5) * W);
+    var cc = colorAt(h, T.slope[r * n + c2]);
+    col.push(cc.r, cc.g, cc.b);
+  }
+  for (var r2 = 0; r2 < n - 1; r2++) for (var c3 = 0; c3 < n - 1; c3++) {
+    var a = r2 * n + c3, b = a + 1, d = a + n, e = d + 1;
+    idx.push(a, d, b, b, d, e);
+  }
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  var mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: false });
+  var terrain = new THREE.Mesh(geo, mat);
+  terrain.scale.y = 0.0001;
+  scene.add(terrain);
+  setTimeout(function () { terrain.scale.y = 1; }, 60);
+
+  function hAt(rc) { return T.heightAt(rc.r, rc.c) / 3000 * H; }
+  function xz(r, c) { return [(c / (n - 1) - 0.5) * W, (r / (n - 1) - 0.5) * W]; }
+
+  // 河流（金色液面）
+  var riverGeo = new THREE.BufferGeometry(), rv = [];
+  for (var i = 0; i < T.river.length; i++) {
+    if (!T.river[i]) continue;
+    var rr = Math.floor(i / n), rc = i % n, p = xz(rr, rc), hy = T.heightAt(rr, rc) / 3000 * H + 0.12;
+    var s = 0.9;
+    rv.push(p[0] - s, hy, p[1] - s, p[0] + s, hy, p[1] - s, p[0] + s, hy, p[1] + s,
+            p[0] - s, hy, p[1] - s, p[0] + s, hy, p[1] + s, p[0] - s, hy, p[1] + s);
+  }
+  riverGeo.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3));
+  scene.add(new THREE.Mesh(riverGeo, new THREE.MeshBasicMaterial({
+    color: 0xD4A54A, transparent: true, opacity: 0.55, side: THREE.DoubleSide
+  })));
+
+  // ---------- 棋子 ----------
+  var ARMY = {}, groups = [];
+  function buildArmy(a) {
+    var side = SIDE[a.side] || { color: '#D4A54A' };
+    var color = new THREE.Color(side.color);
+    var g = new THREE.Group();
+    var sz = 0.75 + Math.min(1.4, a.strength / 12);
+    var body = new THREE.Mesh(
+      new THREE.ConeGeometry(1.7 * sz, 4.6 * sz, 4, 1),
+      new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.72 })
+    );
+    body.position.y = 2.6 * sz;
+    g.add(body);
+    var ring = new THREE.Mesh(
+      new THREE.TorusGeometry(2.2 * sz, 0.1, 6, 26),
+      new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 })
+    );
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.15;
+    g.add(ring);
+    var beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 8 * sz, 5),
+      new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 })
+    );
+    beam.position.y = 8 * sz;
+    g.add(beam);
+    var p = xz(a.r, a.c);
+    g.position.set(p[0], hAt(a) + 0.2, p[1]);
+    scene.add(g);
+    return { g: g, base: g.position.clone(), body: body, ring: ring, beam: beam, sz: sz };
+  }
+  sim.armies.forEach(function (a) { ARMY[a.id] = buildArmy(a); });
+
+  // ---------- 箭头 ----------
+  var arrows = new THREE.Group(); scene.add(arrows);
+  function heightAtLngLat(lng, lat) {
+    var cell = LWEngine.toCell(T.b, lng, lat, n);
+    return T.heightAt(cell.r, cell.c) / 3000 * H;
+  }
+  function arrow(move) {
+    var side = SIDE[move.side] || { color: '#D4A54A' };
+    var colr = new THREE.Color(move.side === 'chu' ? '#C23B2E' : side.color);
+    var pts = [];
+    var N = 22;
+    for (var i = 0; i <= N; i++) {
+      var t = i / N;
+      var lng = move.from[0] + (move.to[0] - move.from[0]) * t;
+      var lat = move.from[1] + (move.to[1] - move.from[1]) * t;
+      var cell = LWEngine.toCell(T.b, lng, lat, n);
+      var xz2 = xz(cell.r, cell.c);
+      pts.push(new THREE.Vector3(xz2[0], T.heightAt(cell.r, cell.c) / 3000 * H + 0.55, xz2[1]));
+    }
+    var curve = new THREE.CatmullRomCurve3(pts);
+    var tube = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, 28, 0.16, 4, false),
+      new THREE.MeshBasicMaterial({ color: colr, transparent: true, opacity: move.animation === 'dashed' ? 0.55 : 0.85 })
+    );
+    arrows.add(tube);
+    var tip = pts[pts.length - 1], prev = pts[pts.length - 2];
+    var head = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.5, 4),
+      new THREE.MeshBasicMaterial({ color: colr }));
+    head.position.copy(tip);
+    head.lookAt(tip.clone().add(tip.clone().sub(prev).normalize()));
+    head.rotateX(Math.PI / 2);
+    arrows.add(head);
+  }
+
+  // ---------- UI ----------
+  var elT = document.getElementById('t'), elDot = document.getElementById('dot');
+  var elNote = document.getElementById('note'), elEnd = document.getElementById('end');
+  var elEndTitle = document.getElementById('endTitle'), elEndBody = document.getElementById('endBody');
+  var timer = null, ended = false;
+  function showNote(s) {
+    if (!s) return;
+    elNote.textContent = s; elNote.classList.add('on');
+    clearTimeout(showNote._t);
+    showNote._t = setTimeout(function () { elNote.classList.remove('on'); }, 2600);
+  }
+  function refresh() {
+    elT.textContent = sim.turn();
+    elDot.style.width = (sim.turn() / (C.duration || 30));
+    elDot.style.width = (Math.min(100, sim.turn() / (C.duration || 30) * 100)) + '%';
+  }
+  function syncArmies() {
+    sim.armies.forEach(function (a) {
+      var A = ARMY[a.id]; if (!A) return;
+      if (!a.alive) { A.g.visible = false; return; }
+      var p = xz(a.r, a.c);
+      A.g.position.set(p[0], hAt(a) + 0.2, p[1]);
+      var op = a.morale === 'wavering' ? 0.55 : a.morale === 'broken' ? 0.25 : 0.75;
+      A.body.material.opacity = op;
+    });
+  }
+  function step() {
+    if (ended) return;
+    var res = sim.tick();
+    arrows.clear();
+    res.moves.forEach(arrow);
+    syncArmies();
+    refresh();
+    var msg = res.notes && res.notes.length ? res.notes[res.notes.length - 1] : '';
+    if (res.events && res.events.length) msg = res.events.map(function (e) { return e.reason || e.action; }).join(' · ');
+    showNote(msg);
+    if (res.victory) finish(res.victory);
+  }
+  function finish(v) {
+    ended = true;
+    if (timer) { clearInterval(timer); timer = null; }
+    elEndTitle.textContent = C.title + ' · ' + C.era;
+    elEndBody.textContent = (v.winner ? v.winner + '胜 · ' : '') + v.description +
+      '\n推演 ' + sim.turn() + ' 回合';
+    elEnd.style.display = 'flex';
+  }
+  document.getElementById('next').onclick = step;
+  document.getElementById('reset').onclick = function () { location.reload(); };
+  document.getElementById('auto').onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; this.textContent = '自动推演'; return; }
+    this.textContent = '暂停';
+    timer = setInterval(function () {
+      if (ended) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1200);
+  };
+
+  // ---------- 手势 ----------
+  var down = null, last = null;
+  canvas.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; down = { x: t.clientX, y: t.clientY }; last = down;
+    document.getElementById('hint').style.opacity = 0;
+  }, { passive: true });
+  canvas.addEventListener('touchmove', function (e) {
+    var t = e.touches[0];
+    if (last) {
+      cam.yaw -= (t.clientX - last.x) * 0.006;
+      cam.pitch = Math.max(0.28, Math.min(1.45, cam.pitch + (t.clientY - last.y) * 0.004));
+      placeCam();
+      last = { x: t.clientX, y: t.clientY };
+    }
+    e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('touchend', function () { last = null; }, { passive: true });
+  canvas.addEventListener('wheel', function (e) {
+    cam.dist = Math.max(45, Math.min(220, cam.dist + e.deltaY * 0.08));
+    placeCam(); e.preventDefault();
+  }, { passive: false });
+
+  // 顶栏 3s 自动淡出
+  var topTimer;
+  function poke() {
+    var top = document.getElementById('top');
+    top.classList.remove('fade');
+    clearTimeout(topTimer);
+    topTimer = setTimeout(function () { top.classList.add('fade'); }, 3000);
+  }
+  canvas.addEventListener('touchstart', poke, { passive: true });
+  poke();
+
+  // 地形隆起动画
+  (function rise() {
+    var t0 = performance.now();
+    (function loop() {
+      var k = Math.min(1, (performance.now() - t0) / 700);
+      terrain.scale.y = k * k;
+      if (k < 1) requestAnimationFrame(loop);
+      else document.getElementById('hint').style.opacity = 0;
+    })();
+  })();
+
+  (function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  })();
+  window.addEventListener('resize', function () {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+  refresh();
+})();
+</script>
+</body>
+</html>

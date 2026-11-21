@@ -26,6 +26,16 @@ class PlaceMapActivity : AppCompatActivity() {
 
         val name = intent.getStringExtra("name").orEmpty()
         findViewById<ImageButton>(R.id.btn_back).setOnClickListener { finish() }
+        // 3D 推演入口：地名页右上角「推演」→ 沙盘（带当前锚定年份）
+        findViewById<android.widget.TextView>(R.id.btn_battle).setOnClickListener {
+            startActivity(
+                android.content.Intent(this, BattleActivity::class.java).apply {
+                    putExtra("campaign", "gaixia")
+                    io.legado.app.help.chrono.ContextAnchor.getYear()
+                        ?.let { putExtra("year", it) }
+                }
+            )
+        }
 
         val wlat = intent.getDoubleExtra("wlat", Double.NaN)
         val wlng = intent.getDoubleExtra("wlng", Double.NaN)

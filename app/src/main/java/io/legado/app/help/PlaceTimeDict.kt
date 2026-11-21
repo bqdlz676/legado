@@ -2,103 +2,131 @@ package io.legado.app.help
 
 import android.content.Context
 import io.legado.app.help.chrono.ContextAnchor
-import io.legado.app.utils.printOnDebug
 
 /**
- * 地名时空本体（对齐 CHGIS 的三层建模）
+ * 地名时空本体（对齐 CHGIS / 中研院「中华文明之时空基础架构」字段）
  *
- *   实体 place_entity：id / 点面 / 经纬 / 起止年 / 朝代 / tier / 说明
- *   名字 place_name  ：名 / 实体id / 起止年 / 类型（正名、旧名、别称）
+ * 三层建模：
+ *   实体 place   —— 点（城/关隘/渡口）| 面（政区/诸侯国/郡县），稳定不变
+ *   名称 place_name —— 同一实体随时间改名（长安/西京/京兆尹）
+ *   区间 year_start..year_end —— 同名靠「当前章是哪一年」消歧
  *
- * 「长安 = 点，京兆 = 面，咸阳 = 另一个点」是三种不同的东西，不能混：
- *   类型 P 才画点，A 只画辖区色块；
- *   tier 1 遗址实测、2 考证（谭其骧/CHGIS）、3 文献推定（只画色块，不画点）。
+ * 铁律：tier 3（文献推定）只画色块，不画点，避免把「大概在某县」伪装成「精确到百米」。
  *
- * 同名靠时间消歧：点「晋」时按 ContextAnchor 的年代筛，
- * 读《左传》锚在前 722–前 453，就只留春秋晋国（P003），汉以后的「晋」进候选。
+ * 数据（assets）：
+ *   place_entity.txt : id \t 类型(P/A) \t 正名 \t 经度 \t 纬度 \t 起年 \t 止年 \t 朝代
+ *                      \t tier \t 说明 \t 别名(|) \t geometry \t superior \t source
+ *   place_name.txt   : 名称 \t 实体id \t 起年 \t 止年 \t 朝代 \t 类型 \t superior \t source
  */
 object PlaceTimeDict {
 
     data class Ent(
         val id: String,
-        val kind: Char,
+        val kind: Char,                 // 'P' 点 / 'A' 面
         val name: String,
         val lng: Double,
         val lat: Double,
         val start: Int,
         val end: Int,
         val era: String,
-        val tier: Int,
+        val tier: Int,                  // 1 遗址实测 / 2 考证 / 3 文献推定
         val note: String,
+        val aliases: List<String> = emptyList(),
+        val geometry: String? = null,   // GeoJSON，面实体用
+        val superior: String? = null,   // 上级政区
+        val source: String? = null,     // tier_source 出处
+        val seat: String? = null,       // 治所实体 id（面实体）
     ) {
         val isPoint: Boolean get() = kind == 'P'
+
+        /** tier 3 只画色块：isPoint 且 tier 3 → 不落点 */
+        val asPoint: Boolean get() = isPoint && tier <= 2
+
         val tierLabel: String get() = when (tier) {
             1 -> "遗址实测"
             2 -> "考证坐标"
             else -> "文献推定"
         }
-        fun spanLabel(): String = if (start == end) yearText(start)
-        else "${yearText(start)}–${yearText(end)}"
 
-        private fun yearText(y: Int) = if (y <= 0) "前${1 - y}" else "$y"
+        fun spanLabel(): String =
+            if (start == end) yearText(start) else "${yearText(start)}–${yearText(end)}"
+
+        fun whereLabel(): String = when {
+            tier == 1 -> "遗址实测坐标"
+            tier == 2 -> "考证坐标" + (source?.let { "（$it）" } ?: "")
+            else -> "文献推定，精确到县"
+        }
+
+        companion object {
+            fun yearText(y: Int) = if (y <= 0) "前${1 - y}" else "$y"
+        }
     }
 
-    class Resolve(val hit: Ent?, val others: List<Ent>, val anchored: Boolean)
+    class Resolve(
+        val hit: Ent?,
+        val others: List<Ent>,
+        val anchored: Boolean,
+    ) {
+        val hasOthers: Boolean get() = others.isNotEmpty()
+    }
 
-    @Volatile
-    private var byName: Map<String, List<Ent>>? = null
-
-    @Volatile
-    private var byId: Map<String, Ent>? = null
+    @Volatile private var byName: Map<String, List<Ent>>? = null
+    @Volatile private var byId: Map<String, Ent>? = null
 
     fun ensureLoaded(context: Context) {
         if (byName == null) load(context)
     }
 
-    fun candidates(context: Context, name: String): List<Ent> = load(context)[name] ?: emptyList()
+    fun candidates(context: Context, name: String): List<Ent> =
+        load(context)[name] ?: emptyList()
 
     fun entity(context: Context, id: String): Ent? = ensureById(context)[id]
 
     /**
-     * 按锚点年份挑一个；锚点为空就返回 null 并把全部候选作为 others——
-     * 这是「不猜」：宁可让用户自己选，也不给一个假的唯一答案。
+     * 消歧：名字 → 全部候选 → 锚点年份过滤 → tier 高优先 → 区间更窄优先 → 点优先。
+     * 锚点为空：不猜（hit = null，全部进候选）。
      */
-    fun resolve(context: Context, name: String, year: Int? = ContextAnchor.get().year): Resolve {
-        val all = candidates(context, name)
-        if (all.isEmpty()) return Resolve(null, emptyList(), year != null)
-        if (year == null) return Resolve(null, all, false)
-        val inTime = all.filter { year in it.start..it.end }
-        if (inTime.isEmpty()) return Resolve(null, all, true)
-        // 时间命中里：tier 高的优先，其次时间区间更窄的（更具体）
-        val best = inTime.sortedWith(
-            compareBy<Ent> { it.tier }
+    fun resolve(context: Context, name: String, year: Int? = ContextAnchor.getYear()): Resolve {
+        val cands = candidates(context, name)
+        if (cands.isEmpty()) return Resolve(null, emptyList(), year != null)
+        if (year == null) return Resolve(null, cands, false)
+
+        val inSpan = cands.filter { year in it.start..it.end }
+        val pool = if (inSpan.isNotEmpty()) inSpan else cands
+        val sorted = pool.sortedWith(
+            compareBy<Ent> { if (year in it.start..it.end) 0 else 1 }
+                .thenBy { it.tier }
                 .thenBy { it.end - it.start }
-                .thenByDescending { if (it.isPoint) 1 else 0 }
-        ).first()
-        val rest = (all - best).sortedBy { it.start }
-        return Resolve(best, rest, true)
+                .thenBy { if (it.isPoint) 0 else 1 }
+        )
+        val hit = sorted.firstOrNull()
+        val others = cands.filter { it.id != hit?.id }
+        return Resolve(hit, others, true)
     }
 
-    /** 面实体的辖区半径（度），按 tier 决定画不画 */
+    /** 面实体的色块半径（km），点返回 0 */
     fun radiusOf(e: Ent): Double = when {
         e.isPoint -> 0.0
-        e.tier <= 2 -> 1.6
+        e.geometry != null -> 0.0          // 有真多边形就不画圆
+        e.name.length >= 2 -> 2.4
         else -> 2.4
     }
+
+    // ---------- 加载 ----------
 
     private fun load(context: Context): Map<String, List<Ent>> {
         byName?.let { return it }
         synchronized(this) {
             byName?.let { return it }
-            val ents = HashMap<String, Ent>(90)
-            val names = HashMap<String, MutableList<Ent>>(260)
+            val ents = HashMap<String, Ent>(120)
+            val names = HashMap<String, MutableList<Ent>>(320)
             runCatching {
                 context.applicationContext.assets.open("place_entity.txt")
                     .bufferedReader().useLines { lines ->
                         lines.forEach { line ->
                             if (line.isEmpty() || line.startsWith("#")) return@forEach
                             val p = line.split('\t')
-                            if (p.size < 10) return@forEach
+                            if (p.size < 9) return@forEach
                             val lng = p[3].toDoubleOrNull() ?: return@forEach
                             val lat = p[4].toDoubleOrNull() ?: return@forEach
                             val e = Ent(
@@ -108,13 +136,23 @@ object PlaceTimeDict {
                                 lng = lng, lat = lat,
                                 start = p[5].toIntOrNull() ?: -1046,
                                 end = p[6].toIntOrNull() ?: 1911,
-                                era = p[7],
-                                tier = p[8].toIntOrNull() ?: 3,
-                                note = p[9],
+                                era = p.getOrNull(7).orEmpty(),
+                                tier = p.getOrNull(8)?.toIntOrNull() ?: 3,
+                                note = p.getOrNull(9).orEmpty(),
+                                aliases = p.getOrNull(10)
+                                    ?.split('|')?.map { it.trim() }?.filter { it.isNotEmpty() }
+                                    ?: emptyList(),
+                                geometry = p.getOrNull(11)?.takeIf { it.isNotBlank() },
+                                superior = p.getOrNull(12)?.takeIf { it.isNotBlank() },
+                                source = p.getOrNull(13)?.takeIf { it.isNotBlank() },
+                                seat = p.getOrNull(14)?.takeIf { it.isNotBlank() },
                             )
                             ents[e.id] = e
+                            names.getOrPut(e.name) { ArrayList(2) }.add(e)
+                            e.aliases.forEach { a -> names.getOrPut(a) { ArrayList(2) }.add(e) }
                         }
                     }
+
                 context.applicationContext.assets.open("place_name.txt")
                     .bufferedReader().useLines { lines ->
                         lines.forEach { line ->
@@ -122,10 +160,16 @@ object PlaceTimeDict {
                             val p = line.split('\t')
                             if (p.size < 2) return@forEach
                             val e = ents[p[1]] ?: return@forEach
-                            names.getOrPut(p[0]) { ArrayList(2) }.add(e)
+                            // place_name 的 superior/source 覆盖实体级（名称快照优先）
+                            val sup = p.getOrNull(6)?.takeIf { it.isNotBlank() } ?: e.superior
+                            val src = p.getOrNull(7)?.takeIf { it.isNotBlank() } ?: e.source
+                            val merged = e.copy(superior = sup, source = src)
+                            ents[e.id] = merged
+                            names.getOrPut(p[0]) { ArrayList(2) }.add(merged)
                         }
                     }
             }.onFailure { it.printOnDebug() }
+
             byId = ents
             val out = HashMap<String, List<Ent>>(names.size)
             names.forEach { (k, v) -> out[k] = v.distinctBy { it.id } }

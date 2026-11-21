@@ -31,4 +31,21 @@
         android:elevation="4dp"
         android:src="@drawable/ic_arrow_back"
         android:tint="#5A4E38" />
+
+    <TextView
+        android:id="@+id/btn_battle"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="56dp"
+        android:layout_marginEnd="12dp"
+        android:background="#F2EAD8"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:gravity="center"
+        android:text="推演"
+        android:textColor="#8A6A3E"
+        android:textSize="13sp"
+        android:elevation="4dp" />
+
 </FrameLayout>

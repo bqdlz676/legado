@@ -1,42 +1,40 @@
 package io.legado.app.help.chrono
 
 /**
- * 时空锚点：全书唯一的总线。
+ * ContextAnchor —— 纪年、字词、地名、人物四模块之间唯一的共享状态。
  *
- * 纪年、地名、人物、地图四个模块互不调用，只读写这里的一个状态：
- *   - 纪年页选中某年 → setYear
- *   - 正文扫到「鲁隐公元年」「城濮之战」→ guessFromText 写入候选区间
- *   - 地名消歧按年份筛同名 → 读 year/range
- *   - 地图按 year 选朝代图层 → 读 era
- *   - 人物卡片算「此年几岁」→ 读 year
+ * 不是可选件：纪年算出的年份写这里，地名按这里选朝代图层，人物同名按这里消歧。
+ * 四个模块互不调用，只读写这一个锚点。
  *
- * 只要锚点为空，所有下游退化成「同名候选全列 + 不判年代」，不猜。
+ * 锚定优先级（由高到低）：
+ *   1 用户点年号气泡 → setYear（用户主动确认，最高）
+ *   2 正文识别王公纪年「鲁隐公元年」→ setYear(-722)
+ *   3 只有干支/朔望 → setYearRange（最弱，只作兜底）
  */
 object ContextAnchor {
 
-    data class State(
-        val bookName: String? = null,
-        val chapterTitle: String? = null,
-        /** 精确年份，能定到一年就写这个 */
-        val year: Int? = null,
-        /** 只能定到区间（如「春秋」）时用这个，闭区间 */
-        val fromYear: Int? = null,
-        val toYear: Int? = null,
-        /** 当前文本所属国（《左传》按鲁，但一章可能写楚事） */
-        val state: String? = null,
-    ) {
-        val anchorYear: Int? get() = year
-        val range: IntRange? get() = when {
-            year != null -> year..year
-            fromYear != null && toYear != null -> fromYear..toYear
-            else -> null
-        }
-    }
+    /** 当前书 */
+    var bookId: String = ""
+
+    /** 当前章 */
+    var chapterId: String = ""
+
+    /** 章节标题，如「隐公元年」 */
+    var title: String = ""
+
+    /** 候选年代区间（弱锚定，可多条） */
+    var candidateYears: List<IntRange> = emptyList()
 
     @Volatile
-    private var cur = State()
+    private var year: Int? = null
 
-    fun get(): State = cur
+    @Volatile
+    private var range: IntRange? = null
+
+    /** 当前文本所属国（《左传》按鲁，但一章可能写楚事） */
+    @Volatile
+    var state: String? = null
+        private set
 
     @Volatile
     private var listener: (() -> Unit)? = null
@@ -49,62 +47,126 @@ object ContextAnchor {
         listener?.invoke()
     }
 
-    fun clear() {
-        cur = State()
+    // ---------- 1.1 接口 ----------
+
+    /** 纪年换算后写入（用户确认或正文确指） */
+    fun setYear(year: Int) {
+        setYear(year, state)
+    }
+
+    fun setYear(year: Int, st: String?) {
+        this.year = year
+        this.range = year..year
+        this.state = st
+        candidateYears = listOf(year..year)
         notifyChanged()
     }
+
+    /** 模糊年代写入 */
+    fun setYearRange(range: IntRange) {
+        setYearRange(range, state)
+    }
+
+    fun setYearRange(range: IntRange, st: String?) {
+        this.year = if (range.first == range.last) range.first else null
+        this.range = range
+        this.state = st
+        candidateYears = listOf(range)
+        notifyChanged()
+    }
+
+    /** 取最佳锚定年份：能定到一年才返回 */
+    fun getYear(): Int? = year
+
+    /** 年份 → 朝代名 */
+    fun getDynasty(): String? = eraOf(year ?: range?.first)
+
+    /** 是否已锚定年代 */
+    fun hasAnchor(): Boolean = year != null || range != null
+
+    fun reset() {
+        bookId = ""
+        chapterId = ""
+        title = ""
+        candidateYears = emptyList()
+        year = null
+        range = null
+        state = null
+        notifyChanged()
+    }
+
+    // ---------- 兼容旧调用（内部一律转新接口） ----------
+
+    data class State(
+        val bookName: String? = null,
+        val chapterTitle: String? = null,
+        val year: Int? = null,
+        val fromYear: Int? = null,
+        val toYear: Int? = null,
+        val state: String? = null,
+    ) {
+        val range: IntRange? get() = when {
+            year != null -> year..year
+            fromYear != null && toYear != null -> fromYear..toYear
+            else -> null
+        }
+    }
+
+    fun get(): State = State(
+        bookName = bookId.ifBlank { null },
+        chapterTitle = title.ifBlank { null },
+        year = year,
+        fromYear = range?.first,
+        toYear = range?.last,
+        state = state
+    )
+
+    fun clear() = reset()
 
     fun setChapter(bookName: String?, chapterTitle: String?) {
-        cur = cur.copy(bookName = bookName, chapterTitle = chapterTitle)
+        bookId = bookName.orEmpty()
+        title = chapterTitle.orEmpty()
         notifyChanged()
     }
 
-    fun setYear(year: Int?, state: String? = cur.state) {
-        cur = cur.copy(year = year, fromYear = null, toYear = null, state = state)
-        notifyChanged()
-    }
-
-    fun setRange(from: Int?, to: Int?, state: String? = cur.state) {
-        cur = if (from == null || to == null) {
-            cur.copy(year = null, fromYear = null, toYear = null, state = state)
+    fun setRange(from: Int?, to: Int?) {
+        if (from == null || to == null) {
+            year = null
+            range = null
         } else {
-            cur.copy(
-                year = if (from == to) from else null,
-                fromYear = from, toYear = to, state = state
-            )
+            setYearRange(from..to, state)
         }
         notifyChanged()
     }
 
-    /** 某年是否落在锚点内；锚点为空时返回 null（表示「不知道」，不是「不符合」） */
-    fun contains(year: Int?): Boolean? {
-        if (year == null) return null
-        val r = cur.range ?: return null
-        return year in r
+    fun contains(y: Int?): Boolean? {
+        if (y == null) return null
+        val r = range ?: return null
+        return y in r
     }
 
     /** 按公元年判时代，给地图选图层用 */
-    fun eraOf(year: Int?): String? {
-        val y = year ?: cur.year ?: return null
+    fun eraOf(y: Int?): String? {
+        val v = y ?: year ?: range?.first ?: return null
         return when {
-            y in -770..-477 -> "春秋"
-            y in -476..-222 -> "战国"
-            y in -221..-207 -> "秦"
-            y in -206..8 -> "西汉"
-            y in 9..23 -> "新"
-            y in 24..220 -> "东汉"
-            y in 221..280 -> "三国"
-            y in 281..420 -> "两晋"
-            y in 421..589 -> "南北朝"
-            y in 590..617 -> "隋"
-            y in 618..907 -> "唐"
-            y in 908..959 -> "五代"
-            y in 960..1127 -> "北宋"
-            y in 1128..1279 -> "南宋"
-            y in 1280..1367 -> "元"
-            y in 1368..1644 -> "明"
-            y in 1645..1911 -> "清"
-            y >= 1912 -> "近现代"
+            v in -770..-477 -> "春秋"
+            v in -476..-222 -> "战国"
+            v in -221..-207 -> "秦"
+            v in -206..8 -> "西汉"
+            v in 9..23 -> "新"
+            v in 24..220 -> "东汉"
+            v in 221..280 -> "三国"
+            v in 281..420 -> "两晋"
+            v in 421..589 -> "南北朝"
+            v in 590..617 -> "隋"
+            v in 618..907 -> "唐"
+            v in 908..959 -> "五代"
+            v in 960..1127 -> "北宋"
+            v in 1128..1279 -> "南宋"
+            v in 1280..1367 -> "元"
+            v in 1368..1644 -> "明"
+            v in 1645..1911 -> "清"
+            v >= 1912 -> "近现代"
             else -> null
         }
     }
@@ -114,8 +176,8 @@ object ContextAnchor {
         if (text.isBlank()) return
         val hit = Chronology.anchorFromText(text, knownState) ?: return
         when {
-            hit.year != null -> setYear(hit.year, hit.state)
-            hit.from != null && hit.to != null -> setRange(hit.from, hit.to, hit.state)
+            hit.year != null -> setYear(hit.year, hit.state ?: knownState)
+            hit.from != null && hit.to != null -> setYearRange(hit.from..hit.to, hit.state ?: knownState)
         }
     }
 }
