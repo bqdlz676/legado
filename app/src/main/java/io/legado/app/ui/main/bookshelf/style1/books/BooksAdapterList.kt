@@ -65,12 +65,15 @@ class BooksAdapterList(
     }
 
     private fun authorText(item: Book): String =
-        item.author.takeIf { it.isNotBlank() } ?: "佚名"
+        item.author?.takeIf { it.isNotBlank() } ?: "佚名"
 
-    private fun readText(item: Book): String = when {
-        item.durChapterTitle.isNotBlank() -> item.durChapterTitle
-        item.durChapterIndex > 0 -> "读至第 ${item.durChapterIndex + 1} 章"
-        else -> "未读"
+    private fun readText(item: Book): String {
+        val t = item.durChapterTitle
+        return when {
+            !t.isNullOrBlank() -> t
+            item.durChapterIndex > 0 -> "读至第 ${item.durChapterIndex + 1} 章"
+            else -> "未读"
+        }
     }
 
     private fun lastText(item: Book): String = when {

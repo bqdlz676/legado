@@ -24,7 +24,7 @@ class CharDetailActivity : AppCompatActivity() {
         val info = if (ch.isEmpty()) null else ChineseDict.getChar(this, ch)
         val sw = if (ch.isEmpty()) null else ChineseDict.getShuowen(this, ch)
         val usage = if (ch.isEmpty()) null else ChineseDict.getUsage(this, ch)
-        val words = if (ch.isEmpty()) emptyList() else ChineseDict.wordsStartingWith(this, ch)
+        val words = if (ch.isEmpty()) emptyList() else ChineseDict.wordsStartingWith(this, ch[0])
 
         findViewById<ImageButton>(R.id.btn_back).setOnClickListener { finish() }
         findViewById<TextView>(R.id.tv_char).text = ch

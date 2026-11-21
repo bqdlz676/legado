@@ -69,13 +69,16 @@ class BooksAdapterList2(
 
     /** 本地古籍没有作者，落"佚名"，别留空行 */
     private fun authorText(item: Book): String =
-        item.author.takeIf { it.isNotBlank() } ?: "佚名"
+        item.author?.takeIf { it.isNotBlank() } ?: "佚名"
 
     /** 没读过就写"未读"，不空着 */
-    private fun readText(item: Book): String = when {
-        item.durChapterTitle.isNotBlank() -> item.durChapterTitle
-        item.durChapterIndex > 0 -> "读至第 ${item.durChapterIndex + 1} 章"
-        else -> "未读"
+    private fun readText(item: Book): String {
+        val t = item.durChapterTitle
+        return when {
+            !t.isNullOrBlank() -> t
+            item.durChapterIndex > 0 -> "读至第 ${item.durChapterIndex + 1} 章"
+            else -> "未读"
+        }
     }
 
     /** 本地书没有 latestChapterTitle，退成总章数 */

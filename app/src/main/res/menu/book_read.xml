@@ -4,6 +4,11 @@
     tools:context=".ui.main.MainActivity"
     tools:ignore="AlwaysShowAction">
 
+    <item
+        android:id="@+id/menu_relation"
+        android:title="人物关系图"
+        app:showAsAction="never" />
+
     <group android:id="@+id/menu_group_on_line">
         <item
             android:id="@+id/menu_change_source"
@@ -52,11 +57,6 @@
     <item
         android:id="@+id/menu_hand_annotate"
         android:title="手写批注"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/menu_relation"
-        android:title="人物关系图"
         app:showAsAction="never" />
 
     <item
