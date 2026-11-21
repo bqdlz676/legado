@@ -77,46 +77,83 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="56dp"
+        android:layout_marginBottom="48dp"
         android:orientation="horizontal"
-        android:background="#D91A1A1A"
-        android:padding="4dp"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_ink_bar"
+        android:paddingStart="10dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
         android:visibility="gone">
 
-        <TextView
-            android:id="@+id/ink_btn_pen"
-            style="@style/InkToolButton"
-            android:text="笔" />
+        <View
+            android:id="@+id/ink_dot_red"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/ink_dot"
+            android:backgroundTint="#C23B2E" />
+
+        <View
+            android:id="@+id/ink_dot_blue"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/ink_dot"
+            android:backgroundTint="#2F5D73" />
+
+        <View
+            android:id="@+id/ink_dot_yellow"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/ink_dot"
+            android:backgroundTint="#D99B3C" />
+
+        <View
+            android:id="@+id/ink_dot_gray"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/ink_dot"
+            android:backgroundTint="#4A4A46" />
+
+        <FrameLayout
+            android:id="@+id/ink_width_box"
+            android:layout_width="104dp"
+            android:layout_height="30dp"
+            android:layout_marginEnd="8dp">
+
+            <View
+                android:id="@+id/ink_width_preview"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_gravity="center_horizontal|top"
+                android:background="#331A1410" />
+
+            <View
+                android:id="@+id/ink_width_line"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_gravity="bottom"
+                android:background="#5C4F3A" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/ink_btn_eraser"
             style="@style/InkToolButton"
-            android:text="橡皮" />
-
-        <TextView
-            android:id="@+id/ink_btn_red"
-            style="@style/InkToolButton"
-            android:text="红" />
-
-        <TextView
-            android:id="@+id/ink_btn_blue"
-            style="@style/InkToolButton"
-            android:text="蓝" />
+            android:text="橡" />
 
         <TextView
             android:id="@+id/ink_btn_undo"
             style="@style/InkToolButton"
-            android:text="撤销" />
-
-        <TextView
-            android:id="@+id/ink_btn_clear"
-            style="@style/InkToolButton"
-            android:text="清空" />
+            android:text="撤" />
 
         <TextView
             android:id="@+id/ink_btn_done"
             style="@style/InkToolButton"
-            android:text="完成" />
+            android:text="✓" />
     </LinearLayout>
 
 </FrameLayout>

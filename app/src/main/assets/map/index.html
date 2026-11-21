@@ -6,6 +6,18 @@
 <title>古今地图</title>
 <link rel="stylesheet" href="leaflet.css">
 <style>
+:root{
+--bg-page:#F7F1E6;--bg-surface:#EFE8D8;--bg-overlay:rgba(26,20,16,.45);
+--text-primary:#1A1410;--text-secondary:#5C4F3A;--text-tertiary:#9B9687;--text-accent:#C23B2E;
+--brand-gold:#D4A54A;--brand-copper:#8B6914;--color-link:#C23B2E;--color-divider:rgba(26,20,16,.08);--color-glow:rgba(212,165,74,.3);
+--font-body:'Noto Serif SC','Source Han Serif SC','Songti SC',serif;
+--font-title:'Source Han Serif SC','Noto Serif SC',serif;
+--font-label:'Noto Sans SC','PingFang SC',sans-serif;
+--font-number:'Inter',ui-monospace,monospace;
+--font-size-body:clamp(16px,4.5vw,20px);--line-height-body:1.8;--letter-spacing-body:.02em;
+}
+body{background:var(--bg-page);color:var(--text-primary);font-family:var(--font-body);line-height:var(--line-height-body);letter-spacing:var(--letter-spacing-body)}
+
   html,body{margin:0;padding:0;height:100%;background:#FBF6EA;font-family:serif;}
   #map{position:absolute;inset:0;}
   #bar{position:absolute;left:0;right:0;top:0;z-index:900;padding:9px 12px 8px;
@@ -73,6 +85,7 @@
 <script src="leaflet.js"></script>
 <script src="events.js"></script>
 <script src="powers.js"></script>
+<script src="powers_poly.js"></script>
 <script src="sites.js"></script>
 <script src="world_places.js"></script>
 <script src="world_events.js"></script>
@@ -115,6 +128,12 @@ var base = {
 
 var Y = ['全部','先秦','汉唐','宋元','明清'];
 var curY = 0;
+// 锚点年进来时先落档：这决定看到的是春秋晋还是汉代晋
+(function () {
+  var y = place.year;
+  if (typeof y !== 'number' || y < -9999) return;
+  curY = y < 0 ? 1 : (y < 907 ? 2 : (y < 1368 ? 3 : 4));
+})();
 function inEra(y) {
   if (curY === 0) return true;
   if (curY === 1) return y < 0;
@@ -140,6 +159,19 @@ var gCircle = L.layerGroup().addTo(map);
     opacity: .55, fillColor: p.color, fillOpacity: .12
   }).addTo(gCircle)
    .bindTooltip(p.name + '（' + p.era + '·示意）', {permanent:true, direction:'center', className:'lbl', opacity:.85});
+});
+
+
+// 分朝代疆域层：一条对应一个政权/辖区，from/to 与 era 双条件过筛
+// tier3 一律虚线，表示文献推定的势力范围，不是实测边界
+var gPoly = L.layerGroup().addTo(map);
+(window.POWERS_POLY || []).forEach(function (p) {
+  if (!inEraName(p.era)) return;
+  L.polygon(p.pts, {
+    color: p.color, weight: 1.2, opacity: .6, dashArray: '4 4',
+    fillColor: p.color, fillOpacity: .13
+  }).addTo(gPoly)
+   .bindTooltip(p.name + '（' + p.era + '·推定疆域）', {permanent:true, direction:'center', className:'lbl', opacity:.8});
 });
 
 var gPower = L.layerGroup().addTo(map);

@@ -121,6 +121,7 @@ import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TITLE_NUMBER_
 import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_COLOR
 import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_DIVIDER_COLOR
 import io.legado.app.ui.book.read.page.ContentTextView
+import io.legado.app.ui.book.read.page.InkView
 import io.legado.app.ui.book.read.page.ReadView
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
 import io.legado.app.ui.book.read.page.entities.PageDirection
@@ -3065,6 +3066,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.inkView.visibility = View.VISIBLE
         binding.inkToolbar.visibility = View.VISIBLE
         binding.inkView.inputEnabled = true
+        binding.readView.translationY = 4f * resources.displayMetrics.density
         inkMode = true
         bindInkToolbar()
         loadInk()
@@ -3072,23 +3074,38 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     private fun bindInkToolbar() = binding.run {
-        inkBtnPen.setOnClickListener {
-            inkView.eraser = false
+        // 四色圆点内联，不弹 ColorPicker
+        listOf(
+            inkDotRed to InkView.INK_RED,
+            inkDotBlue to InkView.INK_BLUE,
+            inkDotYellow to InkView.INK_YELLOW,
+            inkDotGray to InkView.INK_GRAY
+        ).forEach { (dot, color) ->
+            dot.setOnClickListener {
+                inkView.eraser = false
+                inkView.brushColor = color
+            }
         }
+
         inkBtnEraser.setOnClickListener {
-            inkView.eraser = true
-        }
-        inkBtnRed.setOnClickListener {
-            inkView.eraser = false
-            inkView.brushColor = Color.parseColor("#E8453C")
-        }
-        inkBtnBlue.setOnClickListener {
-            inkView.eraser = false
-            inkView.brushColor = Color.parseColor("#1F6FEB")
+            inkView.eraser = !inkView.eraser
         }
         inkBtnUndo.setOnClickListener { inkView.undo() }
-        inkBtnClear.setOnClickListener { inkView.clearAll() }
         inkBtnDone.setOnClickListener { exitInkMode() }
+
+        // 线宽不是 SeekBar：一根淡墨横线，手指在线上滑，线上方预览同宽笔画段
+        val density = resources.displayMetrics.density
+        inkWidthLine.setOnTouchListener { v, e ->
+            val wpx = v.width.toFloat().coerceAtLeast(1f)
+            val ratio = (e.x / wpx).coerceIn(0f, 1f)
+            val dp = 1.5f + 6.5f * ratio
+            val px = dp * density
+            inkView.brushWidth = px
+            val lp = inkWidthPreview.layoutParams
+            lp.height = px.toInt().coerceAtLeast(1)
+            inkWidthPreview.layoutParams = lp
+            true
+        }
     }
 
     private fun exitInkMode() {
@@ -3096,8 +3113,27 @@ class ReadBookActivity : BaseReadBookActivity(),
         inkMode = false
         binding.inkView.inputEnabled = false
         saveInk()
+        flashGold()
         binding.inkView.visibility = View.GONE
         binding.inkToolbar.visibility = View.GONE
+        binding.readView.translationY = 0f
+    }
+
+    /** 完成退出那一瞬：最外圈闪一圈弱金光，表示已写进本地 */
+    private fun flashGold() {
+        val box = binding.root
+        val glow = View(this)
+        glow.setBackgroundColor(0xFFD4A54A.toInt())
+        glow.alpha = 0f
+        box.addView(glow, android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        glow.animate().alpha(0.16f).setDuration(90).withEndAction {
+            glow.animate().alpha(0f).setDuration(120).withEndAction {
+                box.removeView(glow)
+            }
+        }
     }
 
     private fun inkKey(): String {
