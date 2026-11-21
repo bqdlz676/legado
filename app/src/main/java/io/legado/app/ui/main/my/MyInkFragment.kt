@@ -96,7 +96,7 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
 
         rows += Row(Row.HEAD, "关 于")
         rows += Row(Row.NAV, "关于落文", "版本、开源许可", R.drawable.ic_cfg_about) {
-            open(AboutActivity::class.java)
+            open(io.legado.app.ui.about.AboutInkActivity::class.java)
         }
         rows += Row(Row.NAV, "检查更新", "看看有没有新版本", R.drawable.ic_update) {
             checkAppUpdate()
