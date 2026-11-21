@@ -70,8 +70,8 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
         val rows = mutableListOf<Row>()
 
         rows += Row(Row.HEAD, "书 库")
-        rows += Row(Row.NAV, "书源管理", "新建、导入、编辑或管理书源", R.drawable.ic_cfg_source) {
-            open(BookSourceActivity::class.java)
+        rows += Row(Row.NAV, "导入本地书", "从手机里选 txt / epub 进来", R.drawable.ic_folder) {
+            startActivity(android.content.Intent(ctx, io.legado.app.ui.book.import.local.ImportBookActivity::class.java))
         }
         rows += Row(Row.NAV, "书签", "全部书籍的书签", R.drawable.ic_bookmark) {
             open(AllBookmarkActivity::class.java)
@@ -83,42 +83,17 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
             open(FileManageActivity::class.java)
         }
 
-        rows += Row(Row.HEAD, "系 统")
-        rows += Row(Row.NAV, "定时任务", "管理按计划执行的 JavaScript 任务", R.drawable.ic_auto_page) {
-            open(AutoTaskActivity::class.java)
-        }
-        rows += Row(
-            Row.SWITCH, "运行定时任务", "重启后保留计划；系统可能延后实际执行时间",
-            R.drawable.ic_auto_page, PreferKey.autoTaskService
-        )
-        rows += Row(Row.NAV, "替换管理", "管理替换规则", R.drawable.ic_cfg_replace) {
-            open(ReplaceRuleActivity::class.java)
-        }
-        rows += Row(Row.NAV, "字典规则", "配置字典规则", R.drawable.ic_translate) {
-            open(DictRuleActivity::class.java)
-        }
-        rows += Row(Row.NAV, "TXT 目录规则", "配置 TXT 目录识别规则", R.drawable.ic_cfg_source) {
-            open(TxtTocRuleActivity::class.java)
-        }
+        rows += Row(Row.HEAD, "外 观")
         rows += Row(Row.VALUE, "主题模式", "日间 / 夜间 / 跟随系统", R.drawable.ic_cfg_theme, "", "跟随系统") {
             openConfig(ConfigTag.THEME_CONFIG)
         }
-        rows += Row(
-            Row.SWITCH, "Web 服务", "用浏览器写源或看书", R.drawable.ic_cfg_web,
-            PreferKey.webService
-        )
-        rows += Row(
-            Row.SWITCH, "MCP 服务", "书源开发工具", R.drawable.ic_cfg_web,
-            PreferKey.mcpService
-        )
 
-        rows += Row(Row.HEAD, "其 他")
+        rows += Row(Row.HEAD, "数 据")
         rows += Row(Row.NAV, "备份与恢复", "WebDAV 与本地备份", R.drawable.ic_cfg_backup) {
             openConfig(ConfigTag.BACKUP_CONFIG)
         }
-        rows += Row(Row.NAV, "其他设置", "阅读以外的所有开关", R.drawable.ic_cfg_other) {
-            openConfig(ConfigTag.OTHER_CONFIG)
-        }
+
+        rows += Row(Row.HEAD, "关 于")
         rows += Row(Row.NAV, "关于落文", "版本、开源许可", R.drawable.ic_cfg_about) {
             open(AboutActivity::class.java)
         }
