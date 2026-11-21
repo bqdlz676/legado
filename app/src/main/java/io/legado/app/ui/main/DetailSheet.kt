@@ -303,32 +303,14 @@ class DetailSheet : BottomSheetDialogFragment() {
             })
         }
 
-        // 左一年 / 右一年，同年各国对照随之变
-        label("切年")
-        val nav = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL
+        // 纪年时间轴：拖动吸附整十年
+        label("纪年")
+        val y0 = year
+        val timeline = io.legado.app.ui.widget.InkTimelineView(requireContext()).apply {
+            this.year = y0
+            onYearChanged = { switchYear(it) }
         }
-        val prev = TextView(requireContext()).apply {
-            text = "← 前一年"
-            textSize = 14f
-            setTextColor(0xFF8A6A3E.toInt())
-            setPadding(0, dp(6), dp(24), dp(6))
-            setOnClickListener {
-                switchYear(year - 1)
-            }
-        }
-        val next = TextView(requireContext()).apply {
-            text = "后一年 →"
-            textSize = 14f
-            setTextColor(0xFF8A6A3E.toInt())
-            setPadding(0, dp(6), 0, dp(6))
-            setOnClickListener {
-                switchYear(year + 1)
-            }
-        }
-        nav.addView(prev)
-        nav.addView(next)
-        content().addView(nav)
+        content().addView(timeline)
 
         label("说明")
         body("点「全屏」可在古今地图里按这一年切换朝代图层；读《左传》锚在春秋，读《史记》锚到西汉。")
