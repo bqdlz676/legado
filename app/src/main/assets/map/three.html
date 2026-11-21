@@ -45,6 +45,7 @@
   <button id="bRot">自动旋转</button>
 </div>
 <script src="three.min.js"></script>
+<script src="china_height.js"></script>
 <script src="cities.js"></script>
 <script src="world_places.js"></script>
 <script>
@@ -120,17 +121,18 @@ function hAt(x, z) {
 }
 function yOf(x, z) { return hAt(x, z) * 0.022; }
 
-var img = new Image();
-img.onload = function () {
-  var cv = document.createElement('canvas');
-  cv.width = HG.px; cv.height = HG.px;
-  var c2 = cv.getContext('2d');
-  c2.drawImage(img, 0, 0, HG.px, HG.px);
-  var dat = c2.getImageData(0, 0, HG.px, HG.px).data;
-  for (var k = 0; k < HG.px * HG.px; k++) hdata[k] = dat[k * 4];
-  buildTerrain();
-};
-img.src = 'china_height.png';
+// 高程以 base64 内嵌在 china_height.js 里，避开 file:// 页面的 canvas 跨域污染
+(function () {
+  try {
+    var raw = atob(window.CHINA_H_B64 || '');
+    var n = Math.min(raw.length, HG.px * HG.px);
+    for (var i = 0; i < n; i++) hdata[i] = raw.charCodeAt(i);
+    if (n > 0) buildTerrain();
+    else document.getElementById('sub').textContent = '高程数据未载入';
+  } catch (e) {
+    document.getElementById('sub').textContent = '高程数据未载入';
+  }
+})();
 
 function buildTerrain() {
   var geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
