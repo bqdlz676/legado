@@ -37,9 +37,9 @@ class BooksAdapterList2(
     ) = binding.run {
         if (payloads.isEmpty()) {
             tvName.text = item.name
-            tvAuthor.text = item.author
-            tvRead.text = item.durChapterTitle
-            tvLast.text = item.latestChapterTitle
+            tvAuthor.text = authorText(item)
+            tvRead.text = readText(item)
+            tvLast.text = lastText(item)
             ivCover.load(item, false)
             upRefresh(binding, item)
             upLastUpdateTime(binding, item)
@@ -49,9 +49,9 @@ class BooksAdapterList2(
                 bundle.keySet().forEach {
                     when (it) {
                         "name" -> tvName.text = item.name
-                        "author" -> tvAuthor.text = item.author
-                        "dur" -> tvRead.text = item.durChapterTitle
-                        "last" -> tvLast.text = item.latestChapterTitle
+                        "author" -> tvAuthor.text = authorText(item)
+                        "dur" -> tvRead.text = readText(item)
+                        "last" -> tvLast.text = lastText(item)
                         "cover" -> ivCover.load(
                             item,
                             false,
@@ -65,6 +65,24 @@ class BooksAdapterList2(
                 }
             }
         }
+    }
+
+    /** 本地古籍没有作者，落"佚名"，别留空行 */
+    private fun authorText(item: Book): String =
+        item.author.takeIf { it.isNotBlank() } ?: "佚名"
+
+    /** 没读过就写"未读"，不空着 */
+    private fun readText(item: Book): String = when {
+        item.durChapterTitle.isNotBlank() -> item.durChapterTitle
+        item.durChapterIndex > 0 -> "读至第 ${item.durChapterIndex + 1} 章"
+        else -> "未读"
+    }
+
+    /** 本地书没有 latestChapterTitle，退成总章数 */
+    private fun lastText(item: Book): String = when {
+        !item.latestChapterTitle.isNullOrBlank() -> item.latestChapterTitle!!
+        item.totalChapterNum > 0 -> "共 ${item.totalChapterNum} 章"
+        else -> ""
     }
 
     private fun upRefresh(binding: ItemBookshelfList2Binding, item: Book) {

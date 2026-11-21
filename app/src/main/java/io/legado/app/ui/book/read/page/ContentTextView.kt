@@ -1390,7 +1390,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                     .obtain(meaning, 0, meaning.length, meanPaint, innerMax)
                     .setAlignment(Layout.Alignment.ALIGN_NORMAL)
                     .setLineSpacing(0f, 1.2f)
-                    .setMaxLines(5)
+                    .setMaxLines(9)
                     .setEllipsize(TextUtils.TruncateAt.END)
                     .build()
             } else null
