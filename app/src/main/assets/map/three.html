@@ -107,7 +107,13 @@ var terrain = null;
 var TARGET = new THREE.Vector3(0, 0, 0);
 
 function lonU(lng) { return (lng - HG.w) / (HG.e - HG.w) * SIZE - SIZE / 2; }
-function latV(lat) { return (HG.n - lat) / (HG.n - HG.s) * SIZE - SIZE / 2; }
+function latV(lat) {
+  var latRad = lat * Math.PI / 180;
+  var y = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+  var yNorth = Math.log(Math.tan(Math.PI / 4 + HG.n * Math.PI / 360));
+  var ySouth = Math.log(Math.tan(Math.PI / 4 + HG.s * Math.PI / 360));
+  return (y - yNorth) / (ySouth - yNorth) * SIZE - SIZE / 2;
+}
 
 function hAt(x, z) {
   var u = (x + SIZE / 2) / SIZE * (HG.px - 1);
