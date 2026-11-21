@@ -1226,13 +1226,17 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             return if (year != null && month != null) {
                 val days = Chronology.resolveDays(year, month, c)
                 if (days.isEmpty()) {
-                    c to "本年${month}月无${c}日"
+                    ChronoHit(c, "本年${month}月无${c}日", year)
                 } else {
                     val ds = days.joinToString(" / ") { "${it.dayOfMonth}日" }
-                    c to "公元${year}年${month}月${ds}（${Chronology.yearGanzhi(year)}年）· 距今${Chronology.yearsAgo(year)}年"
+                    ChronoHit(
+                        c,
+                        "公元${year}年${month}月${ds}（${Chronology.yearGanzhi(year)}年）· 距今${Chronology.yearsAgo(year)}年",
+                        year
+                    )
                 }
             } else {
-                c to "干支日；同行无年月，无法落到具体公历"
+                ChronoHit(c, "干支日；同行无年月，无法落到具体公历", null)
             }
         }
 
