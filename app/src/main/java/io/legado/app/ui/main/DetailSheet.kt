@@ -372,25 +372,10 @@ class DetailSheet : BottomSheetDialogFragment() {
         when {
             ent != null && ent.isPoint -> {
                 label("位置（${ent.era.takeIf { e -> e.isNotBlank() } ?: "年代未锚定"}·${ent.tierLabel}）")
-                val box = FrameLayout(ctxP)
-                box.layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(200)
+                body(
+                    "${ent.name} · ${ent.note.ifBlank { "坐标已收录" }}。\n" +
+                        "地图不在这张纸片里挤着——点下面按钮，另开一个窗口。"
                 )
-                content().addView(box)
-                val payload = JSONObject().apply {
-                    put("name", ent.name)
-                    put("lat", ent.lat)
-                    put("lng", ent.lng)
-                    put("modern", ent.note)
-                    put("zoom", 7)
-                    put("old", org.json.JSONArray())
-                    put("year", yearP ?: Int.MIN_VALUE)
-                    put("era", ContextAnchor.eraOf(yearP).orEmpty())
-                    put("still", 1)
-                }
-                val url = "file:///android_asset/map/index.html?d=" +
-                    URLEncoder.encode(payload.toString(), "UTF-8")
-                MapWebHolder.attach(box, url)
             }
             ent != null -> {
                 label("位置（${ent.era}·辖区）")
@@ -408,11 +393,11 @@ class DetailSheet : BottomSheetDialogFragment() {
             body(Chronology.yearTitle(anchor.year))
         }
 
-        fullButton {
-            startActivity(
-                Intent(requireContext(), PlaceMapActivity::class.java)
-                    .putExtra("name", name)
-            )
+        fullButton("在地图窗口中打开 →") {
+            val i = Intent(requireContext(), PlaceMapActivity::class.java)
+                .putExtra("name", name)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(i)
         }
     }
 
@@ -440,9 +425,9 @@ class DetailSheet : BottomSheetDialogFragment() {
         content().addView(tv)
     }
 
-    private fun fullButton(action: () -> Unit) {
+    private fun fullButton(text: String = "全屏查看 →", action: () -> Unit) {
         val tv = TextView(requireContext())
-        tv.text = "全屏查看 →"
+        tv.text = text
         tv.textSize = 13f
         tv.setTextColor(0xFF8A6A3E.toInt())
         tv.setPadding(0, dp(18), 0, dp(4))
