@@ -170,6 +170,12 @@ class DetailSheet : BottomSheetDialogFragment() {
             append(conf)
         })
 
+        // 注音：古名多生僻字与多音字，先给读法
+        val py = runCatching {
+            io.legado.app.help.relation.PersonPinyin.of(ctx, name)
+        }.getOrNull().orEmpty()
+        if (py.isNotBlank()) body("读音　$py")
+
         // 基础档案
         label("档案")
         val idLine = buildString {
@@ -279,6 +285,33 @@ class DetailSheet : BottomSheetDialogFragment() {
             })
         }
 
+        // 左一年 / 右一年，同年各国对照随之变
+        label("切年")
+        val nav = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val prev = TextView(requireContext()).apply {
+            text = "← 前一年"
+            textSize = 14f
+            setTextColor(0xFF8A6A3E.toInt())
+            setPadding(0, dp(6), dp(24), dp(6))
+            setOnClickListener {
+                switchYear(year - 1)
+            }
+        }
+        val next = TextView(requireContext()).apply {
+            text = "后一年 →"
+            textSize = 14f
+            setTextColor(0xFF8A6A3E.toInt())
+            setPadding(0, dp(6), 0, dp(6))
+            setOnClickListener {
+                switchYear(year + 1)
+            }
+        }
+        nav.addView(prev)
+        nav.addView(next)
+        content().addView(nav)
+
         label("说明")
         body("点「全屏」可在古今地图里按这一年切换朝代图层；读《左传》锚在春秋，读《史记》锚到西汉。")
 
@@ -287,6 +320,12 @@ class DetailSheet : BottomSheetDialogFragment() {
                 .putExtra("year", year)
             startActivity(i)
         }
+    }
+
+    private fun switchYear(y: Int) {
+        val fm = (context as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager
+        dismiss()
+        if (fm != null) DetailSheet.year(y).show(fm, "detail_year")
     }
 
     // ---------- 地 ----------
