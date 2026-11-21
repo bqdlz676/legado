@@ -69,9 +69,9 @@ object PersonPinyin {
         val sb = StringBuilder()
         val chars = name.toCharArray()
         var i = 0
-        while (i < chars.length) {
+        while (i < chars.size) {
             // 复姓先吃两字：万俟、尉迟、子车
-            if (i + 1 < chars.length) {
+            if (i + 1 < chars.size) {
                 val two = "" + chars[i] + chars[i + 1]
                 val py2 = SURNAME[two]
                 if (py2 != null) {
