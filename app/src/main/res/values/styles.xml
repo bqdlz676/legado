@@ -171,4 +171,20 @@
         <item name="android:textColor">#FFFFFF</item>
         <item name="android:gravity">center</item>
     </style>
+
+    <!-- 落文底部导航文字：宋体、微字距 -->
+    <style name="InkBottomText" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+
+    <!-- 落文顶部题签：宋体、朱砂下划线 -->
+    <style name="InkTabText" parent="TextAppearance.Material3.TitleSmall">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:textStyle">normal</item>
+    </style>
 </resources>

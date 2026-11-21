@@ -17,10 +17,15 @@
         android:id="@+id/bottom_navigation_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/background"
-        android:minHeight="50dp"
+        android:background="@drawable/bg_ink_bottom"
+        android:minHeight="56dp"
         app:itemActiveIndicatorStyle="@color/transparent"
-        app:labelVisibilityMode="unlabeled"
+        app:itemIconTint="@color/ink_bottom_icon"
+        app:itemTextColor="@color/ink_bottom_text"
+        app:itemIconSize="21dp"
+        app:itemTextAppearanceActive="@style/InkBottomText"
+        app:itemTextAppearanceInactive="@style/InkBottomText"
+        app:labelVisibilityMode="labeled"
         app:menu="@menu/main_bnv" />
 
 </LinearLayout>

@@ -40,27 +40,19 @@ class ThemeBottomNavigationVIew(context: Context, attrs: AttributeSet) :
     )
 
     init {
-        val transparentNavBar = context.transparentNavBar
-        val bgColor = if (transparentNavBar) context.backgroundColor else context.bottomBackground
-        if (transparentNavBar) {
-            setBackgroundColor(Color.TRANSPARENT)
-        } else {
-            setBackgroundColor(bgColor)
-            elevation = context.elevation
-        }
-        val textIsDark = ColorUtils.isColorLight(bgColor)
-        val textColor = context.getSecondaryTextColor(textIsDark)
-        val colorStateList = Selector.colorBuild()
-            .setDefaultColor(textColor)
-            .setSelectedColor(ThemeStore.accentColor(context))
+        // 落文底栏：墨底 + 顶部古铜金线，图标金/灰单色，不用 Material 红蓝
+        setBackgroundResource(R.drawable.bg_ink_bottom)
+        elevation = 0f
+        val inkColorStateList = Selector.colorBuild()
+            .setDefaultColor(Color.parseColor("#6E6659"))
+            .setSelectedColor(ContextCompat.getColor(context, R.color.ink_brand_gold))
             .create()
-        themeIconTint = colorStateList
-        itemIconTintList = colorStateList
-        itemTextColor = colorStateList
-        if (AppConfig.isEInkMode || transparentNavBar) {
-            isItemHorizontalTranslationEnabled = false
-            itemBackground = Color.TRANSPARENT.toDrawable()
-        }
+        themeIconTint = inkColorStateList
+        itemIconTintList = inkColorStateList
+        itemTextColor = inkColorStateList
+        itemIconSize = 21.dpToPx()
+        isItemHorizontalTranslationEnabled = false
+        itemBackground = Color.TRANSPARENT.toDrawable()
 
         ViewCompat.setOnApplyWindowInsetsListener(this, null)
     }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 顶部 1px 古铜金线 -->
+    <item android:gravity="top">
+        <shape>
+            <solid android:color="#4DD4A54A" />
+            <size android:height="1dp" />
+        </shape>
+    </item>
+    <!-- 墨底：上浅下深 -->
+    <item>
+        <shape>
+            <gradient
+                android:angle="270"
+                android:endColor="#12100C"
+                android:startColor="#1E1A14" />
+        </shape>
+    </item>
+</layer-list>

@@ -39,6 +39,7 @@ class BooksAdapterList(
             tvAuthor.text = authorText(item)
             tvRead.text = readText(item)
             tvLast.text = lastText(item)
+            tvWatermark.text = watermarkText(item)
             ivCover.load(item, false)
             upRefresh(binding, item)
             upLastUpdateTime(binding, item)
@@ -50,7 +51,10 @@ class BooksAdapterList(
                         "name" -> tvName.text = verticalName(item.name)
                         "author" -> tvAuthor.text = authorText(item)
                         "dur" -> tvRead.text = readText(item)
-                        "last" -> tvLast.text = lastText(item)
+                        "last" -> {
+                            tvLast.text = lastText(item)
+                            tvWatermark.text = watermarkText(item)
+                        }
                         "cover" -> ivCover.load(
                             item,
                             false,
@@ -86,6 +90,20 @@ class BooksAdapterList(
             item.durChapterIndex > 0 -> "读至第 ${item.durChapterIndex + 1} 章"
             else -> "未读"
         }
+    }
+
+    /** 右缘竖排淡墨水印：进度百分比或未读。 */
+    private fun watermarkText(item: Book): String {
+        val total = item.totalChapterNum
+        val raw = when {
+            item.durChapterIndex <= 0 && item.durChapterTitle.isNullOrBlank() -> "未读"
+            total > 0 -> {
+                val p = ((item.durChapterIndex + 1).toFloat() / total * 100).toInt().coerceIn(1, 100)
+                "$p%"
+            }
+            else -> "在\n读"
+        }
+        return raw.toCharArray().joinToString("\n")
     }
 
     private fun lastText(item: Book): String = when {
