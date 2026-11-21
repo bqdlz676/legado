@@ -98,7 +98,7 @@ abstract class BaseActivity<VB : ViewBinding>(
         setContentView(binding.root)
         upBackgroundImage()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            findViewById<TitleBar>(R.id.title_bar)
+            (findViewById<View>(R.id.title_bar) as? TitleBar)
                 ?.onMultiWindowModeChanged(isInMultiWindowMode, fullScreen)
         }
         observeLiveBus()
@@ -123,14 +123,14 @@ abstract class BaseActivity<VB : ViewBinding>(
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean, newConfig: Configuration) {
         super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig)
-        findViewById<TitleBar>(R.id.title_bar)
+        (findViewById<View>(R.id.title_bar) as? TitleBar)
             ?.onMultiWindowModeChanged(isInMultiWindowMode, fullScreen)
         setupSystemBar()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        findViewById<TitleBar>(R.id.title_bar)
+        (findViewById<View>(R.id.title_bar) as? TitleBar)
             ?.onMultiWindowModeChanged(isInMultiWindow, fullScreen)
         setupSystemBar()
     }
@@ -143,8 +143,8 @@ abstract class BaseActivity<VB : ViewBinding>(
 
     final override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val bool = onCompatCreateOptionsMenu(menu)
-        val titleBar: TitleBar? = findViewById<TitleBar>(R.id.title_bar)
-            ?: findViewById(R.id.titleBar)
+        val titleBar: TitleBar? = (findViewById<View>(R.id.title_bar) as? TitleBar)
+            ?: (findViewById<View>(R.id.titleBar) as? TitleBar)
         menu.applyTint(
             this,
             toolBarTheme,
