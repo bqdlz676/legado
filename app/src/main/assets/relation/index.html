@@ -8,7 +8,7 @@
   * { -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; padding: 0; height: 100%; overflow: hidden;
-    background: #05060f;
+    background: #0C1020;
     font-family: -apple-system, "PingFang SC", "Noto Sans CJK SC", sans-serif;
   }
   #stars { position: fixed; inset: 0; z-index: 0; }
@@ -37,21 +37,28 @@
   .lg { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: #93a0c8; }
   .dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 9px currentColor; }
   #card {
-    position: fixed; left: 14px; right: 14px; bottom: 0; z-index: 5;
-    transform: translateY(115%); transition: transform .26s cubic-bezier(.2,.9,.3,1);
-    padding: 16px 18px calc(env(safe-area-inset-bottom, 0px) + 16px);
-    border-radius: 18px 18px 0 0;
-    background: linear-gradient(180deg, rgba(15,19,38,.97), rgba(9,11,22,.99));
-    border-top: 1px solid rgba(120,160,255,.28);
-    box-shadow: 0 -12px 40px rgba(30,60,160,.28);
+    position: fixed; left: 12px; right: 12px; bottom: 0; z-index: 5;
+    transform: translateY(115%); opacity: 0;
+    transition: transform .32s cubic-bezier(.2,.9,.3,1), opacity .32s ease;
+    padding: 18px 20px calc(env(safe-area-inset-bottom, 0px) + 18px);
+    border-radius: 22px 22px 0 0;
+    background: linear-gradient(180deg, rgba(19,24,44,.84), rgba(11,15,29,.95));
+    backdrop-filter: blur(22px) saturate(1.35);
+    -webkit-backdrop-filter: blur(22px) saturate(1.35);
+    border: 1px solid rgba(140,170,255,.15);
+    border-bottom: none;
+    box-shadow: 0 -18px 52px rgba(18,38,110,.32);
   }
-  #card.show { transform: translateY(0); }
+  #card.show { transform: translateY(0); opacity: 1; }
   #cardName { font-size: 17px; color: #eef3ff; letter-spacing: .06em; }
   #cardMeta { margin-top: 5px; font-size: 11.5px; color: #8091bd; }
   #cardPy { margin-top: 2px; font-size: 11.5px; color: #7f8fb2; letter-spacing: .04em; }
   #cardLife { margin-top: 3px; font-size: 12px; color: #a8b8dc; letter-spacing: .02em; }
   #cardAlias { margin-top: 6px; font-size: 11.5px; color: #6f82ad; }
   #cardAlias b { color: #8fa2c8; font-weight: 500; }
+  #cardAppear { margin-top: 11px; font-size: 11px; color: #64749c; line-height: 1.6; }
+  #cardAppear .ap { margin-top: 3px; }
+  #cardAppear .ap b { color: #8095bf; font-weight: 500; }
   #cardRels { margin-top: 12px; max-height: 34vh; overflow-y: auto; }
   #cardMore {
     margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(120,150,220,.18);
@@ -87,6 +94,7 @@
   <div id="cardLife"></div>
   <div id="cardMeta"></div>
   <div id="cardAlias"></div>
+  <div id="cardAppear"></div>
   <div id="cardRels"></div>
   <div id="cardMore">人物详情 ›</div>
 </div>
@@ -159,7 +167,8 @@
         data: {
           id: n.id, label: n.name, faction: n.faction || '其他',
           weight: n.count || 1, color: colorOf(n.faction),
-          identity: n.identity || '', lifeSpan: n.lifeSpan || '', aliases: n.aliases || [], pinyin: n.pinyin || ''
+          identity: n.identity || '', lifeSpan: n.lifeSpan || '', aliases: n.aliases || [],
+          pinyin: n.pinyin || '', appearances: n.appearances || []
         }
       });
     });
@@ -191,7 +200,7 @@
             'text-valign': 'bottom',
             'text-margin-y': 7,
             'text-outline-width': 2.2,
-            'text-outline-color': '#05060f',
+            'text-outline-color': '#0C1020',
             'shadow-blur': 24,
             'shadow-color': 'data(color)',
             'shadow-opacity': 0.8,
@@ -218,7 +227,7 @@
         { selector: 'node.focus', style: {
             'border-width': 3.4, 'border-color': '#ffffff', 'border-opacity': 1,
             'shadow-blur': 38, 'shadow-opacity': 1,
-            'background-color': '#ffffff', color: '#05060f',
+            'background-color': '#ffffff', color: '#0C1020',
             'text-outline-color': '#ffffff', 'text-outline-opacity': 0.9
           }
         },
@@ -308,6 +317,24 @@
         '<span>' + esc(other.data('label')) + '</span></div>');
     });
     document.getElementById('cardRels').innerHTML = rows.join('');
+
+    var apEl = document.getElementById('cardAppear');
+    var ap = d.appearances;
+    if (ap && ap.length) {
+      var apHtml = '<b>出场</b>';
+      for (var k = 0; k < ap.length; k++) {
+        var t = (ap[k].text || '').replace(/\s+/g, ' ').trim();
+        if (t.length > 48) t = t.slice(0, 48) + '…';
+        apHtml += '<div class="ap">' +
+          (ap[k].chapter ? '<b>' + esc(ap[k].chapter) + '</b>　' : '') +
+          esc(t) + '</div>';
+      }
+      apEl.innerHTML = apHtml;
+      apEl.style.display = '';
+    } else {
+      apEl.style.display = 'none';
+    }
+
     document.getElementById('card').classList.add('show');
   }
 

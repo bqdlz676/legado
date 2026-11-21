@@ -177,6 +177,14 @@ class RelationActivity : AppCompatActivity() {
             n.aliases.forEach { al.put(it) }
             o.put("aliases", al)
             o.put("pinyin", PersonPinyin.of(this@RelationActivity, n.name))
+            val ap = JSONArray()
+            n.appearances.take(2).forEach { a ->
+                val ao = JSONObject()
+                ao.put("chapter", a.chapter)
+                ao.put("text", a.text)
+                ap.put(ao)
+            }
+            o.put("appearances", ap)
             nodeArr.put(o)
         }
         root.put("nodes", nodeArr)
