@@ -127,6 +127,7 @@ var base = {
 (place.wlat != null ? base.world : base.cn).addTo(map);
 
 var Y = ['全部','先秦','汉唐','宋元','明清'];
+var ERA_LABEL = '图层随锚点';
 var curY = 0;
 // 锚点年进来时先落档：这决定看到的是春秋晋还是汉代晋
 (function () {
@@ -134,7 +135,35 @@ var curY = 0;
   if (typeof y !== 'number' || y < -9999) return;
   curY = y < 0 ? 1 : (y < 907 ? 2 : (y < 1368 ? 3 : 4));
 })();
+// 锚点年 → 朝代。地图分朝代不是靠手感，是这一个函数说了算
+var anchorYear = (typeof place.year === 'number' && place.year > -9999) ? place.year : null;
+function dynastyOfYear(y) {
+  if (y < -476) return '春秋';
+  if (y < -221) return '战国';
+  if (y < -206) return '秦';
+  if (y <= 8) return '西汉';
+  if (y <= 220) return '东汉';
+  if (y <= 280) return '三国';
+  if (y <= 589) return '晋';
+  if (y <= 907) return '唐';
+  if (y <= 960) return '五代';
+  if (y <= 1279) return '宋';
+  if (y <= 1368) return '元';
+  if (y <= 1644) return '明';
+  return '清';
+}
+var ERA_SPAN = {
+  '春秋': [-770, -476], '战国': [-476, -221], '秦': [-221, -206],
+  '西汉': [-206, 9], '东汉': [25, 221], '三国': [220, 281], '晋': [265, 590],
+  '唐': [618, 908], '五代': [907, 961], '宋': [960, 1280],
+  '元': [1271, 1369], '明': [1368, 1645], '清': [1644, 1912]
+};
+
 function inEra(y) {
+  if (anchorYear != null) {
+    var d0 = dynastyOfYear(anchorYear), sp0 = ERA_SPAN[d0];
+    return sp0 ? (y >= sp0[0] && y < sp0[1]) : true;
+  }
   if (curY === 0) return true;
   if (curY === 1) return y < 0;
   if (curY === 2) return y >= -206 && y < 907;
@@ -143,6 +172,13 @@ function inEra(y) {
 }
 
 function inEraName(era) {
+  if (anchorYear != null) {
+    var d = dynastyOfYear(anchorYear);
+    if (d === '春秋' || d === '战国') return era === '春秋' || era === '战国';
+    if (d === '宋') return era === '北宋' || era === '南宋';
+    if (d === '三国') return era === '三国' || era === '东汉' || era === '西汉';
+    return era === d;
+  }
   if (curY === 0) return true;
   if (curY === 1) return era === '春秋' || era === '战国';
   if (curY === 2) return era === '西汉' || era === '新' || era === '东汉' || era === '三国' || era === '唐';

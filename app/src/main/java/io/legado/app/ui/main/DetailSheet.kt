@@ -55,6 +55,8 @@ class DetailSheet : BottomSheetDialogFragment() {
             }
 
         fun year(year: Int): DetailSheet = DetailSheet().apply {
+            // 用户主动点年号 = 最高优先级锚定；纪年 / 地名 / 人物 / 地图从此读同一个年份
+            io.legado.app.help.chrono.ContextAnchor.setYear(year)
             arguments = bundleOf(ARG_TYPE to "year", ARG_NAME to "", ARG_EXTRA to year)
         }
 

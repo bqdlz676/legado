@@ -557,6 +557,19 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                             val chronoHit = if (colIdx >= 0) {
                                 chronoHitAt(lineText, colIdx)
                             } else null
+                            // 弱锚定：本章还没锚点时，用这一行的王公/年号纪年兜一次底；
+                            // 已有锚点就不动，免得读者逐字点过去把年份带跑
+                            if (colIdx >= 0 && !io.legado.app.help.chrono.ContextAnchor.hasAnchor()) {
+                                io.legado.app.help.chrono.Chronology.anchorFromText(
+                                    lineText, bookDynastyHint()
+                                )?.let { g ->
+                                    g.year?.let {
+                                        io.legado.app.help.chrono.ContextAnchor.setYearRange(
+                                            it..it, g.state
+                                        )
+                                    }
+                                }
+                            }
                             if (chronoHit != null) {
                                 val y2 = chronoHit.year
                                 showBubble(
