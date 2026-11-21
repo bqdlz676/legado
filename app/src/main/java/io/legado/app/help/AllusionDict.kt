@@ -22,6 +22,11 @@ object AllusionDict {
     @Volatile
     private var index: Map<Char, List<Entry>>? = null
 
+    fun find(context: Context, word: String): Entry? {
+        if (word.isEmpty()) return null
+        return ensureLoaded(context)[word[0]]?.firstOrNull { it.word == word }
+    }
+
     /** 提前加载，避免首帧卡顿 */
     fun preload(context: Context) {
         ensureLoaded(context)

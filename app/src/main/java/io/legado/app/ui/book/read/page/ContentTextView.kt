@@ -29,6 +29,7 @@ import io.legado.app.help.ChineseDict
 import io.legado.app.help.AllusionDict
 import io.legado.app.help.EnDict
 import io.legado.app.help.HanConv
+import io.legado.app.ui.main.AllusionDetailActivity
 import io.legado.app.ui.main.CharDetailActivity
 import io.legado.app.help.relation.PersonPinyin
 import io.legado.app.help.relation.PersonProfile
@@ -580,10 +581,27 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                             }
                                             append(nm.detail)
                                         }
+                                        val personDetail: (() -> Unit)? =
+                                            if (nm.kind == io.legado.app.help.NameResolver.Kind.PERSON) {
+                                                {
+                                                    dismissCharBubble()
+                                                    val i = Intent(
+                                                        context,
+                                                        io.legado.app.ui.main.PersonDetailActivity::class.java
+                                                    )
+                                                        .putExtra("name", nm.name)
+                                                        .putExtra("appearances", "[]")
+                                                    if (context !is Activity) {
+                                                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    }
+                                                    context.startActivity(i)
+                                                }
+                                            } else null
                                         showBubble(
                                             nm.name, nm.pinyin, body,
                                             x, y, relativeOffset, textLine,
-                                            nm.name.length >= 4, true
+                                            nm.name.length >= 4, personDetail != null,
+                                            personDetail
                                         )
                                     } else {
                                         showCharBubble(ch, x, y, relativeOffset, textLine)
@@ -1100,8 +1118,14 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             entry.word,
             entry.pinyin,
             entry.meaning + "\n〔出处〕" + entry.source,
-            x, y, relativeOffset, textLine, entry.word.length >= 3, false
-        )
+            x, y, relativeOffset, textLine, entry.word.length >= 3, true
+        ) {
+            dismissCharBubble()
+            val it2 = Intent(context, AllusionDetailActivity::class.java)
+                .putExtra("word", entry.word)
+            if (context !is Activity) it2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(it2)
+        }
     }
 
 
@@ -1265,6 +1289,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         textLine: TextLine,
         titleSmall: Boolean,
         detail: Boolean,
+        customDetail: (() -> Unit)? = null,
     ) {
         if (charBubble?.isShowing == true) {
             dismissCharBubble()
@@ -1285,7 +1310,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             meaning = meaningFinal
             this.titleSmall = titleSmall
             showDetail = detail
-            onDetail = {
+            onDetail = customDetail ?: {
                 dismissCharBubble()
                 val intent = Intent(context, CharDetailActivity::class.java)
                     .putExtra("char", ch)

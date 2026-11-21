@@ -151,6 +151,9 @@
             android:theme="@style/AppTheme.Light" />
         <!-- 字典详情 -->
         <activity
+            android:name=".ui.main.AllusionDetailActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.main.CharDetailActivity"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:exported="false"
