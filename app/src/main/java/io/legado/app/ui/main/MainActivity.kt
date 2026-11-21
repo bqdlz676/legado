@@ -503,7 +503,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             val position = (any as MainFragmentInterface).position
                 ?: return POSITION_NONE
             val fragmentId = getId(position)
-            if ((fragmentId == idBookshelf1 && any is BookshelfFragment1)
+            if ((fragmentId == idBookshelf1 && any is io.legado.app.ui.main.bookshelf.InkShelfFragment)
                 || (fragmentId == idBookshelf2 && any is BookshelfFragment2)
                 || (fragmentId == idExplore && any is io.legado.app.ui.main.explore.ExploreInkFragment)
                 || (fragmentId == idRss && any is RssFragment)
@@ -516,7 +516,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
 
         override fun getItem(position: Int): Fragment {
             return when (getId(position)) {
-                idBookshelf1 -> BookshelfFragment1(position)
+                idBookshelf1 -> io.legado.app.ui.main.bookshelf.InkShelfFragment(position)
                 idBookshelf2 -> BookshelfFragment2(position)
                 idExplore -> io.legado.app.ui.main.explore.ExploreInkFragment(position)
                 idRss -> RssFragment(position)

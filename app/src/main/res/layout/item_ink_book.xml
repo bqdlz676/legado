@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="5dp"
+    android:layout_marginEnd="5dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    android:background="@drawable/bg_ink_book_card">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="13dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="11dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="serif"
+                android:textColor="#1A1410"
+                android:textSize="16sp"
+                android:lineSpacingMultiplier="1.15"
+                android:maxLines="5"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tv_author"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="sans-serif-light"
+                android:textColor="#9B9687"
+                android:textSize="10sp"
+                android:singleLine="true"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tv_percent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="sans-serif"
+                android:textColor="#C23B2E"
+                android:textSize="9sp"
+                android:letterSpacing="0.06" />
+        </LinearLayout>
+
+        <io.legado.app.ui.widget.InkProgressLineView
+            android:id="@+id/iv_progress"
+            android:layout_width="2dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
+</FrameLayout>
