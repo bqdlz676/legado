@@ -3,33 +3,37 @@ package io.legado.app.ui.welcome
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PathMeasure
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
-import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.View
-import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import androidx.core.graphics.PathParser
+import io.legado.app.R
 import java.util.Random
 import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * 启动页整段编排，单 View 自绘，不依赖任何图片资源。
+ * 落文 · 启动动画（2.8s 单 View 自绘，无图片依赖）
  *
- * 0.00-0.40 墨滴坠落
- * 0.40-0.70 触底炸开 44 粒，悬停
- * 0.70-1.00 粒子被吸回中心
- * 1.00-1.40 竖排「落文」从墨迹里渗出（自下而上显影）
- * 1.20-1.60 水墨远山轮廓浮起，山腰起雾
- * 1.40-1.80 暖金线自左向右扫过，停在「文」末笔，留一点金
- * 1.80-2.40 标语淡入
- * 2.40-2.80 整体淡出，交给下一屏
+ *   0-400    墨滴坠落（顶圆底尖，带撕裂丝）
+ * 400-560    触底炸裂 48 粒：圆粒 20 / 飞白丝 16 / 大块溅墨 12，半径 ≤60dp
+ * 560-660    悬停
+ * 660-1000   加速回聚（粒子边收边转）
+ * 1000-1400  篆书「落文」按笔顺生长（PathMeasure 逐段描出来）
+ * 1400-1600  顿
+ * 1600-1750  金粉爆 70 粒（飞到 2100 衰减到 0）
+ * 1500-1900  水墨远山勾线淡入（不透明度 ≤0.25），山腰雾横向缓移
+ * 1700-2100  暖金线顿挫扫过，停在「文」末捺端点，收成一粒呼吸的金点
+ * 2100-2400  落款小字
+ * 2400-2800  淡出：山先灭，字最后
  */
 class InkSplashView @JvmOverloads constructor(
     context: Context,
@@ -38,105 +42,182 @@ class InkSplashView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     private val d = resources.displayMetrics.density
+    private fun sinF(v: Float): Float = sin(v.toDouble()).toFloat()
+    private fun cosF(v: Float): Float = cos(v.toDouble()).toFloat()
     private fun dp(v: Float) = v * d
 
-    // 时间轴（0-1 归一，总时长由 start() 的 duration 决定）
-    private val tDrop = 0.14f
-    private val tBurst = 0.25f
-    private val tGather = 0.36f
-    private val tWrite = 0.50f
-    private val tHill = 0.57f
-    private val tGold = 0.64f
-    private val tSlogan = 0.82f
-    private val tFade = 0.86f
+    private companion object {
+        const val BG = 0xFF0A0C14.toInt()
+        const val PAPER = 0xFFEDE4D3.toInt()
+        const val GOLD = 0xFFD4A54A.toInt()
+        const val GOLD_HI = 0xFFF3CD86.toInt()
+        const val GREY = 0xFF9B9687.toInt()
+        const val HILL = 0xFF8C8A80.toInt()
+        const val DROP_END = 400f
+        const val BURST_END = 560f
+        const val HOLD_END = 660f
+        const val GATHER_END = 1000f
+        const val WRITE_END = 1400f
+        const val PAUSE_END = 1600f
+        const val HILL_IN = 1500f
+        const val HILL_END = 1900f
+        const val SPARK_IN = 1600f
+        const val SPARK_END = 1750f
+        const val SPARK_LIFE = 2100f
+        const val GOLD_IN = 1700f
+        const val GOLD_END = 2100f
+        const val SLOGAN_IN = 2100f
+        const val SLOGAN_END = 2400f
+        const val FADE_IN = 2400f
+        const val FADE_END = 2800f
+    }
 
     private val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF1A1410.toInt()
         style = Paint.Style.FILL
+        color = 0xFF161821.toInt()
     }
-    private val inkSoft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xCC1A1410.toInt()
+    private val inkSolid = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
+        color = 0xFF1B1E28.toInt()
     }
-    private val gold = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFD4A54A.toInt()
+    private val inkSheen = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
+        color = 0xFF2A2E3A.toInt()
     }
-    private val copper = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF8B6914.toInt()
+    private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        color = PAPER
+    }
+    private val goldPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = GOLD
+    }
+    private val goldLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1.05f)
+        color = GOLD
     }
     private val hillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF3A4048.toInt()
         style = Paint.Style.STROKE
         strokeWidth = dp(1f)
+        color = HILL
     }
-    private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFEFE8D8.toInt()
-        textSize = dp(64f)
-        typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
-        textAlign = Paint.Align.CENTER
-    }
+    private val fogPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val sloganPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF9B9687.toInt()
+        color = GREY
         textSize = dp(12f)
-        typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
         textAlign = Paint.Align.CENTER
+        letterSpacing = 0.06f
     }
-    private val noisePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0x14FFFFFF
+    private val grainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x0EFFFFFF
         style = Paint.Style.FILL
     }
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val rand = Random(20261121L)
-    private class Spark(
+
+    /** 炸裂粒子：kind 0 圆粒 / 1 飞白丝 / 2 大块溅墨 */
+    private class Shard(
+        val kind: Int,
         val ang: Float,
         val speed: Float,
         val size: Float,
-        val life: Float,
+        val len: Float,
+        val spin: Float,
         val drift: Float
     )
 
-    private val sparks = ArrayList<Spark>(48)
-    private val noise = FloatArray(600) // x,y 成对
+    /** 金粉 */
+    private class Spark(
+        val ox: Float, val oy: Float,
+        val vx: Float, val vy: Float,
+        val size: Float, val life: Float, val bright: Float
+    )
 
-    private var progress = 0f
+    private val shards = ArrayList<Shard>(48)
+    private val sparks = ArrayList<Spark>(72)
+    private val grain = FloatArray(900)
+
+    /** 一字的笔画：解析后的 Path + 它的长度 */
+    private class Stroke(val path: Path, val len: Float)
+
+    private val luoStrokes = ArrayList<Stroke>(12)
+    private val wenStrokes = ArrayList<Stroke>(4)
+    private var glyphReady = false
+    private var strokeWidth = dp(5f)
+
+    private val glyphBounds = RectF()
+    private val segPath = Path()
+    private val measure = PathMeasure()
+    private val matrix = Matrix()
+
+    private var progressMs = 0f
     private var animator: ValueAnimator? = null
-
-    // 文字位置（竖排两字）
-    private var titleX = 0f
-    private var titleBaseY = 0f
-    private var lineH = 0f
+    private var w = 0f
+    private var h = 0f
+    private var cx = 0f
+    private var cy = 0f
 
     init {
         var i = 0
-        while (i < 44) {
-            sparks.add(
-                Spark(
-                    ang = rand.nextFloat() * Math.PI.toFloat() * 2f,
-                    speed = dp(20f + rand.nextFloat() * 70f),
-                    size = dp(1.6f + rand.nextFloat() * 4.2f),
-                    life = 0.5f + rand.nextFloat(),
-                    drift = rand.nextFloat() * 2f - 1f
-                )
+        while (i < 20) {
+            shards.add(
+                Shard(0,
+                    ang = rand.nextFloat() * PI2,
+                    speed = dp(16f + rand.nextFloat() * 46f),
+                    size = dp(1.4f + rand.nextFloat() * 2.8f),
+                    len = 0f,
+                    spin = 0f,
+                    drift = rand.nextFloat() * 2f - 1f)
             )
             i++
         }
         i = 0
-        while (i < noise.size) {
-            noise[i] = rand.nextFloat()
-            noise[i + 1] = rand.nextFloat()
-            i += 2
+        while (i < 16) {
+            shards.add(
+                Shard(1,
+                    ang = rand.nextFloat() * PI2,
+                    speed = dp(22f + rand.nextFloat() * 44f),
+                    size = dp(0.7f + rand.nextFloat() * 0.5f),
+                    len = dp(7f + rand.nextFloat() * 13f),
+                    spin = rand.nextFloat() * 2f - 1f,
+                    drift = rand.nextFloat() * 2f - 1f)
+            )
+            i++
+        }
+        i = 0
+        while (i < 12) {
+            shards.add(
+                Shard(2,
+                    ang = rand.nextFloat() * PI2,
+                    speed = dp(14f + rand.nextFloat() * 40f),
+                    size = dp(2.6f + rand.nextFloat() * 3.4f),
+                    len = 0f,
+                    spin = rand.nextFloat() * 2f - 1f,
+                    drift = rand.nextFloat() * 2f - 1f)
+            )
+            i++
+        }
+        var k = 0
+        while (k < grain.size) {
+            grain[k] = rand.nextFloat()
+            grain[k + 1] = rand.nextFloat()
+            k += 2
         }
     }
 
     fun start(durationMs: Long = 2800L) {
         animator?.cancel()
-        progress = 0f
-        animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = durationMs
+        progressMs = 0f
+        prepareGlyph()
+        animator = ValueAnimator.ofFloat(0f, durationMs.toFloat()).apply {
+            this.duration = durationMs
             interpolator = LinearInterpolator()
             addUpdateListener {
-                progress = it.animatedValue as Float
+                progressMs = it.animatedValue as Float
                 invalidate()
             }
             start()
@@ -148,168 +229,387 @@ class InkSplashView @JvmOverloads constructor(
         animator = null
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        titleX = w / 2f
-        titleBaseY = h * 0.44f
-        lineH = dp(78f)
+    override fun onSizeChanged(nw: Int, nh: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(nw, nh, oldw, oldh)
+        w = nw.toFloat()
+        h = nh.toFloat()
+        cx = w / 2f
+        cy = h * 0.46f
+        glyphReady = false
     }
+
+    // ---------------- 字形 ----------------
+
+    /** 读取 raw 里的篆书笔画，按目标尺寸装配成可生长的 Stroke 列表 */
+    private fun prepareGlyph() {
+        val targetH = h * 0.132f
+        val gap = h * 0.048f
+        val blockH = targetH * 2f + gap
+        val top = cy - blockH / 2f
+
+        luoStrokes.clear()
+        wenStrokes.clear()
+        glyphBounds.setEmpty()
+
+        loadGlyph(R.raw.ink_luo, top, targetH).let { luoStrokes.addAll(it) }
+        loadGlyph(R.raw.ink_wen, top + targetH + gap, targetH).let { wenStrokes.addAll(it) }
+
+        strokeWidth = targetH * 0.052f
+        glyphPaint.strokeWidth = strokeWidth
+
+        // 字块包围盒（用于金粉起点与金线端点）
+        glyphBounds.set(cx - targetH * 0.62f, top, cx + targetH * 0.62f, top + blockH)
+        glyphReady = true
+    }
+
+    private fun loadGlyph(rawId: Int, topY: Float, targetH: Float): List<Stroke> {
+        val text = resources.openRawResource(rawId).bufferedReader().use { it.readText() }
+        val raw = ArrayList<Path>(16)
+        var b = RectF()
+        var inited = false
+        text.split('\n').forEach { line ->
+            val s = line.trim()
+            if (s.isEmpty()) return@forEach
+            val p = runCatching { PathParser.createPathFromPathData(s) }.getOrNull() ?: return@forEach
+            val r = RectF()
+            p.computeBounds(r, true)
+            if (!inited) {
+                b = RectF(r); inited = true
+            } else {
+                b.union(r)
+            }
+            raw.add(p)
+        }
+        if (raw.isEmpty() || b.height() <= 0f) return emptyList()
+
+        val scale = targetH / b.height()
+        val tx = cx - (b.left + b.right) / 2f * scale
+        val ty = topY - b.top * scale
+        matrix.reset()
+        matrix.setScale(scale, scale)
+        matrix.postTranslate(tx, ty)
+
+        val out = ArrayList<Stroke>(raw.size)
+        raw.forEach { p ->
+            p.transform(matrix)
+            out.add(Stroke(p, if (p.length > 0f) p.length else 1f))
+        }
+        return out
+    }
+
+    private val Path.length: Float
+        get() {
+            measure.setPath(this, false)
+            return measure.length
+        }
+
+    /** 按进度 t 把一组笔画描出来 */
+    private fun drawGlyph(canvas: Canvas, strokes: List<Stroke>, t: Float, alpha: Int) {
+        if (t <= 0f) return
+        glyphPaint.alpha = alpha
+        val total = strokes.size.toFloat()
+        strokes.forEachIndexed { idx, st ->
+            val local = ((t * total) - idx).coerceIn(0f, 1f)
+            if (local <= 0f) return@forEachIndexed
+            measure.setPath(st.path, false)
+            segPath.reset()
+            measure.getSegment(0f, st.len * local, segPath, true)
+            canvas.drawPath(segPath, glyphPaint)
+        }
+        glyphPaint.alpha = 255
+    }
+
+    // ---------------- 绘制 ----------------
 
     override fun onDraw(canvas: Canvas) {
-        val w = width.toFloat()
-        val h = height.toFloat()
-        val p = progress
+        val p = progressMs
+        canvas.drawColor(BG)
 
-        // 纯黑底 + 极淡颗粒
-        canvas.drawColor(Color.BLACK)
+        // 深底极淡颗粒
         var i = 0
-        while (i < noise.size) {
-            canvas.drawCircle(noise[i] * w, noise[i + 1] * h, dp(0.7f), noisePaint)
+        while (i < grain.size) {
+            canvas.drawCircle(grain[i] * w, grain[i + 1] * h, dp(0.55f), grainPaint)
             i += 2
         }
+        if (!glyphReady && h > 0f) prepareGlyph()
 
-        val cx = w / 2f
-        val cy = titleBaseY - lineH * 0.5f
+        drawDrop(canvas, p)
+        drawShards(canvas, p)
+        drawGlyphs(canvas, p)
+        drawHills(canvas, p)
+        drawSparks(canvas, p)
+        drawGoldLine(canvas, p)
+        drawSlogan(canvas, p)
+    }
 
-        // 1. 墨滴坠落
-        if (p < tBurst) {
-            val t = (p / tDrop).coerceIn(0f, 1f)
-            val dropY = h * 0.12f + (cy - h * 0.12f) * (t * t)
-            val r = dp(4f + 7f * t)
-            // 拖尾
-            val trail = Paint(ink).apply {
-                shader = LinearGradient(
-                    cx, dropY - dp(70f) * t, cx, dropY,
-                    0x001A1410, 0xCC1A1410.toInt(), Shader.TileMode.CLAMP
-                )
-            }
-            canvas.drawRect(cx - r * 0.45f, dropY - dp(70f) * t, cx + r * 0.45f, dropY, trail)
-            canvas.drawCircle(cx, dropY, r, ink)
+    /** 墨滴：顶圆底尖，落得越快拉得越长，带一条细撕裂丝 */
+    private fun drawDrop(canvas: Canvas, p: Float) {
+        if (p >= DROP_END) return
+        val t = (p / DROP_END).coerceIn(0f, 1f)
+        val ease = t * t
+        val startY = -dp(90f)
+        val y = startY + (cy - startY) * ease
+        val stretch = 0.55f + 0.45f * ease
+        val r = dp(9f) * (0.55f + 0.45f * t)
+
+        // 拖尾：越落越长，尾端透明
+        val tail = dp(52f) * ease
+        val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                cx, y - tail, cx, y,
+                0x00161821, 0xB3161821.toInt(), Shader.TileMode.CLAMP
+            )
         }
+        canvas.drawRect(cx - dp(1.6f), y - tail, cx + dp(1.6f), y, trailPaint)
 
-        // 2. 炸开 + 悬停 + 回聚
-        if (p >= tBurst) {
-            val burst = ((p - tBurst) / (tWrite - tBurst)).coerceIn(0f, 1f)
-            // 0-0.55 炸开衰减，0.55-1 回聚
-            val outT = (burst / 0.55f).coerceIn(0f, 1f)
-            val backT = ((burst - 0.55f) / 0.45f).coerceIn(0f, 1f)
-            val easeOut = 1f - (1f - outT) * (1f - outT)
-            val easeBack = backT * backT * (3f - 2f * backT)
-            for (s in sparks) {
-                val rad = s.speed * easeOut * (1f - easeBack)
-                val jitter = dp(1.4f) * sin((p * 40f + s.ang).toDouble()).toFloat() * (1f - backT)
-                val x = cx + cos(s.ang) * rad + jitter + s.drift * dp(2f) * backT
-                val y = cy + sin(s.ang) * rad * 0.8f + jitter
-                val alpha = (255f * (1f - backT)).toInt().coerceIn(0, 255)
-                inkSoft.alpha = alpha
-                canvas.drawCircle(x, y, s.size * (1f - 0.35f * backT), inkSoft)
-            }
-            inkSoft.alpha = 255
-        }
+        val drop = Path()
+        drop.moveTo(cx, y + r * 1.0f * stretch)                       // 底尖
+        drop.cubicTo(cx + r * 0.72f, y + r * 0.25f, cx + r * 0.95f, y - r * 0.18f, cx + r * 0.52f, y - r * 0.78f)
+        drop.cubicTo(cx + r * 0.22f, y - r * 1.02f, cx - r * 0.22f, y - r * 1.02f, cx - r * 0.52f, y - r * 0.78f)
+        drop.cubicTo(cx - r * 0.95f, y - r * 0.18f, cx - r * 0.72f, y + r * 0.25f, cx, y + r * 1.0f * stretch)
+        canvas.drawPath(drop, inkSolid)
 
-        // 3. 竖排「落文」渗出：自下而上显影
-        if (p >= tGather) {
-            val t = ((p - tGather) / (tGold - tGather)).coerceIn(0f, 1f)
-            val chars = charArrayOf('落', '文')
-            val reveal = t * (chars.size + 0.35f)
-            for (idx in chars.indices) {
-                val appear = (reveal - idx).coerceIn(0f, 1f)
-                if (appear <= 0f) continue
-                val y = titleBaseY - (chars.size - 1 - idx) * lineH
-                val save = canvas.save()
-                // 每字自下而上揭开
-                val clipTop = y - titlePaint.textSize * 0.92f
-                val clipBottom = clipTop + titlePaint.textSize * 0.92f * appear + dp(20f)
-                canvas.clipRect(cx - dp(80f), y - titlePaint.textSize * 1.1f, cx + dp(80f), clipBottom)
-                titlePaint.alpha = (255 * appear).toInt().coerceIn(0, 255)
-                canvas.drawText(chars[idx].toString(), cx, y, titlePaint)
-                canvas.restoreToCount(save)
-            }
-            titlePaint.alpha = 255
-        }
+        // 撕裂丝：底部两条极细墨线，随机摆
+        val tear = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x99161821.toInt(); strokeWidth = dp(0.8f) }
+        val sway = sinF(p * 0.05f)
+        canvas.drawLine(cx - dp(3f), y + r * 0.55f, cx - dp(3f) + sway * dp(2f), y + r * 1.35f, tear)
+        canvas.drawLine(cx + dp(3f), y + r * 0.6f, cx + dp(3f) - sway * dp(2f), y + r * 1.2f, tear)
+    }
 
-        // 4. 水墨远山（只勾线）与山腰雾
-        if (p >= tHill) {
-            val t = ((p - tHill) / (tGold + 0.12f - tHill)).coerceIn(0f, 1f)
-            val hillY = h * 0.70f
-            hillPaint.alpha = (120 * t).toInt().coerceIn(0, 160)
-            for (layer in 0..1) {
-                val path = Path()
-                val base = hillY + layer * dp(26f)
-                val amp = dp(18f) + layer * dp(10f)
-                path.moveTo(-w * 0.05f, base)
-                var k = 0
-                while (k <= 6) {
-                    val fx = w * 0.05f + (w * 0.9f) * k / 6f
-                    val fy = base - amp * (if (k % 2 == 0) 1f else 0.45f)
-                    val px = w * 0.05f + (w * 0.9f) * (k + 1) / 6f
-                    val py = base - amp * (if (k % 2 == 0) 0.35f else 1f)
-                    path.quadTo(fx, fy, px, py)
-                    k += 2
+    /** 炸裂 → 悬停 → 回聚 */
+    private fun drawShards(canvas: Canvas, p: Float) {
+        if (p < BURST_END || p >= GATHER_END) return
+        val outT = ((p - BURST_END) / (HOLD_END - BURST_END)).coerceIn(0f, 1f)  // 炸开
+        val holdT = ((p - HOLD_END) / 60f).coerceIn(0f, 1f)                     // 悬停抖动
+        val backT = ((p - HOLD_END - 60f) / (GATHER_END - HOLD_END - 60f)).coerceIn(0f, 1f)
+
+        val outE = 1f - (1f - outT) * (1f - outT)
+        val backE = backT * backT * backT   // 加速吸入
+        val radius = (1f - backE)
+        val jitterAmp = (1f + 0.8f * sinF(p * 0.24f)) * (if (holdT > 0f && backT <= 0f) 1.4f else 1f)
+
+        shards.forEach { s ->
+            val dist = s.speed * outE * radius
+            val jx = sinF(p * 0.11f + s.ang) * dp(1.2f) * jitterAmp
+            val jy = cosF(p * 0.09f + s.ang * 1.7f) * dp(1.2f) * jitterAmp
+            val x = cx + cosF(s.ang) * dist + jx + s.drift * dp(3f) * backE
+            val y = cy + sinF(s.ang) * dist * 0.86f + jy
+            val fade = (1f - backE).coerceIn(0f, 1f)
+            val alpha = (255 * fade * (0.55f + 0.45f * (1f - backT))).toInt().coerceIn(0, 255)
+            if (alpha <= 4) return@forEach
+
+            when (s.kind) {
+                0 -> {
+                    inkPaint(alpha)
+                    canvas.drawCircle(x, y, s.size * (1f - 0.3f * backE), ink)
                 }
-                canvas.drawPath(path, hillPaint)
-            }
-            // 雾：横向拉长的柔和亮带
-            val fog = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                shader = LinearGradient(
-                    0f, hillY - dp(10f), 0f, hillY + dp(40f),
-                    0x00EFE8D8, (34 * t).toInt().coerceIn(0, 40) shl 24 or 0xEFE8D8,
-                    Shader.TileMode.CLAMP
-                )
-            }
-            canvas.drawRect(0f, hillY - dp(10f), w, hillY + dp(40f), fog)
-        }
-
-        // 5. 暖金线扫过（停在「文」末笔）
-        if (p >= tGold) {
-            val t = ((p - tGold) / (tSlogan - tGold)).coerceIn(0f, 1f)
-            val ease = DecelerateInterpolator().getInterpolation(t)
-            val startX = w * 0.08f
-            val endX = titleX + dp(30f)
-            val gx = startX + (endX - startX) * ease
-            val gy = titleBaseY + dp(6f)
-            val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                strokeWidth = dp(1f)
-                color = 0xFFD4A54A.toInt()
-            }
-            canvas.drawLine(startX, gy, gx, gy, linePaint)
-            // 扫过处的字面提亮
-            if (ease > 0.2f) {
-                val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    shader = RadialGradient(
-                        gx, gy - dp(6f), dp(56f),
-                        intArrayOf(0x40D4A54A, 0x00D4A54A),
-                        floatArrayOf(0f, 1f),
-                        Shader.TileMode.CLAMP
+                1 -> {
+                    val rot = s.spin * backT * 220f
+                    val rad = Math.toRadians((s.ang + rot).toDouble())
+                    val dx = cos(rad).toFloat()
+                    val dy = sin(rad).toFloat()
+                    val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = 0xFF161821.toInt()
+                        strokeWidth = s.size
+                    }
+                    linePaint.alpha = alpha
+                    canvas.drawLine(
+                        x, y,
+                        x + dx * s.len * (1f - 0.6f * backE),
+                        y + dy * s.len * (1f - 0.6f * backE),
+                        linePaint
                     )
                 }
-                canvas.drawCircle(gx, gy - dp(6f), dp(56f), glow)
-            }
-            // 前端一点
-            canvas.drawCircle(gx, gy, dp(2.2f), gold)
-            if (t >= 1f) {
-                // 停在末笔，留一颗金点，慢慢呼吸
-                val breath = 0.6f + 0.4f * sin((p * 22f).toDouble()).toFloat()
-                gold.alpha = (200 * breath).toInt().coerceIn(0, 255)
-                canvas.drawCircle(endX, gy, dp(2.6f), gold)
-                gold.alpha = 255
+                else -> {
+                    inkPaint(alpha)
+                    val blob = Path()
+                    val rr = s.size * (1f - 0.35f * backE)
+                    blob.moveTo(x - rr, y)
+                    blob.quadTo(x - rr * 0.2f, y - rr * 0.9f, x + rr * 0.7f, y - rr * 0.5f)
+                    blob.quadTo(x + rr * 1.05f, y + rr * 0.35f, x + rr * 0.15f, y + rr * 0.75f)
+                    blob.quadTo(x - rr * 0.75f, y + rr * 0.8f, x - rr, y)
+                    canvas.drawPath(blob, inkSolid)
+                }
             }
         }
+        ink.alpha = 255
+    }
 
-        // 6. 标语
-        if (p >= tSlogan) {
-            val t = ((p - tSlogan) / (tFade - tSlogan)).coerceIn(0f, 1f)
-            sloganPaint.alpha = (200 * t).toInt().coerceIn(0, 255)
-            canvas.drawText("读其文，知其人，通其时。", cx, h * 0.80f, sloganPaint)
-            sloganPaint.alpha = 255
+    private fun inkPaint(alpha: Int) {
+        ink.alpha = alpha
+    }
+
+    /** 篆书生长 + 顿 + 淡出 */
+    private fun drawGlyphs(canvas: Canvas, p: Float) {
+        if (p < GATHER_END) return
+        val writeT = ((p - GATHER_END) / (WRITE_END - GATHER_END)).coerceIn(0f, 1f)
+        // 初段淡如水渍，后段凝成浓墨
+        val inkUp = (70f + 185f * writeT * writeT).toInt()
+        // 「落」占前 62%，「文」后 50% 起步
+        val tLuo = (writeT / 0.62f).coerceIn(0f, 1f)
+        val tWen = ((writeT - 0.42f) / 0.58f).coerceIn(0f, 1f)
+        // 字最后走：2600-2800 收干净
+        val fade = ((p - 2600f) / 200f).coerceIn(0f, 1f)
+        val alpha = (inkUp * (1f - fade)).toInt().coerceIn(0, 255)
+        if (alpha <= 3) return
+        drawGlyph(canvas, luoStrokes, tLuo, alpha)
+        drawGlyph(canvas, wenStrokes, tWen, alpha)
+    }
+
+    /** 远山：只勾线，最高 0.25 不透明度；山腰雾气横向缓移 */
+    private fun drawHills(canvas: Canvas, p: Float) {
+        if (p < HILL_IN) return
+        val inT = ((p - HILL_IN) / (HILL_END - HILL_IN)).coerceIn(0f, 1f)
+        val fadeT = ((p - 2400f) / 160f).coerceIn(0f, 1f)  // 山最先灭
+        val a = (0.25f * inT * (1f - fadeT) * 255f).toInt().coerceIn(0, 64)
+        if (a <= 2) return
+        hillPaint.alpha = a
+
+        val baseY = h * 0.735f
+        for (layer in 0..1) {
+            val path = Path()
+            val y0 = baseY + layer * h * 0.024f
+            val amp = h * (0.017f + layer * 0.009f)
+            path.moveTo(-w * 0.04f, y0)
+            var k = 0
+            while (k <= 6) {
+                val x1 = w * 0.05f + w * 0.9f * k / 6f
+                val y1 = y0 - amp * (if (k % 2 == 0) 1f else 0.42f)
+                val x2 = w * 0.05f + w * 0.9f * (k + 1) / 6f
+                val y2 = y0 - amp * (if (k % 2 == 0) 0.3f else 1f)
+                path.quadTo(x1, y1, x2, y2)
+                k += 2
+            }
+            canvas.drawPath(path, hillPaint)
         }
 
-        // 7. 收尾淡出
-        if (p >= tFade) {
-            val t = ((p - tFade) / (1f - tFade)).coerceIn(0f, 1f)
-            val fadePaint = Paint().apply { color = Color.BLACK }
-            fadePaint.alpha = (255 * t).toInt().coerceIn(0, 255)
-            canvas.drawRect(0f, 0f, w, h, fadePaint)
+        // 雾：横带渐变，中心缓慢左右飘
+        val fogT = ((p - HILL_IN) / (HILL_END - HILL_IN)).coerceIn(0f, 1f)
+        val drift = sinF(p * 0.0035f) * w * 0.18f
+        fogPaint.shader = LinearGradient(
+            cx + drift - w * 0.45f, baseY - h * 0.012f,
+            cx + drift + w * 0.45f, baseY + h * 0.012f,
+            intArrayOf(0x00EDE4D3, 0x1FEDE4D3, 0x00EDE4D3),
+            floatArrayOf(0f, 0.5f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        fogPaint.alpha = (fogT * (1f - fadeT) * 255f).toInt().coerceIn(0, 255)
+        canvas.drawRect(
+            cx + drift - w * 0.45f, baseY - h * 0.03f,
+            cx + drift + w * 0.45f, baseY + h * 0.03f,
+            fogPaint
+        )
+        fogPaint.alpha = 255
+    }
+
+    /** 金粉：从字面飞出，向上飘，0.5s 衰减 */
+    private fun drawSparks(canvas: Canvas, p: Float) {
+        if (p < SPARK_IN || p >= SPARK_LIFE) return
+        if (sparks.isEmpty()) buildSparks()
+        val t0 = ((p - SPARK_IN) / (SPARK_END - SPARK_IN)).coerceIn(0f, 1f)
+        val age = p - SPARK_IN
+        val active = (t0 * sparks.size).toInt()
+
+        for (i in 0 until active.coerceAtMost(sparks.size)) {
+            val s = sparks[i]
+            val lifeT = ((age / (SPARK_LIFE - SPARK_IN)) * (0.55f + 0.45f * s.life)).coerceIn(0f, 1f)
+            val a = (255 * (1f - lifeT) * s.bright).toInt().coerceIn(0, 255)
+            if (a <= 6) continue
+            val x = s.ox + s.vx * lifeT * dp(120f)
+            val y = s.oy + s.vy * lifeT * dp(120f) + lifeT * lifeT * dp(14f)
+            goldPaint.color = if (s.bright > 0.75f) GOLD_HI else GOLD
+            goldPaint.alpha = a
+            canvas.drawCircle(x, y, s.size, goldPaint)
+        }
+        goldPaint.alpha = 255
+    }
+
+    private fun buildSparks() {
+        sparks.clear()
+        var i = 0
+        while (i < 72) {
+            val bx = glyphBounds.left + rand.nextFloat() * glyphBounds.width()
+            val by = glyphBounds.top + rand.nextFloat() * glyphBounds.height()
+            val ang = -PI_HALF + (rand.nextFloat() - 0.5f) * 2.4f
+            val sp = 0.35f + rand.nextFloat() * 0.95f
+            sparks.add(
+                Spark(
+                    ox = bx, oy = by,
+                    vx = cosF(ang) * sp,
+                    vy = sinF(ang) * sp,
+                    size = dp(0.7f + rand.nextFloat() * 1.4f),
+                    life = rand.nextFloat(),
+                    bright = 0.5f + rand.nextFloat() * 0.5f
+                )
+            )
+            i++
         }
     }
+
+    /** 暖金线：顿挫走笔，停在「文」末捺端点，收成一粒呼吸金点 */
+    private fun drawGoldLine(canvas: Canvas, p: Float) {
+        if (p < GOLD_IN) return
+        val t = ((p - GOLD_IN) / (GOLD_END - GOLD_IN)).coerceIn(0f, 1f)
+        val startX = w * 0.06f
+        val endX = cx + strokeWidth * 1.2f
+        val gy = glyphBounds.bottom - strokeWidth * 0.7f
+
+        // 顿挫：7 段，每段先快后慢，段间微停
+        val segs = 7
+        val segT = (t * segs).coerceIn(0f, segs.toFloat())
+        val idx = segT.toInt().coerceAtMost(segs - 1)
+        val local = (segT - idx).coerceIn(0f, 1f)
+        val eased = (idx + (1f - (1f - local) * (1f - local))) / segs
+        val gx = startX + (endX - startX) * eased.coerceIn(0f, 1f)
+
+        // 已走过的一段留一条极淡的痕
+        val trace = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x26D4A54A }
+        canvas.drawLine(startX, gy, gx, gy, trace)
+
+        canvas.drawLine(startX, gy, gx, gy, goldLinePaint)
+
+        // 笔头辉光
+        glowPaint.shader = RadialGradient(
+            gx, gy - dp(4f), dp(44f),
+            intArrayOf(0x55D4A54A, 0x00D4A54A),
+            floatArrayOf(0f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(gx, gy - dp(4f), dp(44f), glowPaint)
+
+        if (t >= 1f) {
+            val breath = 0.55f + 0.45f * sinF(p * 0.006f)
+            goldPaint.alpha = (210 * breath).toInt().coerceIn(0, 255)
+            canvas.drawCircle(endX, gy, dp(2.6f), goldPaint)
+            glowPaint.shader = RadialGradient(
+                endX, gy, dp(28f),
+                intArrayOf((0x40 * breath).toInt().coerceIn(0, 255) shl 24 or 0xD4A54A, 0x00D4A54A),
+                floatArrayOf(0f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(endX, gy, dp(28f), glowPaint)
+            goldPaint.alpha = 255
+        }
+
+        // 淡出
+        val fade = ((p - 2600f) / 200f).coerceIn(0f, 1f)
+        if (fade > 0f) {
+            goldLinePaint.alpha = (255 * (1f - fade)).toInt()
+            canvas.drawLine(startX, gy, endX, gy, goldLinePaint)
+            goldLinePaint.alpha = 255
+        }
+    }
+
+    /** 落款小字 */
+    private fun drawSlogan(canvas: Canvas, p: Float) {
+        if (p < SLOGAN_IN) return
+        val t = ((p - SLOGAN_IN) / (SLOGAN_END - SLOGAN_IN)).coerceIn(0f, 1f)
+        val fade = ((p - 2460f) / 200f).coerceIn(0f, 1f)
+        sloganPaint.alpha = (200 * t * (1f - fade)).toInt().coerceIn(0, 255)
+        canvas.drawText("读其文，知其人，通其时。", cx, h * 0.80f, sloganPaint)
+        sloganPaint.alpha = 255
+    }
 }
+
+private const val PI2 = (Math.PI * 2.0).toFloat()
+private const val PI_HALF = (Math.PI / 2.0).toFloat()
