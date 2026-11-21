@@ -69,7 +69,8 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
                 }
             }
         }
-        binding.vwTitleLine.setBackgroundColor(accentColor)
+        binding.vwTitleLine.setBackgroundColor(0xFF2A2320.toInt())
+        binding.tvTitle.setTextColor(0xFF2A2320.toInt())
     }
 
     override fun setupSystemBar() {
