@@ -160,9 +160,10 @@ class ReadMenu @JvmOverloads constructor(
     }
 
     init {
-        initView()
-        upBrightnessState()
-        bindEvent()
+        // 逐段兜底：任一视觉初始化出错也不能让阅读页起不来
+        runCatching { initView() }
+        runCatching { upBrightnessState() }
+        runCatching { bindEvent() }
     }
 
     private fun initView(reset: Boolean = false) = binding.run {

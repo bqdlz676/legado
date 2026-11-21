@@ -1782,6 +1782,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         handler.post {
             upMenu()
             binding.readMenu.upBookView()
+            binding.inkMood.setChapter(ReadBook.curTextChapter?.title)
         }
     }
 
