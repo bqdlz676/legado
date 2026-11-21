@@ -1,12 +1,18 @@
 package io.legado.app.help
 
 import android.content.Context
+import android.util.LruCache
 import io.legado.app.utils.printOnDebug
 
 /**
  * 典故／成语词表
  * 数据源 assets/allusion.txt，每行：词 \t 拼音 \t 释义 \t 出处
  * 阅读时按行扫描正文，命中即在原字下方画一道细线，点中弹气泡显示释义与出处
+ *
+ * 索引从「首字」升到「前两字」：三万字里「一／不／之／为」这类首字桶
+ * 能有几百条，逐条 regionMatches 在每行渲染时都跑；两字桶把体积压掉一个量级，
+ * 且两字桶天然要求原文对齐，错配更少。
+ * 另外按「整行文本」缓存扫描结果，点一次是 O(1)，不再重扫全行。
  */
 object AllusionDict {
 
@@ -20,11 +26,14 @@ object AllusionDict {
     class Hit(val start: Int, val end: Int, val entry: Entry)
 
     @Volatile
-    private var index: Map<Char, List<Entry>>? = null
+    private var index: Map<Int, List<Entry>>? = null
+
+    private val lineCache = object : LruCache<String, List<Hit>>(180) {}
 
     fun find(context: Context, word: String): Entry? {
-        if (word.isEmpty()) return null
-        return ensureLoaded(context)[word[0]]?.firstOrNull { it.word == word }
+        if (word.length < 2) return null
+        val key = key2(word[0], word[1])
+        return ensureLoaded(context)[key]?.firstOrNull { it.word == word }
     }
 
     /** 提前加载，避免首帧卡顿 */
@@ -32,11 +41,11 @@ object AllusionDict {
         ensureLoaded(context)
     }
 
-    private fun ensureLoaded(context: Context): Map<Char, List<Entry>> {
+    private fun ensureLoaded(context: Context): Map<Int, List<Entry>> {
         index?.let { return it }
         synchronized(this) {
             index?.let { return it }
-            val map = HashMap<Char, MutableList<Entry>>(4096)
+            val map = HashMap<Int, MutableList<Entry>>(16384)
             runCatching {
                 context.applicationContext.assets.open("allusion.txt")
                     .bufferedReader()
@@ -51,7 +60,8 @@ object AllusionDict {
                             if (p3 < 0) return@forEach
                             val word = line.substring(0, p1)
                             if (word.length < 2) return@forEach
-                            map.getOrPut(word[0]) { ArrayList() }.add(
+                            // 全文两字即词，统一取前两字做桶
+                            map.getOrPut(key2(word[0], word[1])) { ArrayList() }.add(
                                 Entry(
                                     word,
                                     line.substring(p1 + 1, p2),
@@ -64,7 +74,7 @@ object AllusionDict {
             }.onFailure {
                 it.printOnDebug()
             }
-            // 同一首字下按长度降序，取最长命中
+            // 同一桶内按长度降序，取最长命中
             map.values.forEach { list ->
                 list.sortByDescending { it.word.length }
             }
@@ -73,14 +83,19 @@ object AllusionDict {
         }
     }
 
+    /** 前两字打成 Int 桶键，避免每步 substring 建对象 */
+    private fun key2(a: Char, b: Char): Int = (a.code shl 16) or b.code
+
     /** 扫描一行文本，返回不重叠的最长命中 */
     fun match(context: Context, text: String): List<Hit> {
         if (text.length < 2) return emptyList()
+        val cached = lineCache.get(text)
+        if (cached != null) return cached
         val idx = ensureLoaded(context)
         val hits = ArrayList<Hit>(4)
         var i = 0
         while (i < text.length - 1) {
-            val list = idx[text[i]]
+            val list = idx[key2(text[i], text[i + 1])]
             if (list == null) {
                 i++
                 continue
@@ -101,6 +116,7 @@ object AllusionDict {
                 i++
             }
         }
+        lineCache.put(text, hits)
         return hits
     }
 

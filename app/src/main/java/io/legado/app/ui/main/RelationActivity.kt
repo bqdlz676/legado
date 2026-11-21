@@ -111,6 +111,17 @@ class RelationActivity : AppCompatActivity() {
                 }
                 return@async
             }
+            // 同一本书同一段正文，抽一次就落盘；第二次进关系图直接读，不再整本重扫
+            val key = cacheKey(book.bookUrl, scopeAll, text)
+            val cached = readGraphCache(key)
+            if (cached != null) {
+                lastGraph = graphFromJson(cached, book.name)
+                pendingJson = cached
+                onUi {
+                    if (pageReady) render(webView, cached)
+                }
+                return@async
+            }
             val graph = RelationExtractor.extract(listOf(book.name to text), book.name)
             lastGraph = graph
             if (graph.nodes.isEmpty()) {
@@ -124,6 +135,7 @@ class RelationActivity : AppCompatActivity() {
                 return@async
             }
             val json = toJson(graph)
+            writeGraphCache(key, json)
             pendingJson = json
             onUi {
                 if (pageReady) {
@@ -217,6 +229,84 @@ class RelationActivity : AppCompatActivity() {
             val idx = full.indexOf(ch)
             if (idx < 0) full else full.substring(idx, minOf(full.length, idx + 4000))
         }.getOrDefault(full)
+    }
+
+    /** 书 + 范围 + 正文指纹，正文只取首尾各 200 字算散列，避免整本 hashCode 拖时间 */
+    private fun cacheKey(bookUrl: String?, all: Boolean, text: String): String {
+        val sig = text.length.toString() + text.take(200) + text.takeLast(200)
+        return "${bookUrl.hashCode()}_${all}_${sig.hashCode()}"
+    }
+
+    private fun cacheDir(): File = File(filesDir, "rel_graph").apply { if (!exists()) mkdirs() }
+
+    private fun readGraphCache(key: String): String? = runCatching {
+        val f = File(cacheDir(), "$key.json")
+        if (!f.exists()) null else f.readText()
+    }.getOrNull()
+
+    private fun writeGraphCache(key: String, json: String) {
+        runCatching {
+            val dir = cacheDir()
+            // 只留最近 40 份，免得越积越多
+            val files = dir.listFiles()?.sortedBy { it.lastModified() } ?: emptyList()
+            if (files.size > 40) files.take(files.size - 40).forEach { it.delete() }
+            File(dir, "$key.json").writeText(json)
+        }
+    }
+
+    /** 缓存里只有 JSON，还原出图谱供点节点打开人物详情 */
+    private fun graphFromJson(json: String, source: String): RelationExtractor.Graph {
+        val nodes = ArrayList<RelationExtractor.Node>()
+        val edges = ArrayList<RelationExtractor.Edge>()
+        runCatching {
+            val root = JSONObject(json)
+            val na = root.optJSONArray("nodes") ?: JSONArray()
+            for (i in 0 until na.length()) {
+                val o = na.getJSONObject(i)
+                val ap = ArrayList<RelationExtractor.Appearance>()
+                o.optJSONArray("appearances")?.let { arr ->
+                    for (j in 0 until arr.length()) {
+                        val a = arr.getJSONObject(j)
+                        ap.add(
+                            RelationExtractor.Appearance(
+                                a.optString("chapter"),
+                                a.optString("text")
+                            )
+                        )
+                    }
+                }
+                val al = ArrayList<String>()
+                o.optJSONArray("aliases")?.let { arr ->
+                    for (j in 0 until arr.length()) al.add(arr.getString(j))
+                }
+                nodes.add(
+                    RelationExtractor.Node(
+                        id = o.optString("id"),
+                        name = o.optString("name"),
+                        faction = o.optString("faction"),
+                        count = o.optInt("count"),
+                        appearances = ap,
+                        identity = o.optString("identity"),
+                        lifeSpan = o.optString("lifeSpan"),
+                        aliases = al
+                    )
+                )
+            }
+            val ea = root.optJSONArray("edges") ?: JSONArray()
+            for (i in 0 until ea.length()) {
+                val o = ea.getJSONObject(i)
+                edges.add(
+                    RelationExtractor.Edge(
+                        source = o.optString("source"),
+                        target = o.optString("target"),
+                        weight = o.optInt("weight"),
+                        label = o.optString("label"),
+                        chapters = emptyList()
+                    )
+                )
+            }
+        }
+        return RelationExtractor.Graph(nodes, edges, source)
     }
 
     private fun toJson(graph: RelationExtractor.Graph): String {

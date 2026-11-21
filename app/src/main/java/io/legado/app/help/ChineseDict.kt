@@ -10,7 +10,9 @@ import kotlin.math.min
  * char_dict.txt   ：字 \t 拼音 \t 部首 \t 笔画 \t 释义
  * char_shuowen.txt：字 \t 说文释文 \t 反切 \t 部首
  * char_usage.txt  ：字 \t 出处 \t 例句
- * zh_ci.txt       ：词 \t 释义
+ * zh_ci.bin       ：词 \t 释义（CompactDict 紧凑格式，26 万条不进 HashMap）
+ * ci_prefix.txt   ：首字 \t 词1,词2…（2–3 字词，每桶 40 条）
+ * ci_pinyin.bin   ：词 \t 拼音（CC-CEDICT 词级读音，治多音字在词组里标错）
  */
 object ChineseDict {
 
@@ -42,7 +44,10 @@ object ChineseDict {
     private var charMap: Map<String, CharInfo>? = null
 
     @Volatile
-    private var wordMap: Map<String, String>? = null
+    private var wordTable: CompactDict.Table? = null
+
+    @Volatile
+    private var wordPyTable: CompactDict.Table? = null
 
     @Volatile
     private var shuowenMap: Map<String, Shuowen>? = null
@@ -103,6 +108,8 @@ object ChineseDict {
      * 多音字按单字表走，人名另有 PersonPinyin 兜。
      */
     fun pinyinOfWord(context: Context, word: String): String {
+        // 先查词级读音表：长/乐/行/朝 这类多音字在词组里取哪一读，靠整词定，不能逐字取首音
+        wordPinyin(context, word)?.let { if (it.isNotBlank()) return it }
         val sb = StringBuilder()
         for (c in word) {
             val info = getChar(context, c.toString()) ?: continue
@@ -114,17 +121,26 @@ object ChineseDict {
         return sb.toString()
     }
 
+    private fun wordPinyin(context: Context, word: String): String? {
+        val t = wordPyTable ?: synchronized(this) {
+            val opened = CompactDict.open(context.applicationContext, "ci_pinyin.bin")
+            wordPyTable = opened
+            opened
+        }
+        return t?.find(word)
+    }
+
     /** 从点击位置取词，优先覆盖点击位置的最长词 */
     fun wordAt(context: Context, text: String, pos: Int): WordInfo? {
         if (pos !in text.indices) return null
-        val map = ensureWord(context)
+        val table = ensureWord(context) ?: return null
         for (len in 5 downTo 2) {
             val s0 = max(0, pos - len + 1)
             val s1 = min(pos, text.length - len)
             if (s1 < s0) continue
             for (s in s0..s1) {
                 val cand = text.substring(s, s + len)
-                val m = map[cand] ?: continue
+                val m = table.find(cand) ?: continue
                 return WordInfo(cand, m)
             }
         }
@@ -153,25 +169,13 @@ object ChineseDict {
         }
     }
 
-    private fun ensureWord(context: Context): Map<String, String> {
-        wordMap?.let { return it }
+    private fun ensureWord(context: Context): CompactDict.Table? {
+        wordTable?.let { return it }
         synchronized(this) {
-            wordMap?.let { return it }
-            val loaded = HashMap<String, String>(280000)
-            runCatching {
-                context.applicationContext.assets.open("zh_ci.txt")
-                    .bufferedReader()
-                    .useLines { lines ->
-                        lines.forEach { line ->
-                            if (line.isEmpty()) return@forEach
-                            val a = line.indexOf('\t')
-                            if (a <= 0) return@forEach
-                            loaded[line.substring(0, a)] = line.substring(a + 1)
-                        }
-                    }
-            }.onFailure { it.printOnDebug() }
-            wordMap = loaded
-            return loaded
+            wordTable?.let { return it }
+            val t = CompactDict.open(context.applicationContext, "zh_ci.bin")
+            wordTable = t
+            return t
         }
     }
 
@@ -228,17 +232,22 @@ object ChineseDict {
         prefixIndex?.let { return it }
         synchronized(this) {
             prefixIndex?.let { return it }
-            val src = ensureWord(context)
-            val buckets = HashMap<Char, ArrayList<String>>(4200)
-            for (k in src.keys) {
-                if (k.length < 2 || k.length > 3) continue
-                buckets.getOrPut(k[0]) { ArrayList(48) }.add(k)
-            }
-            val out = HashMap<Char, List<String>>(buckets.size)
-            buckets.forEach { (ch, list) ->
-                list.sortBy { it.length }
-                out[ch] = list.take(40)
-            }
+            // ci_prefix.txt 由构建期从词表预生成，运行时不再遍历 26 万条键
+            val out = HashMap<Char, List<String>>(9000)
+            runCatching {
+                context.applicationContext.assets.open("ci_prefix.txt")
+                    .bufferedReader()
+                    .useLines { lines ->
+                        lines.forEach { line ->
+                            if (line.isEmpty()) return@forEach
+                            val tab = line.indexOf('\t')
+                            if (tab <= 0) return@forEach
+                            val ch = line.substring(0, tab)
+                            if (ch.length != 1) return@forEach
+                            out[ch[0]] = line.substring(tab + 1).split(',')
+                        }
+                    }
+            }.onFailure { it.printOnDebug() }
             prefixIndex = out
             return out
         }

@@ -1,11 +1,11 @@
 package io.legado.app.help
 
 import android.content.Context
-import io.legado.app.utils.printOnDebug
 
 /**
  * 离线英汉词典
- * 数据源 assets/en_dict.txt，每行：词 \t 音标 \t 释义
+ * 数据源 assets/en_dict.bin（构建期由 en_dict.txt 转成 CompactDict 紧凑格式），
+ * 每行：词 \t 音标 \t 释义；40 万条不入 HashMap，只留一块字节数组做二分。
  * 阅读英文时点中单词即查，查不到时按常见词形变化还原再查
  */
 object EnDict {
@@ -17,36 +17,19 @@ object EnDict {
     )
 
     @Volatile
-    private var map: Map<String, String>? = null
+    private var table: CompactDict.Table? = null
 
     fun preload(context: Context) {
         ensure(context)
     }
 
-    private fun ensure(context: Context): Map<String, String> {
-        map?.let { return it }
+    private fun ensure(context: Context): CompactDict.Table? {
+        table?.let { return it }
         synchronized(this) {
-            map?.let { return it }
-            val loaded = HashMap<String, String>(420000)
-            runCatching {
-                context.applicationContext.assets.open("en_dict.txt")
-                    .bufferedReader()
-                    .useLines { lines ->
-                        lines.forEach { line ->
-                            if (line.isEmpty()) return@forEach
-                            val a = line.indexOf('\t')
-                            if (a <= 0) return@forEach
-                            val b = line.indexOf('\t', a + 1)
-                            if (b < 0) return@forEach
-                            val w = line.substring(0, a)
-                            loaded[w] = line.substring(a + 1)
-                        }
-                    }
-            }.onFailure {
-                it.printOnDebug()
-            }
-            map = loaded
-            return loaded
+            table?.let { return it }
+            val t = CompactDict.open(context.applicationContext, "en_dict.bin")
+            table = t
+            return t
         }
     }
 
@@ -54,12 +37,12 @@ object EnDict {
     fun lookup(context: Context, raw: String): Entry? {
         val w = raw.trim()
         if (w.isEmpty()) return null
-        val dict = ensure(context)
+        val dict = ensure(context) ?: return null
         val lower = w.lowercase()
-        decode(w, dict[w])?.let { return it }
-        if (lower != w) decode(w, dict[lower])?.let { return it }
+        decode(w, dict.find(w))?.let { return it }
+        if (lower != w) decode(w, dict.find(lower))?.let { return it }
         for (cand in candidates(lower)) {
-            decode(w, dict[cand])?.let { return it }
+            decode(w, dict.find(cand))?.let { return it }
         }
         return null
     }

@@ -82,6 +82,11 @@ object RelationExtractor {
         TERMS.groupBy { it[0] }.mapValues { e -> e.value.sortedByDescending { it.length } }
     }
 
+    /** 45 个国号按首字立桶：原来每段对每个国号各跑一次 indexOf，等于 45 趟全扫 */
+    private val STATES_BY_FIRST: Map<Char, List<String>> by lazy {
+        STATES.groupBy { it[0] }.mapValues { e -> e.value.sortedByDescending { it.length } }
+    }
+
     private val SPEECH = listOf("曰", "谓", "对", "谏", "问", "答", "云")
 
     private val REL_PATTERNS = listOf(
@@ -208,23 +213,21 @@ object RelationExtractor {
     private fun findPersonHits(sentence: String): List<Pair<String, IntRange>> {
         val hits = ArrayList<Pair<String, IntRange>>(8)
 
-        for (st in STATES) {
-            var from = 0
-            while (true) {
-                val i = sentence.indexOf(st, from)
-                if (i < 0) break
-                val rest = sentence.substring(i)
-                RULER.matchAt(rest, 0)?.let { m ->
-                    val name = m.value
-                    if (name.length in 3..5) {
-                        hits.add(PersonProfile.canonical(name) to IntRange(i, i + name.length - 1))
+        // 国号与人名共走一遍字符位，别开两趟
+        for (i in sentence.indices) {
+            val sts = STATES_BY_FIRST[sentence[i]]
+            if (sts != null) {
+                for (st in sts) {
+                    if (!sentence.startsWith(st, i)) continue
+                    val rest = sentence.substring(i)
+                    RULER.matchAt(rest, 0)?.let { m ->
+                        val name = m.value
+                        if (name.length in 3..5) {
+                            hits.add(PersonProfile.canonical(name) to IntRange(i, i + name.length - 1))
+                        }
                     }
                 }
-                from = i + 1
             }
-        }
-
-        for (i in sentence.indices) {
             val cands = TERMS_BY_FIRST[sentence[i]] ?: continue
             for (w in cands) {
                 if (sentence.startsWith(w, i)) {

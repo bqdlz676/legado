@@ -177,20 +177,22 @@ object PersonProfile {
                 tsMap = m
             }
             runCatching {
-                val text = context.assets.open("person.txt").bufferedReader().use { it.readText() }
+                // 8.8 万条逐行流式读，别先 readText() 攒一个几兆的大 String 再切
                 val m = HashMap<String, P>(90000)
-                for (ln in text.lineSequence()) {
-                    if (ln.isBlank()) continue
-                    val f = ln.split('\t')
-                    if (f.size < 6) continue
-                    val name = f[0]
-                    if (name.length < 2) continue
-                    val aliases = f[1].split('、').filter { it.length in 2..6 }
-                    val b = f[2].toIntOrNull()
-                    val d = f[3].toIntOrNull()
-                    val prof = P(name, aliases, b, d, f[5], f[4])
-                    val key = toSimp(name)
-                    if (key !in m) m[key] = prof
+                context.assets.open("person.txt").bufferedReader().useLines { lines ->
+                    lines.forEach { ln ->
+                        if (ln.isBlank()) return@forEach
+                        val f = ln.split('\t')
+                        if (f.size < 6) return@forEach
+                        val name = f[0]
+                        if (name.length < 2) return@forEach
+                        val aliases = f[1].split('、').filter { it.length in 2..6 }
+                        val b = f[2].toIntOrNull()
+                        val d = f[3].toIntOrNull()
+                        val prof = P(name, aliases, b, d, f[5], f[4])
+                        val key = toSimp(name)
+                        if (key !in m) m[key] = prof
+                    }
                 }
                 cbdb = m
             }
