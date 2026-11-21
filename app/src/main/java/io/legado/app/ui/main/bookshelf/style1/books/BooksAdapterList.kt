@@ -35,6 +35,20 @@ class BooksAdapterList(
         payloads: MutableList<Any>
     ) = binding.run {
         InkCardMotion.reveal(root, holder.layoutPosition)
+        // 暖金微光：把系统阴影的色相从黑拉回铜金，卡片浮在纸面上而不是压一层灰
+        root.apply {
+            elevation = 2f * resources.displayMetrics.density
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                outlineAmbientShadowColor = 0xFFB08A44.toInt()
+                outlineSpotShadowColor = 0xFFB08A44.toInt()
+            }
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(v: android.view.View, outline: android.graphics.Outline) {
+                    val r = 6f * resources.displayMetrics.density
+                    outline.setRoundRect(0, 0, v.width, v.height, r)
+                }
+            }
+        }
         if (payloads.isEmpty()) {
             tvName.text = verticalName(item.name)
             tvAuthor.text = authorText(item)

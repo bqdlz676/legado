@@ -21,16 +21,55 @@
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <TextView
-        android:id="@+id/tv_empty_msg"
+    <LinearLayout
+        android:id="@+id/layout_empty"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_margin="16dp"
+        android:orientation="vertical"
         android:gravity="center"
-        android:text="@string/bookshelf_empty"
-        android:visibility="gone"
-        tools:text="TextView" />
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="墨"
+            android:fontFamily="serif"
+            android:textSize="42sp"
+            android:alpha="0.16"
+            android:textColor="#1A1410" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="书架还空着"
+            android:fontFamily="serif"
+            android:textSize="15sp"
+            android:letterSpacing="0.08"
+            android:textColor="#5C4F3A" />
+
+        <View
+            android:layout_width="26dp"
+            android:layout_height="1.2dp"
+            android:layout_marginTop="10dp"
+            android:background="#C23B2E"
+            android:alpha="0.7" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="从「我的 · 导入本地书」放一本进来"
+            android:fontFamily="sans-serif-light"
+            android:textSize="10sp"
+            android:letterSpacing="0.04"
+            android:textColor="#9B9687" />
+    </LinearLayout>
+
+    <io.legado.app.ui.widget.InkGrainView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
 </FrameLayout>
 

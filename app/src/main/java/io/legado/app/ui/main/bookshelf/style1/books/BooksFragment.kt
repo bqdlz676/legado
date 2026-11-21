@@ -253,7 +253,7 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books),
                 if (spanCount >= 2) {
                     totalRows = if (itemCount % spanCount == 0) itemCount / spanCount else itemCount / spanCount + 1
                 }
-                binding.tvEmptyMsg.isGone = itemCount > 0
+                binding.layoutEmpty.isGone = itemCount > 0
                 binding.refreshLayout.isEnabled = enableRefresh && itemCount > 0
                 booksAdapter.setItems(list)
                 delay(100)
