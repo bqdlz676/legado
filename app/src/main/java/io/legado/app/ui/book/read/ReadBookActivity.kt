@@ -1089,8 +1089,9 @@ class ReadBookActivity : BaseReadBookActivity(),
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.menu_reader_more -> {
-                val toolbar = binding.readMenu.findViewById<View>(R.id.toolbar)
-                menu?.let { showReaderMoreMenu(toolbar, it) }
+                val anchor = binding.readMenu.findViewById<View>(R.id.title_bar)
+                    ?: binding.readMenu
+                menu?.let { showReaderMoreMenu(anchor, it) }
                 return true
             }
 
