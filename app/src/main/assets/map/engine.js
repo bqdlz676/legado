@@ -476,7 +476,11 @@
         if (!ok) continue;
         ev.__done = true;
         const target = ev.target ? armies.find(x => x.id === ev.target) : null;
-        if (ev.action === 'moraleChange' && target) target.morale = ev.value || downMorale(target.morale);
+        if (ev.action === 'moraleChange' && target) {
+          target.morale = ev.value || downMorale(target.morale);
+          // 士气复振 = 溃兵归队：只要还有人，就不该留在「已解散」状态里当幽灵
+          if (target.morale !== 'broken' && target.strength > 0) { target.alive = true; target.surrendered = false; }
+        }
         if (ev.action === 'surrender' && target) { target.alive = false; target.surrendered = true; }
         // 战役脚本能改战术，不只是改士气：退兵让渡、断粮、强令急行军都靠它
         if (ev.action === 'setIntent' && target) {
