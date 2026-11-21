@@ -7,7 +7,6 @@ import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.PathMeasure
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
@@ -27,7 +26,7 @@ import kotlin.math.sin
  * 400-560    触底炸裂 48 粒：圆粒 20 / 飞白丝 16 / 大块溅墨 12，半径 ≤60dp
  * 560-660    悬停
  * 660-1000   加速回聚（粒子边收边转）
- * 1000-1400  篆书「落文」按笔顺生长（PathMeasure 逐段描出来）
+ * 1000-1400  篆书「落文」实心落墨，逐段自上而下揭开
  * 1400-1600  顿
  * 1600-1750  金粉爆 70 粒（飞到 2100 衰减到 0）
  * 1500-1900  水墨远山勾线淡入（不透明度 ≤0.25），山腰雾横向缓移
@@ -85,7 +84,13 @@ class InkSplashView @JvmOverloads constructor(
         color = 0xFF2A2E3A.toInt()
     }
     private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = PAPER
+    }
+    /** 同色极细描边，让篆书笔画有墨的厚度，不做成线描 */
+    private val glyphEdge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
+        strokeWidth = dp(0.9f)
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
         color = PAPER
@@ -142,16 +147,14 @@ class InkSplashView @JvmOverloads constructor(
     private val grain = FloatArray(900)
 
     /** 一字的笔画：解析后的 Path + 它的长度 */
-    private class Stroke(val path: Path, val len: Float)
+    private class Stroke(val path: Path, val bound: RectF)
 
     private val luoStrokes = ArrayList<Stroke>(12)
     private val wenStrokes = ArrayList<Stroke>(4)
     private var glyphReady = false
-    private var strokeWidth = dp(5f)
+    private var glyphW = dp(60f)
 
     private val glyphBounds = RectF()
-    private val segPath = Path()
-    private val measure = PathMeasure()
     private val matrix = Matrix()
 
     private var progressMs = 0f
@@ -234,7 +237,7 @@ class InkSplashView @JvmOverloads constructor(
         w = nw.toFloat()
         h = nh.toFloat()
         cx = w / 2f
-        cy = h * 0.46f
+        cy = h * 0.47f
         glyphReady = false
     }
 
@@ -242,8 +245,8 @@ class InkSplashView @JvmOverloads constructor(
 
     /** 读取 raw 里的篆书笔画，按目标尺寸装配成可生长的 Stroke 列表 */
     private fun prepareGlyph() {
-        val targetH = h * 0.132f
-        val gap = h * 0.048f
+        val targetH = h * 0.152f
+        val gap = h * 0.052f
         val blockH = targetH * 2f + gap
         val top = cy - blockH / 2f
 
@@ -254,11 +257,11 @@ class InkSplashView @JvmOverloads constructor(
         loadGlyph(R.raw.ink_luo, top, targetH).let { luoStrokes.addAll(it) }
         loadGlyph(R.raw.ink_wen, top + targetH + gap, targetH).let { wenStrokes.addAll(it) }
 
-        strokeWidth = targetH * 0.052f
-        glyphPaint.strokeWidth = strokeWidth
+        glyphW = targetH * 0.68f
+        glyphEdge.strokeWidth = dp(0.9f)
 
         // 字块包围盒（用于金粉起点与金线端点）
-        glyphBounds.set(cx - targetH * 0.62f, top, cx + targetH * 0.62f, top + blockH)
+        glyphBounds.set(cx - glyphW / 2f, top, cx + glyphW / 2f, top + blockH)
         glyphReady = true
     }
 
@@ -292,31 +295,35 @@ class InkSplashView @JvmOverloads constructor(
         val out = ArrayList<Stroke>(raw.size)
         raw.forEach { p ->
             p.transform(matrix)
-            out.add(Stroke(p, if (p.length > 0f) p.length else 1f))
+            val b = RectF()
+            p.computeBounds(b, true)
+            out.add(Stroke(p, b))
         }
         return out
     }
 
-    private val Path.length: Float
-        get() {
-            measure.setPath(this, false)
-            return measure.length
-        }
-
-    /** 按进度 t 把一组笔画描出来 */
+    /** 按进度把一组笔画一笔一笔"落"出来：每笔按自身包围盒自上而下揭开 */
     private fun drawGlyph(canvas: Canvas, strokes: List<Stroke>, t: Float, alpha: Int) {
         if (t <= 0f) return
         glyphPaint.alpha = alpha
+        glyphEdge.alpha = alpha
         val total = strokes.size.toFloat()
         strokes.forEachIndexed { idx, st ->
             val local = ((t * total) - idx).coerceIn(0f, 1f)
             if (local <= 0f) return@forEachIndexed
-            measure.setPath(st.path, false)
-            segPath.reset()
-            measure.getSegment(0f, st.len * local, segPath, true)
-            canvas.drawPath(segPath, glyphPaint)
+            val save = canvas.save()
+            canvas.clipRect(
+                st.bound.left - dp(2f),
+                st.bound.top - dp(2f),
+                st.bound.right + dp(2f),
+                st.bound.top + st.bound.height() * local + dp(1f)
+            )
+            canvas.drawPath(st.path, glyphPaint)
+            canvas.drawPath(st.path, glyphEdge)
+            canvas.restoreToCount(save)
         }
         glyphPaint.alpha = 255
+        glyphEdge.alpha = 255
     }
 
     // ---------------- 绘制 ----------------
@@ -515,8 +522,8 @@ class InkSplashView @JvmOverloads constructor(
             val lifeT = ((age / (SPARK_LIFE - SPARK_IN)) * (0.55f + 0.45f * s.life)).coerceIn(0f, 1f)
             val a = (255 * (1f - lifeT) * s.bright).toInt().coerceIn(0, 255)
             if (a <= 6) continue
-            val x = s.ox + s.vx * lifeT * dp(120f)
-            val y = s.oy + s.vy * lifeT * dp(120f) + lifeT * lifeT * dp(14f)
+            val x = s.ox + s.vx * lifeT * dp(170f)
+            val y = s.oy + s.vy * lifeT * dp(170f) + lifeT * lifeT * dp(16f)
             goldPaint.color = if (s.bright > 0.75f) GOLD_HI else GOLD
             goldPaint.alpha = a
             canvas.drawCircle(x, y, s.size, goldPaint)
@@ -537,7 +544,7 @@ class InkSplashView @JvmOverloads constructor(
                     ox = bx, oy = by,
                     vx = cosF(ang) * sp,
                     vy = sinF(ang) * sp,
-                    size = dp(0.7f + rand.nextFloat() * 1.4f),
+                    size = dp(1.0f + rand.nextFloat() * 1.6f),
                     life = rand.nextFloat(),
                     bright = 0.5f + rand.nextFloat() * 0.5f
                 )
@@ -550,9 +557,9 @@ class InkSplashView @JvmOverloads constructor(
     private fun drawGoldLine(canvas: Canvas, p: Float) {
         if (p < GOLD_IN) return
         val t = ((p - GOLD_IN) / (GOLD_END - GOLD_IN)).coerceIn(0f, 1f)
-        val startX = w * 0.06f
-        val endX = cx + strokeWidth * 1.2f
-        val gy = glyphBounds.bottom - strokeWidth * 0.7f
+        val startX = w * 0.14f
+        val endX = cx + glyphW * 0.44f
+        val gy = glyphBounds.bottom - h * 0.004f
 
         // 顿挫：7 段，每段先快后慢，段间微停
         val segs = 7
@@ -566,7 +573,15 @@ class InkSplashView @JvmOverloads constructor(
         val trace = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x26D4A54A }
         canvas.drawLine(startX, gy, gx, gy, trace)
 
+        // 线尾渐变，避免"进度条"感
+        goldLinePaint.shader = LinearGradient(
+            startX, gy, gx, gy,
+            intArrayOf(0x00D4A54A, 0x99D4A54A.toInt(), GOLD),
+            floatArrayOf(0f, 0.35f, 1f),
+            Shader.TileMode.CLAMP
+        )
         canvas.drawLine(startX, gy, gx, gy, goldLinePaint)
+        goldLinePaint.shader = null
 
         // 笔头辉光
         glowPaint.shader = RadialGradient(
@@ -606,7 +621,7 @@ class InkSplashView @JvmOverloads constructor(
         val t = ((p - SLOGAN_IN) / (SLOGAN_END - SLOGAN_IN)).coerceIn(0f, 1f)
         val fade = ((p - 2460f) / 200f).coerceIn(0f, 1f)
         sloganPaint.alpha = (200 * t * (1f - fade)).toInt().coerceIn(0, 255)
-        canvas.drawText("读其文，知其人，通其时。", cx, h * 0.80f, sloganPaint)
+        canvas.drawText("读其文，知其人，通其时。", cx, h * 0.86f, sloganPaint)
         sloganPaint.alpha = 255
     }
 }
