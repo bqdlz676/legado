@@ -114,7 +114,7 @@ class CharDetailActivity : AppCompatActivity() {
 
     /** 「1.义项 2.义项」→ 编号条目；没有编号的整段保留 */
     private fun splitSenses(raw: String): List<String> {
-        val parts = raw.split(Regex("(?<=[。；;])")).joinToString("")
+        val parts = raw
         val marks = Regex("(\\d+)\\.").findAll(parts).toList()
         if (marks.size < 2) return listOf("① " + raw.trim())
         val out = ArrayList<String>(marks.size)
