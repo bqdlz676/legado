@@ -26,7 +26,7 @@ object PlaceDict {
     private var byFirst: Map<Char, List<String>>? = null
 
     @Volatile
-    private var enTable: Map<String, Entry> = HashMap()
+    private var enTable: HashMap<String, Entry> = HashMap()
 
     fun ensureLoaded(context: Context) {
         if (table == null) load(context)
@@ -63,7 +63,7 @@ object PlaceDict {
         fun isWord(c: Char) = c.isLetter() || c == '\'' || c == '-'
         if (!text[pos].isLetter()) return null
         load(context)
-        val map = enTable
+        val map: Map<String, Entry> = enTable
         if (map.isEmpty()) return null
         var s = pos
         while (s > 0 && isWord(text[s - 1])) s--
