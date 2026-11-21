@@ -48,7 +48,7 @@
             android:paddingStart="26dp"
             android:paddingEnd="26dp"
             android:paddingTop="14dp"
-            android:paddingBottom="48dp">
+            android:paddingBottom="56dp">
 
             <TextView
                 android:id="@+id/tv_char"
@@ -84,13 +84,91 @@
                 android:background="#E4DAC7" />
 
             <TextView
+                android:id="@+id/tv_label_shuowen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:letterSpacing="0.2"
+                android:text="说 文"
+                android:textColor="#A2967F"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_shuowen"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="6dp"
+                android:textColor="#3A3226"
+                android:textSize="15sp"
+                android:textIsSelectable="true" />
+
+            <TextView
+                android:id="@+id/tv_label_meaning"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.2"
+                android:text="释 义"
+                android:textColor="#A2967F"
+                android:textSize="11sp" />
+
+            <TextView
                 android:id="@+id/tv_meaning"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:lineSpacingExtra="7dp"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="6dp"
                 android:textColor="#3A3226"
-                android:textSize="15.5sp"
+                android:textSize="15sp"
+                android:textIsSelectable="true" />
+
+            <TextView
+                android:id="@+id/tv_label_usage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.2"
+                android:text="书 证"
+                android:textColor="#A2967F"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_usage_src"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="#8A6A3E"
+                android:textSize="11.5sp" />
+
+            <TextView
+                android:id="@+id/tv_usage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:lineSpacingExtra="6dp"
+                android:textColor="#3A3226"
+                android:textSize="15sp"
+                android:textIsSelectable="true" />
+
+            <TextView
+                android:id="@+id/tv_label_words"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.2"
+                android:text="词 组"
+                android:textColor="#A2967F"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_words"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="8dp"
+                android:textColor="#5A5245"
+                android:textSize="14sp"
                 android:textIsSelectable="true" />
         </LinearLayout>
     </ScrollView>
