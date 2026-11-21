@@ -98,76 +98,81 @@ var rim = new THREE.DirectionalLight(0x2F3A44, 0.38);
 rim.position.set(155, 60, -150);
 scene.add(rim);
 
-// ---- 程序化地形：低频起伏 + 两三条山脊 + 一条水系 ----
+// ---- 真实高程：512×512 灰度图（104°E–122°E / 24°N–42°N），0–255 = 0–3000m ----
 var SEG = 128, SIZE = 300;
-var geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
-geo.rotateX(-Math.PI / 2);
+var HG = { w: 104, e: 122, s: 24, n: 42, px: 512 };
+var hdata = new Uint8Array(HG.px * HG.px);
+var terrain = null;
+var TARGET = new THREE.Vector3(0, 0, 0);
 
-function hash(x, y) {
-  var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-  return n - Math.floor(n);
-}
-function noise(x, y) {
-  var xi = Math.floor(x), yi = Math.floor(y);
-  var xf = x - xi, yf = y - yi;
-  var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-  var a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-}
-function fbm(x, y) {
-  var s = 0, amp = 0.5, f = 1;
-  for (var i = 0; i < 5; i++) { s += noise(x * f, y * f) * amp; f *= 2.03; amp *= 0.5; }
-  return s;
-}
+function lonU(lng) { return (lng - HG.w) / (HG.e - HG.w) * SIZE - SIZE / 2; }
+function latV(lat) { return (HG.n - lat) / (HG.n - HG.s) * SIZE - SIZE / 2; }
 
-// 地形高度：中间略低（河谷），两侧抬升成山脊
-var pos = geo.attributes.position;
-for (var i = 0; i < pos.count; i++) {
-  var x = pos.getX(i), z = pos.getZ(i);
-  var r = Math.sqrt(x * x + z * z) / (SIZE * 0.5);
-  var base = fbm(x * 0.012 + 40, z * 0.012 - 20) * 34;
-  var ridge = Math.pow(1 - Math.min(1, Math.abs(x) / (SIZE * 0.5)), 2.1) * 9;
-  var valley = -Math.exp(-(x * x) / 900) * 13;
-  var h = base + ridge * (0.6 + fbm(x * 0.03, z * 0.03)) + valley;
-  pos.setY(i, h);
+function hAt(x, z) {
+  var u = (x + SIZE / 2) / SIZE * (HG.px - 1);
+  var v = (z + SIZE / 2) / SIZE * (HG.px - 1);
+  var iu = Math.max(0, Math.min(HG.px - 2, Math.floor(u)));
+  var iv = Math.max(0, Math.min(HG.px - 2, Math.floor(v)));
+  var fu = u - iu, fv = v - iv;
+  var i00 = iv * HG.px + iu, i10 = i00 + 1, i01 = i00 + HG.px, i11 = i01 + 1;
+  var a = hdata[i00], b = hdata[i10], c = hdata[i01], d = hdata[i11];
+  return (a * (1 - fu) * (1 - fv) + b * fu * (1 - fv) + c * (1 - fu) * fv + d * fu * fv) / 255 * 3000;
 }
-geo.computeVertexNormals();
+function yOf(x, z) { return hAt(x, z) * 0.022; }
 
-// 按高度着色：低地青灰、坡面赭石、峰顶浅米
-var colors = [];
-var pc = geo.attributes.position;
-for (var j = 0; j < pc.count; j++) {
-  var y = pc.getY(j);
-  var t = Math.min(1, Math.max(0, (y + 16) / 56));
-  var c1 = new THREE.Color(0x3A4048); // 谷底青灰
-  var c2 = new THREE.Color(0x6E6046); // 山坡赭褐
-  var c3 = new THREE.Color(0xB8A88A); // 峰顶米褐
-  var col = t < 0.55 ? c1.clone().lerp(c2, t / 0.55) : c2.clone().lerp(c3, (t - 0.55) / 0.45);
-  colors.push(col.r, col.g, col.b);
+var img = new Image();
+img.onload = function () {
+  var cv = document.createElement('canvas');
+  cv.width = HG.px; cv.height = HG.px;
+  var c2 = cv.getContext('2d');
+  c2.drawImage(img, 0, 0, HG.px, HG.px);
+  var dat = c2.getImageData(0, 0, HG.px, HG.px).data;
+  for (var k = 0; k < HG.px * HG.px; k++) hdata[k] = dat[k * 4];
+  buildTerrain();
+};
+img.src = 'china_height.png';
+
+function buildTerrain() {
+  var geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+  geo.rotateX(-Math.PI / 2);
+  var pos = geo.attributes.position;
+  for (var i = 0; i < pos.count; i++) {
+    pos.setY(i, yOf(pos.getX(i), pos.getZ(i)));
+  }
+  geo.computeVertexNormals();
+
+  var colors = [];
+  var pc = geo.attributes.position;
+  var cLow = new THREE.Color(0x3A4048);
+  var cMid = new THREE.Color(0x6E6046);
+  var cHigh = new THREE.Color(0xB8A88A);
+  var cTop = new THREE.Color(0xCEC2A8);
+  for (var j = 0; j < pc.count; j++) {
+    var e = hAt(pc.getX(j), pc.getZ(j));
+    var col;
+    if (e < 12) {
+      col = new THREE.Color(0x2A343C);
+    } else if (e < 900) {
+      col = cLow.clone().lerp(cMid, e / 900);
+    } else if (e < 2200) {
+      col = cMid.clone().lerp(cHigh, (e - 900) / 1300);
+    } else {
+      col = cHigh.clone().lerp(cTop, Math.min(1, (e - 2200) / 1200));
+    }
+    colors.push(col.r, col.g, col.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+  terrain = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors: true}));
+  scene.add(terrain);
+
+  var grid = new THREE.GridHelper(SIZE, 24, 0x3A3324, 0x241F16);
+  grid.position.y = -8;
+  scene.add(grid);
+
+  TARGET.set(lonU(place.lng), 0, latV(place.lat));
+  placeLabels();
 }
-geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-var terrain = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors: true}));
-scene.add(terrain);
-
-// 水系：一条沿谷地的细带
-var wpts = [];
-for (var k = -70; k <= 70; k++) {
-  var x2 = k * 2;
-  var z2 = Math.sin(k * 0.12) * 22 + fbm(k * 0.1, 5) * 9;
-  var yy = fbm(x2 * 0.03, z2 * 0.03) * 3;
-  wpts.push(new THREE.Vector3(x2, -10 + yy, z2));
-}
-var wcur = new THREE.CatmullRomCurve3(wpts);
-var wtube = new THREE.TubeGeometry(wcur, 220, 1.5, 5, false);
-scene.add(new THREE.Mesh(wtube, new THREE.MeshBasicMaterial({
-  color: 0xD4A54A, transparent: true, opacity: 0.55
-})));
-
-// 网格线
-var grid = new THREE.GridHelper(SIZE, 24, 0x3A3324, 0x241F16);
-grid.position.y = -18;
-scene.add(grid);
 
 // 地名标签（始终朝向相机）
 function label(text, x, y, z, color) {
@@ -189,37 +194,34 @@ function label(text, x, y, z, color) {
   return sp;
 }
 
-// 当前地名居中，周边城市标点
-function cityAt(n) { return window.CITIES && window.CITIES[n]; }
-var centerName = place.name;
-var hasCenter = cityAt(centerName);
-if (hasCenter) {
-  label(centerName, 0, 24, 0, '#FFD98A');
-} else {
-  label(centerName, 0, 24, 0, '#FFD98A');
-}
+// 当前地名居中，周边城市标点（真实经纬 → 地形坐标）
+function placeLabels() {
+  var cx = lonU(place.lng), cz = latV(place.lat);
+  label(place.name || '地形沙盘', cx, yOf(cx, cz) + 10, cz, '#FFD98A');
 
-// 周边城市：按经纬度差映射到地形平面（1 度 ≈ 6 单位，裁到 ±120）
-var near = [];
-Object.keys(window.CITIES || {}).forEach(function (n) {
-  if (n === centerName) return;
-  var c = window.CITIES[n];
-  var dx = (c[1] - place.lng) * 5.4;
-  var dz = -(c[0] - place.lat) * 6.4;
-  if (Math.abs(dx) < 118 && Math.abs(dz) < 118) near.push({n: n, x: dx, z: dz, d: Math.sqrt(dx * dx + dz * dz)});
-});
-near.sort(function (a, b) { return a.d - b.d; });
-near.slice(0, 22).forEach(function (p) {
-  var h = fbm(p.x * 0.03, p.z * 0.03) * 20;
-  var v = new THREE.Vector3(p.x, h + 2, p.z);
-  var dot = new THREE.Mesh(
-    new THREE.SphereGeometry(1.5, 10, 10),
-    new THREE.MeshBasicMaterial({color: 0xD4A54A})
-  );
-  dot.position.copy(v);
-  scene.add(dot);
-  label(p.n, p.x, h + 7, p.z, '#B9B09A');
-});
+  var near = [];
+  Object.keys(window.CITIES || {}).forEach(function (n) {
+    if (n === place.name) return;
+    var c = window.CITIES[n];
+    var lat = c[0], lng = c[1];
+    if (lng < HG.w || lng > HG.e || lat < HG.s || lat > HG.n) return;
+    var x = lonU(lng), z = latV(lat);
+    var d = Math.sqrt((x - cx) * (x - cx) + (z - cz) * (z - cz));
+    if (d < 130) near.push({n: n, x: x, z: z, d: d});
+  });
+  near.sort(function (a, b) { return a.d - b.d; });
+  near.slice(0, 22).forEach(function (p) {
+    var h = yOf(p.x, p.z);
+    var v = new THREE.Vector3(p.x, h + 2, p.z);
+    var dot = new THREE.Mesh(
+      new THREE.SphereGeometry(1.4, 10, 10),
+      new THREE.MeshBasicMaterial({color: 0xD4A54A})
+    );
+    dot.position.copy(v);
+    scene.add(dot);
+    label(p.n, p.x, h + 7, p.z, '#B9B09A');
+  });
+}
 
 // ---- 交互 ----
 var dragging = false, lastX = 0, lastY = 0, rotY = 0, rotX = 0, dist = 300;
@@ -280,8 +282,8 @@ function dropPoint(cx, cy) {
   if (routePts.length > 1) {
     var a = routePts[routePts.length - 2], b = routePts[routePts.length - 1];
     var d = a.distanceTo(b);
-    // 地形单位换算：300 单位 ≈ 500 公里，古代日行 30 里 ≈ 15 公里
-    var km = (d / 300) * 500;
+    // 地形单位换算：300 单位覆盖 18 个纬度经度 ≈ 1730 公里
+    var km = (d / 300) * 1730;
     var days = Math.max(1, Math.round(km / 15));
     if (routeLine) scene.remove(routeLine);
     var lineGeo = new THREE.BufferGeometry().setFromPoints(routePts.map(function (q) {
@@ -313,11 +315,11 @@ document.getElementById('bRoute').onclick = function () {
 function animate() {
   requestAnimationFrame(animate);
   if (autoRot && !dragging) rotY += 0.0016;
-  var cx = Math.sin(rotY) * dist * Math.cos(rotX + 0.28);
-  var cz = Math.cos(rotY) * dist * Math.cos(rotX + 0.28);
-  var cy = 135 + Math.sin(rotX + 0.28) * dist * 0.5;
+  var cx = TARGET.x + Math.sin(rotY) * dist * Math.cos(rotX + 0.28);
+  var cz = TARGET.z + Math.cos(rotY) * dist * Math.cos(rotX + 0.28);
+  var cy = TARGET.y + 135 + Math.sin(rotX + 0.28) * dist * 0.5;
   camera.position.set(cx, cy, cz);
-  camera.lookAt(0, 0, 0);
+  camera.lookAt(TARGET);
   renderer.render(scene, camera);
 }
 animate();

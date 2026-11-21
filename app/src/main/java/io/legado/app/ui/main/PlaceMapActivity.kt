@@ -52,7 +52,7 @@ class PlaceMapActivity : AppCompatActivity() {
             }
             val w = findViewById<WebView>(R.id.web)
             configureWeb(w)
-            w.loadUrl("file:///android_asset/map/index.html?d=" +
+            w.loadUrl("file:///android_asset/map/three.html?d=" +
                 java.net.URLEncoder.encode(payload.toString(), "UTF-8"))
             return
         }
@@ -99,7 +99,7 @@ class PlaceMapActivity : AppCompatActivity() {
         configureWeb(web)
 
         val data = java.net.URLEncoder.encode(payload.toString(), "UTF-8")
-        web.loadUrl("file:///android_asset/map/index.html?d=$data")
+        web.loadUrl("file:///android_asset/map/three.html?d=$data")
     }
 
     private fun configureWeb(web: WebView): WebView {
