@@ -12,6 +12,7 @@ import io.legado.app.help.book.isLocal
 import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.main.bookshelf.updateBookshelfReadProgress
 import io.legado.app.ui.widget.InkCardMotion
+import io.legado.app.ui.widget.inkPress
 import io.legado.app.utils.invisible
 import io.legado.app.utils.toTimeAgo
 import splitties.views.onLongClick
@@ -146,6 +147,7 @@ class BooksAdapterList(
 
     override fun registerListener(holder: ItemViewHolder, binding: ItemBookshelfListBinding) {
         holder.itemView.apply {
+            inkPress(radiusDp = 6f)
             setOnTouchListener { v, event ->
                 InkCardMotion.touch(v, event)
                 false

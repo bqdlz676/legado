@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      落文 · 第 0 层：字体系统
+      正文 / 标题走系统 serif（国产 ROM 下通常落到思源宋体或宋体）；
+      注音小字走 sans-serif-light；数字用 tnum 等宽数字，年份与典籍编号不跳动。
+    -->
+
+    <style name="InkTextBody" parent="android:Widget.TextView">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:textColor">@color/ink_text_primary</item>
+        <item name="android:lineSpacingMultiplier">1.8</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="InkTextTitle" parent="InkTextBody">
+        <item name="android:textSize">19sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.01</item>
+        <item name="android:lineSpacingMultiplier">1.45</item>
+    </style>
+
+    <style name="InkTextLabel" parent="android:Widget.TextView">
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textColor">@color/ink_text_tertiary</item>
+        <item name="android:letterSpacing">0.06</item>
+    </style>
+
+    <style name="InkTextNumber" parent="android:Widget.TextView">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/ink_text_secondary</item>
+        <item name="android:letterSpacing">0.04</item>
+    </style>
+
+</resources>

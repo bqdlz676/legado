@@ -2,8 +2,6 @@ package io.legado.app.ui.widget
 
 import android.view.MotionEvent
 import android.view.View
-import android.view.animation.OvershootInterpolator
-import android.view.animation.PathInterpolator
 
 /**
  * 落文 · 墨卡手感
@@ -13,8 +11,6 @@ import android.view.animation.PathInterpolator
  */
 object InkCardMotion {
 
-    private val settle = OvershootInterpolator(1.6f)
-    private val revealCurve = PathInterpolator(0.22f, 0.61f, 0.36f, 1f)
 
     fun down(view: View) {
         view.cameraDistance = 9600f * view.resources.displayMetrics.density
@@ -22,8 +18,8 @@ object InkCardMotion {
             .rotationY(4.5f)
             .scaleX(0.985f)
             .scaleY(0.985f)
-            .setDuration(120)
-            .setInterpolator(PathInterpolator(0.4f, 0f, 0.2f, 1f))
+            .setDuration(InkDur.MICRO)
+            .setInterpolator(InkEase.pageTurn)
             .start()
     }
 
@@ -32,8 +28,8 @@ object InkCardMotion {
             .rotationY(0f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(260)
-            .setInterpolator(settle)
+            .setDuration(InkDur.CARD)
+            .setInterpolator(InkEase.spring)
             .start()
     }
 
@@ -55,8 +51,8 @@ object InkCardMotion {
             .alpha(1f)
             .translationY(0f)
             .setStartDelay((index.coerceAtMost(8) * 45).toLong())
-            .setDuration(380)
-            .setInterpolator(revealCurve)
+            .setDuration(InkDur.CARD)
+            .setInterpolator(InkEase.cardReveal)
             .start()
     }
 }

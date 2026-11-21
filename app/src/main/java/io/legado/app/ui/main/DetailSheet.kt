@@ -390,19 +390,16 @@ class DetailSheet : BottomSheetDialogFragment() {
 
     private fun label(text: String) {
         val tv = TextView(requireContext())
+        tv.setTextAppearance(R.style.InkTextLabel)
         tv.text = text
-        tv.textSize = 12f
-        tv.setTextColor(0xFFA2967F.toInt())
         tv.setPadding(0, dp(14), 0, dp(3))
         content().addView(tv)
     }
 
     private fun body(text: String) {
         val tv = TextView(requireContext())
+        tv.setTextAppearance(R.style.InkTextBody)
         tv.text = text
-        tv.textSize = 15f
-        tv.setTextColor(0xFF2B2419.toInt())
-        tv.setLineSpacing(dp(4).toFloat(), 1f)
         tv.setTextIsSelectable(true)
         content().addView(tv)
     }
