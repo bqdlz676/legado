@@ -570,15 +570,20 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                 if (hit != null) {
                                     showAllusionBubble(hit.entry, x, y, relativeOffset, textLine)
                                 } else {
-                                    val word = if (colIdx >= 0) {
-                                        ChineseDict.wordAt(context, lineText, colIdx)
+                                    val nm = if (colIdx >= 0) {
+                                        io.legado.app.help.NameResolver.matchAt(context, lineText, colIdx)
                                     } else null
-                                    if (word != null && word.word.length >= 2) {
-                                        val py = pinyinForWord(word.word)
+                                    if (nm != null) {
+                                        val body = buildString {
+                                            if (nm.meta.isNotBlank()) {
+                                                append("〔").append(nm.meta).append("〕\n")
+                                            }
+                                            append(nm.detail)
+                                        }
                                         showBubble(
-                                            word.word, py, word.meaning,
+                                            nm.name, nm.pinyin, body,
                                             x, y, relativeOffset, textLine,
-                                            word.word.length >= 3, false
+                                            nm.name.length >= 4, true
                                         )
                                     } else {
                                         showCharBubble(ch, x, y, relativeOffset, textLine)

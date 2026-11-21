@@ -528,6 +528,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             ChineseDict.preload(this@ReadBookActivity)
             Chronology.ensureLoaded(this@ReadBookActivity)
             HanConv.ensureLoaded(this@ReadBookActivity)
+            io.legado.app.help.NameResolver.preload(this@ReadBookActivity)
             ContentTextView.preloadDict(this@ReadBookActivity)
         }.onError { it.printOnDebug() }
         viewModel.pendingSourceReimport.observe(this) { showPendingSourceReimport() }
