@@ -524,6 +524,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             AllusionDict.preload(this@ReadBookActivity)
             EnDict.preload(this@ReadBookActivity)
             ChineseDict.preload(this@ReadBookActivity)
+            Chronology.ensureLoaded(this@ReadBookActivity)
             ContentTextView.preloadDict(this@ReadBookActivity)
         }.onError { it.printOnDebug() }
         viewModel.pendingSourceReimport.observe(this) { showPendingSourceReimport() }

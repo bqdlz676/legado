@@ -24,6 +24,7 @@ import io.legado.app.R
 import io.legado.app.data.entities.BookHighlight
 import io.legado.app.data.entities.Bookmark
 import io.legado.app.help.book.isPdf
+import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.ChineseDict
 import io.legado.app.help.AllusionDict
 import io.legado.app.help.EnDict
@@ -549,26 +550,38 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                         if (ch.length == 1 && ch[0].code in 0x4E00..0x9FFF) {
                             val colIdx = columnIndexOf(textLine, column)
                             val lineText = textLine.text
-                            val hit = if (colIdx >= 0) {
-                                AllusionDict.hitAt(context, lineText, colIdx)
+                            val chronoHit = if (colIdx >= 0) {
+                                chronoHitAt(lineText, colIdx)
                             } else null
-                            if (hit != null) {
-                                showAllusionBubble(hit.entry, x, y, relativeOffset, textLine)
+                            if (chronoHit != null) {
+                                showBubble(
+                                    chronoHit.first, "", chronoHit.second,
+                                    x, y, relativeOffset, textLine,
+                                    chronoHit.first.length >= 5, false
+                                )
+                                handled = true
                             } else {
-                                val word = if (colIdx >= 0) {
-                                    ChineseDict.wordAt(context, lineText, colIdx)
+                                val hit = if (colIdx >= 0) {
+                                    AllusionDict.hitAt(context, lineText, colIdx)
                                 } else null
-                                if (word != null && word.word.length >= 2) {
-                                    showBubble(
-                                        word.word, "", word.meaning,
-                                        x, y, relativeOffset, textLine,
-                                        word.word.length >= 3, false
-                                    )
+                                if (hit != null) {
+                                    showAllusionBubble(hit.entry, x, y, relativeOffset, textLine)
                                 } else {
-                                    showCharBubble(ch, x, y, relativeOffset, textLine)
+                                    val word = if (colIdx >= 0) {
+                                        ChineseDict.wordAt(context, lineText, colIdx)
+                                    } else null
+                                    if (word != null && word.word.length >= 2) {
+                                        showBubble(
+                                            word.word, "", word.meaning,
+                                            x, y, relativeOffset, textLine,
+                                            word.word.length >= 3, false
+                                        )
+                                    } else {
+                                        showCharBubble(ch, x, y, relativeOffset, textLine)
+                                    }
                                 }
+                                handled = true
                             }
-                            handled = true
                         } else if (ch.length == 1 && (ch[0] in 'a'..'z' || ch[0] in 'A'..'Z')) {
                             val colIdx = columnIndexOf(textLine, column)
                             if (colIdx >= 0) {
@@ -1082,6 +1095,110 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         )
     }
 
+
+    /**
+     * 行内年代识别：
+     * 点到「己巳」这类干支日，结合同行年月算出公历；
+     * 点到「贞观三年」这类年号纪年，直接换公元与干支年。
+     */
+    private fun chronoHitAt(lineText: String, pos: Int): Pair<String, String>? {
+        if (lineText.isEmpty()) return null
+
+        // 干支日：点到的两字，或左侧起算的两字
+        val cands = ArrayList<String>(2)
+        if (pos >= 0 && pos + 2 <= lineText.length) {
+            cands.add(lineText.substring(pos, pos + 2))
+        }
+        if (pos >= 1 && pos + 1 <= lineText.length) {
+            cands.add(lineText.substring(pos - 1, pos + 1))
+        }
+        for (c in cands) {
+            if (Chronology.ganzhiIndex(c) == null) continue
+            val year = yearInLine(lineText)
+            val month = monthInLine(lineText)
+            return if (year != null && month != null) {
+                val days = Chronology.resolveDays(year, month, c)
+                if (days.isEmpty()) {
+                    c to "本年${month}月无${c}日"
+                } else {
+                    val ds = days.joinToString(" / ") { "${it.dayOfMonth}日" }
+                    c to "公元${year}年${month}月${ds}（${Chronology.yearGanzhi(year)}年）"
+                }
+            } else {
+                c to "干支日；同行无年月，无法落到具体公历"
+            }
+        }
+
+        // 年号纪年
+        val re = KOTLIN_YEAR_RE
+        for (m in re.findAll(lineText)) {
+            if (pos < m.range.first || pos > m.range.last) continue
+            val era = m.groupValues[1]
+            val e = Chronology.eraOf(era) ?: continue
+            val n = chnNumber(m.groupValues[2]) ?: continue
+            val y = e.startYear + n - 1
+            return "${era}${m.groupValues[2]}年" to "${Chronology.yearLabel(y)}（${e.dynasty}）"
+        }
+        return null
+    }
+
+    private fun yearInLine(lineText: String): Int? {
+        for (m in KOTLIN_YEAR_RE.findAll(lineText)) {
+            val e = Chronology.eraOf(m.groupValues[1]) ?: continue
+            val n = chnNumber(m.groupValues[2]) ?: continue
+            return e.startYear + n - 1
+        }
+        return null
+    }
+
+    private fun monthInLine(lineText: String): Int? {
+        KOTLIN_MONTH_RE.find(lineText)?.let { m ->
+            chnNumber(m.groupValues[1])?.takeIf { it in 1..12 }?.let { return it }
+        }
+        return when {
+            lineText.contains("正月") -> 1
+            lineText.contains("冬月") -> 11
+            lineText.contains("腊月") -> 12
+            else -> null
+        }
+    }
+
+    /** 一~九百九十九够用，古籍纪年不会更大 */
+    private fun chnNumber(raw: String): Int? {
+        if (raw.isEmpty()) return null
+        var total = 0
+        var section = 0
+        var num = 0
+        for (c in raw) {
+            when (c) {
+                '一', '壹' -> num = 1
+                '二', '贰', '兩', '两' -> num = 2
+                '三', '叁' -> num = 3
+                '四', '肆' -> num = 4
+                '五', '伍' -> num = 5
+                '六', '陆' -> num = 6
+                '七', '柒' -> num = 7
+                '八', '捌' -> num = 8
+                '九', '玖' -> num = 9
+                '十', '拾' -> {
+                    section += if (num == 0) 10 else num * 10
+                    num = 0
+                }
+                '百', '佰' -> {
+                    section += if (num == 0) 100 else num * 100
+                    num = 0
+                }
+                '千', '仟' -> {
+                    section += if (num == 0) 1000 else num * 1000
+                    num = 0
+                }
+                else -> return null
+            }
+        }
+        total = section + num
+        return total.takeIf { it > 0 }
+    }
+
     private fun showBubble(
         ch: String,
         pinyinText: String,
@@ -1467,6 +1584,11 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
     }
 
     companion object {
+        /** 年号+年，如「贞观三年」 */
+        private val KOTLIN_YEAR_RE = Regex("([\u4e00-\u9fff]{2,4})([一二三四五六七八九十百]+)年")
+        /** 月份，如「二月」「十二月」 */
+        private val KOTLIN_MONTH_RE = Regex("([一二三四五六七八九十]+)月")
+
         private val renderThread by lazy {
             Executors.newSingleThreadExecutor {
                 Thread(it, "TextPageRender")
