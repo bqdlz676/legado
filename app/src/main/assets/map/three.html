@@ -76,7 +76,7 @@ var place = (function () {
   return {name:"", lat:34.6, lng:113.0, zoom:7};
 })();
 document.getElementById('nm').textContent = (place.name || '地形沙盘') + ' · 3D';
-document.getElementById('sub').textContent = place.modern ? ('今 ' + place.modern) : '示意地形，非实测高程';
+document.getElementById('sub').textContent = place.modern ? ('今 ' + place.modern) : '实测高程 · Mapzen DEM';
 
 var W = innerWidth, H = innerHeight;
 var canvas = document.getElementById('c');
@@ -100,9 +100,10 @@ var rim = new THREE.DirectionalLight(0x2F3A44, 0.38);
 rim.position.set(155, 60, -150);
 scene.add(rim);
 
-// ---- 真实高程：512×512 灰度图（104°E–122°E / 24°N–42°N），0–255 = 0–3000m ----
-var SEG = 160, SIZE = 300;
-var HG = { w: 104, e: 122, s: 24, n: 42, px: 512 };
+// ---- 真实高程：1024×1024 灰度图（104°E–122°E / 24°N–42°N），0–255 = 0–7000m ----
+// 数据源：Mapzen Terrarium 真实 DEM 瓦片（z7，含珠峰 8848 段），非插值生成
+var SEG = 288, SIZE = 300;
+var HG = { w: 104, e: 122, s: 24, n: 42, px: 1024 };
 var hdata = new Uint8Array(HG.px * HG.px);
 var powerMeshes = [], pillars = null, pillarBase = [], rings = [], lastFrame = 0;
 var terrain = null;
@@ -110,11 +111,8 @@ var TARGET = new THREE.Vector3(0, 0, 0);
 
 function lonU(lng) { return (lng - HG.w) / (HG.e - HG.w) * SIZE - SIZE / 2; }
 function latV(lat) {
-  var latRad = lat * Math.PI / 180;
-  var y = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-  var yNorth = Math.log(Math.tan(Math.PI / 4 + HG.n * Math.PI / 360));
-  var ySouth = Math.log(Math.tan(Math.PI / 4 + HG.s * Math.PI / 360));
-  return (y - yNorth) / (ySouth - yNorth) * SIZE - SIZE / 2;
+  // 等经纬度（与栅格同一投影），保证山脊与城池严格对齐
+  return (HG.n - lat) / (HG.n - HG.s) * SIZE - SIZE / 2;
 }
 
 function hAt(x, z) {
@@ -125,9 +123,9 @@ function hAt(x, z) {
   var fu = u - iu, fv = v - iv;
   var i00 = iv * HG.px + iu, i10 = i00 + 1, i01 = i00 + HG.px, i11 = i01 + 1;
   var a = hdata[i00], b = hdata[i10], c = hdata[i01], d = hdata[i11];
-  return (a * (1 - fu) * (1 - fv) + b * fu * (1 - fv) + c * (1 - fu) * fv + d * fu * fv) / 255 * 3000;
+  return (a * (1 - fu) * (1 - fv) + b * fu * (1 - fv) + c * (1 - fu) * fv + d * fu * fv) / 255 * 7000;
 }
-function yOf(x, z) { return hAt(x, z) * 0.015; }
+function yOf(x, z) { return hAt(x, z) * 0.009; }
 
 // 高程以 base64 内嵌在 china_height.js 里，避开 file:// 页面的 canvas 跨域污染
 (function () {
@@ -288,16 +286,18 @@ function buildTerrain() {
   for (var j = 0; j < pc.count; j++) {
     var e = hAt(pc.getX(j), pc.getZ(j));
     var col;
-    if (e < 20) {
-      col = new THREE.Color(0x394852);
-    } else if (e < 480) {
-      col = new THREE.Color(0x49545C).lerp(new THREE.Color(0x5E6050), e / 480);
-    } else if (e < 1100) {
-      col = new THREE.Color(0x5E6050).lerp(new THREE.Color(0x77684A), (e - 480) / 620);
-    } else if (e < 2200) {
-      col = new THREE.Color(0x77684A).lerp(cHigh, (e - 1100) / 1100);
+    if (e < 2) {
+      col = new THREE.Color(0x36434D);
+    } else if (e < 260) {
+      col = new THREE.Color(0x4E5654).lerp(new THREE.Color(0x6E6749), e / 260);
+    } else if (e < 1000) {
+      col = new THREE.Color(0x6E6749).lerp(new THREE.Color(0x8A7554), (e - 260) / 740);
+    } else if (e < 2800) {
+      col = new THREE.Color(0x8A7554).lerp(cHigh, (e - 1000) / 1800);
+    } else if (e < 4400) {
+      col = cHigh.clone().lerp(cTop, (e - 2800) / 1600);
     } else {
-      col = cHigh.clone().lerp(cTop, Math.min(1, (e - 2200) / 900));
+      col = cTop.clone().lerp(new THREE.Color(0xEFEADF), Math.min(1, (e - 4400) / 1200));
     }
     // 明暗烘焙：左上暖光，背光面压暗，避免灯光把颜色整体染黄
     var nx = nrmAttr.getX(j), ny = nrmAttr.getY(j), nz = nrmAttr.getZ(j);
@@ -346,7 +346,7 @@ function label(text, x, y, z, color) {
 // 当前地名居中，周边城市标点（真实经纬 → 地形坐标）
 function placeLabels() {
   var cx = lonU(place.lng), cz = latV(place.lat);
-  label(place.name || '地形沙盘', cx, yOf(cx, cz) + 10, cz, '#FFD98A');
+  if (place.name) label(place.name, cx, yOf(cx, cz) + 10, cz, '#FFD98A');
 
   var near = [];
   Object.keys(window.CITIES || {}).forEach(function (n) {
