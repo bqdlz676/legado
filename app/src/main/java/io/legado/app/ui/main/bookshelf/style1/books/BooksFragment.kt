@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.Adapter.StateRestorationPolicy
 import io.legado.app.R
@@ -117,8 +118,10 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books),
             binding.rvBookshelf.layoutManager = GridLayoutManager(context, bookshelfLayout)
             binding.rvBookshelf.setRecycledViewPool(activityViewModel.booksGridRecycledViewPool)
         } else {
-            binding.rvBookshelf.layoutManager = LinearLayoutManager(context)
-            binding.rvBookshelf.setRecycledViewPool(activityViewModel.booksListRecycledViewPool)
+            // 落文 bento：双列错落，卡片高度随书名长短自然不齐
+            binding.rvBookshelf.layoutManager =
+                StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+            binding.rvBookshelf.setRecycledViewPool(activityViewModel.booksGridRecycledViewPool)
         }
         booksAdapter.stateRestorationPolicy = StateRestorationPolicy.PREVENT_WHEN_EMPTY
         binding.rvBookshelf.itemAnimator = null
