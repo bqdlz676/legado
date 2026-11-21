@@ -1,6 +1,7 @@
 package io.legado.app.ui.main
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
@@ -29,6 +30,9 @@ import java.io.File
 class RelationActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+
+    @Volatile
+    private var lastGraph: RelationExtractor.Graph? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +63,7 @@ class RelationActivity : AppCompatActivity() {
             ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
         }
         webView.webChromeClient = WebChromeClient()
+        webView.addJavascriptInterface(PersonBridge(), "AndroidPerson")
         setContentView(webView, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
@@ -89,6 +94,7 @@ class RelationActivity : AppCompatActivity() {
                 return@async
             }
             val graph = RelationExtractor.extract(listOf(book.name to text), book.name)
+            lastGraph = graph
             if (graph.nodes.isEmpty()) {
                 onUi {
                     Toast.makeText(
@@ -105,6 +111,25 @@ class RelationActivity : AppCompatActivity() {
             }
         }.onError {
             it.printOnDebug()
+        }
+    }
+
+    inner class PersonBridge {
+        @android.webkit.JavascriptInterface
+        fun open(name: String) {
+            val g = lastGraph
+            val app = g?.nodes?.firstOrNull { it.name == name || it.id == name }
+            val arr = JSONArray()
+            app?.appearances?.forEach { a ->
+                val o = JSONObject()
+                o.put("chapter", a.chapter)
+                o.put("text", a.text)
+                arr.put(o)
+            }
+            val intent = Intent(this@RelationActivity, PersonDetailActivity::class.java)
+                .putExtra("name", name)
+                .putExtra("appearances", arr.toString())
+            startActivity(intent)
         }
     }
 

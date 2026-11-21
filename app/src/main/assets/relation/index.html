@@ -52,6 +52,11 @@
   #cardAlias { margin-top: 6px; font-size: 11.5px; color: #6f82ad; }
   #cardAlias b { color: #8fa2c8; font-weight: 500; }
   #cardRels { margin-top: 12px; max-height: 34vh; overflow-y: auto; }
+  #cardMore {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(120,150,220,.18);
+    font-size: 12.5px; color: #7fb0ff; text-align: right; letter-spacing: .06em;
+  }
+  #cardMore:active { opacity: .6; }
   .rel { display: flex; align-items: baseline; gap: 7px; padding: 6px 0; font-size: 12.5px; color: #b9c6e6; border-bottom: 1px solid rgba(120,150,230,.10); }
   .relTag { font-size: 10px; color: #6f7fae; min-width: 42px; }
   #close {
@@ -81,6 +86,7 @@
   <div id="cardMeta"></div>
   <div id="cardAlias"></div>
   <div id="cardRels"></div>
+  <div id="cardMore">人物详情 ›</div>
 </div>
 <script src="./cytoscape.min.js"></script>
 <script>
@@ -270,7 +276,9 @@
     document.getElementById('card').classList.remove('show');
   }
 
+  var curNode = null;
   function showCard(n) {
+    curNode = n;
     var d = n.data();
     document.getElementById('cardName').textContent = d.label;
     document.getElementById('cardLife').textContent = d.lifeSpan || '';
@@ -297,6 +305,15 @@
     document.getElementById('cardRels').innerHTML = rows.join('');
     document.getElementById('card').classList.add('show');
   }
+
+  document.getElementById('cardMore').addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (!curNode) return;
+    var nm = curNode.data('label');
+    try {
+      if (window.AndroidPerson && window.AndroidPerson.open) window.AndroidPerson.open(nm);
+    } catch (err) {}
+  });
 
   document.getElementById('close').addEventListener('click', resetFocus);
   document.getElementById('card').addEventListener('click', function (e) { e.stopPropagation(); });

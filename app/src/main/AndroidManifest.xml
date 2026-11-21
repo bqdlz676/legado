@@ -135,6 +135,13 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize" />
+        <!-- 人物详情 -->
+        <activity
+            android:name=".ui.main.PersonDetailActivity"
+            android:exported="false"
+            android:label="人物详情"
+            android:theme="@style/AppTheme.Light" />
+
         <!-- 人物关系图 -->
         <activity
             android:name=".ui.main.RelationActivity"
