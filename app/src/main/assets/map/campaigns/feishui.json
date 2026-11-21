@@ -1,0 +1,192 @@
+{
+ "id": "feishui",
+ "title": "淝水之战",
+ "era": "383",
+ "context": "前秦苻坚举众南下，东晋谢玄请秦军后撤让渡，秦军一退不可止，朱序阵后大呼「秦兵败矣」，八公山上草木皆兵。",
+ "terrainFocus": {
+  "center": [
+   117.05,
+   32.62
+  ],
+  "radius": 50
+ },
+ "duration": 20,
+ "victory": {
+  "type": "rout",
+  "side": "jin"
+ },
+ "sides": [
+  {
+   "id": "qin",
+   "name": "前秦",
+   "color": "#8B6914"
+  },
+  {
+   "id": "jin",
+   "name": "东晋",
+   "color": "#C23B2E"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "qin",
+   "b": "jin",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "fujian",
+   "name": "苻坚",
+   "side": "qin",
+   "initialPos": [
+    117.02,
+    32.68
+   ],
+   "strength": 12,
+   "type": "elite",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold",
+   "target": [
+    117.05,
+    32.6
+   ]
+  },
+  {
+   "id": "furong",
+   "name": "苻融",
+   "side": "qin",
+   "initialPos": [
+    117.04,
+    32.66
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold",
+   "target": [
+    117.05,
+    32.6
+   ]
+  },
+  {
+   "id": "xiexuan",
+   "name": "谢玄",
+   "side": "jin",
+   "initialPos": [
+    117.06,
+    32.58
+   ],
+   "strength": 8,
+   "type": "elite",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "hold",
+   "target": [
+    117.04,
+    32.65
+   ]
+  },
+  {
+   "id": "liulaozhi",
+   "name": "刘牢之",
+   "side": "jin",
+   "initialPos": [
+    117.09,
+    32.56
+   ],
+   "strength": 5,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "hold",
+   "target": [
+    117.03,
+    32.64
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 1
+   },
+   "action": "setIntent",
+   "target": "fujian",
+   "value": "retreat",
+   "reason": "苻坚许晋军渡淝水，下令后撤让渡"
+  },
+  {
+   "trigger": {
+    "turn": 2
+   },
+   "action": "setIntent",
+   "target": "furong",
+   "value": "retreat",
+   "reason": "秦军一退不可止"
+  },
+  {
+   "trigger": {
+    "turn": 3
+   },
+   "action": "moraleChange",
+   "target": "furong",
+   "value": "broken",
+   "reason": "朱序阵后大呼：秦兵败矣"
+  },
+  {
+   "trigger": {
+    "turn": 3
+   },
+   "action": "moraleChange",
+   "target": "fujian",
+   "value": "broken",
+   "reason": "八公山上草木皆兵"
+  },
+  {
+   "trigger": {
+    "turn": 4
+   },
+   "action": "setIntent",
+   "target": "xiexuan",
+   "value": "rush",
+   "targetPos": [
+    117.02,
+    32.68
+   ],
+   "reason": "晋军趁乱抢渡，直冲苻坚中军"
+  }
+ ],
+ "phases": [],
+ "terrain": {
+  "ridges": [
+   {
+    "x": 0.3,
+    "y": 0.2,
+    "h": 0.6,
+    "w": 0.3
+   }
+  ],
+  "rivers": [
+   {
+    "pts": [
+     [
+      0.1,
+      0.55
+     ],
+     [
+      0.5,
+      0.6
+     ],
+     [
+      0.9,
+      0.58
+     ]
+    ]
+   }
+  ],
+  "procedural": true
+ }
+}

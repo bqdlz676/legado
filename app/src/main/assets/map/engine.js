@@ -72,20 +72,42 @@
           + 260 * Math.sin((u + v) * 6.28 * 2.1 + ph[2])
           + 140 * Math.sin(u * 6.28 * 4.7) * Math.sin(v * 6.28 * 3.9);
         for (const rg of ridges) {
-          const d = distToSeg(u, v, rg.a[0], rg.a[1], rg.b[0], rg.b[1]);
-          h += rg.h * Math.exp(-(d * d) / (rg.w * rg.w));
+          if (rg.a && rg.b) {
+            const d = distToSeg(u, v, rg.a[0], rg.a[1], rg.b[0], rg.b[1]);
+            h += rg.h * Math.exp(-(d * d) / (rg.w * rg.w));
+          } else if (rg.x != null) {
+            // 点状山峰：以 (x,y) 为峰心的高斯包，radius 由 w 给
+            const d = Math.hypot(u - rg.x, v - rg.y);
+            h += rg.h * Math.exp(-(d * d) / (rg.w * rg.w));
+          }
         }
         raw[y * n + x] = Math.max(0, h);
       }
     }
-    // 河谷：沿 river 线压低 350m
+    // 河谷：沿 river 折线压出河道（不是画一条蓝线，是把地形真的刻下去，
+    // 这样 TerrainAnalyzer 的 riverMask 能检出来，渡口和「不可直穿」才有意义）
     for (const rv of (src.rivers || [])) {
-      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-        const d = distToSeg(x / n, y / n, rv.a[0], rv.a[1], rv.b[0], rv.b[1]);
-        if (d < rv.w) raw[y * n + x] -= 350 * (1 - d / rv.w);
+      const w = rv.w || 0.018;
+      const deep = rv.depth || 420;
+      const segs = [];
+      if (rv.pts && rv.pts.length > 1) {
+        for (let i = 0; i < rv.pts.length - 1; i++) segs.push([rv.pts[i], rv.pts[i + 1]]);
+      } else if (rv.a && rv.b) {
+        segs.push([rv.a, rv.b]);
+      }
+      for (const [p0, p1] of segs) {
+        for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+          const d = distToSeg(x / n, y / n, p0[0], p0[1], p1[0], p1[1]);
+          if (d < w) raw[y * n + x] -= deep * (1 - d / w);
+        }
       }
     }
-    return { h: raw, source: 'procedural', label: '程序化示意地形（非实测）' };
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < raw.length; i++) { if (raw[i] < lo) lo = raw[i]; if (raw[i] > hi) hi = raw[i]; }
+    return {
+      h: raw, source: 'procedural', label: '程序化示意地形（非实测）',
+      minEl: Math.round(lo), maxEl: Math.round(hi)
+    };
   }
   function distToSeg(px, py, ax, ay, bx, by) {
     const dx = bx - ax, dy = by - ay;
@@ -116,13 +138,21 @@
     // 河流：按 campaign.terrain.rivers 栅格化，宽度 1 格
     const river = new Uint8Array(n * n);
     for (const rv of ((campaign.terrain && campaign.terrain.rivers) || [])) {
+      const segs = [];
+      if (rv.pts && rv.pts.length > 1) {
+        for (let i = 0; i < rv.pts.length - 1; i++) segs.push([rv.pts[i], rv.pts[i + 1]]);
+      } else if (rv.a && rv.b) {
+        segs.push([rv.a, rv.b]);
+      }
       const steps = n * 2;
-      for (let s = 0; s <= steps; s++) {
-        const t = s / steps;
-        const u = rv.a[0] + (rv.b[0] - rv.a[0]) * t;
-        const v = rv.a[1] + (rv.b[1] - rv.a[1]) * t;
-        const c = Math.round(u * (n - 1)), r = Math.round(v * (n - 1));
-        if (c >= 0 && c < n && r >= 0 && r < n) river[r * n + c] = 1;
+      for (const [p0, p1] of segs) {
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const u = p0[0] + (p1[0] - p0[0]) * t;
+          const v = p0[1] + (p1[1] - p0[1]) * t;
+          const c = Math.round(u * (n - 1)), r = Math.round(v * (n - 1));
+          if (c >= 0 && c < n && r >= 0 && r < n) river[r * n + c] = 1;
+        }
       }
     }
     // 渡口：河格且坡度 ≤ 10 且两侧可通行
@@ -448,6 +478,18 @@
         const target = ev.target ? armies.find(x => x.id === ev.target) : null;
         if (ev.action === 'moraleChange' && target) target.morale = ev.value || downMorale(target.morale);
         if (ev.action === 'surrender' && target) { target.alive = false; target.surrendered = true; }
+        // 战役脚本能改战术，不只是改士气：退兵让渡、断粮、强令急行军都靠它
+        if (ev.action === 'setIntent' && target) {
+          target.intent = ev.value || 'hold';
+          target.intentActive = target.intent;
+          if (ev.targetPos) target.target = ev.targetPos;
+          target.path = null; target.hunt = null;
+        }
+        if (ev.action === 'supplyCut' && target) target.supply = 0;
+        if (ev.action === 'strengthDelta' && target) {
+          target.strength = Math.max(0, target.strength + (ev.value || 0));
+          if (target.strength <= 0) target.alive = false;
+        }
         fired.push({ action: ev.action, target: ev.target, reason: ev.reason || '' });
       }
       return fired;
@@ -477,6 +519,12 @@
         const tc = toCell(T.b, v.point[0], v.point[1], n);
         if (tgt.alive && Math.max(Math.abs(tc.r - tgt.r), Math.abs(tc.c - tgt.c)) <= 1) {
           return { winner: tgt.side, type: 'reachPoint', description: '到达目标点' };
+        }
+      }
+      if (v.type === 'defend' && turn >= (campaign.duration || 30)) {
+        const t = v.target ? armies.find(a => a.id === v.target || a.name === v.target) : null;
+        if (t && t.alive && t.strength > 0) {
+          return { winner: v.side, type: 'defend', description: (t.name || t.id) + ' 撑到最后，未破围' };
         }
       }
       // 通用兜底：只要有一方打光，另一方就赢，不必每个 JSON 都把条件写全

@@ -110,6 +110,14 @@ class App : Application() {
             DispatchersMonitor.init()
             URL.setURLStreamHandlerFactory(ObsoleteUrlFactory(okHttpClient))
             launch { installGmsTlsProvider(appCtx) }
+            // 首触零卡顿：字词/典故/纪年/地名/人物在启动时并行预热，不靠点击现加载。
+            // 任何一张表失败都不影响其它表——各自 runCatching，绝不把启动拖成崩溃。
+            launch { runCatching { io.legado.app.help.ChineseDict.preload(appCtx) } }
+            launch { runCatching { io.legado.app.help.AllusionDict.preload(appCtx) } }
+            launch { runCatching { io.legado.app.help.chrono.Chronology.ensureLoaded(appCtx) } }
+            launch { runCatching { io.legado.app.help.PlaceTimeDict.ensureLoaded(appCtx) } }
+            launch { runCatching { io.legado.app.help.relation.PersonTimeInfo.ensureLoaded(appCtx) } }
+            launch { runCatching { io.legado.app.help.PlaceGeo.ensureLoaded(appCtx) } }
             //初始化封面
             BookCover.toString()
             //清除过期数据

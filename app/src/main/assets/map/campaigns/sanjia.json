@@ -1,0 +1,265 @@
+{
+ "id": "sanjia",
+ "title": "三家分晋 · 晋阳之围",
+ "era": "前455",
+ "context": "智伯瑶率韩魏围赵襄子于晋阳，引汾水灌城；赵氏说韩魏反戈，智氏覆灭，三家分晋自此始。",
+ "terrainFocus": {
+  "center": [
+   112.55,
+   37.87
+  ],
+  "radius": 60
+ },
+ "duration": 40,
+ "victory": {
+  "type": "annihilate",
+  "target": "zhibo",
+  "side": "zhao"
+ },
+ "sides": [
+  {
+   "id": "zhi",
+   "name": "智",
+   "color": "#8B6914"
+  },
+  {
+   "id": "zhao",
+   "name": "赵",
+   "color": "#C23B2E"
+  },
+  {
+   "id": "han",
+   "name": "韩",
+   "color": "#3C5C6E"
+  },
+  {
+   "id": "wei",
+   "name": "魏",
+   "color": "#4E7E6E"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "zhi",
+   "b": "zhao",
+   "relation": "hostile"
+  },
+  {
+   "a": "zhi",
+   "b": "han",
+   "relation": "allied"
+  },
+  {
+   "a": "zhi",
+   "b": "wei",
+   "relation": "allied"
+  },
+  {
+   "a": "zhao",
+   "b": "han",
+   "relation": "neutral"
+  },
+  {
+   "a": "zhao",
+   "b": "wei",
+   "relation": "neutral"
+  },
+  {
+   "a": "han",
+   "b": "wei",
+   "relation": "allied"
+  }
+ ],
+ "armies": [
+  {
+   "id": "zhibo",
+   "name": "智伯瑶",
+   "side": "zhi",
+   "initialPos": [
+    112.62,
+    37.92
+   ],
+   "strength": 13,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    112.55,
+    37.87
+   ]
+  },
+  {
+   "id": "zhijun",
+   "name": "智氏前军",
+   "side": "zhi",
+   "initialPos": [
+    112.66,
+    37.84
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    112.57,
+    37.86
+   ]
+  },
+  {
+   "id": "zhaoxiang",
+   "name": "赵襄子",
+   "side": "zhao",
+   "initialPos": [
+    112.55,
+    37.87
+   ],
+   "strength": 10,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "wavering",
+   "intent": "hold",
+   "target": [
+    112.55,
+    37.87
+   ]
+  },
+  {
+   "id": "zhaojun",
+   "name": "赵氏守军",
+   "side": "zhao",
+   "initialPos": [
+    112.54,
+    37.88
+   ],
+   "strength": 5,
+   "type": "militia",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "hanjun",
+   "name": "韩康子",
+   "side": "han",
+   "initialPos": [
+    112.6,
+    37.83
+   ],
+   "strength": 7,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    112.56,
+    37.86
+   ]
+  },
+  {
+   "id": "weijun",
+   "name": "魏桓子",
+   "side": "wei",
+   "initialPos": [
+    112.5,
+    37.92
+   ],
+   "strength": 7,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    112.54,
+    37.88
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 12
+   },
+   "action": "moraleChange",
+   "target": "zhibo",
+   "value": "wavering",
+   "reason": "引汾水灌城，三月不拔，军心渐怠"
+  },
+  {
+   "trigger": {
+    "turn": 18
+   },
+   "action": "moraleChange",
+   "target": "hanjun",
+   "value": "wavering",
+   "reason": "赵氏夜说韩魏：唇亡齿寒"
+  },
+  {
+   "trigger": {
+    "turn": 18
+   },
+   "action": "moraleChange",
+   "target": "weijun",
+   "value": "wavering",
+   "reason": "赵氏夜说韩魏：唇亡齿寒"
+  },
+  {
+   "trigger": {
+    "turn": 20
+   },
+   "action": "moraleChange",
+   "target": "zhibo",
+   "value": "broken",
+   "reason": "韩魏反戈，决水反灌智军"
+  },
+  {
+   "trigger": {
+    "army": "zhibo",
+    "strengthBelow": 3
+   },
+   "action": "surrender",
+   "target": "zhibo"
+  }
+ ],
+ "phases": [],
+ "terrain": {
+  "ridges": [
+   {
+    "x": 0.15,
+    "y": 0.3,
+    "h": 0.85,
+    "w": 0.22
+   },
+   {
+    "x": 0.8,
+    "y": 0.75,
+    "h": 0.7,
+    "w": 0.25
+   }
+  ],
+  "rivers": [
+   {
+    "pts": [
+     [
+      0.2,
+      0.15
+     ],
+     [
+      0.45,
+      0.4
+     ],
+     [
+      0.7,
+      0.75
+     ],
+     [
+      0.95,
+      0.9
+     ]
+    ]
+   }
+  ],
+  "procedural": true
+ }
+}
