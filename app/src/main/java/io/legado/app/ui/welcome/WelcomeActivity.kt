@@ -2,6 +2,9 @@ package io.legado.app.ui.welcome
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.lifecycleScope
 import io.legado.app.base.BaseActivity
@@ -58,8 +61,10 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
             if (welcomeShowTime == 0) {
                 startMainActivity()
             } else {
+                val animMs = welcomeShowTime.toLong().coerceIn(1100L, 1600L)
+                binding.root.post { startSplashAnim(animMs) }
                 startMainJob = lifecycleScope.launch {
-                    delay(welcomeShowTime.toLong())
+                    delay(animMs + 150L)
                     startMainActivity()
                 }
             }
@@ -77,7 +82,48 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
     override fun finish() {
         startMainJob?.cancel()
         startMainJob = null
+        runCatching { binding.vStar.stop() }
         super.finish()
+    }
+
+    /** 星点汇聚 + 图标回弹 + 标题错峰上浮，全部原生 View 动画 */
+    private fun startSplashAnim(durationMs: Long) {
+        binding.vStar.start(durationMs)
+
+        if (binding.ivBook.visibility == View.VISIBLE) {
+            binding.ivBook.apply {
+                scaleX = 0.55f
+                scaleY = 0.55f
+                alpha = 0f
+                animate().scaleX(1f).scaleY(1f).alpha(1f)
+                    .setStartDelay(durationMs * 55 / 100)
+                    .setDuration(360)
+                    .setInterpolator(OvershootInterpolator(1.5f))
+                    .start()
+            }
+        }
+        if (binding.tvLegado.visibility == View.VISIBLE) {
+            binding.tvLegado.apply {
+                translationY = 36f * resources.displayMetrics.density
+                alpha = 0f
+                animate().translationY(0f).alpha(1f)
+                    .setStartDelay(durationMs * 68 / 100)
+                    .setDuration(330)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+        }
+        if (binding.tvGzh.visibility == View.VISIBLE) {
+            binding.tvGzh.apply {
+                translationY = 20f * resources.displayMetrics.density
+                alpha = 0f
+                animate().translationY(0f).alpha(1f)
+                    .setStartDelay(durationMs * 80 / 100)
+                    .setDuration(300)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+        }
     }
 
     override fun upBackgroundImage() {

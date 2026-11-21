@@ -7,6 +7,11 @@
     android:layout_height="match_parent"
     android:gravity="center_horizontal">
 
+    <io.legado.app.ui.welcome.SplashStarView
+        android:id="@+id/v_star"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/tv_legado"
         android:layout_width="wrap_content"
