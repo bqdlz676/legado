@@ -19,6 +19,14 @@ object NameResolver {
         val pinyin: String,
         val wlat: Double? = null,
         val wlng: Double? = null,
+        /** 地名时空实体 id（place_entity），点面分离后只有 P 型画点 */
+        val placeId: String? = null,
+        val placeKind: Char? = null,
+        val tier: Int? = null,
+        /** 同名候选的简短标签，进「还有 N 个同名」 */
+        val others: List<String> = emptyList(),
+        /** 精确到一年就写这个，供人物卡片算年龄 */
+        val anchorYear: Int? = null,
     )
 
     enum class Kind { PERSON, PLACE }
@@ -167,6 +175,46 @@ object NameResolver {
         if (e == null) {
             e = PlaceDict.matchEnglish(context, text, pos) ?: return null
         }
+        // 时空本体优先：同名靠 ContextAnchor 的年份筛，点面分开
+        PlaceTimeDict.ensureLoaded(context)
+        val st = io.legado.app.help.chrono.ContextAnchor.get()
+        val r = PlaceTimeDict.resolve(context, e.name, st.year)
+        if (r.hit != null) {
+            val hit = r.hit
+            val others = r.others.take(6).map {
+                "${it.name}（${it.era} ${it.spanLabel()}${if (!it.isPoint) "·辖区" else ""}）"
+            }
+            return Hit(
+                name = hit.name,
+                kind = Kind.PLACE,
+                meta = buildString {
+                    append(hit.era).append('·')
+                    append(if (hit.isPoint) "城邑" else "辖区")
+                    append('·').append(hit.tierLabel)
+                    if (!r.anchored) append("·年份未锚定")
+                },
+                detail = buildString {
+                    append(hit.spanLabel()).append('　').append(hit.tierLabel).append('
+')
+                    append(hit.note)
+                    if (others.isNotEmpty()) {
+                        append("\n另有同名 ").append(r.others.size).append(" 处，可切换")
+                    }
+                    if (hit.tier >= 3 && hit.isPoint) {
+                        append("\n坐标由文献推定，只作定位参考")
+                    }
+                },
+                pinyin = "",
+                wlat = hit.lat,
+                wlng = hit.lng,
+                placeId = hit.id,
+                placeKind = hit.kind,
+                tier = hit.tier,
+                others = others,
+                anchorYear = st.year,
+            )
+        }
+        // 未入时空本体，退回旧条目
         val foreign = e.en != null
         return Hit(
             name = e.name,

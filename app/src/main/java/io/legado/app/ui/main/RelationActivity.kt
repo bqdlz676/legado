@@ -122,7 +122,7 @@ class RelationActivity : AppCompatActivity() {
                 }
                 return@async
             }
-            val graph = RelationExtractor.extract(listOf(book.name to text), book.name)
+            val graph = RelationExtractor.extract(this@RelationActivity, listOf(book.name to text), book.name)
             lastGraph = graph
             if (graph.nodes.isEmpty()) {
                 onUi {

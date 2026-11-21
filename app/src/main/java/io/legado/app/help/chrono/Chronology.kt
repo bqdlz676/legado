@@ -24,12 +24,21 @@ object Chronology {
 
     data class Era(val name: String, val dynasty: String, val startYear: Int, val endYear: Int)
 
+    /** 一条君主在位记录，供同年横向对照 */
+    data class PrinceRow(val state: String, val title: String, val start: Int, val end: Int)
+
+    /** 从正文猜出的年代：能定一年给 year，只能定区间给 from/to */
+    data class AnchorGuess(val year: Int?, val from: Int?, val to: Int?, val state: String?)
+
     @Volatile
     private var eras: Map<String, List<Era>> = emptyMap()
 
     /** 国名+称号 → 即位年与在位数，如「鲁隐公」 */
     @Volatile
     private var princes: Map<String, IntArray> = emptyMap()
+
+    @Volatile
+    private var princeRows: List<PrinceRow> = emptyList()
 
     @Volatile
     private var loaded = false
@@ -58,6 +67,7 @@ object Chronology {
             }
             runCatching {
                 val pm = HashMap<String, IntArray>(260)
+                val rows = ArrayList<PrinceRow>(220)
                 context.assets.open("princes.txt").bufferedReader().use { r ->
                     while (true) {
                         val ln = r.readLine() ?: break
@@ -67,9 +77,11 @@ object Chronology {
                         val start = f[2].toIntOrNull() ?: continue
                         val span = f[3].toIntOrNull() ?: 1
                         pm[f[0] + f[1]] = intArrayOf(start, span)
+                        rows.add(PrinceRow(f[0], f[1], start, start + span - 1))
                     }
                 }
                 princes = pm
+                princeRows = rows
             }
             loaded = true
         }
@@ -103,6 +115,143 @@ object Chronology {
             if (nthYear <= v[1] + 1) return y
         }
         return null
+    }
+
+
+    /**
+     * 从一段正文猜年代。
+     * 顺序：全称「鲁隐公十一年」→ 简称「隐公十一年」（按鲁兜底）→ 「前六三八年」→ 年号纪年。
+     * 只认君主年表里真有的称号；猜不出就返回 null，交给上层当「年代未知」处理。
+     */
+    fun anchorFromText(text: String, knownState: String? = null): AnchorGuess? {
+        if (text.isEmpty()) return null
+        // 1. 全称：princes 的键就是「国+称号」
+        val best = findPrinceMention(text)
+        if (best != null) return best
+        // 2. 公元前直书
+        val m = BCE.find(text)
+        if (m != null) {
+            val n = chineseNumber(m.groupValues[1]) ?: return null
+            return AnchorGuess(-n + 1, -n + 1, -n + 1, knownState)
+        }
+        // 3. 年号纪年
+        val e = eraMention(text)
+        if (e != null) return e
+        return null
+    }
+
+    private val BCE = Regex("前([一二三四五六七八九十百零]{1,6})年")
+    private val NTH = Regex("^([元一二三四五六七八九十]{1,3})年")
+
+    private fun findPrinceMention(text: String): AnchorGuess? {
+        var bestPos = Int.MAX_VALUE
+        var bestKey: String? = null
+        var bestNth = 0
+        for (k in princes.keys) {
+            val i = text.indexOf(k)
+            if (i < 0 || i >= bestPos) continue
+            val m = NTH.find(text.substring(i + k.length))
+            val nth = m?.let { chineseNumber(it.groupValues[1]) } ?: continue
+            bestPos = i
+            bestKey = k
+            bestNth = nth
+        }
+        // 简称：称号在文里，但不带国名（《春秋》以鲁为本位）
+        if (bestKey == null) {
+            var sPos = Int.MAX_VALUE
+            var sKey: String? = null
+            var sNth = 0
+            for (k in princes.keys) {
+                if (k.length < 3) continue
+                val short = k.substring(1)
+                val i = text.indexOf(short)
+                if (i < 0 || i >= sPos) continue
+                val m = NTH.find(text.substring(i + short.length)) ?: continue
+                val nth = chineseNumber(m.groupValues[1]) ?: continue
+                sPos = i
+                sKey = k
+                sNth = nth
+            }
+            val k = sKey ?: return null
+            val y = princeYear(k, sNth) ?: return null
+            return AnchorGuess(y, y, y, k.substring(0, 1))
+        }
+        val k = bestKey ?: return null
+        val y = princeYear(k, bestNth) ?: return null
+        return AnchorGuess(y, y, y, k.substring(0, 1))
+    }
+
+    private fun eraMention(text: String): AnchorGuess? {
+        for (name in eras.keys) {
+            val i = text.indexOf(name)
+            if (i < 0) continue
+            val m = NTH.find(text.substring(i + name.length)) ?: continue
+            val nth = chineseNumber(m.groupValues[1]) ?: continue
+            val y = toGregorianYear(name, nth) ?: continue
+            return AnchorGuess(y, y, y, null)
+        }
+        return null
+    }
+
+    /** 元年/一/二/三…十/十一/二十三 → Int；只收 1–99 */
+    fun chineseNumber(raw: String): Int? {
+        if (raw.isEmpty()) return null
+        if (raw == "元") return 1
+        var total = 0
+        var section = 0
+        var num = 0
+        for (c in raw) {
+            when {
+                c in "零一二三四五六七八九" -> num = "零一二三四五六七八九".indexOf(c)
+                c == '十' -> {
+                    section += if (num == 0) 10 else num * 10
+                    num = 0
+                }
+                c == '百' -> {
+                    section += if (num == 0) 100 else num * 100
+                    num = 0
+                }
+                else -> return null
+            }
+        }
+        total = section + num
+        return if (total in 1..999) total else null
+    }
+
+    /**
+     * 同一年各政权在位对照：鲁隐公元年 = 前722 = 周平王四十九年 = 郑庄公二十二年。
+     * 按《春秋》次序排：周、鲁、齐、晋、楚、秦、宋、卫、郑、燕、吴、越，其余附后。
+     */
+    fun timelineFor(year: Int): List<Pair<String, Int>> {
+        val order = listOf("周", "鲁", "齐", "晋", "楚", "秦", "宋", "卫", "郑", "燕", "吴", "越")
+        return princeRows
+            .filter { year in it.start..it.end }
+            .sortedBy { r ->
+                val i = order.indexOf(r.state)
+                if (i >= 0) i else order.size + 1
+            }
+            .map { it.state + it.title to (year - it.start + 1) }
+    }
+
+    /** 数字 → 汉字年序，如 22 → 二十二 */
+    fun chineseNumberText(n: Int): String {
+        if (n <= 0) return n.toString()
+        if (n == 1) return "元"
+        val d = "零一二三四五六七八九"
+        return when {
+            n < 10 -> d[n].toString()
+            n < 20 -> "十" + if (n % 10 == 0) "" else d[n % 10].toString()
+            n < 100 -> d[n / 10].toString() + "十" +
+                if (n % 10 == 0) "" else d[n % 10].toString()
+            else -> n.toString()
+        }
+    }
+
+    /** 一年的完整标签：干支 + 公元前/后 + 距今 */
+    fun yearTitle(year: Int): String {
+        val gz = yearGanzhi(year)
+        val d = if (year <= 0) "前${1 - year}" else "公元$year"
+        return "$d年（$gz）· 距今约${yearsAgo(year)}年"
     }
 
     /** 公元年 → 干支年 */

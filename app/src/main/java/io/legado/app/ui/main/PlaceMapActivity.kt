@@ -9,6 +9,8 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import io.legado.app.R
 import io.legado.app.help.PlaceGeo
+import io.legado.app.help.PlaceTimeDict
+import io.legado.app.help.chrono.ContextAnchor
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -48,15 +50,24 @@ class PlaceMapActivity : AppCompatActivity() {
             return
         }
 
+        // 先按时空本体定位（同名靠年份筛，点面分开）；未收录再退回旧坐标表
+        val yearExtra = intent.getIntExtra("year", Int.MIN_VALUE)
+        val year = if (yearExtra != Int.MIN_VALUE) yearExtra else ContextAnchor.get().year
+        PlaceTimeDict.ensureLoaded(this)
+        val st = PlaceTimeDict.resolve(this, name, year)
         val geo = PlaceGeo.of(this, name)
-        if (geo == null) {
+        if (st.hit == null && geo == null) {
             findViewById<TextView>(R.id.tv_empty).visibility = View.VISIBLE
             findViewById<WebView>(R.id.web).visibility = View.GONE
             return
         }
 
+        val hit = st.hit
+        val lat = hit?.lat ?: geo!!.lat
+        val lng = hit?.lng ?: geo!!.lng
+
         val old = JSONArray()
-        for (p in PlaceGeo.nearby(this, geo)) {
+        for (p in PlaceGeo.nearby(this, geo ?: PlaceGeo.Geo(name, lat, lng, "", 8))) {
             old.put(JSONObject().apply {
                 put("name", p.name)
                 put("lat", p.lat)
@@ -65,12 +76,16 @@ class PlaceMapActivity : AppCompatActivity() {
             })
         }
         val payload = JSONObject().apply {
-            put("name", geo.name)
-            put("lat", geo.lat)
-            put("lng", geo.lng)
-            put("modern", geo.modern)
-            put("zoom", geo.zoom)
+            put("name", hit?.name ?: geo?.name ?: name)
+            put("lat", lat)
+            put("lng", lng)
+            put("modern", hit?.note ?: geo?.modern.orEmpty())
+            put("zoom", (hit?.let { if (it.isPoint) 8 else 6 } ?: geo?.zoom ?: 8).toDouble())
             put("old", old)
+            put("year", year ?: Int.MIN_VALUE)
+            put("era", ContextAnchor.eraOf(year).orEmpty())
+            put("kind", hit?.kind?.toString().orEmpty())
+            put("tier", hit?.tier ?: Int.MIN_VALUE)
         }
 
         val web = findViewById<WebView>(R.id.web)

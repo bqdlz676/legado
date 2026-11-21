@@ -87,6 +87,18 @@ object RelationExtractor {
         STATES.groupBy { it[0] }.mapValues { e -> e.value.sortedByDescending { it.length } }
     }
 
+    /** 短称谓桶：桓公／楚子／齐侯 这类无姓称呼，靠锚点定人 */
+    @Volatile
+    private var aliasBucket: Map<Char, List<String>>? = null
+
+    private fun aliasBuckets(context: android.content.Context): Map<Char, List<String>> {
+        aliasBucket?.let { return it }
+        val list = PersonTimeInfo.allAliases(context).filter { it.length in 2..4 }
+        val map = list.groupBy { it[0] }.mapValues { e -> e.value.sortedByDescending { it.length } }
+        aliasBucket = map
+        return map
+    }
+
     private val SPEECH = listOf("曰", "谓", "对", "谏", "问", "答", "云")
 
     private val REL_PATTERNS = listOf(
@@ -105,7 +117,10 @@ object RelationExtractor {
     /**
      * @param chapters 章节标题 to 正文
      */
-    fun extract(chapters: List<Pair<String, String>>, bookName: String): Graph {
+    fun extract(context: android.content.Context, chapters: List<Pair<String, String>>, bookName: String): Graph {
+        // 先用章标题猜一次年代，全章沿用；猜不出就留空，下游不猜
+        io.legado.app.help.chrono.ContextAnchor.setChapter(bookName, chapters.firstOrNull()?.first)
+        chapters.firstOrNull()?.first?.let { io.legado.app.help.chrono.ContextAnchor.guessFromText(it) }
         val candidates = HashMap<String, Int>(1024)
         val appearanceMap = HashMap<String, MutableList<Appearance>>(1024)
         val pairWeight = HashMap<String, Int>(8192)
@@ -114,7 +129,7 @@ object RelationExtractor {
 
         for ((title, body) in chapters) {
             for (para in splitParagraphs(body)) {
-                val hits = findPersonHits(para)
+                val hits = findPersonHits(context, para, io.legado.app.help.chrono.ContextAnchor.get().year)
                 if (hits.isEmpty()) continue
                 val names = hits.map { it.first }.distinct()
                 for (n in names) {
@@ -210,8 +225,14 @@ object RelationExtractor {
         return list
     }
 
-    private fun findPersonHits(sentence: String): List<Pair<String, IntRange>> {
+    private fun findPersonHits(
+        context: android.content.Context,
+        sentence: String,
+        year: Int?,
+    ): List<Pair<String, IntRange>> {
         val hits = ArrayList<Pair<String, IntRange>>(8)
+        val aliasB = aliasBuckets(context)
+        val anchorState = io.legado.app.help.chrono.ContextAnchor.get().state
 
         // 国号与人名共走一遍字符位，别开两趟
         for (i in sentence.indices) {
@@ -234,6 +255,15 @@ object RelationExtractor {
                     hits.add(PersonProfile.canonical(w) to IntRange(i, i + w.length - 1))
                 }
             }
+            // 短称谓：桓公、楚子、齐侯、季氏…锚点为空时宁可不动，避免张冠李戴
+            if (year == null && anchorState == null) continue
+            val als = aliasB[sentence[i]] ?: continue
+            for (a in als) {
+                if (!sentence.startsWith(a, i)) continue
+                PersonTimeInfo.resolveAlias(context, a, year, anchorState)?.let { (owner, _) ->
+                    hits.add(owner to IntRange(i, i + a.length - 1))
+                }
+            }
         }
 
         for (v in SPEECH) {
@@ -244,7 +274,7 @@ object RelationExtractor {
                 if (i >= 2) {
                     val start = maxOf(0, i - 3)
                     val cand = sentence.substring(start, i)
-                    pickName(cand)?.let { (n, off) ->
+                    pickName(context, cand, year)?.let { (n, off) ->
                         hits.add(
                             PersonProfile.canonical(n) to
                                 IntRange(start + off, start + off + n.length - 1)
@@ -258,7 +288,7 @@ object RelationExtractor {
         return hits.sortedBy { it.second.first }
     }
 
-    private fun pickName(raw: String): Pair<String, Int>? {
+    private fun pickName(context: android.content.Context, raw: String, year: Int?): Pair<String, Int>? {
         val t = raw.trim()
         if (t.length < 2) return null
         for (st in STATES) {
@@ -273,6 +303,10 @@ object RelationExtractor {
             for (w in cands) {
                 if (t.startsWith(w, i)) return w to i
             }
+            aliasBuckets(context)[t[i]]?.firstOrNull { a ->
+                a.length >= 2 && t.startsWith(a, i) &&
+                    PersonTimeInfo.resolveAlias(context, a, year, null) != null
+            }?.let { return it to i }
         }
         if (t.length >= 2 && t[0] in "子叔伯季孟仲" && t.all { it in '\u4e00'..'\u9fff' }) {
             return t to 0

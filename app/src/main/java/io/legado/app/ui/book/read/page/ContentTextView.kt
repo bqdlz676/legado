@@ -558,10 +558,22 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                 chronoHitAt(lineText, colIdx)
                             } else null
                             if (chronoHit != null) {
+                                val y2 = chronoHit.year
                                 showBubble(
-                                    chronoHit.first, "", chronoHit.second,
+                                    chronoHit.title, "", chronoHit.detail,
                                     x, y, relativeOffset, textLine,
-                                    chronoHit.first.length >= 5, false
+                                    chronoHit.title.length >= 5, y2 != null,
+                                    if (y2 != null) {
+                                        {
+                                            dismissCharBubble()
+                                            val fm = (context as? androidx.fragment.app.FragmentActivity)
+                                                ?.supportFragmentManager
+                                            if (fm != null) {
+                                                io.legado.app.ui.main.DetailSheet.year(y2)
+                                                    .show(fm, "detail_year")
+                                            }
+                                        }
+                                    } else null
                                 )
                                 handled = true
                             } else {
@@ -581,34 +593,51 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                             }
                                             append(nm.detail)
                                         }
+                                        // 半屏 sheet：原文不离眼，返回不重建
                                         val personDetail: (() -> Unit)? =
                                             if (nm.kind == io.legado.app.help.NameResolver.Kind.PERSON) {
                                                 {
                                                     dismissCharBubble()
-                                                    val i = Intent(
-                                                        context,
-                                                        io.legado.app.ui.main.PersonDetailActivity::class.java
-                                                    )
-                                                        .putExtra("name", nm.name)
-                                                        .putExtra("appearances", "[]")
-                                                    if (context !is Activity) {
-                                                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    val fm = (context as? androidx.fragment.app.FragmentActivity)
+                                                        ?.supportFragmentManager
+                                                    if (fm != null) {
+                                                        io.legado.app.ui.main.DetailSheet
+                                                            .person(nm.name, nm.anchorYear)
+                                                            .show(fm, "detail_person")
+                                                    } else {
+                                                        val i = Intent(
+                                                            context,
+                                                            io.legado.app.ui.main.PersonDetailActivity::class.java
+                                                        )
+                                                            .putExtra("name", nm.name)
+                                                            .putExtra("appearances", "[]")
+                                                        if (context !is Activity) {
+                                                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        }
+                                                        context.startActivity(i)
                                                     }
-                                                    context.startActivity(i)
                                                 }
                                             } else {
                                                 {
                                                     dismissCharBubble()
-                                                    val i = Intent(
-                                                        context,
-                                                        io.legado.app.ui.main.PlaceMapActivity::class.java
-                                                    ).putExtra("name", nm.name)
-                                                        .putExtra("wlat", nm.wlat ?: Double.NaN)
-                                                        .putExtra("wlng", nm.wlng ?: Double.NaN)
-                                                    if (context !is Activity) {
-                                                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    val fm = (context as? androidx.fragment.app.FragmentActivity)
+                                                        ?.supportFragmentManager
+                                                    if (fm != null) {
+                                                        io.legado.app.ui.main.DetailSheet
+                                                            .place(nm)
+                                                            .show(fm, "detail_place")
+                                                    } else {
+                                                        val i = Intent(
+                                                            context,
+                                                            io.legado.app.ui.main.PlaceMapActivity::class.java
+                                                        ).putExtra("name", nm.name)
+                                                            .putExtra("wlat", nm.wlat ?: Double.NaN)
+                                                            .putExtra("wlng", nm.wlng ?: Double.NaN)
+                                                        if (context !is Activity) {
+                                                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        }
+                                                        context.startActivity(i)
                                                     }
-                                                    context.startActivity(i)
                                                 }
                                             }
                                         showBubble(
@@ -1177,7 +1206,9 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         return ChineseDict.pinyinOfWord(context, word)
     }
 
-    private fun chronoHitAt(lineText: String, pos: Int): Pair<String, String>? {
+    private data class ChronoHit(val title: String, val detail: String, val year: Int?)
+
+    private fun chronoHitAt(lineText: String, pos: Int): ChronoHit? {
         if (lineText.isEmpty()) return null
 
         // 干支日：点到的两字，或左侧起算的两字
@@ -1214,8 +1245,11 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             if (cands.size == 1) {
                 val e = cands[0]
                 val y = e.startYear + n - 1
-                return "${era}${m.groupValues[2]}年" to
-                    "${Chronology.yearLabel(y)}（${e.dynasty}）"
+                return ChronoHit(
+                    "${era}${m.groupValues[2]}年",
+                    "${Chronology.yearLabel(y)}（${e.dynasty}）",
+                    y
+                )
             } else if (cands.size > 1) {
                 // 重名年号：全部列出，交给上下文判断，不替用户裁决
                 val hint = bookDynastyHint()
@@ -1224,13 +1258,19 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 val lines = sorted.take(4).joinToString("\n") { e ->
                     "${e.dynasty}　" + Chronology.yearLabel(e.startYear + n - 1)
                 }
-                return "${era}${m.groupValues[2]}年" to
-                    ("同名年号 ${cands.size} 个，按朝代各算：\n" + lines)
+                return ChronoHit(
+                    "${era}${m.groupValues[2]}年",
+                    "同名年号 ${cands.size} 个，按朝代各算：\n" + lines,
+                    null
+                )
             }
             val py = Chronology.princeYear(era, n)
             if (py != null) {
-                return "${era}${m.groupValues[2]}年" to
-                    "${Chronology.yearLabel(py)}（王公纪年）"
+                return ChronoHit(
+                    "${era}${m.groupValues[2]}年",
+                    "${Chronology.yearLabel(py)}（王公纪年）",
+                    py
+                )
             }
         }
         return null
@@ -1326,12 +1366,17 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             showDetail = detail
             onDetail = customDetail ?: {
                 dismissCharBubble()
-                val intent = Intent(context, CharDetailActivity::class.java)
-                    .putExtra("char", ch)
-                if (context !is Activity) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                val fm = (context as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager
+                if (fm != null) {
+                    io.legado.app.ui.main.DetailSheet.char(ch).show(fm, "detail_char")
+                } else {
+                    val intent = Intent(context, CharDetailActivity::class.java)
+                        .putExtra("char", ch)
+                    if (context !is Activity) {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
                 }
-                context.startActivity(intent)
             }
         }
         bubble.measure(
