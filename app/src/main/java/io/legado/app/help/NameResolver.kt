@@ -194,8 +194,7 @@ object NameResolver {
                     if (!r.anchored) append("·年份未锚定")
                 },
                 detail = buildString {
-                    append(hit.spanLabel()).append('　').append(hit.tierLabel).append('
-')
+                    append(hit.spanLabel()).append('\u3000').append(hit.tierLabel).append('\n')
                     append(hit.note)
                     if (others.isNotEmpty()) {
                         append("\n另有同名 ").append(r.others.size).append(" 处，可切换")

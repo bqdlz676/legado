@@ -113,6 +113,25 @@ function inEra(y) {
   return y >= 1368 && y < 1912;
 }
 
+function inEraName(era) {
+  if (curY === 0) return true;
+  if (curY === 1) return era === '春秋' || era === '战国';
+  if (curY === 2) return era === '西汉' || era === '新' || era === '东汉' || era === '三国' || era === '唐';
+  if (curY === 3) return era === '北宋' || era === '南宋' || era === '元';
+  return era === '明' || era === '清';
+}
+
+// 示意色块层：不是边界，只表势力范围；tier 3 一律标「示意」
+var gCircle = L.layerGroup().addTo(map);
+(window.POWERS_CIRCLE || []).forEach(function (p) {
+  if (!inEraName(p.era)) return;
+  L.circle([p.center[0], p.center[1]], {
+    radius: p.r * 1000, color: p.color, weight: 1,
+    opacity: .55, fillColor: p.color, fillOpacity: .12
+  }).addTo(gCircle)
+   .bindTooltip(p.name + '（' + p.era + '·示意）', {permanent:true, direction:'center', className:'lbl', opacity:.85});
+});
+
 var gPower = L.layerGroup().addTo(map);
 (window.POWERS || []).forEach(function (p) {
   if (!p.poly || !p.poly.length) return;

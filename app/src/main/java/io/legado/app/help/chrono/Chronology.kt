@@ -251,7 +251,7 @@ object Chronology {
     fun yearTitle(year: Int): String {
         val gz = yearGanzhi(year)
         val d = if (year <= 0) "前${1 - year}" else "公元$year"
-        return "$d年（$gz）· 距今约${yearsAgo(year)}年"
+        return "${d}年（$gz）· 距今约${yearsAgo(year)}年"
     }
 
     /** 公元年 → 干支年 */
