@@ -1,0 +1,113 @@
+{
+ "id": "guiling",
+ "title": "桂陵之战",
+ "era": "前354",
+ "context": "魏庞涓围赵邯郸，齐威王以田忌为主、孙膑为军师，直趋大梁，魏军回师，桂陵中伏。",
+ "terrainFocus": {
+  "center": [
+   114.7,
+   35.0
+  ],
+  "radius": 50
+ },
+ "duration": 20,
+ "victory": {
+  "type": "ambushWin",
+  "target": "pangjuan",
+  "side": "qi"
+ },
+ "sides": [
+  {
+   "id": "qi",
+   "name": "齐",
+   "color": "#3C6E9E"
+  },
+  {
+   "id": "wei",
+   "name": "魏",
+   "color": "#8A5A3C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "qi",
+   "b": "wei",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "tianji",
+   "name": "田忌",
+   "side": "qi",
+   "initialPos": [
+    114.5,
+    35.1
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    114.8,
+    34.95
+   ]
+  },
+  {
+   "id": "sunbin",
+   "name": "孙膑",
+   "side": "qi",
+   "initialPos": [
+    114.6,
+    35.0
+   ],
+   "strength": 6,
+   "type": "elite",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "ambush"
+  },
+  {
+   "id": "pangjuan",
+   "name": "庞涓",
+   "side": "wei",
+   "initialPos": [
+    115.0,
+    34.9
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "rush",
+   "target": [
+    114.6,
+    35.0
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 5
+   },
+   "action": "setIntent",
+   "target": "pangjuan",
+   "value": "rush",
+   "reason": "回师救大梁"
+  },
+  {
+   "trigger": {
+    "turn": 10
+   },
+   "action": "ambush",
+   "target": "pangjuan",
+   "reason": "桂陵道中齐伏兵起"
+  }
+ ],
+ "phases": [],
+ "source": "史记·孙子吴起列传",
+ "confidence": "medium",
+ "world": false
+}

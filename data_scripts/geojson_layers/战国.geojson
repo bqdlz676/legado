@@ -1,0 +1,53 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "战国",
+    "era": "战国",
+    "from": -475,
+    "to": -221,
+    "color": "#8B6914",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "low"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       100.0,
+       33.5
+      ],
+      [
+       105.75,
+       42.0
+      ],
+      [
+       117.25,
+       42.0
+      ],
+      [
+       123.0,
+       33.5
+      ],
+      [
+       117.25,
+       25.0
+      ],
+      [
+       105.75,
+       25.0
+      ],
+      [
+       100.0,
+       33.5
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

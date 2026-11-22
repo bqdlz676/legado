@@ -1,0 +1,85 @@
+{
+ "id": "actium",
+ "title": "亚克兴海战",
+ "era": "前31",
+ "context": "屋大维部阿格里帕与安东尼、克利奥帕特拉联军战于亚克兴海角；埃及舰队突围撤走，安东尼军投降。",
+ "terrainFocus": {
+  "center": [
+   20.77,
+   38.95
+  ],
+  "radius": 40
+ },
+ "duration": 10,
+ "victory": {
+  "type": "rout",
+  "side": "octavian"
+ },
+ "sides": [
+  {
+   "id": "octavian",
+   "name": "屋大维",
+   "color": "#4C6E9A"
+  },
+  {
+   "id": "antony",
+   "name": "安东尼/埃及",
+   "color": "#8B5A3C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "octavian",
+   "b": "antony",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "agrippa",
+   "name": "阿格里帕",
+   "side": "octavian",
+   "initialPos": [
+    20.6,
+    39.0
+   ],
+   "strength": 8,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    20.9,
+    38.9
+   ]
+  },
+  {
+   "id": "antony",
+   "name": "安东尼",
+   "side": "antony",
+   "initialPos": [
+    20.95,
+    38.85
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 6
+   },
+   "action": "navalRout",
+   "target": "antony",
+   "reason": "埃及舰队突围东撤"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

@@ -1,0 +1,126 @@
+{
+ "id": "guandu",
+ "title": "官渡之战",
+ "era": "200",
+ "context": "曹操以少抗众，坚守官渡；许攸来降，曹操奇袭乌巢烧粮，袁军崩溃，奠定统一北方之基。",
+ "terrainFocus": {
+  "center": [
+   114.3,
+   35.6
+  ],
+  "radius": 70
+ },
+ "duration": 40,
+ "victory": {
+  "type": "rout",
+  "side": "cao"
+ },
+ "sides": [
+  {
+   "id": "cao",
+   "name": "曹操",
+   "color": "#4C6E9A"
+  },
+  {
+   "id": "yuan",
+   "name": "袁绍",
+   "color": "#8A6A3E"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "cao",
+   "b": "yuan",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "caocao",
+   "name": "曹操",
+   "side": "cao",
+   "initialPos": [
+    114.1,
+    35.65
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold",
+   "target": [
+    114.4,
+    35.55
+   ]
+  },
+  {
+   "id": "xunyou",
+   "name": "曹奇兵",
+   "side": "cao",
+   "initialPos": [
+    114.6,
+    35.7
+   ],
+   "strength": 5,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "flank"
+  },
+  {
+   "id": "yuanshao",
+   "name": "袁绍",
+   "side": "yuan",
+   "initialPos": [
+    114.7,
+    35.55
+   ],
+   "strength": 12,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    114.2,
+    35.6
+   ]
+  },
+  {
+   "id": "ju_shou",
+   "name": "沮授",
+   "side": "yuan",
+   "initialPos": [
+    114.8,
+    35.65
+   ],
+   "strength": 7,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 18
+   },
+   "action": "supplyCut",
+   "target": "yuanshao",
+   "reason": "乌巢粮草被烧"
+  },
+  {
+   "trigger": {
+    "turn": 26
+   },
+   "action": "moraleChange",
+   "target": "yuanshao",
+   "value": "broken",
+   "reason": "张郃高览降曹，袁军大溃"
+  }
+ ],
+ "phases": [],
+ "source": "三国志·魏书/资治通鉴",
+ "confidence": "high",
+ "world": false
+}

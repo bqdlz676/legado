@@ -1,0 +1,99 @@
+{
+ "id": "xiao",
+ "title": "崤之战",
+ "era": "前627",
+ "context": "秦穆公袭郑不成，回师过崤山；晋襄公联合姜戎设伏，全歼秦军，三帅被俘。",
+ "terrainFocus": {
+  "center": [
+   111.6,
+   34.6
+  ],
+  "radius": 40
+ },
+ "duration": 10,
+ "victory": {
+  "type": "annihilate",
+  "target": "mengming",
+  "side": "jin"
+ },
+ "sides": [
+  {
+   "id": "jin",
+   "name": "晋",
+   "color": "#8A6A3E"
+  },
+  {
+   "id": "qin",
+   "name": "秦",
+   "color": "#B33A2B"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "jin",
+   "b": "qin",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "xiang",
+   "name": "晋襄公",
+   "side": "jin",
+   "initialPos": [
+    111.7,
+    34.7
+   ],
+   "strength": 8,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "ambush",
+   "target": [
+    111.55,
+    34.55
+   ]
+  },
+  {
+   "id": "mengming",
+   "name": "孟明视",
+   "side": "qin",
+   "initialPos": [
+    111.4,
+    34.5
+   ],
+   "strength": 8,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    111.7,
+    34.6
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 2
+   },
+   "action": "ambush",
+   "target": "mengming",
+   "reason": "崤山隘道伏兵四起"
+  },
+  {
+   "trigger": {
+    "army": "mengming",
+    "strengthBelow": 3
+   },
+   "action": "surrender",
+   "target": "mengming",
+   "reason": "三帅被俘"
+  }
+ ],
+ "phases": [],
+ "source": "左传·僖公三十三年/史记·秦本纪",
+ "confidence": "high",
+ "world": false
+}

@@ -1,0 +1,107 @@
+{
+ "id": "waterloo",
+ "title": "滑铁卢战役",
+ "era": "1815",
+ "context": "拿破仑复出后率法军对阵威灵顿英荷联军；布吕歇尔普军侧翼赶到，法军全线崩溃，百日王朝终结。",
+ "terrainFocus": {
+  "center": [
+   4.4,
+   50.68
+  ],
+  "radius": 50
+ },
+ "duration": 18,
+ "victory": {
+  "type": "rout",
+  "side": "allied"
+ },
+ "sides": [
+  {
+   "id": "france",
+   "name": "法兰西",
+   "color": "#4C6E9A"
+  },
+  {
+   "id": "allied",
+   "name": "英荷普联军",
+   "color": "#3C7A5C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "france",
+   "b": "allied",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "napoleon",
+   "name": "拿破仑",
+   "side": "france",
+   "initialPos": [
+    4.2,
+    50.72
+   ],
+   "strength": 10,
+   "type": "elite",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    4.55,
+    50.65
+   ]
+  },
+  {
+   "id": "wellington",
+   "name": "威灵顿",
+   "side": "allied",
+   "initialPos": [
+    4.6,
+    50.62
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "blucher",
+   "name": "布吕歇尔",
+   "side": "allied",
+   "initialPos": [
+    4.0,
+    50.8
+   ],
+   "strength": 7,
+   "type": "cavalry",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "flank"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 10
+   },
+   "action": "flank",
+   "target": "napoleon",
+   "reason": "普军从右翼赶到夹击"
+  },
+  {
+   "trigger": {
+    "turn": 15
+   },
+   "action": "rout",
+   "target": "napoleon",
+   "reason": "法军 Old Guard 溃散"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

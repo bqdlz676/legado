@@ -1,0 +1,93 @@
+{
+ "id": "zama",
+ "title": "扎马会战",
+ "era": "前202",
+ "context": "大西庇阿与汉尼拔于扎马对阵；罗马骑兵得胜回击，汉尼拔军两翼崩溃，第二次布匿战争结束。",
+ "terrainFocus": {
+  "center": [
+   9.3,
+   36.15
+  ],
+  "radius": 45
+ },
+ "duration": 12,
+ "victory": {
+  "type": "rout",
+  "side": "rome"
+ },
+ "sides": [
+  {
+   "id": "rome",
+   "name": "罗马",
+   "color": "#4C6E9A"
+  },
+  {
+   "id": "carthage",
+   "name": "迦太基",
+   "color": "#8B5A3C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "rome",
+   "b": "carthage",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "scipio",
+   "name": "大西庇阿",
+   "side": "rome",
+   "initialPos": [
+    9.1,
+    36.2
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    9.45,
+    36.1
+   ]
+  },
+  {
+   "id": "hannibal",
+   "name": "汉尼拔",
+   "side": "carthage",
+   "initialPos": [
+    9.5,
+    36.1
+   ],
+   "strength": 10,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 6
+   },
+   "action": "flank",
+   "target": "hannibal",
+   "reason": "罗马骑兵回转冲击后翼"
+  },
+  {
+   "trigger": {
+    "turn": 10
+   },
+   "action": "rout",
+   "target": "hannibal",
+   "reason": "迦太基方阵崩溃"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

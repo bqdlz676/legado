@@ -1,0 +1,114 @@
+{
+ "id": "mling",
+ "title": "马陵之战",
+ "era": "前341",
+ "context": "魏庞涓攻韩，齐孙膑减灶示弱，诱庞涓追入马陵道，万弩齐发，庞涓自刎，魏霸势衰。",
+ "terrainFocus": {
+  "center": [
+   115.5,
+   36.0
+  ],
+  "radius": 45
+ },
+ "duration": 18,
+ "victory": {
+  "type": "annihilate",
+  "target": "pangjuan",
+  "side": "qi"
+ },
+ "sides": [
+  {
+   "id": "qi",
+   "name": "齐",
+   "color": "#3C6E9E"
+  },
+  {
+   "id": "wei",
+   "name": "魏",
+   "color": "#8A5A3C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "qi",
+   "b": "wei",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "tianji",
+   "name": "田忌",
+   "side": "qi",
+   "initialPos": [
+    115.3,
+    36.1
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "retreat",
+   "target": [
+    115.7,
+    35.9
+   ]
+  },
+  {
+   "id": "sunbin",
+   "name": "孙膑",
+   "side": "qi",
+   "initialPos": [
+    115.6,
+    35.95
+   ],
+   "strength": 6,
+   "type": "elite",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "ambush"
+  },
+  {
+   "id": "pangjuan",
+   "name": "庞涓",
+   "side": "wei",
+   "initialPos": [
+    115.2,
+    36.2
+   ],
+   "strength": 8,
+   "type": "cavalry",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "rush",
+   "target": [
+    115.7,
+    35.9
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 6
+   },
+   "action": "moraleChange",
+   "target": "pangjuan",
+   "value": "steady",
+   "reason": "减灶示弱，庞涓轻敌"
+  },
+  {
+   "trigger": {
+    "army": "pangjuan",
+    "strengthBelow": 3
+   },
+   "action": "annihilate",
+   "target": "pangjuan",
+   "reason": "马陵道万弩俱发"
+  }
+ ],
+ "phases": [],
+ "source": "史记·孙子吴起列传",
+ "confidence": "high",
+ "world": false
+}

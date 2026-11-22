@@ -1,0 +1,98 @@
+{
+ "id": "yancheng",
+ "title": "郾城大捷",
+ "era": "1140",
+ "context": "岳飞北伐，驻郾城；金兀术以铁浮屠、拐子马冲阵，岳飞步卒以麻札刀入阵，大破金军，进逼朱仙镇。",
+ "terrainFocus": {
+  "center": [
+   113.98,
+   33.59
+  ],
+  "radius": 45
+ },
+ "duration": 15,
+ "victory": {
+  "type": "rout",
+  "side": "song"
+ },
+ "sides": [
+  {
+   "id": "song",
+   "name": "宋(岳飞)",
+   "color": "#3C7A5C"
+  },
+  {
+   "id": "jin",
+   "name": "金",
+   "color": "#4C6E9A"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "song",
+   "b": "jin",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "yuefei",
+   "name": "岳飞",
+   "side": "song",
+   "initialPos": [
+    113.85,
+    33.65
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    114.1,
+    33.55
+   ]
+  },
+  {
+   "id": "wuzhu",
+   "name": "完颜兀术",
+   "side": "jin",
+   "initialPos": [
+    114.2,
+    33.5
+   ],
+   "strength": 9,
+   "type": "cavalry",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    113.9,
+    33.6
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 6
+   },
+   "action": "moraleChange",
+   "target": "wuzhu",
+   "value": "wavering",
+   "reason": "麻札刀破拐子马"
+  },
+  {
+   "trigger": {
+    "turn": 10
+   },
+   "action": "rout",
+   "target": "wuzhu",
+   "reason": "兀术叹：撼山易，撼岳家军难"
+  }
+ ],
+ "phases": [],
+ "source": "宋史·岳飞传/金史",
+ "confidence": "high",
+ "world": false
+}

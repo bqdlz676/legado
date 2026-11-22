@@ -1,0 +1,133 @@
+{
+ "id": "julu",
+ "title": "巨鹿之战",
+ "era": "前207",
+ "context": "项羽率楚军渡河，破釜沉舟，九战九捷，击溃秦军主力章邯部；诸侯军膝行而前，项羽遂为诸侯上将军。",
+ "terrainFocus": {
+  "center": [
+   115.1,
+   37.2
+  ],
+  "radius": 70
+ },
+ "duration": 25,
+ "victory": {
+  "type": "annihilate",
+  "target": "zhanghan",
+  "side": "chu"
+ },
+ "sides": [
+  {
+   "id": "chu",
+   "name": "楚(项羽)",
+   "color": "#C23B2E"
+  },
+  {
+   "id": "qin",
+   "name": "秦",
+   "color": "#4C4C4C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "chu",
+   "b": "qin",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "xiangyu",
+   "name": "项羽",
+   "side": "chu",
+   "initialPos": [
+    114.9,
+    37.3
+   ],
+   "strength": 12,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    115.2,
+    37.15
+   ]
+  },
+  {
+   "id": "blackhorse",
+   "name": "英布",
+   "side": "chu",
+   "initialPos": [
+    115.0,
+    37.05
+   ],
+   "strength": 6,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "flank"
+  },
+  {
+   "id": "zhanghan",
+   "name": "章邯",
+   "side": "qin",
+   "initialPos": [
+    115.4,
+    37.25
+   ],
+   "strength": 11,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "sujiao",
+   "name": "王离",
+   "side": "qin",
+   "initialPos": [
+    115.3,
+    37.35
+   ],
+   "strength": 7,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 2
+   },
+   "action": "moraleChange",
+   "target": "xiangyu",
+   "value": "high",
+   "reason": "破釜沉舟，士卒必死"
+  },
+  {
+   "trigger": {
+    "turn": 12
+   },
+   "action": "moraleChange",
+   "target": "sujiao",
+   "value": "broken",
+   "reason": "甬道被断，王离被围"
+  },
+  {
+   "trigger": {
+    "army": "zhanghan",
+    "strengthBelow": 4
+   },
+   "action": "surrender",
+   "target": "zhanghan",
+   "reason": "章邯降楚"
+  }
+ ],
+ "phases": [],
+ "source": "史记·项羽本纪/史记·秦本纪",
+ "confidence": "high",
+ "world": false
+}

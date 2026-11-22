@@ -1,0 +1,117 @@
+{
+ "id": "xiangyang",
+ "title": "襄阳保卫战",
+ "era": "1267",
+ "context": "元军围襄阳、樊城六年，吕文德、吕文焕固守；元回回炮攻城，樊城破，襄阳力屈出降，南宋门户洞开。",
+ "terrainFocus": {
+  "center": [
+   112.12,
+   32.01
+  ],
+  "radius": 55
+ },
+ "duration": 120,
+ "victory": {
+  "type": "capture",
+  "target": "lvwenhuan",
+  "side": "yuan"
+ },
+ "sides": [
+  {
+   "id": "song",
+   "name": "宋",
+   "color": "#3C7A5C"
+  },
+  {
+   "id": "yuan",
+   "name": "元",
+   "color": "#7A5FA6"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "song",
+   "b": "yuan",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "lvwenhuan",
+   "name": "吕文焕",
+   "side": "song",
+   "initialPos": [
+    112.0,
+    32.1
+   ],
+   "strength": 7,
+   "type": "regular",
+   "fatigue": 3,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "aoju",
+   "name": "阿术",
+   "side": "yuan",
+   "initialPos": [
+    112.4,
+    31.9
+   ],
+   "strength": 10,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    112.05,
+    32.05
+   ]
+  },
+  {
+   "id": "alihaiya",
+   "name": "刘整",
+   "side": "yuan",
+   "initialPos": [
+    112.3,
+    32.2
+   ],
+   "strength": 6,
+   "type": "cavalry",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "flank"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 40
+   },
+   "action": "supplyCut",
+   "target": "lvwenhuan",
+   "reason": "外援断绝，城中薪帛俱尽"
+  },
+  {
+   "trigger": {
+    "turn": 100
+   },
+   "action": "siegeEngine",
+   "target": "lvwenhuan",
+   "reason": "回回炮毁谯楼，樊城先陷"
+  },
+  {
+   "trigger": {
+    "army": "lvwenhuan",
+    "strengthBelow": 3
+   },
+   "action": "surrender",
+   "target": "lvwenhuan",
+   "reason": "吕文焕以城降"
+  }
+ ],
+ "phases": [],
+ "source": "宋史·吕文焕传/元史",
+ "confidence": "high",
+ "world": false
+}

@@ -1,0 +1,53 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "清",
+    "era": "清",
+    "from": 1644,
+    "to": 1911,
+    "color": "#4C6E9A",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       75.0,
+       35.5
+      ],
+      [
+       90.0,
+       53.0
+      ],
+      [
+       120.0,
+       53.0
+      ],
+      [
+       135.0,
+       35.5
+      ],
+      [
+       120.0,
+       18.0
+      ],
+      [
+       90.0,
+       18.0
+      ],
+      [
+       75.0,
+       35.5
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

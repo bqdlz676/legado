@@ -1,0 +1,131 @@
+{
+ "id": "chibi",
+ "title": "赤壁之战",
+ "era": "208",
+ "context": "曹操南下，孙权刘备联军御于赤壁；黄盖诈降火攻，东风助势，曹军舟舰俱焚，败退北还，三分鼎足之势成。",
+ "terrainFocus": {
+  "center": [
+   113.9,
+   29.72
+  ],
+  "radius": 60
+ },
+ "duration": 18,
+ "victory": {
+  "type": "rout",
+  "side": "sunliu"
+ },
+ "sides": [
+  {
+   "id": "sunliu",
+   "name": "孙刘联军",
+   "color": "#3C7A5C"
+  },
+  {
+   "id": "cao",
+   "name": "曹操",
+   "color": "#4C6E9A"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "sunliu",
+   "b": "cao",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "zhouyu",
+   "name": "周瑜",
+   "side": "sunliu",
+   "initialPos": [
+    113.7,
+    29.8
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    114.0,
+    29.68
+   ]
+  },
+  {
+   "id": "huanggai",
+   "name": "黄盖",
+   "side": "sunliu",
+   "initialPos": [
+    113.85,
+    29.65
+   ],
+   "strength": 5,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "flank"
+  },
+  {
+   "id": "liubei",
+   "name": "刘备",
+   "side": "sunliu",
+   "initialPos": [
+    113.55,
+    29.9
+   ],
+   "strength": 6,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "support"
+  },
+  {
+   "id": "caocao",
+   "name": "曹操",
+   "side": "cao",
+   "initialPos": [
+    114.1,
+    29.75
+   ],
+   "strength": 12,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 6
+   },
+   "action": "setIntent",
+   "target": "huanggai",
+   "value": "flank",
+   "reason": "诈降接近曹船"
+  },
+  {
+   "trigger": {
+    "turn": 8
+   },
+   "action": "fireAttack",
+   "target": "caocao",
+   "reason": "黄盖火船乘风纵火"
+  },
+  {
+   "trigger": {
+    "turn": 12
+   },
+   "action": "moraleChange",
+   "target": "caocao",
+   "value": "broken",
+   "reason": "疾疫兼火攻，曹军北撤"
+  }
+ ],
+ "phases": [],
+ "source": "三国志·吴书/资治通鉴",
+ "confidence": "high",
+ "world": false
+}

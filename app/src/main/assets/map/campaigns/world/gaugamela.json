@@ -1,0 +1,93 @@
+{
+ "id": "gaugamela",
+ "title": "高加米拉会战",
+ "era": "前331",
+ "context": "亚历山大率马其顿东征，以斜形阵突破波斯大军中央；大流士三世溃逃，波斯帝国瓦解。",
+ "terrainFocus": {
+  "center": [
+   43.43,
+   35.5
+  ],
+  "radius": 60
+ },
+ "duration": 14,
+ "victory": {
+  "type": "rout",
+  "side": "macedon"
+ },
+ "sides": [
+  {
+   "id": "macedon",
+   "name": "马其顿",
+   "color": "#7A5FA6"
+  },
+  {
+   "id": "persia",
+   "name": "波斯",
+   "color": "#8B6914"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "macedon",
+   "b": "persia",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "alexander",
+   "name": "亚历山大",
+   "side": "macedon",
+   "initialPos": [
+    43.2,
+    35.6
+   ],
+   "strength": 10,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    43.6,
+    35.45
+   ]
+  },
+  {
+   "id": "darius",
+   "name": "大流士三世",
+   "side": "persia",
+   "initialPos": [
+    43.7,
+    35.4
+   ],
+   "strength": 12,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 7
+   },
+   "action": "breakthrough",
+   "target": "darius",
+   "reason": "近卫楔形阵直取大流士车驾"
+  },
+  {
+   "trigger": {
+    "turn": 11
+   },
+   "action": "rout",
+   "target": "darius",
+   "reason": "大流士弃军东逃"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

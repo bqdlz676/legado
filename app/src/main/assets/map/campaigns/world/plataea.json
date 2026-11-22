@@ -1,0 +1,85 @@
+{
+ "id": "plataea",
+ "title": "普拉提亚战役",
+ "era": "前479",
+ "context": "希腊联军在普拉提亚击溃波斯陆军，继而海上米卡莱获胜，波斯彻底退出希腊。",
+ "terrainFocus": {
+  "center": [
+   22.52,
+   38.23
+  ],
+  "radius": 40
+ },
+ "duration": 12,
+ "victory": {
+  "type": "rout",
+  "side": "greece"
+ },
+ "sides": [
+  {
+   "id": "greece",
+   "name": "希腊联军",
+   "color": "#3C6E9E"
+  },
+  {
+   "id": "persia",
+   "name": "波斯",
+   "color": "#8B6914"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "greece",
+   "b": "persia",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "pausanias",
+   "name": "保萨尼亚斯",
+   "side": "greece",
+   "initialPos": [
+    22.4,
+    38.3
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    22.6,
+    38.18
+   ]
+  },
+  {
+   "id": "mardonius",
+   "name": "马铎尼斯",
+   "side": "persia",
+   "initialPos": [
+    22.7,
+    38.15
+   ],
+   "strength": 10,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 8
+   },
+   "action": "rout",
+   "target": "mardonius",
+   "reason": "波斯大营被焚，马铎尼斯阵亡"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "low",
+ "world": true
+}

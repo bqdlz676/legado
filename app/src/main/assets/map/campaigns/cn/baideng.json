@@ -1,0 +1,107 @@
+{
+ "id": "baideng",
+ "title": "白登之围",
+ "era": "前200",
+ "context": "汉高祖击匈奴，冒顿单于纵精骑围汉军于白登七日；陈平出奇计解围，汉初自此行和亲。",
+ "terrainFocus": {
+  "center": [
+   113.8,
+   40.2
+  ],
+  "radius": 50
+ },
+ "duration": 12,
+ "victory": {
+  "type": "escape",
+  "side": "han"
+ },
+ "sides": [
+  {
+   "id": "han",
+   "name": "汉",
+   "color": "#4C6E9A"
+  },
+  {
+   "id": "xiongnu",
+   "name": "匈奴",
+   "color": "#8A6A5C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "han",
+   "b": "xiongnu",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "gaozu",
+   "name": "汉高祖",
+   "side": "han",
+   "initialPos": [
+    113.7,
+    40.3
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "wavering",
+   "intent": "hold"
+  },
+  {
+   "id": "chenping",
+   "name": "陈平",
+   "side": "han",
+   "initialPos": [
+    113.8,
+    40.15
+   ],
+   "strength": 4,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "support"
+  },
+  {
+   "id": "modu",
+   "name": "冒顿单于",
+   "side": "xiongnu",
+   "initialPos": [
+    114.1,
+    40.2
+   ],
+   "strength": 11,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    113.75,
+    40.25
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 5
+   },
+   "action": "supplyCut",
+   "target": "gaozu",
+   "reason": "七日不得食"
+  },
+  {
+   "trigger": {
+    "turn": 10
+   },
+   "action": "escape",
+   "target": "gaozu",
+   "reason": "陈平赂阏氏，围开一角"
+  }
+ ],
+ "phases": [],
+ "source": "史记·匈奴列传/汉书",
+ "confidence": "medium",
+ "world": false
+}

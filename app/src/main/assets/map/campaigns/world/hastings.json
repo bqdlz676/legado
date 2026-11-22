@@ -1,0 +1,95 @@
+{
+ "id": "hastings",
+ "title": "黑斯廷斯战役",
+ "era": "1066",
+ "context": "诺曼底公爵威廉渡海登陆，与哈罗德·戈德温森英军战于黑斯廷斯；英军盾阵久持，威廉佯退诱敌，哈罗德中箭身亡。",
+ "terrainFocus": {
+  "center": [
+   0.49,
+   50.91
+  ],
+  "radius": 40
+ },
+ "duration": 12,
+ "victory": {
+  "type": "capture",
+  "target": "harold",
+  "side": "norman"
+ },
+ "sides": [
+  {
+   "id": "norman",
+   "name": "诺曼",
+   "color": "#8B6914"
+  },
+  {
+   "id": "saxon",
+   "name": "盎格鲁撒克逊",
+   "color": "#4C6E9A"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "norman",
+   "b": "saxon",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "william",
+   "name": "威廉",
+   "side": "norman",
+   "initialPos": [
+    0.3,
+    50.95
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    0.6,
+    50.88
+   ]
+  },
+  {
+   "id": "harold",
+   "name": "哈罗德",
+   "side": "saxon",
+   "initialPos": [
+    0.65,
+    50.85
+   ],
+   "strength": 8,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 7
+   },
+   "action": "feignedRetreat",
+   "target": "harold",
+   "reason": "诺曼骑兵佯退，盾阵追击散开"
+  },
+  {
+   "trigger": {
+    "army": "harold",
+    "strengthBelow": 3
+   },
+   "action": "capture",
+   "target": "harold",
+   "reason": "哈罗德中箭阵亡"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

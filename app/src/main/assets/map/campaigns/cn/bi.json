@@ -1,0 +1,94 @@
+{
+ "id": "bi",
+ "title": "邲之战",
+ "era": "前597",
+ "context": "楚庄王围郑，晋军渡河救郑；将帅不和，晋军在邲地溃败，楚庄王问鼎中原。",
+ "terrainFocus": {
+  "center": [
+   113.7,
+   34.7
+  ],
+  "radius": 50
+ },
+ "duration": 15,
+ "victory": {
+  "type": "rout",
+  "side": "chu"
+ },
+ "sides": [
+  {
+   "id": "chu",
+   "name": "楚",
+   "color": "#7A4B8A"
+  },
+  {
+   "id": "jin",
+   "name": "晋",
+   "color": "#8A6A3E"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "chu",
+   "b": "jin",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "zhuang",
+   "name": "楚庄王",
+   "side": "chu",
+   "initialPos": [
+    113.8,
+    34.6
+   ],
+   "strength": 10,
+   "type": "elite",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    113.65,
+    34.7
+   ]
+  },
+  {
+   "id": "xunlin",
+   "name": "荀林父",
+   "side": "jin",
+   "initialPos": [
+    113.5,
+    34.8
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "wavering",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 6
+   },
+   "action": "moraleChange",
+   "target": "xunlin",
+   "value": "wavering",
+   "reason": "晋将帅战守不一"
+  },
+  {
+   "trigger": {
+    "turn": 10
+   },
+   "action": "rout",
+   "target": "xunlin",
+   "reason": "楚军突进，晋军争舟渡河"
+  }
+ ],
+ "phases": [],
+ "source": "左传·宣公十二年/史记",
+ "confidence": "medium",
+ "world": false
+}

@@ -1,0 +1,127 @@
+{
+ "id": "chengpu",
+ "title": "城濮之战",
+ "era": "前632",
+ "context": "晋文公允诺退避三舍，避楚军锋芒；联合齐秦，在城濮大败楚成王联军，奠定晋国霸业。",
+ "terrainFocus": {
+  "center": [
+   115.4,
+   35.4
+  ],
+  "radius": 55
+ },
+ "duration": 18,
+ "victory": {
+  "type": "rout",
+  "side": "jin"
+ },
+ "sides": [
+  {
+   "id": "jin",
+   "name": "晋",
+   "color": "#8A6A3E"
+  },
+  {
+   "id": "chu",
+   "name": "楚",
+   "color": "#7A4B8A"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "jin",
+   "b": "chu",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "jinwen",
+   "name": "晋文公",
+   "side": "jin",
+   "initialPos": [
+    115.2,
+    35.5
+   ],
+   "strength": 10,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    115.45,
+    35.35
+   ]
+  },
+  {
+   "id": "zizhi",
+   "name": "晋上军",
+   "side": "jin",
+   "initialPos": [
+    115.3,
+    35.6
+   ],
+   "strength": 7,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "steady",
+   "intent": "flank"
+  },
+  {
+   "id": "ziyu",
+   "name": "子玉",
+   "side": "chu",
+   "initialPos": [
+    115.6,
+    35.3
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    115.35,
+    35.45
+   ]
+  },
+  {
+   "id": "chujun",
+   "name": "楚联军",
+   "side": "chu",
+   "initialPos": [
+    115.7,
+    35.2
+   ],
+   "strength": 7,
+   "type": "militia",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 1
+   },
+   "action": "setIntent",
+   "target": "jinwen",
+   "value": "advance",
+   "reason": "退避三舍后回师"
+  },
+  {
+   "trigger": {
+    "turn": 8
+   },
+   "action": "moraleChange",
+   "target": "chujun",
+   "value": "wavering",
+   "reason": "左翼被晋下军击溃"
+  }
+ ],
+ "phases": [],
+ "source": "左传·僖公二十八年/史记·晋世家",
+ "confidence": "high",
+ "world": false
+}

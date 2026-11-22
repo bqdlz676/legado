@@ -1,0 +1,85 @@
+{
+ "id": "salamis",
+ "title": "萨拉米斯海战",
+ "era": "前480",
+ "context": "地米斯托克利诱波斯舰队驶入狭窄海湾，希腊三列桨战舰迂回撞击，波斯大船无法展开，舰队溃散。",
+ "terrainFocus": {
+  "center": [
+   23.5,
+   37.95
+  ],
+  "radius": 35
+ },
+ "duration": 10,
+ "victory": {
+  "type": "rout",
+  "side": "greece"
+ },
+ "sides": [
+  {
+   "id": "greece",
+   "name": "希腊联军",
+   "color": "#3C6E9E"
+  },
+  {
+   "id": "persia",
+   "name": "波斯",
+   "color": "#8B6914"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "greece",
+   "b": "persia",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "themistocles",
+   "name": "地米斯托克利",
+   "side": "greece",
+   "initialPos": [
+    23.3,
+    38.0
+   ],
+   "strength": 8,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    23.6,
+    37.9
+   ]
+  },
+  {
+   "id": "artemisia",
+   "name": "阿尔特米西亚",
+   "side": "persia",
+   "initialPos": [
+    23.7,
+    37.9
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 5
+   },
+   "action": "navalRout",
+   "target": "artemisia",
+   "reason": "海湾狭窄，波斯舰自相撞沉"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

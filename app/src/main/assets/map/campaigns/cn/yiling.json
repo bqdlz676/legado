@@ -1,0 +1,112 @@
+{
+ "id": "yiling",
+ "title": "夷陵之战",
+ "era": "222",
+ "context": "刘备倾东州兵伐吴为关羽报仇；陆逊坚守不战，待蜀军疲敝，火攻连营七百里，蜀军大败，刘备退走白帝城。",
+ "terrainFocus": {
+  "center": [
+   111.4,
+   30.8
+  ],
+  "radius": 70
+ },
+ "duration": 30,
+ "victory": {
+  "type": "rout",
+  "side": "wu"
+ },
+ "sides": [
+  {
+   "id": "wu",
+   "name": "吴",
+   "color": "#2E7D6B"
+  },
+  {
+   "id": "shu",
+   "name": "蜀",
+   "color": "#B33A2B"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "wu",
+   "b": "shu",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "luxun",
+   "name": "陆逊",
+   "side": "wu",
+   "initialPos": [
+    111.6,
+    30.9
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold",
+   "target": [
+    111.3,
+    30.7
+   ]
+  },
+  {
+   "id": "liubei",
+   "name": "刘备",
+   "side": "shu",
+   "initialPos": [
+    111.2,
+    30.7
+   ],
+   "strength": 11,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    111.5,
+    30.85
+   ]
+  },
+  {
+   "id": "shufeng",
+   "name": "蜀前锋",
+   "side": "shu",
+   "initialPos": [
+    111.0,
+    30.9
+   ],
+   "strength": 6,
+   "type": "militia",
+   "fatigue": 2,
+   "morale": "wavering",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 15
+   },
+   "action": "fireAttack",
+   "target": "liubei",
+   "reason": "陆逊火攻，连营七百里俱焚"
+  },
+  {
+   "trigger": {
+    "army": "liubei",
+    "strengthBelow": 4
+   },
+   "action": "retreat",
+   "target": "liubei",
+   "reason": "刘备退守白帝城"
+  }
+ ],
+ "phases": [],
+ "source": "三国志·吴书/资治通鉴",
+ "confidence": "high",
+ "world": false
+}

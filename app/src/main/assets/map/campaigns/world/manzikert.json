@@ -1,0 +1,95 @@
+{
+ "id": "manzikert",
+ "title": "曼齐刻尔特战役",
+ "era": "1071",
+ "context": "塞尔柱突厥阿尔普·阿尔斯兰与拜占庭罗曼努斯四世会战；拜占庭中军被迂回，皇帝被俘，安纳托利亚门户洞开。",
+ "terrainFocus": {
+  "center": [
+   42.05,
+   38.95
+  ],
+  "radius": 45
+ },
+ "duration": 12,
+ "victory": {
+  "type": "capture",
+  "target": "romanus",
+  "side": "seljuk"
+ },
+ "sides": [
+  {
+   "id": "byzantium",
+   "name": "拜占庭",
+   "color": "#7A5FA6"
+  },
+  {
+   "id": "seljuk",
+   "name": "塞尔柱",
+   "color": "#8B6914"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "byzantium",
+   "b": "seljuk",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "romanus",
+   "name": "罗曼努斯四世",
+   "side": "byzantium",
+   "initialPos": [
+    41.8,
+    39.0
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    42.2,
+    38.9
+   ]
+  },
+  {
+   "id": "alp",
+   "name": "阿尔普·阿尔斯兰",
+   "side": "seljuk",
+   "initialPos": [
+    42.3,
+    38.85
+   ],
+   "strength": 8,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "flank"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 8
+   },
+   "action": "flank",
+   "target": "romanus",
+   "reason": "突厥骑射包抄两翼"
+  },
+  {
+   "trigger": {
+    "army": "romanus",
+    "strengthBelow": 3
+   },
+   "action": "capture",
+   "target": "romanus",
+   "reason": "皇帝负伤被俘"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "low",
+ "world": true
+}

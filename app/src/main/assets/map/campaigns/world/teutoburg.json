@@ -1,0 +1,95 @@
+{
+ "id": "teutoburg",
+ "title": "条顿堡森林战役",
+ "era": "9",
+ "context": "罗马瓦卢斯率三个军团深入日耳曼森林，阿米尼乌斯设伏，罗马军团全灭，罗马止步于莱茵河。",
+ "terrainFocus": {
+  "center": [
+   8.5,
+   52.3
+  ],
+  "radius": 50
+ },
+ "duration": 10,
+ "victory": {
+  "type": "annihilate",
+  "target": "varus",
+  "side": "germanic"
+ },
+ "sides": [
+  {
+   "id": "rome",
+   "name": "罗马",
+   "color": "#4C6E9A"
+  },
+  {
+   "id": "germanic",
+   "name": "日耳曼部落",
+   "color": "#6B8E3C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "rome",
+   "b": "germanic",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "varus",
+   "name": "瓦卢斯",
+   "side": "rome",
+   "initialPos": [
+    8.3,
+    52.4
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "wavering",
+   "intent": "advance",
+   "target": [
+    8.7,
+    52.2
+   ]
+  },
+  {
+   "id": "arminius",
+   "name": "阿米尼乌斯",
+   "side": "germanic",
+   "initialPos": [
+    8.8,
+    52.25
+   ],
+   "strength": 7,
+   "type": "elite",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "ambush"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 4
+   },
+   "action": "ambush",
+   "target": "varus",
+   "reason": "森林泥沼中伏，军团阵形瓦解"
+  },
+  {
+   "trigger": {
+    "army": "varus",
+    "strengthBelow": 3
+   },
+   "action": "annihilate",
+   "target": "varus",
+   "reason": "三军团覆没，瓦卢斯自杀"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "low",
+ "world": true
+}

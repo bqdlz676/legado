@@ -1,0 +1,114 @@
+{
+ "id": "muye",
+ "title": "牧野之战",
+ "era": "前1046",
+ "context": "周武王会合诸侯东进，渡孟津，战于牧野；商军阵前倒戈，纣王自焚，商亡周立。",
+ "terrainFocus": {
+  "center": [
+   113.9,
+   35.3
+  ],
+  "radius": 60
+ },
+ "duration": 7,
+ "victory": {
+  "type": "capture",
+  "target": "zhou",
+  "side": "zhou"
+ },
+ "sides": [
+  {
+   "id": "zhou",
+   "name": "周联军",
+   "color": "#8B6914"
+  },
+  {
+   "id": "shang",
+   "name": "商",
+   "color": "#C23B2E"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "zhou",
+   "b": "shang",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "wu",
+   "name": "周武王",
+   "side": "zhou",
+   "initialPos": [
+    113.6,
+    35.4
+   ],
+   "strength": 9,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    113.9,
+    35.3
+   ]
+  },
+  {
+   "id": "jiang",
+   "name": "姜尚",
+   "side": "zhou",
+   "initialPos": [
+    113.7,
+    35.2
+   ],
+   "strength": 7,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "flank",
+   "target": [
+    114.0,
+    35.35
+   ]
+  },
+  {
+   "id": "zhoujun",
+   "name": "商军",
+   "side": "shang",
+   "initialPos": [
+    113.95,
+    35.3
+   ],
+   "strength": 10,
+   "type": "militia",
+   "fatigue": 2,
+   "morale": "wavering",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 3
+   },
+   "action": "moraleChange",
+   "target": "zhoujun",
+   "value": "broken",
+   "reason": "商军阵前倒戈"
+  },
+  {
+   "trigger": {
+    "army": "zhoujun",
+    "strengthBelow": 3
+   },
+   "action": "surrender",
+   "target": "zhoujun",
+   "reason": "纣王自焚，商亡"
+  }
+ ],
+ "phases": [],
+ "source": "史记·周本纪/谭其骧《中国历史地图集》",
+ "confidence": "high",
+ "world": false
+}

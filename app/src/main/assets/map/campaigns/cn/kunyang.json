@@ -1,0 +1,109 @@
+{
+ "id": "kunyang",
+ "title": "昆阳之战",
+ "era": "23",
+ "context": "王莽四十二万大军围昆阳；刘秀率十三骑出城求援，三千敢死队直冲中军，飓风大雨，新军崩溃。",
+ "terrainFocus": {
+  "center": [
+   113.3,
+   33.2
+  ],
+  "radius": 60
+ },
+ "duration": 10,
+ "victory": {
+  "type": "rout",
+  "side": "xinhan"
+ },
+ "sides": [
+  {
+   "id": "xinhan",
+   "name": "绿林(刘秀)",
+   "color": "#3C7A5C"
+  },
+  {
+   "id": "wangmang",
+   "name": "新莽",
+   "color": "#8B6914"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "xinhan",
+   "b": "wangmang",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "liuxiu",
+   "name": "刘秀",
+   "side": "xinhan",
+   "initialPos": [
+    113.1,
+    33.3
+   ],
+   "strength": 8,
+   "type": "elite",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    113.4,
+    33.15
+   ]
+  },
+  {
+   "id": "fengyi",
+   "name": "王莽中军",
+   "side": "wangmang",
+   "initialPos": [
+    113.5,
+    33.1
+   ],
+   "strength": 13,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "xujun",
+   "name": "新军别部",
+   "side": "wangmang",
+   "initialPos": [
+    113.6,
+    33.25
+   ],
+   "strength": 8,
+   "type": "militia",
+   "fatigue": 2,
+   "morale": "wavering",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 4
+   },
+   "action": "moraleChange",
+   "target": "fengyi",
+   "value": "steady",
+   "reason": "刘秀三千敢死冲其中坚"
+  },
+  {
+   "trigger": {
+    "turn": 8
+   },
+   "action": "moraleChange",
+   "target": "fengyi",
+   "value": "broken",
+   "reason": "大风雷雨，新军大溃"
+  }
+ ],
+ "phases": [],
+ "source": "后汉书·光武帝纪",
+ "confidence": "high",
+ "world": false
+}

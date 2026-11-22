@@ -3,6 +3,9 @@
 kotlin = "2.4.20"
 ksp = "2.3.12"
 agp = "8.13.2"
+# 2026.09.00(Compose 1.12.x) 要求 compileSdk 37 + AGP 9.1.0，与本工程 AGP 8.13.2 / compileSdk 36 不兼容；
+# 2026.06.01 对齐 Compose 1.11.4，minCompileSdk=35、minAgp=8.6.0，为当前栈可解析的最新稳定档。
+composeBom = "2026.06.01"
 appcompat = "1.7.1"
 colorpicker = "1.1.0"
 constraintlayout = "2.2.1"
@@ -86,6 +89,15 @@ firebaseBom = "34.14.1"
 
 activity-activity = { module = "androidx.activity:activity", version.ref = "activity" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
+
+# Jetpack Compose（版本由 compose-bom 统一收口，依赖不单独写版本号）
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-animation = { module = "androidx.compose.animation:animation" }
+compose-runtime = { module = "androidx.compose.runtime:runtime" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
 
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version = "1.10.0" }
@@ -236,6 +248,7 @@ kotlin-noarg = { id = "org.jetbrains.kotlin.plugin.noarg", version.ref = "kotlin
 kotlin-sam = { id = "org.jetbrains.kotlin.plugin.sam.with.receiver", version.ref = "kotlin" }
 kotlin-lombok = { id = "org.jetbrains.kotlin.plugin.lombok", version.ref = "kotlin" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
 google-services = { id = "com.google.gms.google-services", version = "4.4.4" }
 

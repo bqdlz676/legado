@@ -1,0 +1,101 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "南朝",
+    "era": "南北朝",
+    "from": 420,
+    "to": 589,
+    "color": "#3C7A5C",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       103.0,
+       28.5
+      ],
+      [
+       107.75,
+       34.0
+      ],
+      [
+       117.25,
+       34.0
+      ],
+      [
+       122.0,
+       28.5
+      ],
+      [
+       117.25,
+       23.0
+      ],
+      [
+       107.75,
+       23.0
+      ],
+      [
+       103.0,
+       28.5
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "北魏",
+    "era": "南北朝",
+    "from": 420,
+    "to": 589,
+    "color": "#4C6E9A",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       100.0,
+       37.0
+      ],
+      [
+       104.5,
+       42.0
+      ],
+      [
+       113.5,
+       42.0
+      ],
+      [
+       118.0,
+       37.0
+      ],
+      [
+       113.5,
+       32.0
+      ],
+      [
+       104.5,
+       32.0
+      ],
+      [
+       100.0,
+       37.0
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

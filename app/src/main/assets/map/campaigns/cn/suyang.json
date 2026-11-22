@@ -1,0 +1,108 @@
+{
+ "id": "suyang",
+ "title": "睢阳保卫战",
+ "era": "757",
+ "context": "安史之乱中，张巡、许远以孤弱守睢阳十月，阻叛军南下江淮；城破殉国，江淮财赋赖以保全。",
+ "terrainFocus": {
+  "center": [
+   116.38,
+   34.41
+  ],
+  "radius": 45
+ },
+ "duration": 60,
+ "victory": {
+  "type": "defend",
+  "target": "suyang",
+  "side": "tang"
+ },
+ "sides": [
+  {
+   "id": "tang",
+   "name": "唐(张巡)",
+   "color": "#4C6E9A"
+  },
+  {
+   "id": "yan",
+   "name": "燕(叛军)",
+   "color": "#8B5A3C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "tang",
+   "b": "yan",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "zhangxun",
+   "name": "张巡",
+   "side": "tang",
+   "initialPos": [
+    116.3,
+    34.45
+   ],
+   "strength": 6,
+   "type": "regular",
+   "fatigue": 3,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "xuyuan",
+   "name": "许远",
+   "side": "tang",
+   "initialPos": [
+    116.45,
+    34.38
+   ],
+   "strength": 4,
+   "type": "militia",
+   "fatigue": 3,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "yinziqi",
+   "name": "尹子奇",
+   "side": "yan",
+   "initialPos": [
+    116.7,
+    34.3
+   ],
+   "strength": 10,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance",
+   "target": [
+    116.35,
+    34.42
+   ]
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 20
+   },
+   "action": "supplyCut",
+   "target": "zhangxun",
+   "reason": "城中粮尽，雀鼠俱尽"
+  },
+  {
+   "trigger": {
+    "turn": 55
+   },
+   "action": "defendFall",
+   "target": "zhangxun",
+   "reason": "城破，张巡许远殉国"
+  }
+ ],
+ "phases": [],
+ "source": "旧唐书·张巡传/新唐书",
+ "confidence": "medium",
+ "world": false
+}

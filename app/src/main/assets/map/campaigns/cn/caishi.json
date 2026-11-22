@@ -1,0 +1,94 @@
+{
+ "id": "caishi",
+ "title": "采石之战",
+ "era": "1161",
+ "context": "金主完颜亮大举南征，宋军虞允文至采石犒师，督水师以海鳅船冲敌舟，大破金军；完颜亮旋为部下所杀。",
+ "terrainFocus": {
+  "center": [
+   118.48,
+   30.7
+  ],
+  "radius": 40
+ },
+ "duration": 10,
+ "victory": {
+  "type": "rout",
+  "side": "song"
+ },
+ "sides": [
+  {
+   "id": "song",
+   "name": "宋",
+   "color": "#3C7A5C"
+  },
+  {
+   "id": "jin",
+   "name": "金",
+   "color": "#4C6E9A"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "song",
+   "b": "jin",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "yuyunwen",
+   "name": "虞允文",
+   "side": "song",
+   "initialPos": [
+    118.35,
+    30.75
+   ],
+   "strength": 7,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "hold",
+   "target": [
+    118.55,
+    30.65
+   ]
+  },
+  {
+   "id": "wanyanliang",
+   "name": "完颜亮",
+   "side": "jin",
+   "initialPos": [
+    118.7,
+    30.6
+   ],
+   "strength": 10,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 5
+   },
+   "action": "navalRout",
+   "target": "wanyanliang",
+   "reason": "海鳅船冲入金军舟阵"
+  },
+  {
+   "trigger": {
+    "turn": 9
+   },
+   "action": "moraleChange",
+   "target": "wanyanliang",
+   "value": "broken",
+   "reason": "金军内讧，完颜亮被杀"
+  }
+ ],
+ "phases": [],
+ "source": "宋史·虞允文传/金史",
+ "confidence": "medium",
+ "world": false
+}

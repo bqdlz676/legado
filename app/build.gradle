@@ -11,6 +11,7 @@ plugins {
     alias libs.plugins.kotlin.parcelize
     alias libs.plugins.room
     alias libs.plugins.ksp
+    alias libs.plugins.kotlin.compose
 }
 apply from: 'download.gradle'
 apply from: 'cronet-loader.gradle'
@@ -19,7 +20,7 @@ static def releaseTime() {
     return new Date().format("yyMMddHH", TimeZone.getTimeZone("GMT+8"))
 }
 
-def name = "legado"
+def name = "落文"
 def version = "3." + releaseTime()
 def versionCodeValue = 30000
 // Preserve the published code at this point, then ignore GitHub wrapper merge commits.
@@ -111,6 +112,7 @@ android {
     buildFeatures {
         buildConfig = true
         viewBinding = true
+        compose = true
     }
     buildTypes {
         release {
@@ -248,6 +250,16 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(libs.appcompat.appcompat)
     implementation(libs.activity.ktx)
+
+    //Jetpack Compose（外围 UI 全部自绘；不引入 material / material3 Compose 主题，关闭 MaterialTheme）
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.animation)
+    implementation(libs.compose.runtime)
+    implementation(libs.activity.compose)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
     implementation(libs.fragment.ktx)
     implementation(libs.preference.ktx)
     implementation(libs.androidx.constraintlayout)

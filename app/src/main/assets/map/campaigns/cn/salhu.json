@@ -1,0 +1,143 @@
+{
+ "id": "salhu",
+ "title": "萨尔浒之战",
+ "era": "1619",
+ "context": "明四路出师会剿后金；努尔哈赤集中兵力，各个击破，五日之间三路明军溃败，后金由守转攻。",
+ "terrainFocus": {
+  "center": [
+   123.7,
+   41.5
+  ],
+  "radius": 80
+ },
+ "duration": 20,
+ "victory": {
+  "type": "rout",
+  "side": "houjin"
+ },
+ "sides": [
+  {
+   "id": "houjin",
+   "name": "后金",
+   "color": "#8B6914"
+  },
+  {
+   "id": "ming",
+   "name": "明",
+   "color": "#4C6E9A"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "houjin",
+   "b": "ming",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "nurhaci",
+   "name": "努尔哈赤",
+   "side": "houjin",
+   "initialPos": [
+    123.5,
+    41.6
+   ],
+   "strength": 10,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    123.8,
+    41.4
+   ]
+  },
+  {
+   "id": "daisu",
+   "name": "代善",
+   "side": "houjin",
+   "initialPos": [
+    123.3,
+    41.7
+   ],
+   "strength": 6,
+   "type": "cavalry",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "flank"
+  },
+  {
+   "id": "du_song",
+   "name": "杜松",
+   "side": "ming",
+   "initialPos": [
+    123.9,
+    41.5
+   ],
+   "strength": 8,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "advance"
+  },
+  {
+   "id": "marlin",
+   "name": "马林",
+   "side": "ming",
+   "initialPos": [
+    123.2,
+    41.9
+   ],
+   "strength": 6,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "wavering",
+   "intent": "hold"
+  },
+  {
+   "id": "liu_ting",
+   "name": "刘綎",
+   "side": "ming",
+   "initialPos": [
+    124.3,
+    41.2
+   ],
+   "strength": 6,
+   "type": "regular",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 5
+   },
+   "action": "rout",
+   "target": "du_song",
+   "reason": "西路杜松兵败萨尔浒"
+  },
+  {
+   "trigger": {
+    "turn": 12
+   },
+   "action": "rout",
+   "target": "marlin",
+   "reason": "北路马林溃逃"
+  },
+  {
+   "trigger": {
+    "turn": 18
+   },
+   "action": "rout",
+   "target": "liu_ting",
+   "reason": "东路刘綎中伏战死"
+  }
+ ],
+ "phases": [],
+ "source": "明史·杨镐传/清太祖实录",
+ "confidence": "medium",
+ "world": false
+}

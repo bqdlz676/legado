@@ -1,0 +1,101 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "明",
+    "era": "明",
+    "from": 1368,
+    "to": 1644,
+    "color": "#B33A2B",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       100.0,
+       31.0
+      ],
+      [
+       106.0,
+       42.0
+      ],
+      [
+       118.0,
+       42.0
+      ],
+      [
+       124.0,
+       31.0
+      ],
+      [
+       118.0,
+       20.0
+      ],
+      [
+       106.0,
+       20.0
+      ],
+      [
+       100.0,
+       31.0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "蒙古鞑靼",
+    "era": "明",
+    "from": 1368,
+    "to": 1644,
+    "color": "#8A6A5C",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "low"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       100.0,
+       44.0
+      ],
+      [
+       105.0,
+       50.0
+      ],
+      [
+       115.0,
+       50.0
+      ],
+      [
+       120.0,
+       44.0
+      ],
+      [
+       115.0,
+       38.0
+      ],
+      [
+       105.0,
+       38.0
+      ],
+      [
+       100.0,
+       44.0
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

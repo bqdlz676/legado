@@ -1,0 +1,109 @@
+{
+ "id": "poyang",
+ "title": "鄱阳湖之战",
+ "era": "1363",
+ "context": "陈友谅巨舰六十万围洪都，朱元璋率军入援；鄱阳湖水战，东北风起，朱军火攻，陈友谅中矢死，江南归朱。",
+ "terrainFocus": {
+  "center": [
+   116.3,
+   29.1
+  ],
+  "radius": 70
+ },
+ "duration": 35,
+ "victory": {
+  "type": "annihilate",
+  "target": "chenyouliang",
+  "side": "ming"
+ },
+ "sides": [
+  {
+   "id": "ming",
+   "name": "朱元璋",
+   "color": "#C23B2E"
+  },
+  {
+   "id": "chen",
+   "name": "陈友谅",
+   "color": "#4C6E9A"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "ming",
+   "b": "chen",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "zhuyuanzhang",
+   "name": "朱元璋",
+   "side": "ming",
+   "initialPos": [
+    116.0,
+    29.3
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    116.5,
+    29.0
+   ]
+  },
+  {
+   "id": "chenyouliang",
+   "name": "陈友谅",
+   "side": "chen",
+   "initialPos": [
+    116.6,
+    28.9
+   ],
+   "strength": 12,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  },
+  {
+   "id": "chenjun",
+   "name": "陈巨舰",
+   "side": "chen",
+   "initialPos": [
+    116.7,
+    29.1
+   ],
+   "strength": 8,
+   "type": "militia",
+   "fatigue": 2,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 15
+   },
+   "action": "fireAttack",
+   "target": "chenyouliang",
+   "reason": "七艘火舟乘风冲巨舰"
+  },
+  {
+   "trigger": {
+    "army": "chenyouliang",
+    "strengthBelow": 3
+   },
+   "action": "annihilate",
+   "target": "chenyouliang",
+   "reason": "陈友谅中流矢死"
+  }
+ ],
+ "phases": [],
+ "source": "明史·太祖本纪/明太祖实录",
+ "confidence": "high",
+ "world": false
+}

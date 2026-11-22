@@ -1,0 +1,246 @@
+# id	canonical	dynasty	birth	death	identity	feat	state	source	confidence	proofread	zi	hao	fief
+p0001	周平王				东周首王	东迁洛邑	周	person_l1 手校	high	1			
+p0002	周桓王				周王	繻葛之战被郑庄公射中肩膀	周	person_l1 手校	high	1			
+p0003	周襄王				周王	赐晋文公策命，践土之盟	周	person_l1 手校	high	1			
+p0004	周景王				周王	铸无射大钟，单穆公谏	周	person_l1 手校	high	1			
+p0005	周敬王				周王	王子朝之乱，居狄泉	周	person_l1 手校	high	1			
+p0006	鲁隐公				鲁君	摄位不称王，观鱼于棠，为公子翚所弑	鲁	person_l1 手校	high	1			
+p0007	鲁桓公				鲁君	与文姜如齐，为齐襄公所杀	鲁	person_l1 手校	high	1			
+p0008	鲁庄公				鲁君	长勺之战用曹刿败齐	鲁	person_l1 手校	high	1			
+p0009	鲁僖公				鲁君	从齐桓、会践土，鲁国复振	鲁	person_l1 手校	high	1			
+p0010	鲁文公				鲁君		鲁	person_l1 手校	high	1			
+p0011	鲁宣公				鲁君	初税亩	鲁	person_l1 手校	high	1			
+p0012	鲁成公				鲁君	鞌之战后与晋盟	鲁	person_l1 手校	high	1			
+p0013	鲁襄公				鲁君	朝晋，季武子作三军	鲁	person_l1 手校	high	1			
+p0014	鲁昭公				鲁君	斗鸡之变，出奔乾侯	鲁	person_l1 手校	high	1			
+p0015	鲁定公				鲁君	夹谷之会，孔子相礼	鲁	person_l1 手校	high	1			
+p0016	鲁哀公				鲁君	获麟，《春秋》绝笔	鲁	person_l1 手校	high	1			
+p0017	齐僖公				齐君		齐	person_l1 手校	high	1			
+p0018	齐襄公				齐君	杀鲁桓公，与文姜私通	齐	person_l1 手校	high	1			
+p0019	齐桓公				春秋首霸	葵丘会盟，尊王攘夷	齐	person_l1 手校	high	1	小白		
+p0020	齐孝公				齐君		齐	person_l1 手校	high	1			
+p0021	齐懿公				齐君	为邴歜、阎职所弑	齐	person_l1 手校	high	1			
+p0022	齐顷公				齐君	鞌之战败于晋	齐	person_l1 手校	high	1			
+p0023	齐灵公				齐君	灭莱	齐	person_l1 手校	high	1			
+p0024	齐庄公				齐君	为崔杼所弑，太史书崔杼弑其君	齐	person_l1 手校	high	1			
+p0025	齐景公				齐君	晏婴辅政，欲为管仲而不得	齐	person_l1 手校	high	1			
+p0026	晋献公				晋君	假途灭虢，骊姬之乱	晋	person_l1 手校	high	1			
+p0027	晋惠公				晋君	韩原之战被秦俘	晋	person_l1 手校	high	1	夷吾		
+p0028	晋文公				春秋第二霸	城濮之战，践土之盟	晋	person_l1 手校	high	1	重耳		
+p0029	晋襄公				晋君	崤之战败秦	晋	person_l1 手校	high	1			
+p0030	晋灵公				晋君	不君，为赵穿所弑	晋	person_l1 手校	high	1	夷皋		
+p0031	晋景公				晋君	邲之战败楚，后灭赵氏	晋	person_l1 手校	high	1			
+p0032	晋厉公				晋君	鄢陵之战胜楚	晋	person_l1 手校	high	1			
+p0033	晋悼公				晋君	复霸，三驾疲楚	晋	person_l1 手校	high	1			
+p0034	晋平公				晋君		晋	person_l1 手校	high	1			
+p0035	楚武王				楚君	始称王，伐随	楚	person_l1 手校	high	1			
+p0036	楚文王				楚君	灭申息，都郢	楚	person_l1 手校	high	1			
+p0037	楚成王				楚君	泓水败宋，后为太子商臣所弑	楚	person_l1 手校	high	1			
+p0038	楚穆王				楚君	弑父自立	楚	person_l1 手校	high	1	商臣		
+p0039	楚庄王				春秋第三霸	邲之战，问鼎中原	楚	person_l1 手校	high	1	旅		
+p0040	楚共王				楚君	鄢陵之战败于晋	楚	person_l1 手校	high	1			
+p0041	楚灵王				楚君	章华台，乾溪之难	楚	person_l1 手校	high	1	围		
+p0042	楚平王				楚君	夺太子建妇，杀伍奢	楚	person_l1 手校	high	1	弃疾		
+p0043	楚昭王				楚君	柏举之战失郢，复国	楚	person_l1 手校	high	1			
+p0044	郑庄公				郑君	繻葛之战射王中肩	郑	person_l1 手校	high	1	寤生		
+p0045	郑厉公				郑君	复位，杀傅瑕	郑	person_l1 手校	high	1	突		
+p0046	郑文公				郑君		郑	person_l1 手校	high	1			
+p0047	郑穆公				郑君	七穆之始	郑	person_l1 手校	high	1			
+p0048	郑简公				郑君	子产执政，铸刑书	郑	person_l1 手校	high	1			
+p0049	宋穆公				宋君	让国于殇公	宋	person_l1 手校	high	1			
+p0050	宋殇公				宋君	十年十一战，为华督所弑	宋	person_l1 手校	high	1			
+p0051	宋桓公				宋君		宋	person_l1 手校	high	1			
+p0052	宋襄公				宋君	泓水之战，不鼓不成列	宋	person_l1 手校	high	1	兹甫		
+p0053	宋成公				宋君		宋	person_l1 手校	high	1			
+p0054	秦文公				秦君		秦	person_l1 手校	high	1			
+p0055	秦穆公				秦君	崤之战，独霸西戎	秦	person_l1 手校	high	1	任好		
+p0056	秦康公				秦君		秦	person_l1 手校	high	1			
+p0057	管仲				齐相	相桓公改革，九合诸侯	齐	person_l1 手校	high	1	夷吾		
+p0058	鲍叔牙				齐大夫	荐管仲，让相位	齐	person_l1 手校	high	1			
+p0059	晏婴				齐相	二桃杀三士，使楚不辱	齐	person_l1 手校	high	1		平仲	
+p0060	子产				郑相	铸刑书，不毁乡校	郑	person_l1 手校	high	1	公孙侨		
+p0061	叔向				晋大夫	贺贫，谏晋平公	晋	person_l1 手校	high	1	羊舌肸		
+p0062	季札				吴公子	观乐于鲁，挂剑徐君墓	吴	person_l1 手校	high	1			
+p0063	伍子胥				吴大夫	掘楚平王墓鞭尸三百	吴	person_l1 手校	high	1	员		
+p0064	范蠡				越相	助勾践灭吴，泛舟五湖	越	person_l1 手校	high	1	少伯		
+p0065	文种				越大夫	九术灭吴，赐剑自尽	越	person_l1 手校	high	1			
+p0066	孔子	春秋	-551	-479	鲁大夫	夹谷之会，修《春秋》	鲁	person_l1 手校	high	1	仲尼		
+p0067	左丘明				鲁太史	作《左传》《国语》	鲁	person_l1 手校	high	1			
+p0068	老子				周守藏室史	著《道德经》五千言	周	person_l1 手校	high	1			
+p0069	孙武				吴将	十三篇，吴宫教战	吴	person_l1 手校	high	1	长卿		
+p0070	赵盾				晋正卿	董狐书赵盾弑君	晋	person_l1 手校	high	1			
+p0071	赵武				晋正卿	弭兵之会，赵氏孤儿	晋	person_l1 手校	high	1			
+p0072	韩厥				晋正卿		晋	person_l1 手校	high	1			
+p0073	魏绛				晋大夫	和戎五利	晋	person_l1 手校	high	1			
+p0074	栾书				晋正卿		晋	person_l1 手校	high	1			
+p0075	郤至				晋大夫	鄢陵之战	晋	person_l1 手校	high	1			
+p0076	子文				楚令尹	毁家纾难	楚	person_l1 手校	high	1	斗谷於菟		
+p0077	孙叔敖				楚令尹	期思陂，芍陂	楚	person_l1 手校	high	1			
+p0078	苌弘				周大夫		周	person_l1 手校	high	1			
+p0079	师旷				晋乐师		晋	person_l1 手校	high	1			
+p0080	曹刿				鲁士	长勺之战，一鼓作气	鲁	person_l1 手校	high	1			
+p0081	烛之武				郑大夫	夜缒退秦师	郑	person_l1 手校	high	1			
+p0082	弦高				郑商人	牛十二犒秦师	郑	person_l1 手校	high	1			
+p0083	申包胥				楚大夫	哭秦庭七日	楚	person_l1 手校	high	1			
+p0084	鲁闵公	春秋		-660	国君	在位2年（-661—-660）	鲁	princes.txt 王公纪年	medium	1			
+p0085	晋文侯	春秋		-746	国君	在位35年（-780—-746）	晋	princes.txt 王公纪年	medium	1			
+p0086	晋昭侯	春秋		-740	国君	在位6年（-745—-740）	晋	princes.txt 王公纪年	medium	1			
+p0087	晋孝侯	春秋		-724	国君	在位16年（-739—-724）	晋	princes.txt 王公纪年	medium	1			
+p0088	晋鄂侯	春秋		-718	国君	在位6年（-723—-718）	晋	princes.txt 王公纪年	medium	1			
+p0089	晋哀侯	春秋		-709	国君	在位9年（-717—-709）	晋	princes.txt 王公纪年	medium	1			
+p0090	晋小子侯	春秋		-705	国君	在位4年（-708—-705）	晋	princes.txt 王公纪年	medium	1			
+p0091	晋侯缗	春秋		-677	国君	在位28年（-704—-677）	晋	princes.txt 王公纪年	medium	1			
+p0092	晋武公	春秋		-677	国君	在位2年（-678—-677）	晋	princes.txt 王公纪年	medium	1			
+p0093	晋怀公	春秋		-636	国君	在位1年（-636—-636）	晋	princes.txt 王公纪年	medium	1			
+p0094	晋成公	春秋		-600	国君	在位7年（-606—-600）	晋	princes.txt 王公纪年	medium	1			
+p0095	晋昭公	春秋		-526	国君	在位6年（-531—-526）	晋	princes.txt 王公纪年	medium	1			
+p0096	晋顷公	春秋		-512	国君	在位14年（-525—-512）	晋	princes.txt 王公纪年	medium	1			
+p0097	晋定公	春秋		-496	国君	在位16年（-511—-496）	晋	princes.txt 王公纪年	medium	1			
+p0098	晋出公	战国		-452	国君	在位23年（-474—-452）	晋	princes.txt 王公纪年	medium	1			
+p0099	晋哀公	战国		-435	国君	在位18年（-452—-435）	晋	princes.txt 王公纪年	medium	1			
+p0100	齐昭公	春秋		-613	国君	在位20年（-632—-613）	齐	princes.txt 王公纪年	medium	1			
+p0101	齐惠公	春秋		-599	国君	在位10年（-608—-599）	齐	princes.txt 王公纪年	medium	1			
+p0102	齐悼公	春秋		-488	国君	在位1年（-488—-488）	齐	princes.txt 王公纪年	medium	1			
+p0103	齐简公	春秋		-481	国君	在位4年（-484—-481）	齐	princes.txt 王公纪年	medium	1			
+p0104	齐平公	春秋		-456	国君	在位25年（-480—-456）	齐	princes.txt 王公纪年	medium	1			
+p0105	齐宣公	战国		-405	国君	在位51年（-455—-405）	齐	princes.txt 王公纪年	medium	1			
+p0106	齐康公	战国		-380	国君	在位25年（-404—-380）	齐	princes.txt 王公纪年	medium	1			
+p0107	楚堵敖	春秋		-672	国君	在位5年（-676—-672）	楚	princes.txt 王公纪年	medium	1			
+p0108	楚康王	春秋		-545	国君	在位15年（-559—-545）	楚	princes.txt 王公纪年	medium	1			
+p0109	楚郏敖	春秋		-541	国君	在位4年（-544—-541）	楚	princes.txt 王公纪年	medium	1			
+p0110	楚惠王	春秋		-432	国君	在位57年（-488—-432）	楚	princes.txt 王公纪年	medium	1			
+p0111	楚简王	战国		-424	国君	在位8年（-431—-424）	楚	princes.txt 王公纪年	medium	1			
+p0112	楚声王	战国		-402	国君	在位6年（-407—-402）	楚	princes.txt 王公纪年	medium	1			
+p0113	楚悼王	战国		-381	国君	在位21年（-401—-381）	楚	princes.txt 王公纪年	medium	1			
+p0114	楚肃王	战国		-370	国君	在位11年（-380—-370）	楚	princes.txt 王公纪年	medium	1			
+p0115	楚宣王	战国		-340	国君	在位30年（-369—-340）	楚	princes.txt 王公纪年	medium	1			
+p0116	楚威王	战国		-329	国君	在位11年（-339—-329）	楚	princes.txt 王公纪年	medium	1			
+p0117	楚怀王	战国		-299	国君	在位30年（-328—-299）	楚	princes.txt 王公纪年	medium	1			
+p0118	楚顷襄王	战国		-263	国君	在位36年（-298—-263）	楚	princes.txt 王公纪年	medium	1			
+p0119	楚考烈王	战国		-238	国君	在位25年（-262—-238）	楚	princes.txt 王公纪年	medium	1			
+p0120	楚幽王	战国		-228	国君	在位10年（-237—-228）	楚	princes.txt 王公纪年	medium	1			
+p0121	楚负刍	战国		-223	国君	在位5年（-227—-223）	楚	princes.txt 王公纪年	medium	1			
+p0122	秦襄公	春秋		-766	国君	在位12年（-777—-766）	秦	princes.txt 王公纪年	medium	1			
+p0123	秦宁公	春秋		-704	国君	在位12年（-715—-704）	秦	princes.txt 王公纪年	medium	1			
+p0124	秦武公	春秋		-678	国君	在位20年（-697—-678）	秦	princes.txt 王公纪年	medium	1			
+p0125	秦德公	春秋		-676	国君	在位2年（-677—-676）	秦	princes.txt 王公纪年	medium	1			
+p0126	秦宣公	春秋		-664	国君	在位12年（-675—-664）	秦	princes.txt 王公纪年	medium	1			
+p0127	秦成公	春秋		-660	国君	在位4年（-663—-660）	秦	princes.txt 王公纪年	medium	1			
+p0128	秦共公	春秋		-604	国君	在位5年（-608—-604）	秦	princes.txt 王公纪年	medium	1			
+p0129	秦桓公	春秋		-577	国君	在位27年（-603—-577）	秦	princes.txt 王公纪年	medium	1			
+p0130	秦景公	春秋		-537	国君	在位40年（-576—-537）	秦	princes.txt 王公纪年	medium	1			
+p0131	秦哀公	春秋		-501	国君	在位36年（-536—-501）	秦	princes.txt 王公纪年	medium	1			
+p0132	秦厉共公	战国		-443	国君	在位34年（-476—-443）	秦	princes.txt 王公纪年	medium	1			
+p0133	秦躁公	战国		-429	国君	在位14年（-442—-429）	秦	princes.txt 王公纪年	medium	1			
+p0134	秦怀公	战国		-425	国君	在位4年（-428—-425）	秦	princes.txt 王公纪年	medium	1			
+p0135	秦灵公	战国		-415	国君	在位10年（-424—-415）	秦	princes.txt 王公纪年	medium	1			
+p0136	秦简公	战国		-400	国君	在位15年（-414—-400）	秦	princes.txt 王公纪年	medium	1			
+p0137	秦惠公	战国		-387	国君	在位13年（-399—-387）	秦	princes.txt 王公纪年	medium	1			
+p0138	秦出公	战国		-385	国君	在位2年（-386—-385）	秦	princes.txt 王公纪年	medium	1			
+p0139	秦献公	战国		-362	国君	在位23年（-384—-362）	秦	princes.txt 王公纪年	medium	1			
+p0140	秦孝公	战国		-338	国君	在位24年（-361—-338）	秦	princes.txt 王公纪年	medium	1			
+p0141	秦惠文王	战国		-311	国君	在位27年（-337—-311）	秦	princes.txt 王公纪年	medium	1			
+p0142	秦武王	战国		-307	国君	在位4年（-310—-307）	秦	princes.txt 王公纪年	medium	1			
+p0143	秦昭襄王	战国		-251	国君	在位56年（-306—-251）	秦	princes.txt 王公纪年	medium	1			
+p0144	秦孝文王	战国		-250	国君	在位1年（-250—-250）	秦	princes.txt 王公纪年	medium	1			
+p0145	秦庄襄王	战国		-247	国君	在位3年（-249—-247）	秦	princes.txt 王公纪年	medium	1			
+p0146	秦始皇帝	战国		-210	国君	在位37年（-246—-210）	秦	princes.txt 王公纪年	medium	1			
+p0147	宋庄公	春秋		-692	国君	在位19年（-710—-692）	宋	princes.txt 王公纪年	medium	1			
+p0148	宋闵公	春秋		-682	国君	在位10年（-691—-682）	宋	princes.txt 王公纪年	medium	1			
+p0149	宋昭公	春秋		-611	国君	在位9年（-619—-611）	宋	princes.txt 王公纪年	medium	1			
+p0150	宋文公	春秋		-589	国君	在位22年（-610—-589）	宋	princes.txt 王公纪年	medium	1			
+p0151	宋共公	春秋		-576	国君	在位13年（-588—-576）	宋	princes.txt 王公纪年	medium	1			
+p0152	宋平公	春秋		-532	国君	在位44年（-575—-532）	宋	princes.txt 王公纪年	medium	1			
+p0153	宋元公	春秋		-517	国君	在位15年（-531—-517）	宋	princes.txt 王公纪年	medium	1			
+p0154	宋景公	春秋		-469	国君	在位48年（-516—-469）	宋	princes.txt 王公纪年	medium	1			
+p0155	卫桓公	春秋		-719	国君	在位16年（-734—-719）	卫	princes.txt 王公纪年	medium	1			
+p0156	卫宣公	春秋		-700	国君	在位19年（-718—-700）	卫	princes.txt 王公纪年	medium	1			
+p0157	卫惠公	春秋		-696	国君	在位4年（-699—-696）	卫	princes.txt 王公纪年	medium	1			
+p0158	卫懿公	春秋		-682	国君	在位9年（-690—-682）	卫	princes.txt 王公纪年	medium	1			
+p0159	卫文公	春秋		-635	国君	在位25年（-659—-635）	卫	princes.txt 王公纪年	medium	1			
+p0160	卫成公	春秋		-600	国君	在位35年（-634—-600）	卫	princes.txt 王公纪年	medium	1			
+p0161	卫穆公	春秋		-589	国君	在位11年（-599—-589）	卫	princes.txt 王公纪年	medium	1			
+p0162	卫定公	春秋		-577	国君	在位12年（-588—-577）	卫	princes.txt 王公纪年	medium	1			
+p0163	卫献公	春秋		-559	国君	在位18年（-576—-559）	卫	princes.txt 王公纪年	medium	1			
+p0164	卫襄公	春秋		-535	国君	在位9年（-543—-535）	卫	princes.txt 王公纪年	medium	1			
+p0165	卫灵公	春秋		-493	国君	在位42年（-534—-493）	卫	princes.txt 王公纪年	medium	1			
+p0166	卫出公	春秋		-481	国君	在位12年（-492—-481）	卫	princes.txt 王公纪年	medium	1			
+p0167	郑昭公	春秋		-695	国君	在位2年（-696—-695）	郑	princes.txt 王公纪年	medium	1			
+p0168	郑灵公	春秋		-605	国君	在位1年（-605—-605）	郑	princes.txt 王公纪年	medium	1			
+p0169	郑襄公	春秋		-591	国君	在位14年（-604—-591）	郑	princes.txt 王公纪年	medium	1			
+p0170	郑悼公	春秋		-586	国君	在位1年（-586—-586）	郑	princes.txt 王公纪年	medium	1			
+p0171	郑成公	春秋		-571	国君	在位14年（-584—-571）	郑	princes.txt 王公纪年	medium	1			
+p0172	郑僖公	春秋		-557	国君	在位14年（-570—-557）	郑	princes.txt 王公纪年	medium	1			
+p0173	郑定公	春秋		-514	国君	在位16年（-529—-514）	郑	princes.txt 王公纪年	medium	1			
+p0174	郑献公	春秋		-501	国君	在位13年（-513—-501）	郑	princes.txt 王公纪年	medium	1			
+p0175	郑声公	春秋		-464	国君	在位37年（-500—-464）	郑	princes.txt 王公纪年	medium	1			
+p0176	吴寿梦	春秋		-561	国君	在位25年（-585—-561）	吴	princes.txt 王公纪年	medium	1			
+p0177	吴诸樊	春秋		-548	国君	在位13年（-560—-548）	吴	princes.txt 王公纪年	medium	1			
+p0178	吴余祭	春秋		-544	国君	在位4年（-547—-544）	吴	princes.txt 王公纪年	medium	1			
+p0179	吴余昧	春秋		-527	国君	在位17年（-543—-527）	吴	princes.txt 王公纪年	medium	1			
+p0180	吴王僚	春秋		-515	国君	在位12年（-526—-515）	吴	princes.txt 王公纪年	medium	1			
+p0181	吴阖闾	春秋		-496	国君	在位19年（-514—-496）	吴	princes.txt 王公纪年	medium	1			
+p0182	吴夫差	春秋		-473	国君	在位23年（-495—-473）	吴	princes.txt 王公纪年	medium	1			
+p0183	越允常	春秋		-500	国君	在位11年（-510—-500）	越	princes.txt 王公纪年	medium	1			
+p0184	越勾践	春秋		-465	国君	在位32年（-496—-465）	越	princes.txt 王公纪年	medium	1			
+p0185	越鹿郢	战国		-460	国君	在位6年（-465—-460）	越	princes.txt 王公纪年	medium	1			
+p0186	越不寿	战国		-450	国君	在位10年（-459—-450）	越	princes.txt 王公纪年	medium	1			
+p0187	越朱勾	战国		-413	国君	在位37年（-449—-413）	越	princes.txt 王公纪年	medium	1			
+p0188	越翳	战国		-380	国君	在位33年（-412—-380）	越	princes.txt 王公纪年	medium	1			
+p0189	陈桓公	春秋		-707	国君	在位38年（-744—-707）	陈	princes.txt 王公纪年	medium	1			
+p0190	陈厉公	春秋		-700	国君	在位7年（-706—-700）	陈	princes.txt 王公纪年	medium	1			
+p0191	陈宣公	春秋		-648	国君	在位45年（-692—-648）	陈	princes.txt 王公纪年	medium	1			
+p0192	陈穆公	春秋		-632	国君	在位16年（-647—-632）	陈	princes.txt 王公纪年	medium	1			
+p0193	陈共公	春秋		-614	国君	在位18年（-631—-614）	陈	princes.txt 王公纪年	medium	1			
+p0194	陈灵公	春秋		-599	国君	在位15年（-613—-599）	陈	princes.txt 王公纪年	medium	1			
+p0195	陈成公	春秋		-569	国君	在位30年（-598—-569）	陈	princes.txt 王公纪年	medium	1			
+p0196	陈哀公	春秋		-535	国君	在位34年（-568—-535）	陈	princes.txt 王公纪年	medium	1			
+p0197	陈惠公	春秋		-506	国君	在位28年（-533—-506）	陈	princes.txt 王公纪年	medium	1			
+p0198	蔡宣公	春秋		-715	国君	在位35年（-749—-715）	蔡	princes.txt 王公纪年	medium	1			
+p0199	蔡桓公	春秋		-695	国君	在位20年（-714—-695）	蔡	princes.txt 王公纪年	medium	1			
+p0200	蔡哀公	春秋		-685	国君	在位10年（-694—-685）	蔡	princes.txt 王公纪年	medium	1			
+p0201	蔡穆公	春秋		-646	国君	在位29年（-674—-646）	蔡	princes.txt 王公纪年	medium	1			
+p0202	蔡庄公	春秋		-614	国君	在位32年（-645—-614）	蔡	princes.txt 王公纪年	medium	1			
+p0203	蔡文公	春秋		-592	国君	在位20年（-611—-592）	蔡	princes.txt 王公纪年	medium	1			
+p0204	蔡景公	春秋		-544	国君	在位48年（-591—-544）	蔡	princes.txt 王公纪年	medium	1			
+p0205	蔡昭公	春秋		-509	国君	在位13年（-521—-509）	蔡	princes.txt 王公纪年	medium	1			
+p0206	蔡成公	春秋		-492	国君	在位17年（-508—-492）	蔡	princes.txt 王公纪年	medium	1			
+p0207	燕穆公	春秋		-723	国君	在位7年（-729—-723）	燕	princes.txt 王公纪年	medium	1			
+p0208	燕宣公	春秋		-678	国君	在位13年（-690—-678）	燕	princes.txt 王公纪年	medium	1			
+p0209	燕昭公	春秋		-557	国君	在位30年（-586—-557）	燕	princes.txt 王公纪年	medium	1			
+p0210	燕文公	春秋		-550	国君	在位6年（-555—-550）	燕	princes.txt 王公纪年	medium	1			
+p0211	燕简公	春秋		-520	国君	在位30年（-549—-520）	燕	princes.txt 王公纪年	medium	1			
+p0212	燕献公	春秋		-465	国君	在位28年（-492—-465）	燕	princes.txt 王公纪年	medium	1			
+p0213	燕孝公	战国		-422	国君	在位43年（-464—-422）	燕	princes.txt 王公纪年	medium	1			
+p0214	燕成公	战国		-423	国君	在位16年（-438—-423）	燕	princes.txt 王公纪年	medium	1			
+p0215	燕闵公	战国		-373	国君	在位31年（-403—-373）	燕	princes.txt 王公纪年	medium	1			
+p0216	燕昭王	战国		-279	国君	在位33年（-311—-279）	燕	princes.txt 王公纪年	medium	1			
+p0217	燕惠王	战国		-272	国君	在位7年（-278—-272）	燕	princes.txt 王公纪年	medium	1			
+p0218	燕武成王	战国		-245	国君	在位27年（-271—-245）	燕	princes.txt 王公纪年	medium	1			
+p0219	燕王喜	战国		-227	国君	在位28年（-254—-227）	燕	princes.txt 王公纪年	medium	1			
+p0220	曹桓公	春秋		-659	国君	在位55年（-713—-659）	曹	princes.txt 王公纪年	medium	1			
+p0221	曹庄公	春秋		-671	国君	在位31年（-701—-671）	曹	princes.txt 王公纪年	medium	1			
+p0222	曹共公	春秋		-643	国君	在位9年（-651—-643）	曹	princes.txt 王公纪年	medium	1			
+p0223	曹文公	春秋		-594	国君	在位23年（-616—-594）	曹	princes.txt 王公纪年	medium	1			
+p0224	曹成公	春秋		-570	国君	在位23年（-592—-570）	曹	princes.txt 王公纪年	medium	1			
+p0225	曹武公	春秋		-547	国君	在位27年（-573—-547）	曹	princes.txt 王公纪年	medium	1			
+p0226	滕宣公	春秋		-695	国君	在位22年（-716—-695）	滕	princes.txt 王公纪年	medium	1			
+p0227	滕昭公	春秋		-676	国君	在位19年（-694—-676）	滕	princes.txt 王公纪年	medium	1			
+p0228	滕文公	春秋		-599	国君	在位1年（-599—-599）	滕	princes.txt 王公纪年	medium	1			
+p0229	薛献公	春秋		-511	国君	在位1年（-511—-511）	薛	princes.txt 王公纪年	medium	1			
+p0230	许庄公	春秋		-694	国君	在位42年（-735—-694）	许	princes.txt 王公纪年	medium	1			
+p0231	许穆公	春秋		-674	国君	在位20年（-693—-674）	许	princes.txt 王公纪年	medium	1			
+p0232	许僖公	春秋		-656	国君	在位18年（-673—-656）	许	princes.txt 王公纪年	medium	1			
+p0233	莒兹丕公	春秋		-686	国君	在位1年（-686—-686）	莒	princes.txt 王公纪年	medium	1			
+p0234	莒纪公	春秋		-667	国君	在位19年（-685—-667）	莒	princes.txt 王公纪年	medium	1			
+p0235	莒渠丘公	春秋		-653	国君	在位14年（-666—-653）	莒	princes.txt 王公纪年	medium	1			
+p0236	邾仪父	春秋		-673	国君	在位50年（-722—-673）	邾	princes.txt 王公纪年	medium	1			
+p0237	邾文公	春秋		-668	国君	在位5年（-672—-668）	邾	princes.txt 王公纪年	medium	1			
+p0238	漢高祖	西汉		-195	国君	在位12年（-206—-195）	漢	princes.txt 王公纪年	medium	1			
+p0239	漢惠帝	西汉		-188	国君	在位7年（-194—-188）	漢	princes.txt 王公纪年	medium	1			
+p0240	漢高后	西汉		-180	国君	在位8年（-187—-180）	漢	princes.txt 王公纪年	medium	1			
+p0241	漢文帝	西汉		-157	国君	在位23年（-179—-157）	漢	princes.txt 王公纪年	medium	1			
+p0242	漢景帝	西汉		-141	国君	在位16年（-156—-141）	漢	princes.txt 王公纪年	medium	1			
+p0243	漢武帝	西汉		-140	国君	在位0年（-140—-140）	漢	princes.txt 王公纪年	medium	1			
+p0244	秦二世	秦		-207	国君	在位3年（-209—-207）	秦	princes.txt 王公纪年	medium	1			
+p0245	秦子婴	西汉		-206	国君	在位1年（-206—-206）	秦	princes.txt 王公纪年	medium	1			

@@ -1,0 +1,53 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "秦",
+    "era": "秦",
+    "from": -221,
+    "to": -207,
+    "color": "#B33A2B",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       100.0,
+       35.0
+      ],
+      [
+       103.0,
+       40.0
+      ],
+      [
+       109.0,
+       40.0
+      ],
+      [
+       112.0,
+       35.0
+      ],
+      [
+       109.0,
+       30.0
+      ],
+      [
+       103.0,
+       30.0
+      ],
+      [
+       100.0,
+       35.0
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

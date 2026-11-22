@@ -1,0 +1,85 @@
+{
+ "id": "marathon",
+ "title": "马拉松战役",
+ "era": "前490",
+ "context": "波斯大流士渡海西侵，雅典重装步兵直扑波斯大营，以少胜多；斐力庇第斯奔归报捷，马拉松道由此得名。",
+ "terrainFocus": {
+  "center": [
+   23.97,
+   38.15
+  ],
+  "radius": 40
+ },
+ "duration": 12,
+ "victory": {
+  "type": "rout",
+  "side": "athens"
+ },
+ "sides": [
+  {
+   "id": "athens",
+   "name": "雅典",
+   "color": "#3C6E9E"
+  },
+  {
+   "id": "persia",
+   "name": "波斯",
+   "color": "#8B6914"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "athens",
+   "b": "persia",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "miltiades",
+   "name": "米太亚德",
+   "side": "athens",
+   "initialPos": [
+    23.85,
+    38.2
+   ],
+   "strength": 8,
+   "type": "elite",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    24.05,
+    38.12
+   ]
+  },
+  {
+   "id": "datis",
+   "name": "达提斯",
+   "side": "persia",
+   "initialPos": [
+    24.1,
+    38.1
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 1,
+   "morale": "steady",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 6
+   },
+   "action": "rout",
+   "target": "datis",
+   "reason": "希腊两翼合围，波斯阵溃上船"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

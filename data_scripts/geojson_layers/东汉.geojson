@@ -1,0 +1,101 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "东汉",
+    "era": "东汉",
+    "from": 25,
+    "to": 220,
+    "color": "#4C6E9A",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       102.0,
+       35.0
+      ],
+      [
+       107.25,
+       42.0
+      ],
+      [
+       117.75,
+       42.0
+      ],
+      [
+       123.0,
+       35.0
+      ],
+      [
+       117.75,
+       28.0
+      ],
+      [
+       107.25,
+       28.0
+      ],
+      [
+       102.0,
+       35.0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "匈奴",
+    "era": "东汉",
+    "from": 25,
+    "to": 220,
+    "color": "#8A6A5C",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "low"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       95.0,
+       44.0
+      ],
+      [
+       101.25,
+       50.0
+      ],
+      [
+       113.75,
+       50.0
+      ],
+      [
+       120.0,
+       44.0
+      ],
+      [
+       113.75,
+       38.0
+      ],
+      [
+       101.25,
+       38.0
+      ],
+      [
+       95.0,
+       44.0
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "西晋",
+    "era": "西晋",
+    "from": 266,
+    "to": 316,
+    "color": "#4C6E9A",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       100.0,
+       33.5
+      ],
+      [
+       105.75,
+       42.0
+      ],
+      [
+       117.25,
+       42.0
+      ],
+      [
+       123.0,
+       33.5
+      ],
+      [
+       117.25,
+       25.0
+      ],
+      [
+       105.75,
+       25.0
+      ],
+      [
+       100.0,
+       33.5
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,95 @@
+{
+ "id": "hattin",
+ "title": "哈丁战役",
+ "era": "1187",
+ "context": "萨拉丁围困十字军于哈丁角，无水高地；十字军干渴溃散，耶路撒冷王被俘，萨拉丁收复耶路撒冷。",
+ "terrainFocus": {
+  "center": [
+   35.35,
+   32.85
+  ],
+  "radius": 35
+ },
+ "duration": 10,
+ "victory": {
+  "type": "annihilate",
+  "target": "guy",
+  "side": "ayyubid"
+ },
+ "sides": [
+  {
+   "id": "ayyubid",
+   "name": "阿尤布",
+   "color": "#3C7A5C"
+  },
+  {
+   "id": "crusader",
+   "name": "十字军",
+   "color": "#8B5A3C"
+  }
+ ],
+ "diplomacy": [
+  {
+   "a": "ayyubid",
+   "b": "crusader",
+   "relation": "hostile"
+  }
+ ],
+ "armies": [
+  {
+   "id": "saladin",
+   "name": "萨拉丁",
+   "side": "ayyubid",
+   "initialPos": [
+    35.2,
+    32.9
+   ],
+   "strength": 9,
+   "type": "regular",
+   "fatigue": 0,
+   "morale": "high",
+   "intent": "advance",
+   "target": [
+    35.45,
+    32.8
+   ]
+  },
+  {
+   "id": "guy",
+   "name": "居伊",
+   "side": "crusader",
+   "initialPos": [
+    35.5,
+    32.8
+   ],
+   "strength": 7,
+   "type": "elite",
+   "fatigue": 2,
+   "morale": "wavering",
+   "intent": "hold"
+  }
+ ],
+ "events": [
+  {
+   "trigger": {
+    "turn": 4
+   },
+   "action": "supplyCut",
+   "target": "guy",
+   "reason": "水井被占，十字军干渴"
+  },
+  {
+   "trigger": {
+    "army": "guy",
+    "strengthBelow": 3
+   },
+   "action": "capture",
+   "target": "guy",
+   "reason": "耶路撒冷王被俘"
+  }
+ ],
+ "phases": [],
+ "source": "Wikipedia/军事史公开数据",
+ "confidence": "medium",
+ "world": true
+}

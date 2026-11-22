@@ -2,157 +2,50 @@ package io.legado.app.ui.welcome
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
-import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
-import androidx.core.graphics.drawable.toDrawable
-import androidx.lifecycle.lifecycleScope
-import io.legado.app.BuildConfig
-import io.legado.app.base.BaseActivity
-import io.legado.app.constant.PreferKey
-import io.legado.app.constant.Theme
-import io.legado.app.data.appDb
-import io.legado.app.databinding.ActivityWelcomeBinding
-import io.legado.app.help.config.AppConfig
-import io.legado.app.help.config.ThemeConfig
-import io.legado.app.lib.theme.accentColor
-import io.legado.app.lib.theme.backgroundColor
-import io.legado.app.ui.book.read.ReadBookActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import io.legado.app.ui.main.MainActivity
-import io.legado.app.utils.BitmapUtils
-import io.legado.app.utils.fullScreen
-import io.legado.app.utils.getPrefBoolean
-import io.legado.app.utils.getPrefInt
-import io.legado.app.utils.getPrefString
-import io.legado.app.utils.setStatusBarColorAuto
-import io.legado.app.utils.startActivity
-import io.legado.app.utils.viewbindingdelegate.viewBinding
-import io.legado.app.utils.visible
-import io.legado.app.utils.windowSize
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
-open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
+/**
+ * 落文 · 启动动画宿主（ui/welcome 独占）。
+ *
+ * 旧版 View 三件套（墨晕 / 金线 / 竖线书名）全部废弃，本页由 [SplashScene] 纯 Compose 自绘。
+ * 整段编排固定 2800ms，结束后进入书架；不做跳过按钮、不放进度条 / 转圈 / 版本号 / Logo，
+ * 不检测网络、不播放声音（启动动画原文「不做的」）。
+ *
+ * 导航说明：最后阅读直达分支（旧版 lastReadBook → ReadBookActivity）属共享入口接线，
+ * 留主控 merge 时接回；本类只负责动画收口后落 [MainActivity]。
+ */
+open class WelcomeActivity : ComponentActivity() {
 
-    override val binding by viewBinding(ActivityWelcomeBinding::inflate)
-    private var startMainJob: Job? = null
-
-    private val broughtToFront: Boolean
-        get() = intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0
-
-    override fun shouldShowWindowBackground(): Boolean =
-        getPrefInt(PreferKey.welcomeShowTime, 500) != 0 && !broughtToFront
-
-    override fun shouldCreateContentView(): Boolean {
-        if (broughtToFront || getPrefInt(PreferKey.welcomeShowTime, 500) == 0) {
-            if (!broughtToFront) startMainActivity()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 已在前台被桌面再次拉起：不重播动画，直接收口
+        if (intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0) {
             finish()
-            return false
+            return
         }
-        return true
-    }
-
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        binding.tvBuild.text = "构建 ${BuildConfig.VERSION_CODE} · 第7批"
-
-        if (broughtToFront) {
-            // 避免从桌面启动程序后，会重新实例化入口类的activity
-            finish()
-        } else {
-            val welcomeShowTime = getPrefInt(PreferKey.welcomeShowTime, 500)
-            if (welcomeShowTime == 0) {
-                startMainActivity()
-            } else {
-                // 整段编排 2.8s，墨滴→炸裂→回聚→渗出→远山→金线→标语
-                val animMs = 2800L
-                binding.root.post { startSplashAnim(animMs) }
-                startMainJob = lifecycleScope.launch {
-                    delay(animMs + 150L)
-                    startMainActivity()
-                }
-            }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        binding.vwTitleLine.setBackgroundColor(0xFF2A2320.toInt())
-        binding.tvTitle.setTextColor(0xFF2A2320.toInt())
-    }
-
-    override fun setupSystemBar() {
-        fullScreen()
-        setStatusBarColorAuto(backgroundColor, true, fullScreen)
-        upNavigationBarColor()
-    }
-
-    override fun finish() {
-        startMainJob?.cancel()
-        startMainJob = null
-        runCatching { binding.vInk.stop() }
-        runCatching { binding.vShine.stop() }
-        runCatching { binding.vSplash.stop() }
-        super.finish()
-    }
-
-    /** 单 View 整段编排：旧版三件套（墨晕/金线/竖线书名）全部让位 */
-    private fun startSplashAnim(durationMs: Long) {
-        binding.tvLegado.visibility = View.GONE
-        binding.vInk.visibility = View.GONE
-        binding.vShine.visibility = View.GONE
-        binding.vSplash.start(durationMs)
-    }
-
-    override fun upBackgroundImage() {
-        val isDarkTheme = ThemeConfig.getTheme() == Theme.Dark
-        val showText = if (isDarkTheme) AppConfig.welcomeShowTextDark else AppConfig.welcomeShowText
-        binding.tvLegado.visible(showText)
-        if (getPrefBoolean(PreferKey.customWelcome)) {
-            kotlin.runCatching {
-                when (ThemeConfig.getTheme()) {
-                    Theme.Dark -> {
-                        getPrefString(PreferKey.welcomeImageDark)?.let { path ->
-                            if (path.endsWith(".9.png")) {
-                                BitmapUtils.decodeNinePatchDrawable(path)?.let {
-                                    window.decorView.background = it
-                                }
-                            } else {
-                                val size = windowManager.windowSize
-                                BitmapUtils.decodeBitmap(path, size.widthPixels, size.heightPixels)?.let {
-                                    window.decorView.background = it.toDrawable(resources)
-                                }
-                            }
-                        }
-                        return
-                    }
-                    else -> {
-                        getPrefString(PreferKey.welcomeImage)?.let { path ->
-                            if (path.endsWith(".9.png")) {
-                                BitmapUtils.decodeNinePatchDrawable(path)?.let {
-                                    window.decorView.background = it
-                                }
-                            } else {
-                                val size = windowManager.windowSize
-                                BitmapUtils.decodeBitmap(path, size.widthPixels, size.heightPixels)?.let {
-                                    window.decorView.background = it.toDrawable(resources)
-                                }
-                            }
-                        }
-                        return
-                    }
-                }
-            }
+        setContent {
+            SplashScene(onFinish = ::enterMain)
         }
-        super.upBackgroundImage()
     }
 
-    private fun startMainActivity() {
-        startActivity<MainActivity>()
-        if (getPrefBoolean(PreferKey.defaultToRead) && appDb.bookDao.lastReadBook != null) {
-            startActivity<ReadBookActivity>()
-        }
+    private fun enterMain() {
+        startActivity(Intent(this, MainActivity::class.java))
         finish()
     }
-
 }
 
+/** 多图标入口占位：类名由 LauncherIconHelp 按 ComponentName 反射引用，不可改名 */
 class Launcher1 : WelcomeActivity()
 class Launcher2 : WelcomeActivity()
 class Launcher3 : WelcomeActivity()

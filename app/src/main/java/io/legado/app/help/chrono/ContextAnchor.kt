@@ -1,7 +1,8 @@
 package io.legado.app.help.chrono
 
 /**
- * ContextAnchor —— 纪年、字词、地名、人物四模块之间唯一的共享状态。
+ * ContextAnchor —— 纪年、字词、地名、人物四模块之间唯一的共享状态，
+ * 也是全 app 唯一的名称消歧入口（[resolve]）。
  *
  * 不是可选件：纪年算出的年份写这里，地名按这里选朝代图层，人物同名按这里消歧。
  * 四个模块互不调用，只读写这一个锚点。
@@ -12,6 +13,46 @@ package io.legado.app.help.chrono
  *   3 只有干支/朔望 → setYearRange（最弱，只作兜底）
  */
 object ContextAnchor {
+
+    // ---------- 消歧候选模型（契约 §一） ----------
+
+    enum class Type {
+        PLACE, PERSON, ERA, ALLUSION;
+
+        val wire: String get() = when (this) {
+            PLACE -> "place"; PERSON -> "person"; ERA -> "era"; ALLUSION -> "allusion"
+        }
+    }
+
+    enum class Confidence {
+        HIGH, MEDIUM, LOW;
+
+        val wire: String get() = when (this) {
+            HIGH -> "high"; MEDIUM -> "medium"; LOW -> "low"
+        }
+
+        companion object {
+            fun of(raw: String?): Confidence = when (raw?.lowercase()) {
+                "high" -> HIGH; "low" -> LOW; else -> MEDIUM
+            }
+        }
+    }
+
+    data class Candidate(
+        val id: String,
+        val name: String,
+        val type: Type,
+        val tier: Int,
+        val start: Int?,
+        val end: Int?,
+        val aliases: List<String>,
+        val confidence: Confidence,
+        val source: String,
+        val isDefault: Boolean = false,
+        /** 面/点：place 用，点优先排序；其余类型默认 true 不参与该档 */
+        val isPoint: Boolean = true,
+        val note: String = "",
+    )
 
     /** 当前书 */
     var bookId: String = ""
@@ -47,7 +88,7 @@ object ContextAnchor {
         listener?.invoke()
     }
 
-    // ---------- 1.1 接口 ----------
+    // ---------- 锚点写入 ----------
 
     /** 纪年换算后写入（用户确认或正文确指） */
     fun setYear(year: Int) {
@@ -179,5 +220,96 @@ object ContextAnchor {
             hit.year != null -> setYear(hit.year, hit.state ?: knownState)
             hit.from != null && hit.to != null -> setYearRange(hit.from..hit.to, hit.state ?: knownState)
         }
+    }
+
+    // ---------- §一 全 app 唯一消歧入口 ----------
+
+    /**
+     * 人物 / 典故来源由各自模块在预载时注册（避免 chrono 反向依赖 help.relation）；
+     * 未注册时这两路候选为空，地名 / 年号两路仍正常工作。
+     */
+    @Volatile
+    var personProvider: ((String) -> List<Candidate>)? = null
+
+    @Volatile
+    var allusionProvider: ((String) -> List<Candidate>)? = null
+
+    /**
+     * 名字 → 候选 → 时空过滤(锚点年) → tier 高优先 → 区间窄优先 → 点优先 → 兜底。
+     *
+     * - 锚点年为空：不猜，返回全部候选按 tier 排序，全部 `isDefault=false`。
+     * - 低置信度(low)候选照收，但 `isDefault=false`，不进默认命中。
+     * - 锚点年下无任何候选落在其在位/存在区间时，保留全部候选作兜底（出区间者排序靠后）。
+     */
+    fun resolve(name: String, year: Int? = getYear()): List<Candidate> {
+        val q = name.trim()
+        if (q.isEmpty()) return emptyList()
+
+        val byKey = LinkedHashMap<String, Candidate>()
+        fun put(c: Candidate) {
+            val key = c.type.wire + "#" + c.id
+            byKey.putIfAbsent(key, c)
+        }
+
+        ChronoPlaces.candidates(q).forEach { s ->
+            put(
+                Candidate(
+                    id = s.id,
+                    name = s.name,
+                    type = Type.PLACE,
+                    tier = s.tier,
+                    start = s.start,
+                    end = s.end,
+                    aliases = s.aliases,
+                    confidence = Confidence.of(s.confidence),
+                    source = s.source,
+                    isPoint = s.isPoint,
+                    note = s.note,
+                )
+            )
+        }
+        Chronology.eraCandidates(q).forEach { e ->
+            put(
+                Candidate(
+                    id = "era:" + e.name + "@" + e.dynasty,
+                    name = e.name,
+                    type = Type.ERA,
+                    tier = 0,
+                    start = e.startYear,
+                    end = e.endYear,
+                    aliases = emptyList(),
+                    confidence = Confidence.MEDIUM,
+                    source = e.dynasty,
+                )
+            )
+        }
+        personProvider?.invoke(q)?.forEach(::put)
+        allusionProvider?.invoke(q)?.forEach(::put)
+
+        val sorted = byKey.values.sortedWith(anchorComparator(year))
+
+        // 默认命中：锚定年份下、落在存在区间内的第一条非 low 候选；
+        // 无锚点、区间内无命中、或区间内全 low 时不设默认（不猜）
+        val defaultIdx = if (year == null) -1 else
+            sorted.indexOfFirst { inSpan(it, year) && it.confidence != Confidence.LOW }
+        return sorted.mapIndexed { i, c -> c.copy(isDefault = i == defaultIdx) }
+    }
+
+    private fun inSpan(c: Candidate, year: Int): Boolean =
+        c.start != null && c.end != null && year in c.start..c.end
+
+    /** 消歧排序：时空命中 → tier 高 → 区间窄 → 点优先 → 置信度高 */
+    private fun anchorComparator(year: Int?): Comparator<Candidate> =
+        compareBy<Candidate> { c ->
+            if (year != null && c.start != null && c.end != null && year in c.start..c.end) 0 else 1
+        }.thenBy { it.tier }
+            .thenBy { c ->
+                val s = c.start; val e = c.end
+                if (s != null && e != null) e - s else Int.MAX_VALUE
+            }.thenBy { if (it.isPoint) 0 else 1 }
+            .thenBy { confidenceRank(it.confidence) }
+
+    private fun confidenceRank(c: Confidence): Int = when (c) {
+        Confidence.HIGH -> 0; Confidence.MEDIUM -> 1; Confidence.LOW -> 2
     }
 }

@@ -1,6 +1,7 @@
 package io.legado.app.help
 
 import android.content.Context
+import io.legado.app.help.chrono.ChronoPlaces
 import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.utils.printOnDebug
 
@@ -16,8 +17,8 @@ import io.legado.app.utils.printOnDebug
  *
  * 数据（assets）：
  *   place_entity.txt : id \t 类型(P/A) \t 正名 \t 经度 \t 纬度 \t 起年 \t 止年 \t 朝代
- *                      \t tier \t 说明 \t 别名(|) \t geometry \t superior \t source
- *   place_name.txt   : 名称 \t 实体id \t 起年 \t 止年 \t 朝代 \t 类型 \t superior \t source
+ *                      \t tier \t 说明 \t 别名(|) \t geometry \t superior \t source \t seat \t confidence
+ *   place_name.txt   : 名称 \t 实体id \t 起年 \t 止年 \t 朝代 \t 类型 \t superior \t source \t confidence
  */
 object PlaceTimeDict {
 
@@ -37,7 +38,14 @@ object PlaceTimeDict {
         val superior: String? = null,   // 上级政区
         val source: String? = null,     // tier_source 出处
         val seat: String? = null,       // 治所实体 id（面实体）
+        val confidence: String? = null, // 显式置信度 high|medium|low，缺省按 tier 推导
     ) {
+        /** schema 契约置信度：显式列优先；缺省 tier 1 实测→high，2 考证→medium，3 推定→low */
+        val confidenceTag: String get() = when {
+            !confidence.isNullOrBlank() -> confidence.trim().lowercase()
+            tier == 1 -> "high"; tier == 2 -> "medium"; else -> "low"
+        }
+
         val isPoint: Boolean get() = kind == 'P'
 
         /** tier 3 只画色块：isPoint 且 tier 3 → 不落点 */
@@ -82,6 +90,12 @@ object PlaceTimeDict {
         load(context)[name] ?: emptyList()
 
     fun entity(context: Context, id: String): Ent? = ensureById(context)[id]
+
+    /** 全部实体（只读遍历用：周边参照点等跨实体场景） */
+    fun all(context: Context): List<Ent> {
+        load(context)
+        return byId?.values?.toList().orEmpty()
+    }
 
     /**
      * 消歧：名字 → 全部候选 → 锚点年份过滤 → tier 高优先 → 区间更窄优先 → 点优先。
@@ -147,6 +161,7 @@ object PlaceTimeDict {
                                 superior = p.getOrNull(12)?.takeIf { it.isNotBlank() },
                                 source = p.getOrNull(13)?.takeIf { it.isNotBlank() },
                                 seat = p.getOrNull(14)?.takeIf { it.isNotBlank() },
+                                confidence = p.getOrNull(15)?.takeIf { it.isNotBlank() },
                             )
                             ents[e.id] = e
                             names.getOrPut(e.name) { ArrayList(2) }.add(e)
@@ -161,10 +176,11 @@ object PlaceTimeDict {
                             val p = line.split('\t')
                             if (p.size < 2) return@forEach
                             val e = ents[p[1]] ?: return@forEach
-                            // place_name 的 superior/source 覆盖实体级（名称快照优先）
+                            // place_name 的 superior/source/confidence 覆盖实体级（名称快照优先）
                             val sup = p.getOrNull(6)?.takeIf { it.isNotBlank() } ?: e.superior
                             val src = p.getOrNull(7)?.takeIf { it.isNotBlank() } ?: e.source
-                            val merged = e.copy(superior = sup, source = src)
+                            val conf = p.getOrNull(8)?.takeIf { it.isNotBlank() } ?: e.confidence
+                            val merged = e.copy(superior = sup, source = src, confidence = conf)
                             ents[e.id] = merged
                             names.getOrPut(p[0]) { ArrayList(2) }.add(merged)
                         }
@@ -175,6 +191,25 @@ object PlaceTimeDict {
             val out = HashMap<String, List<Ent>>(names.size)
             names.forEach { (k, v) -> out[k] = v.distinctBy { it.id } }
             byName = out
+
+            // 灌入纯 Kotlin 消歧内核（ContextAnchor.resolve 读这一份）
+            val idNames = HashMap<String, MutableSet<String>>()
+            names.forEach { (n, el) -> el.forEach { idNames.getOrPut(it.id) { mutableSetOf() }.add(n) } }
+            val seeds = ents.values.map { e ->
+                ChronoPlaces.PlaceSeed(
+                    id = e.id,
+                    name = e.name,
+                    kind = e.kind,
+                    start = e.start,
+                    end = e.end,
+                    tier = e.tier,
+                    aliases = (idNames[e.id] ?: emptySet()).toList(),
+                    confidence = e.confidenceTag,
+                    source = e.source ?: "",
+                    note = e.note,
+                )
+            }
+            ChronoPlaces.importRecords(seeds)
             return out
         }
     }

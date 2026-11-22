@@ -1,0 +1,53 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "元",
+    "era": "元",
+    "from": 1271,
+    "to": 1368,
+    "color": "#7A5FA6",
+    "tier": 3,
+    "source": "谭其骧《中国历史地图集》",
+    "confidence": "medium"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       95.0,
+       34.0
+      ],
+      [
+       105.0,
+       50.0
+      ],
+      [
+       125.0,
+       50.0
+      ],
+      [
+       135.0,
+       34.0
+      ],
+      [
+       125.0,
+       18.0
+      ],
+      [
+       105.0,
+       18.0
+      ],
+      [
+       95.0,
+       34.0
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}
