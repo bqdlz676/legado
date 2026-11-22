@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -75,7 +76,6 @@ fun ChronoBottomDock(
                 spring(
                     dampingRatio = ChronoTokens.SPRING_DAMPING,
                     stiffness = ChronoTokens.SPRING_STIFFNESS,
-                    mass = ChronoTokens.SPRING_MASS,
                 ),
             )
             PanelPhase.FALLING -> {
@@ -84,7 +84,6 @@ fun ChronoBottomDock(
                     spring(
                         dampingRatio = ChronoTokens.SPRING_DAMPING,
                         stiffness = ChronoTokens.SPRING_STIFFNESS,
-                        mass = ChronoTokens.SPRING_MASS,
                     ),
                 )
                 machine.onSettled()
@@ -257,6 +256,7 @@ private fun ChronoGlassPanel(
 ) {
     if (progress <= 0.01f) return
     val density = LocalDensity.current
+    val velocityTracker = remember { VelocityTracker() }
     Column(
         modifier
             .fillMaxWidth()
@@ -265,12 +265,20 @@ private fun ChronoGlassPanel(
             .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onDragStart = { onDragStart() },
+                    onDragStart = {
+                        velocityTracker.resetTracking()
+                        onDragStart()
+                    },
                     onVerticalDrag = { change, delta ->
                         change.consume()
-                        onDrag(delta)
+                        velocityTracker.addPosition(change.uptimeMillis, change.position)
+                        onDrag(delta.y)
                     },
-                    onDragEnd = { velocity -> onRelease(velocity / 1000f) },
+                    onDragEnd = { change ->
+                        velocityTracker.addPosition(change.uptimeMillis, change.position)
+                        val velocityY = velocityTracker.calculateVelocity().y
+                        onRelease(velocityY / 1000f)
+                    },
                     onDragCancel = { onRelease(0f) },
                 )
             },

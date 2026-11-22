@@ -24,7 +24,7 @@ data class BubblePlacement(
  * 气泡定位纯函数（契约第四节 Bubble：原文上方 8dp、箭头对字心、上方越界翻下方、
  * 不遮当前句）。测量出气泡宽高后调用；所有边界兜底夹取，不允许越界崩溃。
  */
-object BubblePlacement {
+object BubblePlacer {
 
     /**
      * @param anchor 原字锚点

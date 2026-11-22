@@ -115,13 +115,15 @@ class SplashChoreography(
             add(p)
         }
         // 远山：三段起伏的山脊折线，固定伪随机种子，单测可复现
-        ridge = buildList(15) { i ->
-            val x = i / 14f
-            val peak = when (i) {
-                3 -> 0.10f; 6 -> 0.22f; 9 -> 0.13f; 12 -> 0.20f
-                else -> 0.16f + rnd.nextFloat() * 0.05f
+        ridge = buildList(15) {
+            for (i in 0 until 15) {
+                val x = i / 14f
+                val peak = when (i) {
+                    3 -> 0.10f; 6 -> 0.22f; 9 -> 0.13f; 12 -> 0.20f
+                    else -> 0.16f + rnd.nextFloat() * 0.05f
+                }
+                add(x to (0.78f - peak))
             }
-            x to (0.78f - peak)
         }
     }
 
@@ -181,16 +183,16 @@ class SplashChoreography(
                 elapsedMs < LuowenSplash.BURST_END_MS -> {
                     // 炸裂：径向飞出，半径随 easeOutCubic 到上限
                     val r = radiusPx * p.burstRadius * easeOutCubic(burstP)
-                    p.x = cx + cos(p.angle) * r
-                    p.y = cy + sin(p.angle) * r * 0.82f
+                    p.x = cx + cos(p.angle.toDouble()).toFloat() * r
+                    p.y = cy + sin(p.angle.toDouble()).toFloat() * r * 0.82f
                     p.rot += p.spin * 0.05f
                     p.alpha = 1f
                 }
                 elapsedMs < LuowenSplash.SUCK_START_MS -> {
                     // 悬停：极小幅呼吸漂移，不落不飞
-                    val drift = sin(elapsedMs / 90f + p.seedPhase) * 1.5f * density
-                    p.x += cos(p.angle) * drift * 0.02f
-                    p.y += sin(p.angle) * drift * 0.02f
+                    val drift = sin((elapsedMs / 90f + p.seedPhase).toDouble()).toFloat() * 1.5f * density
+                    p.x += cos(p.angle.toDouble()).toFloat() * drift * 0.02f
+                    p.y += sin(p.angle.toDouble()).toFloat() * drift * 0.02f
                     p.alpha = 0.85f
                 }
                 else -> {
@@ -228,13 +230,13 @@ class SplashChoreography(
                 continue
             }
             val a = g.seedPhase
-            val speed = (0.35f + 0.65f * sin(a * 3.1f)) * radiusPx * 1.15f
+            val speed = (0.35f + 0.65f * sin((a * 3.1f).toDouble()).toFloat()) * radiusPx * 1.15f
             val out = easeOutCubic(goldIn)
-            g.x = cx + cos(a) * speed * out
-            g.y = cy + sin(a) * speed * out * 0.7f
+            g.x = cx + cos(a.toDouble()).toFloat() * speed * out
+            g.y = cy + sin(a.toDouble()).toFloat() * speed * out * 0.7f
             // 上飘 + 横向漂移，亮度随生命衰减
             g.y -= g.drift * density * goldLife
-            g.x += sin(g.seedPhase + goldLife * 4f) * 8f * density * goldLife
+            g.x += sin((g.seedPhase + goldLife * 4f).toDouble()).toFloat() * 8f * density * goldLife
             g.alpha = (1f - goldLife) * 0.95f
         }
 
@@ -245,7 +247,7 @@ class SplashChoreography(
         // —— 暖金线 1400–1800 顿挫扫过 ——
         val sweepRaw = progress(elapsedMs, LuowenSplash.SWEEP_START_MS, LuowenSplash.SWEEP_END_MS)
         sweepProgress = stutter(sweepRaw)
-        sweepGlow = if (sweepRaw in 0f..1f) 0.6f + 0.4f * sin(sweepRaw * 6.2831f) else 0f
+        sweepGlow = if (sweepRaw in 0f..1f) 0.6f + 0.4f * sin((sweepRaw * 6.2831f).toDouble()).toFloat() else 0f
         goldDotAlpha = progress(elapsedMs, LuowenSplash.SWEEP_END_MS, LuowenSplash.SWEEP_END_MS + 160L)
 
         // —— 落款 1800 起淡入 400ms ——

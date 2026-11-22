@@ -40,7 +40,7 @@ fun rememberRevealState(index: Int, enabled: Boolean = true): RevealState {
             targetValue = 1f,
             animationSpec = tween(
                 durationMillis = InkExploreTokens.CardMs.toInt(),
-                delayMillis = stagger,
+                delayMillis = stagger.toInt(),
                 easing = InkExploreTokens.CardReveal
             )
         )

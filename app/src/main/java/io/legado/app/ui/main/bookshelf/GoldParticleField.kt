@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -42,11 +43,11 @@ fun GoldParticleField(
             // 每条粒子用自己的相位错开，避免整屏同起同落
             val t = (loop + p.phase) % 1f
             val yRatio = (p.baseY - t * p.rise).coerceIn(0.05f, 1f)
-            val xRatio = p.baseX + sin(t * 2f * PI.toFloat() + p.phase * 2f * PI.toFloat()) * 0.03f
+            val xRatio = p.baseX + sin((t * 2f * PI.toFloat() + p.phase * 2f * PI.toFloat()).toDouble()).toFloat() * 0.03f
             val cx = size.width * xRatio
             val cy = size.height * yRatio
             val radius = p.radiusDp.dp.toPx()
-            val twinkle = 0.35f + 0.65f * sin(t * 2f * PI.toFloat() + p.phase * 9f)
+            val twinkle = 0.35f + 0.65f * sin((t * 2f * PI.toFloat() + p.phase * 9f).toDouble()).toFloat()
             // 上浮到顶部附近渐隐，避免循环重启时硬跳
             val fadeTop = (1f - yRatio).coerceIn(0f, 1f)
             val alpha = p.alpha * twinkle.coerceIn(0.15f, 1f) * (1f - fadeTop * 0.6f)

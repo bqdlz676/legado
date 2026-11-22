@@ -71,10 +71,9 @@ internal fun rememberInkGesture(
                             if (interaction.clickEnabled) onClick()
                         }
                     }
-                    PointerEventType.Cancel -> {
+                    else -> {
                         pressed = false
                     }
-                    else -> Unit
                 }
             }
         }

@@ -199,7 +199,7 @@ private fun BubbleOverlay(
     var bubbleSize by remember { mutableStateOf(IntSize.Zero) }
 
     val placement = remember(anchor, bubbleSize, viewW, viewH) {
-        BubblePlacement.place(
+        BubblePlacer.place(
             anchor = anchor,
             bubbleW = bubbleSize.width.toFloat().coerceAtLeast(1f),
             bubbleH = bubbleSize.height.toFloat().coerceAtLeast(1f),

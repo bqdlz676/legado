@@ -107,9 +107,9 @@ class InkTimelineView @JvmOverloads constructor(
         val r = dp(21f)
         for (k in 0 until 16) {
             val a = t * 1.6f + k * (Math.PI.toFloat() * 2f / 16f)
-            val px = cx + cos(a) * r
-            val py = cy + sin(a) * r * 0.42f
-            val alpha = (90 + 80 * (0.5f + 0.5f * sin(t * 2f + k))).toInt().coerceIn(40, 210)
+            val px = cx + cos(a.toDouble()).toFloat() * r
+            val py = cy + sin(a.toDouble()).toFloat() * r * 0.42f
+            val alpha = (90 + 80 * (0.5f + 0.5f * sin((t * 2f + k).toDouble()).toFloat())).toInt().coerceIn(40, 210)
             dotPaint.color = cGold
             dotPaint.alpha = alpha
             canvas.drawCircle(px, py, dp(1.5f), dotPaint)

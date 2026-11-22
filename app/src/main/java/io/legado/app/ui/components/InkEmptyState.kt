@@ -70,15 +70,15 @@ fun InkEmptyState(
 
 @Composable
 private fun EmptyIcon(offline: Boolean, compact: Boolean) {
-    val size = if (compact) 44.dp else 64.dp
+    val iconSize = if (compact) 44.dp else 64.dp
     Box(
         Modifier
-            .size(size)
+            .size(iconSize)
             .clip(RoundedCornerShape(50))
             .background(ComponentTokens.bgPage),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(Modifier.size(size)) {
+        Canvas(Modifier.size(iconSize)) {
             val cx = size.width / 2f
             val cy = size.height / 2f
             // 暖金点（落文视觉签名，8dp 等比缩放）

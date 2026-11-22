@@ -40,6 +40,7 @@ fun InkIconButton(
             pressed = when (interaction) {
                 is PressInteraction.Press -> true
                 is PressInteraction.Release, is PressInteraction.Cancel -> false
+                else -> false
             }
             val target = if (pressed) InkTokens.PRESS_ACCENT_ALPHA else 0f
             pressAlpha.animateTo(

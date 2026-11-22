@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -308,8 +309,8 @@ private fun seedDroplets(count: Int): List<Droplet> {
     return List(count) {
         val angle = next() * 2f * kotlin.math.PI.toFloat()
         Droplet(
-            dirX = kotlin.math.cos(angle),
-            dirY = kotlin.math.sin(angle) - 0.25f,
+            dirX = kotlin.math.cos(angle.toDouble()).toFloat(),
+            dirY = kotlin.math.sin(angle.toDouble()).toFloat() - 0.25f,
             dist = 0.18f + next() * 0.32f,
             radius = 2f + next() * 5f,
             ink = next() > 0.25f,

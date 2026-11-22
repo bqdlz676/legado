@@ -132,7 +132,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMountain(
         style = Paint.Style.STROKE
         strokeWidth = 1f * density
     }
-    nativeCanvas.drawPath(path, linePaint)
+    drawContext.canvas.nativeCanvas.drawPath(path, linePaint)
 
     // 山腰白雾：两道半透明白色横带，随 mistOffset 左右缓移
     val mistPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -140,12 +140,12 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMountain(
     }
     val mistY = size.height * 0.72f
     val offset = engine.mistOffset
-    nativeCanvas.drawOval(
+    drawContext.canvas.nativeCanvas.drawOval(
         offset - size.width * 0.15f, mistY - 10f * density,
         offset + size.width * 0.55f, mistY + 10f * density,
         mistPaint,
     )
-    nativeCanvas.drawOval(
+    drawContext.canvas.nativeCanvas.drawOval(
         offset + size.width * 0.2f, mistY + 16f * density,
         offset + size.width * 0.9f, mistY + 28f * density,
         mistPaint,
@@ -167,7 +167,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDrop(
     path.moveTo(x, y + r * 1.3f)
     path.cubicTo(x - r, y + r * 0.2f, x - r * 0.8f, y - r, x, y - r)
     path.cubicTo(x + r * 0.8f, y - r, x + r, y + r * 0.2f, x, y + r * 1.3f)
-    nativeCanvas.drawPath(path, paint)
+    drawContext.canvas.nativeCanvas.drawPath(path, paint)
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawInkParticle(
@@ -175,7 +175,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawInkParticle(
     density: Float,
 ) {
     val base = LuowenSplash.textPrimary
-    val color = when (p.kind) {
+    val particleColor = when (p.kind) {
         SplashChoreography.InkKind.ROUND -> base.copy(alpha = p.alpha * 0.92f)
         SplashChoreography.InkKind.FILAMENT -> base.copy(alpha = p.alpha * 0.7f)
         SplashChoreography.InkKind.SPLAT -> base.copy(alpha = p.alpha * 0.85f)
@@ -183,18 +183,18 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawInkParticle(
     when (p.kind) {
         SplashChoreography.InkKind.FILAMENT -> {
             val len = p.size * 3.2f * density
-            val dx = cos(p.rot) * len
-            val dy = sin(p.rot) * len
+            val dx = cos(p.rot.toDouble()).toFloat() * len
+            val dy = sin(p.rot.toDouble()).toFloat() * len
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = color.toArgb()
+                color = particleColor.toArgb()
                 strokeWidth = p.size * density * 0.5f
                 strokeCap = Paint.Cap.ROUND
             }
-            nativeCanvas.drawLine(p.x - dx, p.y - dy, p.x + dx, p.y + dy, paint)
+            drawContext.canvas.nativeCanvas.drawLine(p.x - dx, p.y - dy, p.x + dx, p.y + dy, paint)
         }
         else -> {
             val radius = p.size * density * (if (p.kind == SplashChoreography.InkKind.SPLAT) 1.15f else 1f)
-            drawCircle(color, radius, Offset(p.x, p.y))
+            drawCircle(particleColor, radius, Offset(p.x, p.y))
         }
     }
 }
@@ -228,14 +228,14 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSweep(
             LuowenSplash.brandGold.toArgb(),
         )
     }
-    nativeCanvas.drawCircle(sweepX, cy, 6f * density, glowPaint)
+    drawContext.canvas.nativeCanvas.drawCircle(sweepX, cy, 6f * density, glowPaint)
 
     val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = LuowenSplash.brandGold.copy(alpha = 0.9f).toArgb()
         strokeWidth = 1.05f * density
         strokeCap = Paint.Cap.ROUND
     }
-    nativeCanvas.drawLine(
+    drawContext.canvas.nativeCanvas.drawLine(
         cx - size.width * 0.35f, cy + size.height * 0.06f,
         sweepX, cy + size.height * 0.06f,
         linePaint,
@@ -257,12 +257,12 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGlyphs(
     val lineHeight = 64f * density
     if (engine.glyphLuoAlpha > 0.01f) {
         paint.color = LuowenSplash.glyphPaper.copy(alpha = engine.glyphLuoAlpha).toArgb()
-        nativeCanvas.drawText("落", cx, cy - lineHeight * 0.5f, paint)
+        drawContext.canvas.nativeCanvas.drawText("落", cx, cy - lineHeight * 0.5f, paint)
         drawStrokeBrush(engine.luoStroke, cx, cy - lineHeight * 0.5f, density, engine.glyphLuoAlpha)
     }
     if (engine.glyphWenAlpha > 0.01f) {
         paint.color = LuowenSplash.glyphPaper.copy(alpha = engine.glyphWenAlpha).toArgb()
-        nativeCanvas.drawText("文", cx, cy + lineHeight * 0.7f, paint)
+        drawContext.canvas.nativeCanvas.drawText("文", cx, cy + lineHeight * 0.7f, paint)
         drawStrokeBrush(engine.wenStroke, cx, cy + lineHeight * 0.7f, density, engine.glyphWenAlpha)
     }
 }
@@ -286,7 +286,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStrokeBrush(
         strokeWidth = 2f * density
         strokeCap = Paint.Cap.ROUND
     }
-    nativeCanvas.drawLine(
+    drawContext.canvas.nativeCanvas.drawLine(
         brushX, baselineY - 34f * density,
         brushX, baselineY + 6f * density,
         brushPaint,
@@ -305,7 +305,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSlogan(
         textAlign = Paint.Align.CENTER
         letterSpacing = 0.06f
     }
-    nativeCanvas.drawText(
+    drawContext.canvas.nativeCanvas.drawText(
         "读其文，知其人，通其时。",
         width * 0.5f, height * 0.86f, paint,
     )

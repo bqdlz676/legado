@@ -50,8 +50,8 @@ object NameResolver {
      * 生卒俱全 high，仅其一 medium，生卒俱缺 low（low 不进默认命中）。
      */
     fun registerAnchorProvider() {
-        ContextAnchor.personProvider = { q ->
-            val p = PersonProfile.profileOf(q) ?: return@personProvider emptyList()
+        ContextAnchor.personProvider = provider@{ q ->
+            val p = PersonProfile.profileOf(q) ?: return@provider emptyList()
             val conf = when {
                 p.birth != null && p.death != null -> ContextAnchor.Confidence.HIGH
                 p.birth != null || p.death != null -> ContextAnchor.Confidence.MEDIUM

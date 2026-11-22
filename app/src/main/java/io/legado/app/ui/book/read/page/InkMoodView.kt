@@ -114,10 +114,10 @@ class InkMoodView @JvmOverloads constructor(
             val p = i / (n - 1f)
             val x = w * p
             val y = h * 0.075f +
-                sin(p * 5.7f + 0.6f) * 9f * d +
-                sin(p * 13.9f + 1.2f) * 3.4f * d +
-                sin(p * 2.1f) * 5f * d
-            val breath = 0.5f + 0.5f * sin(t * 0.7f + p * 8.4f)
+                sin((p * 5.7f + 0.6f).toDouble()).toFloat() * 9f * d +
+                sin((p * 13.9f + 1.2f).toDouble()).toFloat() * 3.4f * d +
+                sin((p * 2.1f).toDouble()).toFloat() * 5f * d
+            val breath = 0.5f + 0.5f * sin((t * 0.7f + p * 8.4f).toDouble()).toFloat()
             paint.alpha = (9 + 13 * breath).toInt()
             canvas.drawCircle(x, y, (1.1f + (i % 4) * 0.45f) * d, paint)
         }
@@ -125,7 +125,7 @@ class InkMoodView @JvmOverloads constructor(
         for (i in 0 until 16) {
             val column = (i / 4) % 4
             val baseX = if (column % 2 == 0) w * 0.055f else w * 0.945f
-            val x = baseX + sin(t * 0.5f + column) * 2.4f * d
+            val x = baseX + sin((t * 0.5f + column).toDouble()).toFloat() * 2.4f * d
             val p = (t * 0.09f + phase[i]) % 1f
             val y = h * 0.10f + p * h * 0.26f
             paint.alpha = ((1f - p) * 20f).toInt().coerceAtLeast(3)
@@ -138,7 +138,7 @@ class InkMoodView @JvmOverloads constructor(
         paint.color = cWater
         for (i in 0 until PARTICLE) {
             val x = edgeX(u[i], w)
-            val y = h * 0.62f + sin(x * 0.03f + t * 0.7f) * 10f * d + phase[i] * 6f * d
+            val y = h * 0.62f + sin((x * 0.03f + t * 0.7f).toDouble()).toFloat() * 10f * d + phase[i] * 6f * d
             paint.alpha = 22 + (i % 4) * 5
             canvas.drawCircle(x, y, size[i] * d * 0.8f, paint)
         }
@@ -148,7 +148,7 @@ class InkMoodView @JvmOverloads constructor(
     private fun drawFire(canvas: Canvas, t: Float, w: Float, h: Float, d: Float) {
         paint.color = cFire
         for (i in 0 until PARTICLE) {
-            val x = edgeX(u[i], w) + sin(t * 0.9f + i) * 3f * d
+            val x = edgeX(u[i], w) + sin((t * 0.9f + i).toDouble()).toFloat() * 3f * d
             val p = (t * 0.18f + phase[i]) % 1f
             val y = h * 0.86f - p * h * 0.34f
             paint.alpha = (30 * (1f - p)).toInt().coerceAtLeast(6)
@@ -160,7 +160,7 @@ class InkMoodView @JvmOverloads constructor(
     private fun drawSnow(canvas: Canvas, t: Float, w: Float, h: Float, d: Float) {
         paint.color = cSnow
         for (i in 0 until PARTICLE) {
-            val x = edgeX(u[i], w) + sin(t * 0.5f + phase[i] * 8f) * 4f * d
+            val x = edgeX(u[i], w) + sin((t * 0.5f + phase[i] * 8f).toDouble()).toFloat() * 4f * d
             val p = (t * 0.1f + phase[i]) % 1f
             val y = p * h * 0.9f
             paint.alpha = 18 + (i % 3) * 6

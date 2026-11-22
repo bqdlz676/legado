@@ -82,9 +82,9 @@ class ChronoParticleField(
         for (p in ring) {
             val a = p.angle + tSec * p.angularSpeed
             val r = baseRadius * p.radiusFrac
-            p.x = cx + cos(a) * r
-            p.y = cy + sin(a) * r * 0.62f
-            val twinkle = 0.55f + 0.45f * sin(tSec * 1.6f + p.twinklePhase)
+            p.x = cx + cos(a.toDouble()).toFloat() * r
+            p.y = cy + sin(a.toDouble()).toFloat() * r * 0.62f
+            val twinkle = 0.55f + 0.45f * sin((tSec * 1.6f + p.twinklePhase).toDouble()).toFloat()
             p.alpha = 0.35f * twinkle
             p.size = (1.0f + twinkle * 0.6f) * density
         }
@@ -94,7 +94,7 @@ class ChronoParticleField(
             p.life += p.speed / 10f
             if (p.life > 1f) p.life -= 1f
             p.y = h * (1f - p.life)
-            p.x = (p.x + sin(tSec * 0.8f + p.driftPhase) * 0.01f)
+            p.x = (p.x + sin((tSec * 0.8f + p.driftPhase).toDouble()).toFloat() * 0.01f)
                 .coerceIn(0f, 1f) * w
             p.alpha = 0.30f * sin(p.life * Math.PI).toFloat()
             p.size = p.size * density

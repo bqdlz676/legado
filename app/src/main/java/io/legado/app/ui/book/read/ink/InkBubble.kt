@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.roundToPx
 import androidx.compose.ui.unit.sp
 import io.legado.app.help.bubble.Action
 import io.legado.app.help.bubble.BubbleContent

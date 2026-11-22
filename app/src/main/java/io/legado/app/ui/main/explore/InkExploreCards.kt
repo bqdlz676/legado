@@ -89,7 +89,7 @@ private fun InkText(
             fontSize = fontSize,
             color = color,
             letterSpacing = letterSpacing,
-            textAlign = textAlign,
+            textAlign = textAlign ?: TextAlign.Start,
             lineHeight = lineHeight
         ),
         maxLines = maxLines
