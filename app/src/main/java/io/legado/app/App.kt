@@ -118,6 +118,9 @@ class App : Application() {
             launch { runCatching { io.legado.app.help.PlaceTimeDict.ensureLoaded(appCtx) } }
             launch { runCatching { io.legado.app.help.relation.PersonTimeInfo.ensureLoaded(appCtx) } }
             launch { runCatching { io.legado.app.help.PlaceGeo.ensureLoaded(appCtx) } }
+            // 气泡引擎预热：注入 Context 并触达纪年 / 典故 / 人物 / 地名 / 字 各字典惰性加载，
+            // 对齐冷启首触气泡 ≤300ms、热路径 ≤80ms 红线；任一表失败不阻启动、不崩。
+            launch { runCatching { io.legado.app.help.bubble.BubbleResolver.preload(appCtx) } }
             //初始化封面
             BookCover.toString()
             //清除过期数据

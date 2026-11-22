@@ -1,27 +1,35 @@
 package io.legado.app.ui.book.read.ink
 
 import androidx.compose.ui.geometry.Rect
+import io.legado.app.ui.book.read.vertical.CharHit as VerticalCharHit
 
 /**
  * 阅读页 Compose 壳与宿主之间传递的 UI 模型。
  *
  * 气泡内容 / 动作 / 候选统一复用模块⑥ `io.legado.app.help.bubble` 的
  * [io.legado.app.help.bubble.BubbleContent]，本目录不另建并行数据模型。
+ * 逐字命中信息复用竖排引擎 [VerticalCharHit]，壳侧只补气泡定位用的外接矩形。
  */
 
-/** 命中字符的屏幕信息（相对阅读壳坐标，px）。宿主通过桥接接口从排版引擎取到后回填。 */
+/** 命中字符的屏幕信息（相对阅读壳坐标，px）。宿主通过桥接接口从竖排引擎取到后回填。 */
 data class CharHit(
     /** 原字外接矩形（px），气泡箭头对准其水平中心 */
     val anchor: Rect,
-    /** 命中的单字 / 词原文 */
-    val text: String,
-    /** 段落位置（对齐排版引擎 TextPos.relativePagePos / lineIndex 由宿主解释） */
-    val paragraphPos: Int,
-    /** 段落内字符下标 */
-    val charIndex: Int,
-    /** 命中的多字词（单字为 null） */
-    val word: String? = null,
-)
+    /** 竖排引擎逐字命中结果（字符 / 流内偏移 / 段落原文 / 段内下标）。 */
+    val engineHit: VerticalCharHit,
+) {
+    /** 命中的单字原文。 */
+    val text: String get() = engineHit.char.toString()
+
+    /** 命中字所在段落原文，喂给 BubbleResolver.resolve。 */
+    val paragraphText: String get() = engineHit.paragraphText
+
+    /** 命中字在段落内的下标，喂给 BubbleResolver.resolve。 */
+    val pos: Int get() = engineHit.pos
+
+    /** 章节字符流内偏移。 */
+    val offset: Int get() = engineHit.offset
+}
 
 /** 气泡锚点：原字位置 + 所在句行边界，用于「不遮当前句」与上下翻转判定。 */
 data class BubbleAnchor(

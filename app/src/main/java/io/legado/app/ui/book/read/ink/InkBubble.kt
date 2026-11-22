@@ -99,7 +99,7 @@ fun InkBubble(
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                if (content.phonetic.isNotBlank()) {
+                if (content.phonetic?.isNotBlank() == true) {
                     BasicText(
                         text = content.phonetic,
                         style = TextStyle(
