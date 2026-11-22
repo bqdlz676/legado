@@ -28,7 +28,7 @@ import java.util.LinkedHashMap
  * @param missing  兜底 Provider
  * @param cacheSize 热路径缓存条数（够一章反复点按）
  */
-class BubbleResolver(
+class BubbleResolverImpl(
     private val date: BubbleProvider,
     private val allusion: BubbleProvider,
     private val person: BubbleProvider,
@@ -120,7 +120,7 @@ class BubbleResolver(
  * 默认装配：真实骨架 Provider。后续数据表接入时只替换各 Provider 内部实现，
  * 优先级编排与本入口不动。
  */
-val DefaultBubbleResolver = BubbleResolver(
+val DefaultBubbleResolver = BubbleResolverImpl(
     date = DateProvider,
     allusion = WordProvider,
     person = PersonProvider,

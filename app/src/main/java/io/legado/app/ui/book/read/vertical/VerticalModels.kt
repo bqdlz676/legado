@@ -72,7 +72,7 @@ enum class PageTurn {
 // ---------------------------------------------------------------------------
 
 /** 字符类别，供测量、侧排分流与渲染取用。 */
-internal enum class CharKind {
+enum class CharKind {
     /** CJK 表意文字 / 假名等竖排正字。 */
     CJK,
 

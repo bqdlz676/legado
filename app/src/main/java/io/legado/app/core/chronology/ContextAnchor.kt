@@ -113,7 +113,10 @@ object ContextAnchor {
     fun getRange(): IntRange? = range
 
     /** 年份 → 朝代图层名 */
-    fun getDynasty(): String? = Chronology.dynastyOf(year ?: range?.first)
+    fun getDynasty(): String? {
+        val anchorYear = year ?: range?.first ?: return null
+        return Chronology.dynastyOf(anchorYear)
+    }
 
     /** 是否已锚定年代 */
     fun hasAnchor(): Boolean = year != null || range != null

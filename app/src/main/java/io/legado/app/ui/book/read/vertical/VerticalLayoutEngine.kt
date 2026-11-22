@@ -21,10 +21,11 @@ class VerticalLayoutEngine(
     private val bodySizePx: Float,
     private val titleSizePx: Float = bodySizePx + 2f,
     private val metrics: VerticalTypefaceMetrics = DefaultTypefaceMetrics(),
-    private val cache: VerticalMeasureCache = VerticalMeasureCache(),
     /** 标题列与正文列横向间距（px）；Android 工厂按 24dp 换算传入。 */
     private val titleGapPx: Float = VerticalTokens.TITLE_GAP_DP,
 ) {
+    // 字位缓存为引擎内部实现细节，不暴露进公开构造签名。
+    private val cache = VerticalMeasureCache()
     private var spec: VerticalLayoutSpec? = null
     private var pages: List<PageData> = emptyList()
     private var paragraphs: List<ParagraphRange> = emptyList()
