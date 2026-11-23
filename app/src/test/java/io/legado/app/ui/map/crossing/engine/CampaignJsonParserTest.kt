@@ -96,4 +96,57 @@ class CampaignJsonParserTest {
         assertEquals(5.0, army.strength, 1e-6)
         assertTrue(army.supply in 0..CampaignJsonParser.SUPPLY_FULL)
     }
+
+    @Test
+    fun `B4 数组字段类型错位回落空列表并标记降级，不抛异常`() {
+        // sides / diplomacy / armies / events 本应是数组；这里错置为对象 / 字符串，
+        // 旧实现 getAsJsonArray 会抛 JsonSyntaxException 穿透到 UI；新口径记 warning 后按空列表兜底。
+        val json = """
+        {
+          "id": "type-mismatch",
+          "sides": { "id": "a" },
+          "diplomacy": "not-an-array",
+          "armies": { "id": "a1" },
+          "events": 42,
+          "terrain": { "ridges": "oops", "rivers": { "pts": [] } }
+        }
+        """
+        val def = CampaignJsonParser.parse(json)
+        assertTrue("类型错位不得抛穿解析层", def.degraded)
+        assertTrue(def.sides.isEmpty())
+        assertTrue(def.diplomacy.isEmpty())
+        assertTrue(def.armies.isEmpty())
+        assertTrue(def.events.isEmpty())
+        assertTrue(def.terrain.ridges.isEmpty())
+        assertTrue(def.terrain.rivers.isEmpty())
+        assertTrue(def.warnings.any { it.contains("sides") })
+        assertTrue(def.warnings.any { it.contains("armies") })
+    }
+
+    @Test
+    fun `B4 victory.sub 非数组时递归解析不穿透并降级`() {
+        val json = """
+        {
+          "id": "sub-mismatch",
+          "victory": { "type": "compound", "op": "AND", "sub": { "type": "defend" } }
+        }
+        """
+        val def = CampaignJsonParser.parse(json)
+        assertTrue(def.degraded)
+        assertTrue(def.victory.sub.isEmpty())
+    }
+
+    @Test
+    fun `B4 heightMap 非字符串回落为 null 且不抛异常`() {
+        val json = """
+        {
+          "id": "heightmap-type",
+          "heightMap": { "asset": "china_height.png" },
+          "armies": [ { "id": "a1", "side": "a", "initialPos": [0.0, 0.0] } ]
+        }
+        """
+        val def = CampaignJsonParser.parse(json)
+        assertTrue(def.degraded)
+        assertEquals(null, def.heightMap)
+    }
 }

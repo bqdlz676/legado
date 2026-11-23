@@ -326,8 +326,13 @@ class CampaignController private constructor(
         for (enemy in enemies) {
             val distCells = octile(corps.position, enemy.position)
             val visible = distCells <= corps.visionRadiusCells && map.visible(corps.position, enemy.position)
-            if (visible) known[enemy.id] = enemy.latLng
-            else known[enemy.id] = corps.lastKnown[enemy.id] ?: enemy.latLng
+            if (visible) {
+                known[enemy.id] = enemy.latLng
+            } else {
+                // B9：视野外只沿用上次已知位置；从未见过的敌军不留存任何坐标，
+                // 禁止把实时位置兜底写进情报表（否则快照层会从 lastKnown 反透出真实坐标）。
+                corps.lastKnown[enemy.id]?.let { known[enemy.id] = it }
+            }
         }
         corps.lastKnown = known
     }
@@ -449,19 +454,26 @@ class CampaignController private constructor(
         "${"%.4f".format(point.lng)},${"%.4f".format(point.lat)}"
 
     fun snapshot(): TurnSnapshot {
-        // 情报雾（F8）：只有"本方军"或"被任一可见本方军看到"的敌方军才算 observed；
-        // 未观测的敌军不下发实时坐标（reportLat/Lng = null），避免玩家透视全图。
+        // 情报雾（B9/F8）：本方军、盟友、或被任一可见本方军看到的敌军才算 observed；
+        // 未观测单位不下发实时坐标：主坐标回退到上次已知位置 + 模糊半径，从未观测则坐标置空。
         val playerSide = definition.victory.side
+        val playerAllies = alliedSidesWith(playerSide)
         val observers = corps.filter { it.sideId == playerSide && it.combatReady() }
         val observedIds = HashSet<String>()
-        for (ob in observers) for (e in corps) {
-            if (e.sideId == ob.sideId) continue
-            val d = octile(ob.position, e.position)
-            if (d <= ob.visionRadiusCells && map.visible(ob.position, e.position)) observedIds += e.id
+        // 聚合各观察者记录的上次已知位置：未观测单位的主坐标只允许取这里的估计值，不碰实时 latLng。
+        val lastKnownAgg = HashMap<String, Geo>()
+        for (ob in observers) {
+            for ((knownId, geo) in ob.lastKnown) lastKnownAgg.putIfAbsent(knownId, geo)
+            for (e in corps) {
+                // 同阵营与盟友都不是侦察对象（B3：盟友不进敌方情报集），跳过视野判定。
+                if (e.sideId == ob.sideId || e.sideId in playerAllies) continue
+                val d = octile(ob.position, e.position)
+                if (d <= ob.visionRadiusCells && map.visible(ob.position, e.position)) observedIds += e.id
+            }
         }
         val views = corps.map { c ->
-            val seen = c.sideId == playerSide || c.id in observedIds
-            c.toView(observed = seen, report = if (seen) c.latLng else null)
+            val seen = c.sideId == playerSide || c.sideId in playerAllies || c.id in observedIds
+            c.toView(observed = seen, known = lastKnownAgg[c.id], report = if (seen) c.latLng else null)
         }
         return TurnSnapshot(
             turn = turn,
@@ -481,9 +493,11 @@ class CampaignController private constructor(
         firedEventIds = firedEvents.toSet(),
         captureHold = captureHold.toMap(),
         pointHolders = buildPointHolders(),
+        eventLog = _eventLog.toList(),
+        marchCells = marchCells.toMap(),
     )
 
-    /** 恢复分支：时间 / 兵力 / 已触发事件一并回滚；状态重置为进行中。 */
+    /** 恢复分支：时间 / 兵力 / 已触发事件 / 据点计数 / 事件条 / 行军量一并回滚；状态重置为进行中。 */
     fun restoreBranch(branch: BranchSnapshot) {
         corps.clear()
         corps += branch.corps.map { it.copy() }
@@ -493,7 +507,12 @@ class CampaignController private constructor(
         firedEvents += branch.firedEventIds
         captureHold.clear()
         captureHold.putAll(branch.captureHold)
-        restorePointHolders(branch.pointHolders)
+        // pointHolders 为派生信息：据点归属由恢复后的 corps 位置在下一回合重算，
+        // 不再按 corps id 回写 captureHold（旧实现键域与 pointKey 不一致，且清掉了已恢复的占领计数）。
+        _eventLog.clear()
+        _eventLog += branch.eventLog
+        marchCells.clear()
+        marchCells += branch.marchCells
         status = BattleStatus.ONGOING
         winnerSide = null
         finishReason = ""
@@ -523,13 +542,15 @@ class CampaignController private constructor(
 
     // 敌我判定必须叠加外交盟约：ALLIED 关系的另一阵营既不进敌方集合，也计入盟友集合。
     // 只按 sideId 相异判敌会让外交盟友在遭遇战中互耗（F2 回归根因）。
-    private fun Corps.filterEnemies(): List<Corps> =
+    // 收口约定：遭遇 / 支援 / 溃逃方向 / 情报 / 侧翼路径的敌我划分一律走这两处，
+    // 禁止在其它分支再按 sideId 相异自行判敌（B3）。internal 仅供同包单测直接断言集合口径。
+    internal fun Corps.filterEnemies(): List<Corps> =
         corps.filter {
             it.id != this.id && it.sideId != this.sideId &&
                 it.sideId !in alliedSidesWith(this.sideId) && it.combatReady()
         }
 
-    private fun Corps.filterAllies(): List<Corps> =
+    internal fun Corps.filterAllies(): List<Corps> =
         corps.filter {
             it.id != this.id &&
                 (it.sideId == this.sideId || it.sideId in alliedSidesWith(this.sideId)) &&
@@ -561,34 +582,43 @@ class CampaignController private constructor(
         if (_eventLog.size > LOG_CAPACITY) _eventLog.removeAt(0)
     }
 
-    private fun Corps.toView(observed: Boolean = true, report: io.legado.app.ui.map.crossing.model.Geo? = null): CorpsView = CorpsView(
-        id = id,
-        name = name,
-        sideId = sideId,
-        role = role,
-        type = type,
-        strength = strength,
-        fatigue = fatigue,
-        morale = morale,
-        intent = intent,
-        lat = latLng.lat,
-        lng = latLng.lng,
-        targetLat = target?.lat,
-        targetLng = target?.lng,
-        alive = alive,
-        surrendered = surrendered,
-        route = route.map { projection.toGeo(it) },
-        observed = observed,
-        reportLat = report?.lat,
-        reportLng = report?.lng,
-    )
-
-    /** 恢复据点归属：快照里记录了"据点 id → 阵营"，恢复时重算对应军的占领计数并写回。 */
-    private fun restorePointHolders(holders: Map<String, String>) {
-        if (holders.isEmpty()) return
-        captureHold.clear()
-        for ((_, side) in holders) for (c in corps) if (c.sideId == side) captureHold[c.id] = 1
+    private fun Corps.toView(
+        observed: Boolean = true,
+        known: Geo? = null,
+        report: Geo? = null,
+    ): CorpsView {
+        // B9：未观测单位的主坐标只能取上次已知位置；两者都缺时置 null，壳层据此不画棋子。
+        val reported = report ?: known
+        val fuzzy = !observed
+        return CorpsView(
+            id = id,
+            name = name,
+            sideId = sideId,
+            role = role,
+            type = type,
+            strength = strength,
+            fatigue = fatigue,
+            morale = morale,
+            intent = intent,
+            lat = reported?.lat,
+            lng = reported?.lng,
+            targetLat = target?.lat,
+            targetLng = target?.lng,
+            alive = alive,
+            surrendered = surrendered,
+            // 未观测单位不下发行军路线：路线反推实时动向，与坐标同属情报泄漏面。
+            route = if (observed) route.map { projection.toGeo(it) } else emptyList(),
+            observed = observed,
+            reportLat = report?.lat,
+            reportLng = report?.lng,
+            reportRadiusKm = if (fuzzy) blurRadiusKm() else null,
+            fuzzy = fuzzy,
+        )
     }
+
+    /** 模糊定位半径（公里）：按本军兵种视野格数 × 单格边长折算；视野越宽估计圈越大（B9）。 */
+    private fun Corps.blurRadiusKm(): Double =
+        visionRadiusCells * projection.cellSizeMeters / 1000.0
 
     companion object {
         /** 推演网格边长（格 × 格）；高程图与投影共用同一口径。 */

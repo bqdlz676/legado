@@ -1,5 +1,6 @@
 package io.legado.app.ui.map.crossing.engine
 
+import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -46,8 +47,16 @@ object CampaignJsonParser {
         if (root == null || !root.isJsonObject) {
             return fallback("JSON 根节点不是对象", warnings)
         }
-        val obj = root.asJsonObject
+        // 最后一道兜底：分块解析若有漏网异常（类型错位 / 非法取值），整体回落中立定义，
+        // 绝不把异常抛到 UI；degraded 由 fallback 统一置真。
+        return try {
+            buildDefinition(root.asJsonObject, warnings)
+        } catch (t: Throwable) {
+            fallback("解析过程异常已兜底：${t.javaClass.simpleName}", warnings)
+        }
+    }
 
+    private fun buildDefinition(obj: JsonObject, warnings: MutableList<String>): CampaignDefinition {
         val id = str(obj, "id", "unknown")
         val title = str(obj, "title", "未名之战")
         val era = str(obj, "era", "")
@@ -58,8 +67,8 @@ object CampaignJsonParser {
         val duration = int(obj, "duration", DEFAULT_DURATION).coerceAtLeast(1)
         val weather = parseWeather(obj)
         val victory = parseVictory(obj, warnings)
-        val sides = parseSides(obj)
-        val diplomacy = parseDiplomacy(obj)
+        val sides = parseSides(obj, warnings)
+        val diplomacy = parseDiplomacy(obj, warnings)
         val armies = parseArmies(obj, warnings)
         val events = parseEvents(obj, warnings)
         val terrain = parseTerrain(obj, warnings)
@@ -132,7 +141,7 @@ object CampaignJsonParser {
         val holdTurns = int(v, "holdTurns", 3).coerceAtLeast(1)
         val op = str(v, "op", "AND").uppercase()
         val sub = mutableListOf<VictoryDef>()
-        v.getAsJsonArray("sub")?.forEach { item ->
+        getArray(v, "sub", warnings, "victory.sub")?.forEach { item ->
             if (item.isJsonObject) {
                 sub += parseVictoryDef(item.asJsonObject, warnings)
             } else {
@@ -142,10 +151,10 @@ object CampaignJsonParser {
         return VictoryDef(type, target, side, point, holdTurns, op, sub)
     }
 
-    private fun parseSides(obj: JsonObject): List<SideDef> {
-        val arr = obj.getAsJsonArray("sides") ?: return emptyList()
+    private fun parseSides(obj: JsonObject, warnings: MutableList<String>): List<SideDef> {
+        val items = getArray(obj, "sides", warnings, "sides") ?: return emptyList()
         val out = mutableListOf<SideDef>()
-        arr.forEach { el ->
+        items.forEach { el ->
             if (!el.isJsonObject) return@forEach
             val s = el.asJsonObject
             out += SideDef(
@@ -157,10 +166,10 @@ object CampaignJsonParser {
         return out
     }
 
-    private fun parseDiplomacy(obj: JsonObject): List<DiplomacyDef> {
-        val arr = obj.getAsJsonArray("diplomacy") ?: return emptyList()
+    private fun parseDiplomacy(obj: JsonObject, warnings: MutableList<String>): List<DiplomacyDef> {
+        val items = getArray(obj, "diplomacy", warnings, "diplomacy") ?: return emptyList()
         val out = mutableListOf<DiplomacyDef>()
-        arr.forEach { el ->
+        items.forEach { el ->
             if (!el.isJsonObject) return@forEach
             val d = el.asJsonObject
             out += DiplomacyDef(
@@ -173,9 +182,9 @@ object CampaignJsonParser {
     }
 
     private fun parseArmies(obj: JsonObject, warnings: MutableList<String>): List<ArmyDef> {
-        val arr = obj.getAsJsonArray("armies") ?: return emptyList()
+        val items = getArray(obj, "armies", warnings, "armies") ?: return emptyList()
         val out = mutableListOf<ArmyDef>()
-        arr.forEachIndexed { index, el ->
+        items.forEachIndexed { index, el ->
             if (!el.isJsonObject) {
                 warnings += "armies[$index] 不是对象，已跳过"
                 return@forEachIndexed
@@ -201,9 +210,9 @@ object CampaignJsonParser {
     }
 
     private fun parseEvents(obj: JsonObject, warnings: MutableList<String>): List<EventDef> {
-        val arr = obj.getAsJsonArray("events") ?: return emptyList()
+        val items = getArray(obj, "events", warnings, "events") ?: return emptyList()
         val out = mutableListOf<EventDef>()
-        arr.forEachIndexed { index, el ->
+        items.forEachIndexed { index, el ->
             if (!el.isJsonObject) {
                 warnings += "events[$index] 不是对象，已跳过"
                 return@forEachIndexed
@@ -245,7 +254,7 @@ object CampaignJsonParser {
             if (!el.isJsonObject) return TerrainDef(procedural = true, emptyList(), emptyList())
             val t = el.asJsonObject
             val ridges = mutableListOf<RidgeDef>()
-            t.getAsJsonArray("ridges")?.forEach { r ->
+            getArray(t, "ridges", warnings, "terrain.ridges")?.forEach { r ->
                 if (r.isJsonObject) {
                     val ro = r.asJsonObject
                     ridges += RidgeDef(
@@ -255,7 +264,7 @@ object CampaignJsonParser {
                 }
             }
             val rivers = mutableListOf<RiverDef>()
-            t.getAsJsonArray("rivers")?.forEachIndexed { index, rv ->
+            getArray(t, "rivers", warnings, "terrain.rivers")?.forEachIndexed { index, rv ->
                 if (!rv.isJsonObject) {
                     warnings += "terrain.rivers[$index] 不是对象，已跳过"
                     return@forEachIndexed
@@ -342,6 +351,19 @@ object CampaignJsonParser {
         } catch (t: Throwable) {
             default
         }
+    }
+
+    /**
+     * 安全取数组字段：字段缺失返回 null；存在但类型错位（对象 / 字符串 / 数值）时记 warning
+     * 并返回 null，由调用方按空列表兜底——避免 Gson `getAsJsonArray` 类型错位直接抛异常穿透到 UI。
+     */
+    private fun getArray(obj: JsonObject, key: String, warnings: MutableList<String>, label: String): JsonArray? {
+        val el = obj.get(key) ?: return null
+        if (!el.isJsonArray) {
+            warnings += "$label 不是数组，已按空列表兜底"
+            return null
+        }
+        return el.asJsonArray
     }
 
     /** 从 [lng, lat] 数组取经纬度；数组长度不足或非数返回 null。 */

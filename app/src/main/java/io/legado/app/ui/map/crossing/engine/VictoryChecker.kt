@@ -28,8 +28,7 @@ object VictoryChecker {
      *        仅 DEFEND 分支消费，用于判定目标点是否被敌方占据。
      * @param alliedSideIds 与胜利条件方结盟的 sideId 集合；DEFEND 中盟友占据据点不算失守，
      *        ROUT 中盟友不计入敌方 blockers。
-     *        两个默认空值仅为兼容测试源集中沿用五参旧形参表的既有用例；生产调用方
-     *        （CampaignController）必须显式传入实参，不得依赖默认值。
+     *        两个形参均为必传（B5：不留默认空值兼容层）；生产调用方与测试用例必须显式传入实参。
      */
     fun check(
         def: VictoryDef,
@@ -37,8 +36,8 @@ object VictoryChecker {
         turn: Int,
         duration: Int,
         captureHoldTurns: Map<String, Int>,
-        pointHolders: Map<String, String> = emptyMap(),
-        alliedSideIds: Set<String> = emptySet(),
+        pointHolders: Map<String, String>,
+        alliedSideIds: Set<String>,
     ): Outcome {
         val outcome = evaluate(def, corps, turn, duration, captureHoldTurns, pointHolders, alliedSideIds)
         // 防御类：撑满回合且目标方仍在、据点未失守 → 胜；目标方提前被歼或据点失守 → 负。

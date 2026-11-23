@@ -79,6 +79,7 @@ class VictoryCheckerTest {
             duration = 30,
             captureHoldTurns = emptyMap(),
             pointHolders = holders,
+            alliedSideIds = emptySet(),
         )
         assertEquals(BattleStatus.DEFEAT, outcome.status)
         assertTrue(outcome.reason.contains("据点"))
@@ -110,6 +111,7 @@ class VictoryCheckerTest {
             duration = 30,
             captureHoldTurns = emptyMap(),
             pointHolders = mapOf(pointKey to "a"),
+            alliedSideIds = emptySet(),
         )
         assertEquals(BattleStatus.VICTORY, outcome.status)
     }
@@ -118,7 +120,7 @@ class VictoryCheckerTest {
     fun `F5 ROUT 敌方存活且士气未全溃时继续推演`() {
         val blockers = listOf(corps("b1", "b", morale = Morale.HIGH))
         val def = VictoryDef(VictoryType.ROUT, null, "a", null, 3, "AND", emptyList())
-        val outcome = VictoryChecker.check(def, blockers, turn = 5, duration = 30, emptyMap())
+        val outcome = VictoryChecker.check(def, blockers, turn = 5, duration = 30, emptyMap(), emptyMap(), emptySet())
         assertEquals(BattleStatus.ONGOING, outcome.status)
     }
 
@@ -129,7 +131,7 @@ class VictoryCheckerTest {
             corps("b2", "b", morale = Morale.BROKEN),
         )
         val def = VictoryDef(VictoryType.ROUT, null, "a", null, 3, "AND", emptyList())
-        val outcome = VictoryChecker.check(def, blockers, turn = 5, duration = 30, emptyMap())
+        val outcome = VictoryChecker.check(def, blockers, turn = 5, duration = 30, emptyMap(), emptyMap(), emptySet())
         assertEquals(BattleStatus.VICTORY, outcome.status)
     }
 
@@ -140,7 +142,7 @@ class VictoryCheckerTest {
             corps("b2", "b", surrendered = true),
         )
         val def = VictoryDef(VictoryType.ROUT, null, "a", null, 3, "AND", emptyList())
-        val outcome = VictoryChecker.check(def, wiped, turn = 5, duration = 30, emptyMap())
+        val outcome = VictoryChecker.check(def, wiped, turn = 5, duration = 30, emptyMap(), emptyMap(), emptySet())
         assertEquals(BattleStatus.ONGOING, outcome.status)
     }
 
@@ -157,6 +159,7 @@ class VictoryCheckerTest {
             turn = 5,
             duration = 30,
             captureHoldTurns = emptyMap(),
+            pointHolders = emptyMap(),
             alliedSideIds = setOf("c"),
         )
         // 盟友 c1 士气高昂但被排除；敌军 b1 已全溃 → 判胜。
@@ -173,6 +176,8 @@ class VictoryCheckerTest {
             turn = 4,
             duration = 30,
             captureHoldTurns = mapOf(pointKey to 3),
+            pointHolders = emptyMap(),
+            alliedSideIds = emptySet(),
         )
         assertEquals(BattleStatus.VICTORY, outcome.status)
     }
@@ -186,16 +191,16 @@ class VictoryCheckerTest {
             corps("b1", "b", alive = false, strength = 0.0),
         )
         val orDef = VictoryDef(VictoryType.COMPOUND, null, "a", null, 3, "OR", listOf(subA, subB))
-        val orOutcome = VictoryChecker.check(orDef, corps, turn = 5, duration = 30, emptyMap())
+        val orOutcome = VictoryChecker.check(orDef, corps, turn = 5, duration = 30, emptyMap(), emptyMap(), emptySet())
         assertEquals(BattleStatus.VICTORY, orOutcome.status)
 
         val andDef = VictoryDef(VictoryType.COMPOUND, null, "a", null, 3, "AND", listOf(subA, subB))
-        val andOutcome = VictoryChecker.check(andDef, corps, turn = 5, duration = 30, emptyMap())
+        val andOutcome = VictoryChecker.check(andDef, corps, turn = 5, duration = 30, emptyMap(), emptyMap(), emptySet())
         // b1 已歼灭但 a1 在点上（REACH_POINT 达成），两者均达成 → AND 亦胜；
         // 再构造一个只达成子条件之一的阵营验证 AND 不宽松。
         assertTrue(andOutcome.finished)
         val oneSided = listOf(corps("b1", "b", alive = false, strength = 0.0))
-        val andPartial = VictoryChecker.check(andDef, oneSided, turn = 5, duration = 30, emptyMap())
+        val andPartial = VictoryChecker.check(andDef, oneSided, turn = 5, duration = 30, emptyMap(), emptyMap(), emptySet())
         assertFalse(andPartial.finished)
     }
 }

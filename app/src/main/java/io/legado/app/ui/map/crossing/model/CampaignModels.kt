@@ -196,18 +196,26 @@ data class CorpsView(
     val fatigue: Double,
     val morale: Morale,
     val intent: Intent,
-    val lat: Double,
-    val lng: Double,
+    /**
+     * 主坐标（纬度 / 经度）。口径随 [observed] / [fuzzy] 变：
+     * 观测到 → 实时坐标；未观测 → 上次已知位置；从未观测 → null（绝不下发真实坐标，B9）。
+     */
+    val lat: Double? = null,
+    val lng: Double? = null,
     val targetLat: Double?,
     val targetLng: Double?,
     val alive: Boolean,
     val surrendered: Boolean,
     val route: List<Geo>,
-    /** 情报雾（F8）：本方军、或被任一可见本方军看到的敌军 = true。 */
+    /** 情报雾（F8）：本方军、盟友、或被任一可见本方军看到的敌军 = true。 */
     val observed: Boolean = false,
-    /** 观测到的实时坐标；未观测时为 null（不下发旧坐标，避免透视）。 */
+    /** 观测到的实时坐标；未观测时为 null（不下发实时坐标，避免透视）。 */
     val reportLat: Double? = null,
     val reportLng: Double? = null,
+    /** 模糊定位半径（公里）：未观测单位按兵种视野给出误差圈；实时观测为 null。 */
+    val reportRadiusKm: Double? = null,
+    /** 降级 / 模糊标志：true 表示 [lat]/[lng] 是上次已知估计值而非实时位置，壳层应画成模糊标记。 */
+    val fuzzy: Boolean = false,
 )
 
 /** 一回合的推演快照（回放 / 分支对比消费）。 */
@@ -226,8 +234,12 @@ data class BranchSnapshot(
     val elapsedDays: Int,
     val corps: List<Corps>,
     val firedEventIds: Set<Int>,
-    /** 据点连续占领计数：不回滚会让恢复后第一次"易主"判定沿用旧时间线（B7）。默认空表兼容旧调用方。 */
+    /** 据点连续占领计数：不回滚会让恢复后第一次"易主"判定沿用旧时间线（B7）。 */
     val captureHold: Map<String, Int> = emptyMap(),
     /** 据点当前归属（据点 id → 阵营 id）：B7 要求快照回滚全部可变量，否则恢复后胜负面板沿用旧占领方。 */
     val pointHolders: Map<String, String> = emptyMap(),
+    /** 事件日志回档：B7 要求全部可变量往返一致，否则恢复后事件条仍显示旧时间线的战况。 */
+    val eventLog: List<String> = emptyList(),
+    /** 本回合行军格数：回档后首回合士气 / 补给结算不得沿用旧时间线的行军量（B7）。 */
+    val marchCells: Map<String, Int> = emptyMap(),
 )

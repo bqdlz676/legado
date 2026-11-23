@@ -258,7 +258,12 @@ private fun MapCanvas(
 
         // 棋子：势力底色块 + 角色色圆子；溃散 / 投降压暗。
         snapshot.corps.forEach { corps ->
-            val pos = geoToOffset(Geo(corps.lat, corps.lng), projection, size)
+            // B9：从未观测的单位坐标为空（lat/lng = null），不落棋子；
+            // 模糊定位由 reportRadiusKm / fuzzy 字段另行表达，不在此反推实时位置。
+            val lat = corps.lat
+            val lng = corps.lng
+            if (lat == null || lng == null) return@forEach
+            val pos = geoToOffset(Geo(lat, lng), projection, size)
             val fillAlpha = when (corps.role) {
                 FactionRole.OWN -> CrossingTokens.OWN_FILL_ALPHA
                 FactionRole.ENEMY -> CrossingTokens.ENEMY_FILL_ALPHA
