@@ -153,6 +153,13 @@
         <activity
             android:name=".ui.main.PlaceMapActivity"
             android:exported="false" />
+        <!-- 3D 地球仪（Compose 自绘宿主，接 GlobeController 门面） -->
+        <activity
+            android:name="io.legado.app.ui.map.globe.host.GlobeActivity"
+            android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:exported="false"
+            android:label="舆图地球仪"
+            android:theme="@style/AppTheme.Light" />
         <activity
             android:name=".ui.main.BattleActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"

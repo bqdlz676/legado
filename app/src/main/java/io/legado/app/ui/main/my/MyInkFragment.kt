@@ -28,6 +28,7 @@ import io.legado.app.ui.config.ConfigTag
 import io.legado.app.ui.dict.rule.DictRuleActivity
 import io.legado.app.ui.file.FileManageActivity
 import io.legado.app.ui.main.MainFragmentInterface
+import io.legado.app.ui.map.globe.host.GlobeActivity
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.putPrefBoolean
@@ -84,8 +85,11 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
             open(FileManageActivity::class.java)
         }
 
-        // 3D 地球仪 / 沙盘 / 回放新壳（ui/map/globe|sandbox|replay）尚无 Android 宿主页，
-        // 入口待地图页落地后接 GlobeController 门面；旧 GLES 地球仪包已拆除，此处不挂死链。
+        // 3D 地球仪：Compose 自绘宿主 GlobeActivity 接 GlobeController 门面，
+        // 球面几何 / 大圆寻路 / LOD / 势力 / 回放 / 离线兜底全部走门面，断网走种子舆图。
+        rows += Row(Row.NAV, "舆图地球仪", "球面战役 · 势力舆图 · 离线兜底", R.drawable.ic_bottom_explore) {
+            open(GlobeActivity::class.java)
+        }
 
         rows += Row(Row.HEAD, "外 观")
         rows += Row(Row.VALUE, "主题模式", "日间 / 夜间 / 跟随系统", R.drawable.ic_cfg_theme, "", "跟随系统") {
