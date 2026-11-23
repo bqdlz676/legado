@@ -671,11 +671,11 @@ class CampaignController private constructor(
 
     /**
      * 阵营级友方判定（B3 收口）：同阵营或外交 ALLIED 盟约方；任一侧 sideId 为空时一律非友。
-     * 情报快照的侦察跳过条件 / 可见性标记与 [alliesOf] 阵营口径同源，避免两套口径漂移。
+     * 谓词实现收口到 [VictoryChecker.isFriendlySide]，与 DEFEND 据点失守判定同源，
+     * 避免判定层 / 控制器各写一套 sideId 比较导致口径漂移；盟友集合仍由 [alliedSidesWith] 推导。
      */
     private fun isFriendlySide(side: String?, otherSide: String?): Boolean =
-        side != null && otherSide != null &&
-            (side == otherSide || otherSide in alliedSidesWith(side))
+        VictoryChecker.isFriendlySide(side, otherSide, alliedSidesWith(side))
 
     private fun dailyMaxCells(corps: Corps): Int {
         val kind = map.kindAt(corps.position)

@@ -25,11 +25,11 @@ object VictoryChecker {
     /**
      * @param captureHoldTurns 据点被目标 side 连续占领的回合数（key = 据点标识）
      * @param pointHolders 据点当前占据方表（key = 据点标识，value = 占据方 sideId）；
-     *        仅 DEFEND 分支消费，用于判定目标点是否被敌方占据。
+     *        仅 DEFEND 分支消费，用于判定目标点是否被非友方占据。
      * @param alliedSideIds 与胜利条件方结盟的 sideId 集合；DEFEND 中盟友占据据点不算失守，
      *        ROUT 中盟友不计入敌方 blockers。
-     *        两个默认空值仅为兼容测试源集中沿用五参旧形参表的既有用例；生产调用方
-     *        （CampaignController）必须显式传入实参，不得依赖默认值。
+     *        两个形参为必传项：生产调用方 [CampaignController] 与测试源集均须显式传入，
+     *        不设默认值、不留旧五参重载兼容层。
      */
     fun check(
         def: VictoryDef,
@@ -37,8 +37,8 @@ object VictoryChecker {
         turn: Int,
         duration: Int,
         captureHoldTurns: Map<String, Int>,
-        pointHolders: Map<String, String> = emptyMap(),
-        alliedSideIds: Set<String> = emptySet(),
+        pointHolders: Map<String, String>,
+        alliedSideIds: Set<String>,
     ): Outcome {
         val outcome = evaluate(def, corps, turn, duration, captureHoldTurns, pointHolders, alliedSideIds)
         // 防御类：撑满回合且目标方仍在、据点未失守 → 胜；目标方提前被歼或据点失守 → 负。
@@ -77,8 +77,9 @@ object VictoryChecker {
                 val defenders = corps.filter { it.sideId == def.side && it.combatReady() }
                 // 据点占据方：据点 key 与 captureHold / 测试用例同一口径（lng,lat 各四位小数）。
                 val holder = def.point?.let { pointHolders[pointKey(it)] }
-                // 被非盟友的敌方占据即失守；防御方己方或盟友占据均不算失守。
-                val lost = holder != null && holder != def.side && holder !in alliedSideIds
+                // 失守判定走 B3 收口的友方谓词：己方 / 盟友占据均不算失守，仅非友方占据判负；
+                // 不在本分支另写 sideId 相异判敌的第二套口径。
+                val lost = holder != null && !isFriendlySide(def.side, holder, alliedSideIds)
                 when {
                     lost -> Outcome(BattleStatus.DEFEAT, def.side, "据点已被敌方占据，防御失败")
                     defenders.isEmpty() -> Outcome(BattleStatus.DEFEAT, def.side, "防御方已被击溃")
@@ -143,6 +144,14 @@ object VictoryChecker {
 
     private fun pointKey(point: io.legado.app.ui.map.crossing.model.Geo): String =
         "${"%.4f".format(point.lng)},${"%.4f".format(point.lat)}"
+
+    /**
+     * 阵营级友方判定（B3 收口；CampaignController 的私有 isFriendlySide 委托到本谓词）：
+     * 同阵营或在 [allies] 盟友集合内即友；任一侧 sideId 为空一律非友。
+     * 判定层与控制器共用本谓词，禁止在其它分支再按 sideId 相异自行判敌。
+     */
+    internal fun isFriendlySide(side: String?, other: String?, allies: Set<String>): Boolean =
+        side != null && other != null && (side == other || other in allies)
 
     private val Ongoing = Outcome(BattleStatus.ONGOING, null, "推演进行中")
 
