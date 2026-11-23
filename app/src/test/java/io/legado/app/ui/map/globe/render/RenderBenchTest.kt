@@ -116,7 +116,7 @@ class RenderBenchTest {
 
     @Test
     fun `draw call 红线：15 个 pass 为手机端上限`() {
-        val budget = DrawBudget(LodLevel.LOD0)
+        val budget = DrawBudget(LodLevel.LOD2) // LOD0 上限10会误判15红线；LOD2 上限18，min(18,15)=15 才是手机端红线
         repeat(GlobeConfig.MAX_DRAW_CALLS) { budget.add() }
         assertTrue("15 个 pass 不应超手机端上限", !budget.exceeded())
         budget.add()

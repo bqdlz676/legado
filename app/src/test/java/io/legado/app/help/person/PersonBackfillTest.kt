@@ -337,9 +337,9 @@ class PersonBackfillTest {
     fun `alias 解析 占位君主条目保留类型 普通人名归并`() {
         val entries = PersonAssets.parseAlias(readAsset("person_alias.txt"))
         assertTrue(entries.isNotEmpty())
-        val ruler = entries.firstOrNull { it.owner.startsWith("@") }
+        val ruler = entries.firstOrNull { it.alias.startsWith("@") } // @占位在别名列(alias=p[0])，owner 是归属通称(如卫侯)
         assertNotNull(ruler)
-        val named = entries.firstOrNull { !it.owner.startsWith("@") }
+        val named = entries.firstOrNull { !it.alias.startsWith("@") }
         assertNotNull(named)
         assertTrue(named!!.alias.isNotBlank())
     }

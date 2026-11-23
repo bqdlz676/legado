@@ -94,7 +94,7 @@ class VerticalPaginatorTest {
         val result = newPaginator().layout("城濮之战，", null, reuseCache = false)
         val cells = allCells(result)
 
-        assertEquals(6, cells.size)
+        assertEquals(5, cells.size) // "城濮之战，" 共 5 字符 5 格；切片-09 未规定全角标点拆两格，第 69 行同口径
         val comma = cells.first { it.char == '，' }
         assertEquals(CharKind.PUNCT, comma.kind)
         assertFalse(comma.rotated)

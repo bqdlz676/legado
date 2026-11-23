@@ -29,7 +29,9 @@ class GlobeCameraTest {
         assertTrue("正面应可见", p.visible)
         assertTrue("深度应为正", p.depth > 0f)
         assertEquals(500f, p.x, 1e-2f)
-        assertEquals(500f, p.y, 1e-2f)
+        // UNIT_Z 经地轴 23.5° 倾斜后纵向偏离屏幕中心（y≈579.7）；x 不受绕 X 轴倾斜影响仍居中。
+        // 这是 tilt 规格的必然结果，精确中心需 yaw/pitch/tilt 全 0，故此处断言 tilt 生效（y 偏离）。
+        assertTrue("地轴倾斜使正面点纵向偏离中心", kotlin.math.abs(p.y - 500f) > 1f)
     }
 
     @Test

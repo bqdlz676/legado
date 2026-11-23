@@ -56,7 +56,8 @@ class PersonProfileWiringTest {
         reignEnd = reignEnd,
     )
 
-    private fun fmt(y: Int): String = if (y <= 0) "前${1 - y}" else "$y"
+    // 负年展示取 -y（前n），勿再 -1；与 Chronology 内部纪年 "前${-year}" 口径一致（前722 存 -722，展示前722）。
+    private fun fmt(y: Int): String = if (y <= 0) "前${-y}" else "$y"
 
     // ---------- 1. 人名异读命中 ----------
 
