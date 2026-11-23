@@ -30,7 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -498,7 +500,7 @@ private fun TimelineRow(host: GlobeHostController, snapshot: FrameSnapshot) {
                     detectTapGestures { offset ->
                         if (rounds > 0) {
                             val ratio = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                            host.seekTurn(ratio * rounds)
+                            host.seekTurn((ratio * rounds).toDouble())
                         }
                     }
                 },
@@ -585,7 +587,7 @@ private fun projOf(host: GlobeHostController, w: Float, h: Float): GlobeProjecti
 /** onSizeChanged 的 Compose 兼容包装，避免本文件直接依赖 Modifier 扩展版本差异。 */
 private fun Modifier.onSizeChangedCompat(onSize: (Float, Float) -> Unit): Modifier =
     this.then(
-        androidx.compose.ui.layout.onSizeChanged { size ->
+        Modifier.onSizeChanged { size ->
             onSize(size.width.toFloat(), size.height.toFloat())
         },
     )

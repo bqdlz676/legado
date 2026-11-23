@@ -54,10 +54,10 @@ object PersonAssets {
             val name = p[0].trim()
             if (name.isEmpty()) return@forEach
             out[name] = L1Supplement(
-                reignStart = p.getOrNull(6)?.trim().toIntOrNull(),
-                reignEnd = p.getOrNull(7)?.trim().toIntOrNull(),
-                birth = p.getOrNull(4)?.trim().toIntOrNull(),
-                death = p.getOrNull(5)?.trim().toIntOrNull(),
+                reignStart = p.getOrNull(6)?.trim()?.toIntOrNull(),
+                reignEnd = p.getOrNull(7)?.trim()?.toIntOrNull(),
+                birth = p.getOrNull(4)?.trim()?.toIntOrNull(),
+                death = p.getOrNull(5)?.trim()?.toIntOrNull(),
                 courtesy = p[1].trim().ifBlank { null },
                 style = p[2].trim().ifBlank { null },
                 fief = p[3].trim().ifBlank { null },
@@ -89,9 +89,9 @@ object PersonAssets {
             val sourceText = p[8].trim()
             val confidence = p[9].trim().ifBlank { null }
             val proofread = p.getOrNull(10)?.trim() == "1"
-            val zi = p.getOrNull(11)?.trim().ifBlank { null }
-            val hao = p.getOrNull(12)?.trim().ifBlank { null }
-            val fief = p.getOrNull(13)?.trim().ifBlank { null }
+            val zi = p.getOrNull(11)?.trim()?.ifBlank { null }
+            val hao = p.getOrNull(12)?.trim()?.ifBlank { null }
+            val fief = p.getOrNull(13)?.trim()?.ifBlank { null }
 
             val supp = supplements[name]
             val (reignStart, reignEnd) = reignFromFeat(feat)
@@ -142,8 +142,8 @@ object PersonAssets {
                 owner = owner,
                 type = p[2].trim(),
                 state = p[3].trim(),
-                reignStart = p.getOrNull(4)?.trim().toIntOrNull(),
-                reignEnd = p.getOrNull(5)?.trim().toIntOrNull(),
+                reignStart = p.getOrNull(4)?.trim()?.toIntOrNull(),
+                reignEnd = p.getOrNull(5)?.trim()?.toIntOrNull(),
             )
         }
         return out
