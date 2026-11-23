@@ -17,7 +17,7 @@ class ShelfBookUiTest {
     }
 
     @Test
-    fun `章节口径进度按章序夹取在 0..1`() {
+    fun `章节口径进度按章序夹取在 0 到 1`() {
         assertEquals(0f, ShelfBookMath.progressOf(0, 0), 1e-6f)
         assertEquals(0.25f, ShelfBookMath.progressOf(0, 4), 1e-6f)
         assertEquals(0.6f, ShelfBookMath.progressOf(2, 5), 1e-6f)

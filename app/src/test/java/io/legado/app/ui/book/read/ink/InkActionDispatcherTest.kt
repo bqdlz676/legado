@@ -69,7 +69,7 @@ class InkActionDispatcherTest {
     }
 
     @Test
-    fun `锚点未定年时人物 / 关系路由年代为 null，不猜年份`() {
+    fun `锚点未定年时人物或关系路由年代为 null，不猜年份`() {
         ContextAnchor.reset()
         val person = InkActionDispatcher.route(Action.OpenPerson("孔子"), ContextAnchor) as InkRoute.Person
         assertNull(person.anchorYear)
