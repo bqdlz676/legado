@@ -103,7 +103,8 @@ object VictoryChecker {
             VictoryType.COMPOUND -> {
                 val results = def.sub.map { evaluate(it, corps, turn, duration, captureHoldTurns) }
                 val hit = results.map { it.finished && it.status == BattleStatus.VICTORY }
-                val passed = if (def.op.equals("OR", ignoreCase = true)) hit.any() else hit.all()
+                // all() 无无参重载，必须显式给 predicate；{ it } 即“每项均为 true”，与 AND 语义一致。
+                val passed = if (def.op.equals("OR", ignoreCase = true)) hit.any() else hit.all { it }
                 if (passed) Outcome(BattleStatus.VICTORY, def.side, "组合条件达成（${def.op}）")
                 else if (turn > duration) Outcome(BattleStatus.DEFEAT, def.side, "回合耗尽，组合条件未达成")
                 else Ongoing
