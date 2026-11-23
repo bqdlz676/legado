@@ -324,7 +324,7 @@ private fun CorpsRoster(
                 BasicText(
                     text = corps.name,
                     style = TextStyle(
-                        color = Color(pieceColor(corps.role)),
+                        color = pieceColor(corps.role),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Serif,
                     ),
