@@ -111,26 +111,52 @@ enum class Intent {
     }
 }
 
-/** 脚本事件动作（条件触发器声明，不硬编码回合数）。 */
-enum class EventAction {
-    MORALE_CHANGE,
-    SURRENDER,
-    SUPPLY_CUT,
-    SET_INTENT,
-    SET_TARGET,
-    STRENGTH_CHANGE,
-    ROUT;
+/**
+ * 脚本事件动作（条件触发器声明，不硬编码回合数）。
+ *
+ * 分类口径与 help/sim/EventTrigger 对齐：事件型改士气 / 兵力 / 存活，意图型改写 [Intent]，
+ * 混合型（ROUT / NAVAL_ROUT）击溃士气并转溃逃意图。[jsonLabel] 为 JSON 资产里的原始
+ * camelCase 标签；历史 snake_case / 同义标签收在 [aliases]，fromLabel 大小写不敏感。
+ */
+enum class EventAction(val jsonLabel: String) {
+    MORALE_CHANGE("moraleChange"),
+    SURRENDER("surrender"),
+    SUPPLY_CUT("supplyCut"),
+    SET_INTENT("setIntent"),
+    SET_TARGET("setTarget"),
+    STRENGTH_CHANGE("strengthDelta"),
+    ROUT("rout"),
+    FIRE_ATTACK("fireAttack"),
+    SIEGE_ENGINE("siegeEngine"),
+    BREAKTHROUGH("breakthrough"),
+    NAVAL_ROUT("navalRout"),
+    DEFEND_FALL("defendFall"),
+    FEIGNED_RETREAT("feignedRetreat"),
+    AMBUSH("ambush"),
+    FLANK("flank"),
+    CAPTURE("capture"),
+    ANNIHILATE("annihilate"),
+    RETREAT("retreat"),
+    ESCAPE("escape");
 
     companion object {
-        fun fromLabel(label: String?): EventAction? = when (label?.trim()?.lowercase()) {
-            "moralechange", "morale_change" -> MORALE_CHANGE
-            "surrender" -> SURRENDER
-            "supplycut", "supply_cut" -> SUPPLY_CUT
-            "setintent", "set_intent" -> SET_INTENT
-            "settarget", "set_target" -> SET_TARGET
-            "strengthchange", "strength_change" -> STRENGTH_CHANGE
-            "rout", "break" -> ROUT
-            else -> null
+        /** 历史别名：snake_case 与同义说法，兼容旧素材，不进 JSON 主标签表。 */
+        private val aliases: Map<String, EventAction> = mapOf(
+            "morale_change" to MORALE_CHANGE,
+            "supply_cut" to SUPPLY_CUT,
+            "set_intent" to SET_INTENT,
+            "set_target" to SET_TARGET,
+            "strength_change" to STRENGTH_CHANGE,
+            "strengthchange" to STRENGTH_CHANGE,
+            "break" to ROUT,
+            "flee" to ROUT,
+        )
+
+        /** 数据资产字符串 → 动作；未知值返回 null，由解析层记 warning 跳过。 */
+        fun fromLabel(label: String?): EventAction? {
+            val raw = label?.trim()?.lowercase() ?: return null
+            entries.firstOrNull { it.jsonLabel.equals(raw, ignoreCase = true) }?.let { return it }
+            return aliases[raw]
         }
     }
 }

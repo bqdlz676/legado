@@ -1,20 +1,46 @@
 package io.legado.app.help.sim
 
+import kotlin.math.roundToInt
+
 /**
  * 落文 · 战役事件触发器（core:sim / §五）
  *
  * 事件完全由 campaign JSON 驱动：turn / 部队 + 兵力阈值 / 士气状态 为触发条件，
  * 动作覆盖士气变更、溃散、改令（含改目标点）、断粮、兵力增减。每条事件只触发一次。
+ *
+ * B15 动作分类（JSON `"action"` 位，两类不许混进同一个语义层）：
+ * - **事件型**：直接改士气 / 兵力 / 补给 / 存活——
+ *   moraleChange / surrender / supplyCut / strengthDelta / fireAttack / siegeEngine /
+ *   breakthrough / defendFall / capture / annihilate。
+ * - **意图型**：改写目标军意图字符串，由 IntentResolver 后续回合消费路径——
+ *   ambush / flank / retreat / escape / feignedRetreat。
+ * - **混合型**：击溃士气 + 同时改溃逃意图——rout / navalRout。
+ *
+ * 边界口径：目标缺失 / 目标已阵亡 / value 非法数字 / 重复触发均不抛异常；
+ * 异常边界逐条记入 [warnings]，未知 action 走 else 告警，不静默吞掉。
  */
 data class FiredEvent(val action: String, val target: String?, val reason: String)
 
 object EventTrigger {
+
+    /**
+     * 告警台账：未知动作、目标缺失、目标已阵亡等边界情况逐条记录。
+     * 纯 JVM 模块不引 Android Log；每次 [fire] 清空，引擎可把台账并入回合 notes 上报壳层。
+     */
+    val warnings: MutableList<String> = mutableListOf()
+
+    // 事件型动作的默认折损比例（占当前兵力）；value 为合法 0..1 数字时按 value 覆盖。
+    private const val LOSS_FIRE_ATTACK: Double = 0.35
+    private const val LOSS_SIEGE_ENGINE: Double = 0.55
+    private const val LOSS_BREAKTHROUGH: Double = 0.25
+    private const val LOSS_NAVAL_ROUT: Double = 0.20
 
     fun fire(
         events: List<EventSpec>?,
         armies: List<SimArmy>,
         turn: Int,
     ): List<FiredEvent> {
+        warnings.clear()
         if (events.isNullOrEmpty()) return emptyList()
         val fired = ArrayList<FiredEvent>()
 
@@ -40,46 +66,129 @@ object EventTrigger {
             ev.done = true
             val target = ev.target?.let { id -> armies.firstOrNull { it.id == id } }
 
-            when (ev.action) {
-                "moraleChange" -> {
-                    if (target != null) {
-                        target.morale = Morale.fromString(ev.value)
-                        // 士气复振 = 溃兵归队：还有人就不该留在「已解散」状态当幽灵。
-                        if (target.morale != Morale.BROKEN && target.strength > 0) {
-                            target.alive = true
-                            target.surrendered = false
-                        }
-                    }
-                }
-                "surrender" -> {
-                    if (target != null) {
-                        target.alive = false
-                        target.surrendered = true
-                    }
-                }
-                "setIntent" -> {
-                    if (target != null) {
-                        target.intent = ev.value ?: "hold"
-                        target.intentActive = target.intent
-                        if (ev.targetPos != null) target.target = ev.targetPos
-                        target.path = null
-                        target.hunt = null
-                    }
-                }
-                "supplyCut" -> {
-                    target?.supply = 0.0
-                }
-                "strengthDelta" -> {
-                    if (target != null) {
-                        val delta = ev.value?.toDoubleOrNull() ?: 0.0
-                        target.strength = (target.strength + delta).coerceAtLeast(0.0).toInt()
-                        if (target.strength <= 0) target.alive = false
-                    }
-                }
+            when {
+                ev.target != null && target == null ->
+                    warnings += "事件「${ev.reason ?: ev.action}」目标军队 ${ev.target} 不存在，动作 ${ev.action} 未生效"
+                // moraleChange 例外：保留「溃兵归队」复振路径，允许作用于已解散但仍有兵的军队。
+                target != null && !target.alive && ev.action != "moraleChange" ->
+                    warnings += "事件「${ev.reason ?: ev.action}」目标 ${target.name} 已阵亡 / 出局，动作 ${ev.action} 未生效"
+                else -> execute(ev, target)
             }
 
             fired.add(FiredEvent(ev.action, ev.target, ev.reason ?: ""))
         }
         return fired
+    }
+
+    private fun execute(ev: EventSpec, target: SimArmy?) {
+        if (target == null) return
+        when (ev.action) {
+            // ── 既有 5 分支（口径不变） ──────────────────────────────
+            "moraleChange" -> {
+                target.morale = Morale.fromString(ev.value)
+                // 士气复振 = 溃兵归队：还有人就不该留在「已解散」状态当幽灵。
+                if (target.morale != Morale.BROKEN && target.strength > 0) {
+                    target.alive = true
+                    target.surrendered = false
+                }
+            }
+            "surrender" -> {
+                target.alive = false
+                target.surrendered = true
+            }
+            "setIntent" -> {
+                applyIntent(target, ev.value ?: "hold")
+                if (ev.targetPos != null) target.target = ev.targetPos
+            }
+            "supplyCut" -> {
+                target.supply = 0.0
+            }
+            "strengthDelta" -> {
+                val delta = ev.value?.toDoubleOrNull() ?: 0.0
+                target.strength = (target.strength + delta).coerceAtLeast(0.0).toInt()
+                if (target.strength <= 0) target.alive = false
+            }
+
+            // ── 事件型：火攻 / 攻城器械 / 阵形突破 ────────────────────
+            "fireAttack" -> {
+                // 火攻：折损三成五上下，士气降一级；兵力打空即出局。
+                applyLoss(target, fraction(ev.value, LOSS_FIRE_ATTACK))
+                target.morale = MoraleSystem.down(target.morale)
+            }
+            "siegeEngine" -> {
+                // 回回炮 / 攻城槌破城：重挫半数以上，士气直接击溃。
+                applyLoss(target, fraction(ev.value, LOSS_SIEGE_ENGINE))
+                target.morale = Morale.BROKEN
+            }
+            "breakthrough" -> {
+                // 楔形阵中央突破：当面之军被凿穿一角，折损两成五，士气降一级。
+                applyLoss(target, fraction(ev.value, LOSS_BREAKTHROUGH))
+                target.morale = MoraleSystem.down(target.morale)
+            }
+            "defendFall" -> {
+                // 据点失守、守军殉国：兵力归零、移出棋盘；不降 surrendered（战死非被俘）。
+                target.strength = 0
+                target.alive = false
+                target.morale = Morale.BROKEN
+            }
+            "capture" -> {
+                // 主帅被俘：出局且标记投降，不再参与后续接战。
+                target.surrendered = true
+                target.alive = false
+                target.strength = 0
+            }
+            "annihilate" -> {
+                // 全军覆没：兵力归零、出局、士气击溃；非投降。
+                target.strength = 0
+                target.alive = false
+                target.morale = Morale.BROKEN
+            }
+
+            // ── 混合型：士气击溃 + 改溃逃意图 ─────────────────────────
+            "navalRout" -> {
+                // 舟师溃乱：部分舟船沉没，士气崩溃，意图转 rout 脱离水阵。
+                applyLoss(target, fraction(ev.value, LOSS_NAVAL_ROUT))
+                target.morale = Morale.BROKEN
+                applyIntent(target, "rout")
+            }
+            "rout" -> {
+                // 陆战溃散：士气崩溃，意图转 rout；损耗由后续遭遇 / 士气系统结算。
+                target.morale = Morale.BROKEN
+                applyIntent(target, "rout")
+            }
+
+            // ── 意图型：只改写意图，路径规划交由 IntentResolver ──────
+            "ambush" -> applyIntent(target, "ambush")
+            "flank" -> applyIntent(target, "flank")
+            "retreat" -> applyIntent(target, "retreat")
+            "escape" -> applyIntent(target, "escape")
+            "feignedRetreat" -> {
+                // 佯退诱敌：目标被诱出既阵转入追击（advance），阵形松动士气降一级。
+                applyIntent(target, "advance")
+                target.morale = MoraleSystem.down(target.morale)
+            }
+
+            // 未知动作：记录告警并照常登记 FiredEvent，不许静默 continue 吞掉。
+            else -> warnings += "未知 action「${ev.action}」（目标 ${ev.target ?: "全局"}）：事件已记录，无生效分支"
+        }
+    }
+
+    /** value 折损比例解析：空白 / 非法数字 / 越界一律回落到默认比例，不抛异常。 */
+    private fun fraction(raw: String?, default: Double): Double =
+        raw?.toDoubleOrNull()?.coerceIn(0.0, 1.0) ?: default
+
+    /** 按比例扣兵；兵力钳制 ≥0，打空即出局。 */
+    private fun applyLoss(army: SimArmy, fraction: Double) {
+        val loss = (army.strength * fraction).roundToInt()
+        army.strength = (army.strength - loss).coerceAtLeast(0)
+        if (army.strength <= 0) army.alive = false
+    }
+
+    /** 改写意图并清掉旧路径 / 追击绑定，逼意图裁决器下回合重新规划。 */
+    private fun applyIntent(army: SimArmy, intent: String) {
+        army.intent = intent
+        army.intentActive = intent
+        army.path = null
+        army.hunt = null
     }
 }

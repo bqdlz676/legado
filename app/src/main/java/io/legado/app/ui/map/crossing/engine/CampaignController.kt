@@ -196,38 +196,127 @@ class CampaignController private constructor(
 
     private fun applyEvent(event: io.legado.app.ui.map.crossing.model.EventDef, target: Corps?) {
         val label = target?.name ?: event.target ?: "全局"
+        if (target == null) {
+            // 边界：目标军 id 在棋盘上不存在；记日志不抛异常，事件仍由触发器登记为已点燃。
+            log("事件「${event.reason}」：目标 ${event.target ?: "全局"} 缺失，动作 ${event.action} 未生效")
+            return
+        }
+        if (!target.alive && event.action != EventAction.MORALE_CHANGE) {
+            // 边界：目标已阵亡 / 出局，不再重复结算（含重复触发、同回合先溃后降的冲突序）；
+            // MORALE_CHANGE 例外：保留溃兵归队复振路径。
+            log("事件「${event.reason}」：${label} 已失去作战能力，动作 ${event.action} 未生效")
+            return
+        }
         when (event.action) {
             EventAction.MORALE_CHANGE -> {
-                target?.let { it.morale = Morale.fromLabel(event.value) }
-                log("事件「${event.reason}」：${label} 士气变为 ${target?.morale}")
+                target.morale = Morale.fromLabel(event.value)
+                log("事件「${event.reason}」：${label} 士气变为 ${target.morale}")
             }
             EventAction.SURRENDER -> {
-                target?.let { it.surrendered = true; it.disband() }
+                target.surrendered = true; target.disband()
                 log("事件「${event.reason}」：${label} 投降")
             }
             EventAction.SUPPLY_CUT -> {
-                target?.supply = 0
+                target.supply = 0
                 log("事件「${event.reason}」：${label} 补给断绝")
             }
             EventAction.SET_INTENT -> {
-                target?.intent = Intent.fromLabel(event.value)
-                log("事件「${event.reason}」：${label} 意图调整为 ${target?.intent}")
+                target.intent = Intent.fromLabel(event.value)
+                log("事件「${event.reason}」：${label} 意图调整为 ${target.intent}")
             }
             EventAction.SET_TARGET -> {
-                target?.target = event.targetPos
+                target.target = event.targetPos
                 log("事件「${event.reason}」：${label} 目标点更新")
             }
             EventAction.STRENGTH_CHANGE -> {
                 val delta = event.value?.toDoubleOrNull() ?: 0.0
-                target?.let { it.strength = (it.strength + delta).coerceAtLeast(0.0) }
+                target.strength = (target.strength + delta).coerceAtLeast(0.0)
                 log("事件「${event.reason}」：${label} 兵力变动 $delta")
             }
             EventAction.ROUT -> {
-                target?.morale = Morale.BROKEN
+                target.morale = Morale.BROKEN
+                target.intent = Intent.ROUT
                 log("事件「${event.reason}」：${label} 溃散")
+            }
+
+            // ── 事件型：火攻 / 攻城器械 / 中央突破 ────────────────────
+            EventAction.FIRE_ATTACK -> {
+                val frac = fracOf(event.value, LOSS_FIRE_ATTACK)
+                val loss = target.strength * frac
+                target.applyLoss(loss)
+                target.morale = target.morale.downgrade()
+                log("事件「${event.reason}」：${label} 遭火攻，折损 ${loss.round1()}，士气下降")
+            }
+            EventAction.SIEGE_ENGINE -> {
+                val frac = fracOf(event.value, LOSS_SIEGE_ENGINE)
+                val loss = target.strength * frac
+                target.applyLoss(loss)
+                target.morale = Morale.BROKEN
+                log("事件「${event.reason}」：${label} 被攻城器械破城，士气崩溃")
+            }
+            EventAction.BREAKTHROUGH -> {
+                val frac = fracOf(event.value, LOSS_BREAKTHROUGH)
+                val loss = target.strength * frac
+                target.applyLoss(loss)
+                target.morale = target.morale.downgrade()
+                log("事件「${event.reason}」：${label} 阵形被中央突破，士气下降")
+            }
+            EventAction.DEFEND_FALL -> {
+                // 城破殉国：出局、兵力归零；非投降（surrendered 保持 false）。
+                target.disband()
+                target.morale = Morale.BROKEN
+                log("事件「${event.reason}」：${label} 据点失守，守军殉国")
+            }
+            EventAction.CAPTURE -> {
+                target.surrendered = true
+                target.disband()
+                log("事件「${event.reason}」：${label} 被俘")
+            }
+            EventAction.ANNIHILATE -> {
+                target.disband()
+                target.morale = Morale.BROKEN
+                log("事件「${event.reason}」：${label} 全军覆没")
+            }
+
+            // ── 混合型：击溃 + 溃逃意图 ──────────────────────────────
+            EventAction.NAVAL_ROUT -> {
+                val frac = fracOf(event.value, LOSS_NAVAL_ROUT)
+                target.applyLoss(target.strength * frac)
+                target.morale = Morale.BROKEN
+                target.intent = Intent.ROUT
+                log("事件「${event.reason}」：${label} 舟师溃乱，脱离水阵")
+            }
+
+            // ── 意图型：改写意图，路径交由意图裁决器 / 寻路器 ──────────
+            EventAction.AMBUSH -> {
+                target.intent = Intent.AMBUSH
+                log("事件「${event.reason}」：${label} 转入设伏")
+            }
+            EventAction.FLANK -> {
+                target.intent = Intent.FLANK
+                log("事件「${event.reason}」：${label} 转入侧翼包抄")
+            }
+            EventAction.RETREAT -> {
+                target.intent = Intent.RETREAT
+                log("事件「${event.reason}」：${label} 转入撤退")
+            }
+            EventAction.ESCAPE -> {
+                // 突围脱走：对应规则意图 BREAKOUT（向最弱方向突出重围）。
+                target.intent = Intent.BREAKOUT
+                log("事件「${event.reason}」：${label} 转入突围")
+            }
+            EventAction.FEIGNED_RETREAT -> {
+                // 佯退诱敌：目标被诱出既阵转入追击，阵形松动并暴露位置。
+                target.intent = Intent.ADVANCE
+                target.exposed = true
+                log("事件「${event.reason}」：${label} 中计追击，阵形散开")
             }
         }
     }
+
+    /** value 折损比例：空白 / 非法数字 / 越界回落到默认比例，不抛异常。 */
+    private fun fracOf(raw: String?, default: Double): Double =
+        raw?.toDoubleOrNull()?.coerceIn(0.0, 1.0) ?: default
 
     // ── 情报 / 意图 / 移动 / 遭遇 ─────────────────────────────
 
@@ -472,6 +561,12 @@ class CampaignController private constructor(
 
         /** 遭遇判定半径（格，八向相邻）。 */
         const val ENCOUNTER_RANGE: Int = 1
+
+        /** 事件型动作默认折损比例（占当前兵力）；与 help/sim/EventTrigger 口径一致。 */
+        const val LOSS_FIRE_ATTACK: Double = 0.35
+        const val LOSS_SIEGE_ENGINE: Double = 0.55
+        const val LOSS_BREAKTHROUGH: Double = 0.25
+        const val LOSS_NAVAL_ROUT: Double = 0.20
 
         /** 快照事件条保留条数。 */
         const val LOG_TAIL: Int = 8
