@@ -417,7 +417,12 @@ class VerticalPageView @JvmOverloads constructor(
         if (text.isEmpty()) return
         // 字身方框边长即字号；标题列字号更大（正文 18sp / 标题 20sp），按尺寸阈值识别后上加粗宋体。
         val isTitle = InkSpec.isTitleCellSize(cell.height, bodySizePx, titleSizePx)
-        textPaint.typeface = if (isTitle) InkFonts.viewTypefaceBold else InkFonts.viewTypeface
+        // 标题走 SemiBold 宋体；数字 / 年份走等宽数字角色；其余正文走正文宋体。
+        textPaint.typeface = when {
+            isTitle -> InkFonts.viewTypefaceBold
+            cell.char.isDigit() -> InkFonts.viewNumberTypeface
+            else -> InkFonts.viewTypeface
+        }
         textPaint.isFakeBoldText = isTitle
         textPaint.textSize = cell.height.coerceAtLeast(1f)
 

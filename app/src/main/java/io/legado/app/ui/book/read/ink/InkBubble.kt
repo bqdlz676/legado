@@ -44,8 +44,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -186,7 +190,7 @@ private fun BubbleCard(
                     BasicText(
                         text = content.phonetic.trim(),
                         style = TextStyle(
-                            fontFamily = InkFonts.composeFamily,
+                            fontFamily = InkFonts.composeSansFamily,
                             fontSize = 10.sp,
                             color = InkTokens.TEXT_SECONDARY,
                         ),
@@ -198,7 +202,7 @@ private fun BubbleCard(
                     BasicText(
                         text = content.headline.ifBlank { content.token },
                         style = TextStyle(
-                            fontFamily = InkFonts.composeFamily,
+                            fontFamily = InkFonts.composeTitleFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp,
                             color = InkTokens.TEXT_PRIMARY,
@@ -262,7 +266,7 @@ private fun BubbleCard(
                 // 出处标注：每条数据必须带来源与版本（数据可信 = 命）。
                 if (content.source.isNotBlank()) {
                     BasicText(
-                        text = "出处 · ${content.source}",
+                        text = sourceAnnotated(content.source),
                         style = TextStyle(
                             fontFamily = InkFonts.composeFamily,
                             fontSize = 10.sp,
@@ -436,7 +440,7 @@ private fun InkBubbleDetailSheet(
                 BasicText(
                     text = content.headline.ifBlank { content.token },
                     style = TextStyle(
-                        fontFamily = InkFonts.composeFamily,
+                        fontFamily = InkFonts.composeTitleFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
                         color = InkTokens.TEXT_PRIMARY,
@@ -447,7 +451,7 @@ private fun InkBubbleDetailSheet(
                     BasicText(
                         text = content.phonetic.trim(),
                         style = TextStyle(
-                            fontFamily = InkFonts.composeFamily,
+                            fontFamily = InkFonts.composeSansFamily,
                             fontSize = 12.sp,
                             color = InkTokens.TEXT_SECONDARY,
                         ),
@@ -466,7 +470,7 @@ private fun InkBubbleDetailSheet(
 
                 if (content.source.isNotBlank()) {
                     BasicText(
-                        text = "出处 · ${content.source}",
+                        text = sourceAnnotated(content.source),
                         style = TextStyle(
                             fontFamily = InkFonts.composeFamily,
                             fontSize = 10.sp,
@@ -476,6 +480,20 @@ private fun InkBubbleDetailSheet(
                 }
             }
         }
+    }
+}
+
+/** 出处串：`#编号`（CBDB Person ID 等）走等宽角色；无 `#` 时整段原样返回，不出空白态。 */
+private fun sourceAnnotated(source: String): AnnotatedString = buildAnnotatedString {
+    append("出处 · ")
+    val hash = source.indexOf('#')
+    if (hash < 0) {
+        append(source)
+        return@buildAnnotatedString
+    }
+    append(source.substring(0, hash))
+    withStyle(SpanStyle(fontFamily = InkFonts.composeMonoFamily)) {
+        append(source.substring(hash))
     }
 }
 

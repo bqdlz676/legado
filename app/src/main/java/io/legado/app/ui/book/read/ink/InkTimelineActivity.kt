@@ -26,8 +26,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.help.chrono.Chronology
@@ -107,6 +111,24 @@ internal object InkTimelinePresenter {
     }
 }
 
+/** 年份 / 距今数字段走等宽数字角色；其余文字保留基础族。 */
+private fun numberAnnotated(text: String): AnnotatedString = buildAnnotatedString {
+    var i = 0
+    while (i < text.length) {
+        if (text[i].isDigit()) {
+            val start = i
+            while (i < text.length && text[i].isDigit()) i++
+            withStyle(SpanStyle(fontFamily = InkFonts.composeNumberFamily)) {
+                append(text.substring(start, i))
+            }
+        } else {
+            val start = i
+            while (i < text.length && !text[i].isDigit()) i++
+            append(text.substring(start, i))
+        }
+    }
+}
+
 @Composable
 private fun InkTimelineScreen(initialYear: Int?, label: String?) {
     var year by remember { mutableStateOf(initialYear ?: ContextAnchor.getYear()) }
@@ -149,9 +171,9 @@ private fun InkTimelineScreen(initialYear: Int?, label: String?) {
                     )
                 }
                 BasicText(
-                    text = state.title,
+                    text = numberAnnotated(state.title),
                     style = TextStyle(
-                        fontFamily = InkFonts.composeFamily,
+                        fontFamily = InkFonts.composeTitleFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 18.sp,
                         color = InkTokens.TEXT_PRIMARY,
