@@ -258,7 +258,7 @@ private fun SkinCard(
             .clip(RoundedCornerShape(12.dp))
             .background(if (active) ComponentTokens.brandGold.copy(alpha = 0.10f) else ComponentTokens.bgSurface)
             .pointerInput(Unit) {
-                androidx.compose.foundation.gestures.detectTapGestures(
+                detectTapGestures(
                     onTap = { onClick() },
                     onLongPress = { onLongClick() },
                 )

@@ -199,7 +199,7 @@ private fun BackgroundImageSheet(
 
 private fun Modifier.pointerTap(onTap: () -> Unit): Modifier =
     this.pointerInput(Unit) {
-        androidx.compose.foundation.gestures.detectTapGestures(onTap = { onTap() })
+        detectTapGestures(onTap = { onTap() })
     }
 
 @Composable

@@ -54,7 +54,7 @@ fun BackupSection(actions: SectionActions) {
     val vm = actions.vm
     val scope = rememberCoroutineScope()
 
-    var textTarget by remember { mutableStateOf<TextTarget?>(null) }
+    var textTarget by remember { mutableStateOf<PrefTextTarget?>(null) }
     var numberTarget by remember { mutableStateOf<NumberTarget?>(null) }
     var contentMulti by remember { mutableStateOf(false) }
     var ignoreMulti by remember { mutableStateOf(false) }
@@ -69,19 +69,19 @@ fun BackupSection(actions: SectionActions) {
             stringRes(R.string.web_dav_set),
             listOf(
                 ValueRow(stringRes(R.string.web_dav_url), context.getPrefString(PreferKey.webDavUrl) ?: stringRes(R.string.web_dav_url_s)) {
-                    textTarget = TextTarget(PreferKey.webDavUrl, R.string.web_dav_url, context.getPrefString(PreferKey.webDavUrl), false)
+                    textTarget = PrefTextTarget(PreferKey.webDavUrl, R.string.web_dav_url, context.getPrefString(PreferKey.webDavUrl), false)
                 },
                 ValueRow(stringRes(R.string.web_dav_account), context.getPrefString(PreferKey.webDavAccount) ?: stringRes(R.string.web_dav_account_s)) {
-                    textTarget = TextTarget(PreferKey.webDavAccount, R.string.web_dav_account, context.getPrefString(PreferKey.webDavAccount), false)
+                    textTarget = PrefTextTarget(PreferKey.webDavAccount, R.string.web_dav_account, context.getPrefString(PreferKey.webDavAccount), false)
                 },
                 ValueRow(stringRes(R.string.web_dav_pw), context.getPrefString(PreferKey.webDavPassword)?.let { "*".repeat(it.length) } ?: stringRes(R.string.web_dav_pw_s)) {
-                    textTarget = TextTarget(PreferKey.webDavPassword, R.string.web_dav_pw, context.getPrefString(PreferKey.webDavPassword), true)
+                    textTarget = PrefTextTarget(PreferKey.webDavPassword, R.string.web_dav_pw, context.getPrefString(PreferKey.webDavPassword), true)
                 },
                 ValueRow(stringRes(R.string.sub_dir), AppConfig.webDavDir) {
-                    textTarget = TextTarget(PreferKey.webDavDir, R.string.sub_dir, AppConfig.webDavDir, false)
+                    textTarget = PrefTextTarget(PreferKey.webDavDir, R.string.sub_dir, AppConfig.webDavDir, false)
                 },
                 ValueRow(stringRes(R.string.webdav_device_name), AppConfig.webDavDeviceName) {
-                    textTarget = TextTarget(PreferKey.webDavDeviceName, R.string.webdav_device_name, AppConfig.webDavDeviceName, false)
+                    textTarget = PrefTextTarget(PreferKey.webDavDeviceName, R.string.webdav_device_name, AppConfig.webDavDeviceName, false)
                 },
                 ValueRow(stringRes(R.string.webdav_backup_keep_count_t), stringRes(R.string.webdav_backup_keep_count_s)) {
                     numberTarget = NumberTarget(R.string.webdav_backup_keep_count_t, 0, 999, AppConfig.webDavBackupKeepCount) {
@@ -287,8 +287,13 @@ private fun AutoBackupSheet(onDismiss: () -> Unit) {
     }
 }
 
-/** 文本编辑弹层待决目标（仅本分区使用）。 */
-private data class TextTarget(
+/**
+ * 文本编辑弹层待决目标（仅本分区使用；按偏好键回写 + 密码掩码型）。
+ *
+ * 命名避开同包 OtherSection 的回调型 `TextEditTarget`：Kotlin 同包两个顶层声明
+ * 即便都标 private，同名仍按 Redeclaration 冲突（可见性管访问、不管身份）。
+ */
+private data class PrefTextTarget(
     val key: String,
     val titleRes: Int,
     val initial: String?,

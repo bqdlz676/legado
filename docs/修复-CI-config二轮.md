@@ -7,15 +7,15 @@
 
 ## 1. 任务与范围
 
-### 1.1 清单对账（前缀 `ui/config/` 共 28 条，本单 25 条，其余 3 条见第 7 节交接）
+### 1.1 清单对账（前缀 `ui/config/` 共 28 条：首轮 25 条 + §10 二轮补修 3 条）
 
 | 文件 | CI 条数 | 归属 |
 |---|---|---|
-| `sections/OtherSection.kt` | 22 | 本单 |
-| `BottomBarSkinAssignActivity.kt` | 3 | 本单 |
-| `BottomBarSkinActivity.kt:261:54` | 1 | 交接（FQN 扩展 unresolved） |
-| `sections/BackupSection.kt:291:20` | 1 | 交接（与本单同名互撞，预计随本单改名间接受益） |
-| `sections/ThemeSection.kt:202:46` | 1 | 交接（FQN 扩展 unresolved） |
+| `sections/OtherSection.kt` | 22 | 首轮本单 |
+| `BottomBarSkinAssignActivity.kt` | 3 | 首轮本单 |
+| `BottomBarSkinActivity.kt:261:54` | 1 | §10 二轮补修（FQN 扩展 → 短名） |
+| `sections/BackupSection.kt:291:20` | 1 | §10 二轮补修（同名互撞 → `PrefTextTarget`） |
+| `sections/ThemeSection.kt:202:46` | 1 | §10 二轮补修（FQN 扩展 → 短名） |
 
 ### 1.2 两条根因（开工前按任务书假设逐条核实，云端日志佐证）
 
@@ -191,18 +191,18 @@ $ grep -n "TODO()\|@Suppress" OtherSection.kt BottomBarSkinAssignActivity.kt
 1. **未编译**：本机无 Android SDK，未跑 gradle / kotlinc / assemble；本轮为静态阅读 + grep + 签名比对 + 括号配平自查。能否在云端编译通过，**以下一轮 CI run 为准**。
 2. **未跑单测 / 真机**：三个文本盘开合、回写、图集网格选择、保存流程均未运行验证。
 3. **网格扩展形参未逐形参反编译核对**：`LazyGridScope.items(List<T>, ...)` 签名按仓内 `BottomBarSkinActivity:208` 先例与 Compose 公开 API 比对；未在本地 foundation jar 中逐形参确认默认参数。
-4. **`BackupSection.kt:291` Redeclaration 的消除是静态推断**：本单未改该文件；需下一轮 CI 确认其报错随撞名对端消失。
+4. **`BackupSection.kt:291` Redeclaration**：首轮仅推断会随对端改名消失；二轮补修已把该侧私有类改名 `PrefTextTarget`（§10），仍需下一轮 CI 确认报错清零。
 5. **工作区存在他人并发改动**：开工时 `git status` 与本单收尾时，均有 `ui/about`、`ui/autoTask`、`ui/book/source` 等包及其它 main 源码文件的未提交改动（非本单产物），本轮未读未改未提交；本单 numstat 仅统计 §3.3 两个文件。
 
 ## 7. 交接（发现但未改，越界不动）
 
-### 7.1 同包其余 3 条 config 残余（建议另派 / 并入相邻切片）
+### 7.1 同包其余 3 条 config 残余（**已在 §10 二轮补修清零**，下表为原始诊断留档）
 
-| 位置 | CI 原文 | 静态根因 | 建议改法（未代改） |
+| 位置 | CI 原文 | 静态根因 | 处置（见 §10） |
 |---|---|---|---|
-| `BottomBarSkinActivity.kt:261:54` | `Unresolved reference 'detectTapGestures'` | 261 行在 `pointerInput(Unit) { }` 内用 FQN `androidx.compose.foundation.gestures.detectTapGestures(...)` 调用；该符号是 `PointerInputScope` 扩展，FQN 不进扩展候选集。文件第 10 行已有短名导入 | 把 261 行 FQN 改为短名 `detectTapGestures(...)`，复用既有导入 |
-| `ThemeSection.kt:202:46` | `Unresolved reference 'detectTapGestures'` | 同上：`private fun Modifier.pointerTap` 内 FQN 调用；第 5 行已有短名导入 | 202 行改短名 `detectTapGestures(onTap = { onTap() })` |
-| `BackupSection.kt:291:20` | `Redeclaration: data class TextTarget : Any` | 与本单改名前的 OtherSection 同名互撞 | 预计随本单改名间接受益；下一轮 CI 若仍报，再评估把 Backup 型目标改名或上收 `SheetTargets.kt` |
+| `BottomBarSkinActivity.kt:261:54` | `Unresolved reference 'detectTapGestures'` | 261 行在 `pointerInput(Unit) { }` 内用 FQN `androidx.compose.foundation.gestures.detectTapGestures(...)` 调用；该符号是 `PointerInputScope` 扩展，FQN 不进扩展候选集。文件第 12 行已有短名导入 | 已改短名 `detectTapGestures(...)`，复用既有导入 |
+| `ThemeSection.kt:202:46` | `Unresolved reference 'detectTapGestures'` | 同上：`private fun Modifier.pointerTap` 内 FQN 调用；第 5 行已有短名导入 | 已改短名 `detectTapGestures(onTap = { onTap() })` |
+| `BackupSection.kt:291:20` | `Redeclaration: data class TextTarget : Any` | 与 OtherSection 改名前同名互撞 | 已把 Backup 型私有类改名 `PrefTextTarget`（包内唯一），未上收共享，理由见 §10.3 |
 
 ### 7.2 跨包耦合提示
 
@@ -246,3 +246,88 @@ $ grep -n "TODO()\|@Suppress" OtherSection.kt BottomBarSkinAssignActivity.kt
 - **R64 最慢环节**：本轮不跑构建，无本机时长数据；静态核对最慢一步是从 22 条级联报错反推被错绑的构造器形参表（91/96/152 三组 Int↔String↔Boolean 错位逐条对回 BackupSection 4 参构造器）。可自动化：CI 增加「同包 private 顶层类重名」「FQN 扩展调用」两道静态扫描（§8.3）。
 - **R65 返工复盘沉淀**：已写第 8 节，按命名空间 / 扩展导入 / 签名咬合三簇聚簇，各给预防手段与两条建议门禁规则。
 - **R66 开工前必读**：已读 `docs/机制-子代理必读.md` 与总纲 R48–R74；报告含二阶三阶影响 / 反例边界 / 认知成本三节，前置阅读齐备。
+
+## 10. 二轮补修（交接 3 条清零）
+
+> 基线：首轮 25 条修复已由总控提交 `8e15c72`；本节为其后未提交的补修改动，文件域仍限 `ui/config/**`。
+> 硬约束不变：不改组件签名迁就调用、不删功能、不留 `TODO()` / `@Suppress`、不回退 XML、不改测试与 `build.gradle`、无 git 写操作。
+
+### 10.1 逐条改法（3 条）
+
+| # | 位置 | CI 原文 | 根因 | before → after |
+|---|---|---|---|---|
+| 1 | `BottomBarSkinActivity.kt:261:54` | `Unresolved reference 'detectTapGestures'` | `PointerInputScope` 扩展被 FQN 调用，不进扩展候选集；短名导入已在第 12 行 | `androidx.compose.foundation.gestures.detectTapGestures(` → `detectTapGestures(` |
+| 2 | `ThemeSection.kt:202:46` | `Unresolved reference 'detectTapGestures'` | 同上；`private fun Modifier.pointerTap` 内 FQN 调用；短名导入已在第 5 行 | 同行 FQN → `detectTapGestures(onTap = { onTap() })` |
+| 3 | `BackupSection.kt:291:20` | `Redeclaration: data class TextTarget : Any` | 与 OtherSection 首轮改名前同名互撞（同包顶层声明身份查重，`private` 不免） | 本分区私有类 `TextTarget` → `PrefTextTarget`；状态声明 1 处 + 构造调用 5 处 + 类声明 1 处同步改名；构造器字段 `key/titleRes/initial/password` 与弹层消费 `t.key/t.titleRes/t.initial/t.password` 均不变 |
+
+### 10.2 第 3 条选型：保留独立私有类并包内唯一，未上收 `SheetTargets.kt`（理由）
+
+- **两类不同构**：Backup 型按偏好键回写 + `password` 掩码，`onConfirm` 内统一 `context.putPrefString(t.key, v)` 后 `vm.upWebDavConfig()`；Other 型直接吃 `apply: (String) -> Unit` 回调。
+- **上收共享的两条路在本轮都不划算**：① 宽模型——加 `key?/apply?/password` 可空可选字段，调用处判空分支；② 闭包重构——把 `key` 推进 5 个调用点闭包，每处都须保留 `upWebDavConfig()` 副作用。本轮无本地编译验证，闭包重构漏一处就是回写缺失，爆炸半径大于纯改名。
+- **结论**：维持 §2.1 同一判断——文件级私有 + 包内唯一名；待后续 settings 模型统一整理单（有编译验证环境）再评估是否把文本盘目标与 `NumberTarget` 并列上收。`PrefTextTarget` 仍为文件级 `private`，**未扩大暴露面**。
+
+### 10.3 grep 回证（改后真实输出）
+
+**A. 函数体内 FQN `detectTapGestures` 调用清零**（残留命中均为 import 行）：
+
+```
+$ grep -rn "androidx.compose.foundation.gestures.detectTapGestures" ui/config/ | grep -v "import "
+（无输出 = NONE）
+
+$ grep -n "detectTapGestures" BottomBarSkinActivity.kt ThemeSection.kt
+BottomBarSkinActivity.kt:12:import androidx.compose.foundation.gestures.detectTapGestures
+BottomBarSkinActivity.kt:261:                detectTapGestures(
+ThemeSection.kt:5:import androidx.compose.foundation.gestures.detectTapGestures
+ThemeSection.kt:202:        detectTapGestures(onTap = { onTap() })
+```
+
+**B. 裸名 `TextTarget` 全仓清零**（词边界匹配，不含 `PrefTextTarget` / `TextEditTarget`）：
+
+```
+$ grep -rnE "\bTextTarget\b" app/src/
+（无输出 = NONE）
+```
+
+**C. `PrefTextTarget` 落点（BackupSection.kt，7 处）**：
+
+```
+57:    var textTarget by remember { mutableStateOf<PrefTextTarget?>(null) }
+72:                    textTarget = PrefTextTarget(PreferKey.webDavUrl, R.string.web_dav_url, context.getPrefString(PreferKey.webDavUrl), false)
+75:                    textTarget = PrefTextTarget(PreferKey.webDavAccount, R.string.web_dav_account, context.getPrefString(PreferKey.webDavAccount), false)
+78:                    textTarget = PrefTextTarget(PreferKey.webDavPassword, R.string.web_dav_pw, context.getPrefString(PreferKey.webDavPassword), true)
+81:                    textTarget = PrefTextTarget(PreferKey.webDavDir, R.string.sub_dir, AppConfig.webDavDir, false)
+84:                    textTarget = PrefTextTarget(PreferKey.webDavDeviceName, R.string.webdav_device_name, AppConfig.webDavDeviceName, false)
+296:private data class PrefTextTarget(
+```
+
+**D. 两个文本盘目标最终可见性 / 归属**：
+
+```
+BackupSection.kt  :296  private data class PrefTextTarget(key, titleRes, initial, password)  // 文件级 private
+OtherSection.kt   :204  private data class TextEditTarget(titleRes, initial, apply)          // 文件级 private
+settings/SheetTargets.kt:12 internal data class NumberTarget(...)                            // 首轮既有，未动
+```
+
+### 10.4 本轮改动行数（`git diff --numstat`，未提交改动，仅本单 4 个文件）
+
+```
+1   1  app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt
+13  8  app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt
+2   2  app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt   // 注释旧名同步为 PrefTextTarget
+1   1  app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt
+```
+
+合计 **+17 / -12**，4 个文件；无新增文件。对照基线：首轮 25 条修复见提交 `8e15c72`（`BottomBarSkinAssignActivity.kt` 2/1、`OtherSection.kt` 12/7）。
+
+### 10.5 补修后影响 / 边界 / 认知成本（R59 / R61 / R63 补充）
+
+- **R59 连带影响**：两处短名调用复用既有导入，不新增依赖；`PrefTextTarget` 改名只影响 BackupSection 文件内 7 处引用，弹层组件 `TextEditSheet` 签名与其它分区零连带。包外无引用面（均 private）。
+- **R61 反例边界**：① 若编译器其实允许同包 private 同名（已被 CI 两条 Redeclaration 证伪），改名也不更差；② `PrefTextTarget` 5 处实参顺序 `(key: String, titleRes: Int, initial: String?, password: Boolean)` 已逐行比对构造器，密码项第 4 位布尔未错位；③ 空初始值 / 空素材路径沿 §5 既有兜底，本轮未改交互。
+- **R63 认知成本**：两个私有包装类现在按职责命名（`PrefTextTarget` 键回写型 / `TextEditTarget` 回调型），接手者看名即知回写策略；未新增抽象层。仍分散在两个 section 文件，统一收拢留待后续模型整理单。
+
+### 10.6 补修后未验证项（明示）
+
+1. **仍未编译**：本机无 Android SDK，未跑 gradle / kotlinc / assemble；两处短名扩展调用与 `PrefTextTarget` 改名的咬合均为静态核对，**以下一轮云端 CI 为准**。
+2. **未跑单测 / 真机**：WebDAV 五项文本盘（URL / 账号 / 密码 / 子目录 / 设备名）开合与回写、底栏图集点击、主题背景图手势均未运行验证。
+3. **构造器形参未反编译核对**：`PrefTextTarget` 形参顺序按源码比对；`TextEditSheet` / `LazyGridScope.items` 默认参数未在本地 jar 逐形参确认。
+4. **括号配平**：5 个相关文件经分词器剔除字符串 / 字符 / 注释字面量后三对括号全部配平通过；配平不等于编译通过。

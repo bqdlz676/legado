@@ -35,7 +35,7 @@ fun OtherSection(actions: SectionActions) {
 
     var numberTarget by remember { mutableStateOf<NumberTarget?>(null) }
 
-    // 文本编辑弹层目标（回调回写型；与 BackupSection 按偏好键回写的 TextTarget 同名会在包级 Redeclaration，故本分区用独立名）
+    // 文本编辑弹层目标（回调回写型；与 BackupSection 按偏好键回写的 PrefTextTarget 包内唯一名，避免同名 Redeclaration）
     var textTarget by remember { mutableStateOf<TextEditTarget?>(null) }
 
     val languageEntries = context.resources.getStringArray(R.array.language).toList()
@@ -198,7 +198,7 @@ private fun stringRes(id: Int): String = androidx.compose.ui.res.stringResource(
 /**
  * 文本编辑弹层待决目标（仅本分区使用；回调回写型）。
  *
- * 命名避开同包 BackupSection 内按偏好键回写的 `TextTarget`：
+ * 命名避开同包 BackupSection 内按偏好键回写的 `PrefTextTarget`：
  * Kotlin 同包两个顶层声明即便都标 private，同名仍按 Redeclaration 冲突（可见性管访问、不管身份）。
  */
 private data class TextEditTarget(val titleRes: Int, val initial: String?, val apply: (String) -> Unit)
