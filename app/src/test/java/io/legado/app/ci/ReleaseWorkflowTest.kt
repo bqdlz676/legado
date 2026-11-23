@@ -42,7 +42,7 @@ class ReleaseWorkflowTest {
     }
 
     @Test
-    fun `version code resolves from .versioncode with the 38000 hard floor`() {
+    fun `version code resolves from versioncode file with the 38000 hard floor`() {
         // CI 步骤：从 .versioncode 读数，低于硬地板 38000 直接失败。
         val resolveStep = buildWorkflowText
             .substringAfter("- name: Resolve versionCode")

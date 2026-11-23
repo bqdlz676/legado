@@ -1,6 +1,7 @@
 package io.legado.app.ui.autoTask
 
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import io.legado.app.ui.association.jsonImportType
 import org.junit.Test

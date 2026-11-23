@@ -466,6 +466,7 @@ class CampaignController private constructor(
         elapsedDays = elapsedDays,
         corps = corps.map { it.copy() },
         firedEventIds = firedEvents.toSet(),
+        captureHold = captureHold.toMap(),
     )
 
     /** 恢复分支：时间 / 兵力 / 已触发事件一并回滚；状态重置为进行中。 */
@@ -476,6 +477,8 @@ class CampaignController private constructor(
         elapsedDays = branch.elapsedDays
         firedEvents.clear()
         firedEvents += branch.firedEventIds
+        captureHold.clear()
+        captureHold.putAll(branch.captureHold)
         status = BattleStatus.ONGOING
         winnerSide = null
         finishReason = ""

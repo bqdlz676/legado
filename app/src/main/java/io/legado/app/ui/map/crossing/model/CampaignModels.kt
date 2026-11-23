@@ -221,4 +221,6 @@ data class BranchSnapshot(
     val elapsedDays: Int,
     val corps: List<Corps>,
     val firedEventIds: Set<Int>,
+    /** 据点连续占领计数：不回滚会让恢复后第一次"易主"判定沿用旧时间线（B7）。默认空表兼容旧调用方。 */
+    val captureHold: Map<String, Int> = emptyMap(),
 )
