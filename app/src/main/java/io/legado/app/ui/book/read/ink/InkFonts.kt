@@ -70,8 +70,12 @@ object InkFonts {
             val assetName = context.assets.list(FONT_ASSET_DIR)?.firstOrNull { candidate ->
                 SERIF_ASSET_NAMES.any { it.equals(candidate, ignoreCase = true) }
             } ?: return@runCatching
-            val typeface = Typeface.createFromAsset(context.assets, "$FONT_ASSET_DIR/$assetName")
-            val family = FontFamily(Font(typeface = typeface, weight = FontWeight.Normal))
+            val assetPath = "$FONT_ASSET_DIR/$assetName"
+            // View / Paint 侧：直接从资产加载 Typeface。
+            val typeface = Typeface.createFromAsset(context.assets, assetPath)
+            // Compose 侧：Font 工厂不接受 Typeface，只认 assets 路径 / resId 等来源，
+            // 故按资产路径构造 Font（AssetManager 重载）。
+            val family = FontFamily(Font(assetPath, context.assets, FontWeight.Normal))
             injectSerif(typeface, family)
         }
         // 兜底：未注入时 [viewTypeface] / [composeFamily] 落系统 serif，不抛异常。

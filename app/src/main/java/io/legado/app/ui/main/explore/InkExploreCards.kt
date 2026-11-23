@@ -1,8 +1,6 @@
 package io.legado.app.ui.main.explore
 
 import android.os.Build
-import android.graphics.RenderEffect
-import android.graphics.ShaderTileMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -21,8 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -258,12 +258,16 @@ fun ClassicGridCard(
     }
 }
 
-/** API 31+ 层模糊磨砂；旧版 / 低端机不挂 RenderEffect，由 frostBrush 半透明渐变兜底。 */
+/** API 31+ 层模糊磨砂（Compose [BlurEffect]）；旧版 / 低端机不挂模糊层，由 frostBrush 半透明渐变兜底。 */
 private fun Modifier.frostBlur(enabled: Boolean): Modifier = this.then(
     if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         Modifier.graphicsLayer {
             val radius = 18.dp.toPx()
-            renderEffect = RenderEffect.createBlurEffect(radius, radius, ShaderTileMode.CLAMP)
+            renderEffect = BlurEffect(
+                radiusX = radius,
+                radiusY = radius,
+                edgeTreatment = TileMode.Clamp,
+            )
         }
     } else {
         Modifier

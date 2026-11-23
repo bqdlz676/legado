@@ -1,22 +1,23 @@
 package io.legado.app.ui.book.read.ink
 
 import android.os.Build
-import android.graphics.RenderEffect
-import android.graphics.ShaderTileMode
 import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.dp
 import kotlin.random.Random
 
 /**
  * 磨砂毛玻璃修饰符（切片-03 四层框架 · 绢帛面）。
  *
  * 三档口径（低端机 / 版本分别兜底，禁止用纯透明冒充磨砂）：
- *  - API 31+ 且非低端：[RenderEffect.createBlurEffect] 层模糊 + 半透明绢帛底；
- *  - API 26-30：无 RenderEffect，改半透明绢帛底 + 固定种子噪点颗粒叠层模拟磨砂；
+ *  - API 31+ 且非低端：[BlurEffect] 层模糊 + 半透明绢帛底；
+ *  - API 26-30：无模糊能力，改半透明绢帛底 + 固定种子噪点颗粒叠层模拟磨砂；
  *  - 低端档位：退近纯色绢帛（alpha 0.94），不做模糊与噪点叠层，保帧预算。
  *
  * 边界说明：Android RenderEffect 模糊的是图层自身内容，并非截取背后背景做 backdrop blur；
@@ -40,8 +41,10 @@ fun Modifier.frostedSurface(
             if (modern && !lowSpec) {
                 Modifier.graphicsLayer {
                     val radius = InkTokens.FROST_BLUR_RADIUS_DP.toPx()
-                    renderEffect = RenderEffect.createBlurEffect(
-                        radius, radius, ShaderTileMode.CLAMP,
+                    renderEffect = BlurEffect(
+                        radiusX = radius,
+                        radiusY = radius,
+                        edgeTreatment = TileMode.Clamp,
                     )
                 }
             } else {
@@ -57,7 +60,7 @@ fun Modifier.frostedSurface(
 /** API 26-30 兜底磨砂：固定种子噪点颗粒，跨组合稳定不闪烁。 */
 private fun Modifier.frostGrain(): Modifier = this.drawBehind {
     val rand = Random(FROST_NOISE_SEED)
-    val grid = InkTokens.FROST_NOISE_GRID_DP.dpToPx().coerceAtLeast(1f)
+    val grid = InkTokens.FROST_NOISE_GRID_DP.dp.toPx().coerceAtLeast(1f)
     var y = 0f
     while (y < size.height) {
         var x = 0f
