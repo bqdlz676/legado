@@ -1,7 +1,6 @@
 package io.legado.app.ui.map.sandbox
 
 import kotlin.math.floor
-import kotlin.math.isFinite
 
 /**
  * DEM 灰度栅格地形采样（纯 JVM，切片-06 §一 / 缺陷 D-APK-1）。

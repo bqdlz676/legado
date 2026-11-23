@@ -72,7 +72,9 @@ class DemTerrainElevationTest {
 
     @Test
     fun `空网格构造为退化实例且高度恒 0`() {
-        val dem = DemTerrainElevation.create(0, 0, null, bbox)
+        // 显式标注 null 类型：create 同时有 IntArray? / ByteArray? 两个重载，裸 null 会触发重载歧义。
+        val emptyData: IntArray? = null
+        val dem = DemTerrainElevation.create(0, 0, emptyData, bbox)
         assertTrue(dem.degraded)
         assertEquals(0.0, dem.heightAt(33.0, 113.0), 1e-9)
     }
