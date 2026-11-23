@@ -60,7 +60,9 @@ fun InkReaderShell(
     onMenu: () -> Unit,
     onSeek: (Float) -> Unit,
     onBubbleAction: (Action) -> Unit,
+    onCandidateSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onFallback: (String) -> Unit = {},
     dispatchMode: DispatchMode = DispatchMode.ComposeOverlay,
     state: ReaderShellState = rememberReaderShellState(dispatchMode),
     topSafePx: Dp = 0.dp,
@@ -165,6 +167,9 @@ fun InkReaderShell(
                 bottomReservedPx = bottomBarPx,
                 marginPx = marginPx,
                 onAction = onBubbleAction,
+                actionEnabled = { InkActionDispatcher.canDispatch(it) },
+                onCandidateSelect = onCandidateSelect,
+                onFallback = onFallback,
                 onDismiss = { shellHost.dismissBubble() },
             )
         }
@@ -194,7 +199,10 @@ private fun BubbleOverlay(
     bottomReservedPx: Float,
     marginPx: Float,
     onAction: (Action) -> Unit,
+    actionEnabled: (Action) -> Boolean,
+    onCandidateSelect: (String) -> Unit,
     onDismiss: () -> Unit,
+    onFallback: (String) -> Unit = {},
 ) {
     var bubbleSize by remember { mutableStateOf(IntSize.Zero) }
 
@@ -228,8 +236,11 @@ private fun BubbleOverlay(
             content = content,
             placement = placement,
             onAction = onAction,
+            actionEnabled = actionEnabled,
+            onCandidateSelect = onCandidateSelect,
             maxWidthDp = maxWidthDp,
             modifier = Modifier.onSizeChanged { bubbleSize = it },
+            onFallback = onFallback,
         )
     }
 }

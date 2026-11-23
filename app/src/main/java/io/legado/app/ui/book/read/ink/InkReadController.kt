@@ -14,6 +14,7 @@ import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngine
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngineFactory
 import io.legado.app.ui.book.read.vertical.VerticalPage
+import kotlin.math.roundToInt
 
 /**
  * 阅读页三引擎接线宿主（模块⑦ ↔ 模块②竖排 / 模块⑥气泡 / 时空锚）。
@@ -25,7 +26,8 @@ import io.legado.app.ui.book.read.vertical.VerticalPage
  *     命中后按字位回填气泡锚点矩形。
  *  3. [requestBubble]：把命中段的 (paragraphText, pos) 喂给 [BubbleResolver.resolve]，
  *     锚点传共享总线 [ContextAnchor]；Resolver 内部 Missing 兜底，壳侧不空气泡。
- *  4. [turnPage]：引擎 prev / next 翻页，回填进度并关闭气泡。
+ *  4. [turnPage]：掀角动画期间屏蔽新翻页；引擎 prev / next 翻页，回填进度并关闭气泡。
+ *  5. [switchCandidate]：候选循环切换，按候选词走 [BubbleResolver.queryToken] 重解析并回填气泡。
  *
  * 边界兜底：空正文 / 空尺寸 / 越界命中 / 字典缺失全部 runCatching 降级，不崩、不空白态。
  */
@@ -39,6 +41,9 @@ class InkReadController(
     private var engine: VerticalLayoutEngine? = null
     private var chapterTitle: String? = null
     private var chapterBody: String = ""
+
+    /** 已知总页数（引擎未暴露页数访问器；随翻页回填收敛，jumpTo 内部另有越界夹取兜底）。 */
+    private var knownPageCount: Int = 1
 
     // ---------- 暴露给 Compose 壳的状态 ----------
 
@@ -60,6 +65,11 @@ class InkReadController(
 
     init {
         pageView.onSizeChanged = { w, h -> layoutIfNeeded(w, h) }
+        // 掀角动画结束后由 View 复位动画中屏蔽位；此处预留对外回调扩展位。
+        pageView.onTurnAnimEnd = { /* 状态已在 View 内部复位，壳侧无需额外动作 */ }
+        // 宋体注入点：U9 字体系统注入 Noto Serif SC 后，View 与引擎测量共用同一字体；
+        // 未注入时 InkFonts 回退系统 serif。
+        pageView.typeface = InkFonts.serifTypeface
     }
 
     /**
@@ -99,7 +109,7 @@ class InkReadController(
     internal fun layoutIfNeeded(widthPx: Int, heightPx: Int) {
         if (widthPx <= 0 || heightPx <= 0) return
         val e = engine ?: VerticalLayoutEngineFactory
-            .create(widthPx, heightPx)
+            .create(widthPx, heightPx, typeface = InkFonts.serifTypeface)
             .also { engine = it }
         val page = runCatching {
             e.layout(chapterBody, widthPx, heightPx, chapterTitle)
@@ -110,6 +120,10 @@ class InkReadController(
     private fun publishPage(page: VerticalPage?) {
         pageView.render(page)
         progress = page?.progress ?: 0f
+        if (page != null) {
+            knownPageCount = knownPageCount.coerceAtLeast(page.pageIndex + 1)
+            if (engine?.canNext == false) knownPageCount = page.pageIndex + 1
+        }
     }
 
     // ---------- ReaderShellHost ----------
@@ -133,12 +147,15 @@ class InkReadController(
 
     override fun turnPage(direction: EdgeDirection) {
         val e = engine ?: return
+        if (pageView.isTurnAnimating()) return
+        // 掀角动画自右下掀起；动画期间由 isPageAnimating 屏蔽新的翻页与气泡。
+        pageView.startPageTurn(direction)
         val page = runCatching {
             when (direction) {
                 EdgeDirection.Prev -> e.prev()
                 EdgeDirection.Next -> e.next()
             }
-        }.getOrNull() ?: return
+        }.getOrNull()
         bubbleContent = null
         pageTick++
         publishPage(page)
@@ -167,7 +184,34 @@ class InkReadController(
 
     override fun isTextSelected(): Boolean = false
 
-    override fun isPageAnimating(): Boolean = false
+    override fun isPageAnimating(): Boolean = pageView.isTurnAnimating()
+
+    // ---------- 候选切换 / 进度跳转 ----------
+
+    /**
+     * 候选循环切换：按候选展示名走整词解析链重查，回填新气泡内容；
+     * 查不到时保留当前气泡，不掉成空气泡。
+     */
+    fun switchCandidate(candidateToken: String) {
+        if (candidateToken.isBlank()) return
+        val content = runCatching {
+            BubbleResolver.queryToken(candidateToken, ContextAnchor)
+        }.getOrNull() ?: return
+        bubbleContent = content
+    }
+
+    /** 底栏进度跳转：按 0f..1f 比例收敛到最近一页；越界由引擎 jumpTo 内部夹取。 */
+    fun seekTo(fraction: Float) {
+        val e = engine ?: return
+        val count = knownPageCount.coerceAtLeast(1)
+        val pageIndex = (fraction.coerceIn(0f, 1f) * count)
+            .roundToInt()
+            .coerceIn(0, count - 1)
+        val page = runCatching { e.jumpTo(pageIndex) }.getOrNull() ?: return
+        bubbleContent = null
+        pageTick++
+        publishPage(page)
+    }
 
     private companion object {
         /** 章切换时取正文前段多少字参与年代线索猜测。 */

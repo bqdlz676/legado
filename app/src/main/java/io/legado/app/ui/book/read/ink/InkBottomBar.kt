@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -96,7 +95,7 @@ private fun BarAction(label: String, onClick: () -> Unit) {
             BasicText(
                 text = label,
                 style = TextStyle(
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = InkFonts.composeFamily,
                     fontSize = 13.sp,
                     color = InkTokens.textSecondary,
                 ),

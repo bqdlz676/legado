@@ -48,7 +48,7 @@ import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.book.audio.AudioPlayActivity
 import io.legado.app.ui.video.VideoPlayerActivity
 import io.legado.app.ui.book.manga.ReadMangaActivity
-import io.legado.app.ui.book.read.ReadBookActivity
+import io.legado.app.ui.book.read.ink.InkReadActivity
 import splitties.systemservices.clipboardManager
 import splitties.systemservices.connectivityManager
 import splitties.systemservices.uiModeManager
@@ -71,7 +71,7 @@ fun Context.startActivityForBook(
         book.isVideo -> VideoPlayerActivity::class.java
         book.isAudio -> AudioPlayActivity::class.java
         !book.isLocal && book.isImage && AppConfig.showMangaUi -> ReadMangaActivity::class.java
-        else -> ReadBookActivity::class.java
+        else -> InkReadActivity::class.java
     }
     val intent = Intent(this, cls)
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

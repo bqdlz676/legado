@@ -177,7 +177,7 @@
             android:label="墨板画板"
             android:theme="@style/AppTheme.Light"
             android:windowSoftInputMode="adjustResize" />
-        <!-- 阅读界面 -->
+        <!-- 阅读界面（Legacy 横排通道，降级备选保留） -->
         <activity
             android:name=".ui.book.read.ReadBookActivity"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
@@ -191,6 +191,21 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
+
+        <!-- 落文竖排阅读壳（灵魂闭环入口） -->
+        <activity
+            android:name=".ui.book.read.ink.InkReadActivity"
+            android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/AppTheme.Light" />
+
+        <!-- 纪年时间轴（气泡 OpenTimeline 消费方） -->
+        <activity
+            android:name=".ui.book.read.ink.InkTimelineActivity"
+            android:configChanges="locale|keyboardHidden|orientation|screenSize"
+            android:exported="false"
+            android:theme="@style/AppTheme.Light" />
 
         <!-- 阅读漫画界面 -->
         <activity

@@ -84,6 +84,7 @@ import io.legado.app.ui.book.info.edit.BookInfoEditActivity
 import io.legado.app.ui.book.manga.ReadMangaActivity
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.book.read.ReadBookActivity.Companion.RESULT_DELETED
+import io.legado.app.ui.book.read.ink.InkReadActivity
 import io.legado.app.ui.book.search.SearchActivity
 import io.legado.app.model.SourceCallBack
 import io.legado.app.ui.association.OnLineImportActivity
@@ -1507,7 +1508,7 @@ class BookInfoActivity :
                 Intent(
                     this,
                     if (!book.isLocal && book.isImage && AppConfig.showMangaUi) ReadMangaActivity::class.java
-                    else ReadBookActivity::class.java
+                    else InkReadActivity::class.java
                 ).apply {
                     putExtra("bookUrl", book.bookUrl)
                     putExtra("inBookshelf", viewModel.inBookshelf)

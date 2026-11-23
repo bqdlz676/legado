@@ -19,7 +19,9 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -43,16 +45,25 @@ import kotlin.math.roundToInt
  * 尖角对准字心，上方越界由 [BubblePlacement] 翻到下方。
  * 未收录 / 空数据走模块⑥ 的 Missing 兜底文案，不允许空气泡。
  *
+ * 候选切换（切片-02 §4）：候选非空时底部一行可点，点击在候选间循环，
+ * 选中候选名回传宿主走整词解析重查；动作 chip 仅在分发层有真实消费方时可点。
+ *
  * @param placement 已算好的定位（壳坐标 px）；外层 Box 已按 placement.x/y 偏移，
  *                  尖角本地横坐标 = placement.arrowX - placement.x。
+ * @param actionEnabled 动作是否有真实消费方；false 时 chip 置灰且不响应点击。
+ * @param onCandidateSelect 候选名选中回调（宿主重解析后回填新气泡内容）。
+ * @param onFallback 兜底入口回调（"web" 联网 / "notebook" 生字本），非导航动作。
  */
 @Composable
 fun InkBubble(
     content: BubbleContent,
     placement: BubblePlacement,
     onAction: (Action) -> Unit,
+    actionEnabled: (Action) -> Boolean,
+    onCandidateSelect: (String) -> Unit,
     maxWidthDp: Dp,
     modifier: Modifier = Modifier,
+    onFallback: (String) -> Unit = {},
 ) {
     // 入场：scale 0.3 → 1.05 → 1.0，250ms，回弹过冲曲线
     val progress = remember { Animatable(0.3f) }
@@ -68,6 +79,11 @@ fun InkBubble(
     val scale = progress.value
     val alpha = scale.coerceIn(0f, 1f)
     val arrowLocalX = (placement.arrowX - placement.x).roundToInt()
+
+    // 候选循环下标；气泡内容切换后回到首个候选。
+    var candidateIndex by remember(content) { mutableStateOf(0) }
+    val candidates = content.candidates
+    val hasCandidates = candidates.isNotEmpty()
 
     Column(
         modifier = modifier
@@ -112,7 +128,7 @@ fun InkBubble(
                 BasicText(
                     text = content.headline.ifBlank { content.token },
                     style = TextStyle(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = InkFonts.composeFamily,
                         fontSize = 14.sp,
                         color = InkTokens.textPrimary,
                     ),
@@ -135,31 +151,45 @@ fun InkBubble(
                 BasicText(
                     text = resolveBody(content),
                     style = TextStyle(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = InkFonts.composeFamily,
                         fontSize = 13.sp,
                         color = InkTokens.textSecondary,
                         lineHeight = 19.sp,
                     ),
                 )
 
-                if (content.candidates.isNotEmpty()) {
-                    BasicText(
-                        text = "共 ${content.candidates.size} 个义项 ›",
-                        style = TextStyle(
-                            fontFamily = FontFamily.Serif,
-                            fontSize = 12.sp,
-                            color = InkTokens.colorLink,
-                        ),
+                if (hasCandidates) {
+                    CandidateRow(
+                        candidates = candidates,
+                        index = candidateIndex,
+                        onCycle = {
+                            val next = nextCandidateIndex(candidates.size, candidateIndex)
+                            candidateIndex = next
+                            onCandidateSelect(candidates[next])
+                        },
                     )
                 }
 
-                if (content.actions.isNotEmpty()) {
+                // 兜底入口（联网 / 生字本）不是导航动作，由 BubbleContent 标志位驱动出按钮。
+                val fallbackChips = buildList {
+                    if (content.allowWebSearch) add("联网" to "web")
+                    if (content.allowNotebook) add("生字本" to "notebook")
+                }
+
+                if (content.actions.isNotEmpty() || fallbackChips.isNotEmpty()) {
                     Row(
                         modifier = Modifier.padding(top = 2.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         content.actions.forEach { action ->
-                            ActionChip(label = actionLabel(action)) { onAction(action) }
+                            ActionChip(
+                                label = actionLabel(action),
+                                enabled = actionEnabled(action),
+                                onClick = { onAction(action) },
+                            )
+                        }
+                        fallbackChips.forEach { (label, kind) ->
+                            ActionChip(label = label, enabled = true) { onFallback(kind) }
                         }
                     }
                 }
@@ -174,14 +204,38 @@ fun InkBubble(
 }
 
 @Composable
-private fun ActionChip(label: String, onClick: () -> Unit) {
-    InkIconButton(onClick = onClick) {
+private fun CandidateRow(
+    candidates: List<String>,
+    index: Int,
+    onCycle: () -> Unit,
+) {
+    val label = if (index == 0) {
+        "共 ${candidates.size} 个义项 ›"
+    } else {
+        "候选 ${index + 1}/${candidates.size}：${candidates[index]} ›"
+    }
+    InkIconButton(onClick = onCycle) {
         BasicText(
             text = label,
             style = TextStyle(
-                fontFamily = FontFamily.Serif,
+                fontFamily = InkFonts.composeFamily,
                 fontSize = 12.sp,
-                color = InkTokens.brandCopper,
+                color = InkTokens.colorLink,
+            ),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun ActionChip(label: String, enabled: Boolean, onClick: () -> Unit) {
+    InkIconButton(onClick = onClick, enabled = enabled) {
+        BasicText(
+            text = label,
+            style = TextStyle(
+                fontFamily = InkFonts.composeFamily,
+                fontSize = 12.sp,
+                color = if (enabled) InkTokens.brandCopper else InkTokens.textTertiary,
             ),
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
@@ -234,8 +288,6 @@ private fun actionLabel(action: Action): String = when (action) {
     is Action.OpenPerson -> "人物"
     is Action.OpenTimeline -> "纪年"
     is Action.OpenRelation -> "关系"
-    is Action.SearchWeb -> "联网"
-    is Action.AddToNotebook -> "生字本"
 }
 
 private fun resolveBody(content: BubbleContent): String {
