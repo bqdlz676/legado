@@ -65,7 +65,7 @@ object SearchMatcher {
         if (candidates.isEmpty()) return emptyList()
         val q = normalize(query)
         if (q.isEmpty()) return emptyList()
-        val cap = limit.coerceAtLeast(SearchTokens.RESULT_PAGE_LIMIT)
+        val cap = if (limit > 0) limit else SearchTokens.RESULT_PAGE_LIMIT
 
         return candidates
             .mapIndexed { index, item -> index to score(item, q) }
