@@ -172,7 +172,7 @@ class SearchContractTest {
                     text.contains("HistoryKeyAdapter") ||
                     text.contains("io.legado.app.ui.book.search.SearchActivity")
             }
-        assertTrue("旧搜索壳残留引用: $violations", violations.isEmpty())
+        assertTrue("旧搜索壳残留引用: $violations", violations.none())
     }
 
     @Test
