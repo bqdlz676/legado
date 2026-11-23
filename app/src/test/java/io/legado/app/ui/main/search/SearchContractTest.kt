@@ -31,6 +31,9 @@ class SearchContractTest {
         "SearchHistoryPanel.kt",
         "SearchFallback.kt",
         "SearchScreen.kt",
+        "InkSearchActivity.kt",
+        "InkSearchViewModel.kt",
+        "SearchMappers.kt",
     )
 
     private fun projectFile(pathInApp: String): File =
@@ -139,4 +142,54 @@ class SearchContractTest {
         assertFalse(list.contains("Image("))
         assertFalse(list.contains("AsyncImage"))
     }
+
+    @Test
+    fun `activity registered in manifest under new package and old entry removed`() {
+        val manifest = manifestFile().readText()
+        assertTrue(manifest.contains(".ui.main.search.InkSearchActivity"))
+        assertFalse(manifest.contains(".ui.book.search.SearchActivity"))
+    }
+
+    @Test
+    fun `activity exposes three entry overloads with legacy extra keys`() {
+        val activity = read("InkSearchActivity.kt")
+        assertTrue(activity.contains("EXTRA_KEY = \"key\""))
+        assertTrue(activity.contains("EXTRA_SCOPE = \"searchScope\""))
+        assertTrue(activity.contains("fun start(context: Context, key: String?"))
+        assertTrue(activity.contains("fun start(context: Context, source: BookSource"))
+        assertTrue(activity.contains("fun start(context: Context, source: BookSourcePart"))
+    }
+
+    @Test
+    fun `no old shell binding or adapter referenced in main sources`() {
+        val mainRoot = listOf(File("src/main/java"), File("app/src/main/java"))
+            .first { it.isDirectory }
+        val violations = mainRoot.walkTopDown()
+            .filter { it.extension == "kt" }
+            .map { it.readText() }
+            .filter { text ->
+                text.contains("ActivityBookSearchBinding") ||
+                    text.contains("HistoryKeyAdapter") ||
+                    text.contains("io.legado.app.ui.book.search.SearchActivity")
+            }
+        assertTrue("旧搜索壳残留引用: $violations", violations.isEmpty())
+    }
+
+    @Test
+    fun `query length cap token is declared`() {
+        assertTrue(read("SearchTokens.kt").contains("QUERY_MAX_LEN"))
+    }
+
+    @Test
+    fun `reveal easing duration and overlay token match motion contract`() {
+        val tokens = read("SearchTokens.kt")
+        // 卡片浮入 cubic-bezier(.22,.61,.36,1)，页面转场 350ms，遮罩 bg-overlay 收口。
+        assertTrue(tokens.contains("0.22f, 0.61f, 0.36f, 1f"))
+        assertTrue(tokens.contains("DURATION_PAGE: Long = 350L"))
+        assertTrue(tokens.contains("BG_OVERLAY"))
+    }
+
+    private fun manifestFile(): File =
+        listOf(File("src/main/AndroidManifest.xml"), File("app/src/main/AndroidManifest.xml"))
+            .firstOrNull { it.isFile } ?: error("Missing AndroidManifest.xml")
 }

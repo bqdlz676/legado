@@ -41,8 +41,7 @@ import io.legado.app.lib.theme.primaryTextColor
 import io.legado.app.model.CheckSource
 import io.legado.app.model.Debug
 import io.legado.app.ui.association.ImportBookSourceDialog
-import io.legado.app.ui.book.search.SearchActivity
-import io.legado.app.ui.book.search.SearchScope
+import io.legado.app.ui.main.search.InkSearchActivity
 import io.legado.app.ui.book.source.debug.BookSourceDebugActivity
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.source.edit.JsSourceEditActivity
@@ -867,7 +866,7 @@ class BookSourceActivity : VMBaseActivity<ActivityBookSourceBinding, BookSourceV
     }
 
     override fun searchBook(bookSource: BookSourcePart) {
-        SearchActivity.start(this, bookSource)
+        InkSearchActivity.start(this, bookSource)
     }
 
     override fun debug(bookSource: BookSourcePart) {

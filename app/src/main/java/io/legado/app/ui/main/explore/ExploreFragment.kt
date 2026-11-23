@@ -25,7 +25,7 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.lib.theme.primaryTextColor
 import io.legado.app.ui.book.explore.ExploreShowActivity
-import io.legado.app.ui.book.search.SearchActivity
+import io.legado.app.ui.main.search.InkSearchActivity
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.source.manage.BookSourceActivity
 import io.legado.app.ui.main.MainFragmentInterface
@@ -325,7 +325,7 @@ class ExploreFragment() : VMBaseFragment<ExploreViewModel>(R.layout.fragment_exp
     }
 
     override fun searchBook(bookSource: BookSourcePart) {
-        SearchActivity.start(requireContext(), bookSource)
+        InkSearchActivity.start(requireContext(), bookSource)
     }
 
     fun compressExplore() {

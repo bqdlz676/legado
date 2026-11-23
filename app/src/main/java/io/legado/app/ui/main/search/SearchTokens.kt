@@ -71,8 +71,8 @@ object SearchTokens {
     /** 微交互（点触泛色 / 按下回弹）120ms。 */
     const val DURATION_MICRO: Long = 120L
 
-    /** 卡片 / 条目入场 250ms。 */
-    const val DURATION_CARD: Long = 250L
+    /** 卡片 / 条目浮入 350ms（切片-15：卡片浮入 stagger 350ms each）。 */
+    const val DURATION_CARD: Long = 350L
 
     /** 页面 / 状态转场 350ms。 */
     const val DURATION_PAGE: Long = 350L
@@ -111,6 +111,9 @@ object SearchTokens {
 
     /** 结果列表单次渲染上限（兜底防爆列表，超出由分页继续取）。 */
     const val RESULT_PAGE_LIMIT: Int = 100
+
+    /** 查询词长度上限：超长词在此截断，避免 LIKE / 高亮切分出现退化输入（兜底边界）。 */
+    const val QUERY_MAX_LEN: Int = 50
 
     /** stagger 逐条错开毫秒数（最多错 8 条）。 */
     const val STAGGER_STEP_MS: Int = 45

@@ -288,10 +288,14 @@
         <activity
             android:name=".ui.config.BottomBarSkinAssignActivity"
             android:exported="false" />
-        <!-- 搜索界面 -->
+        <!-- 搜索界面（落文 Compose 自绘壳，检索编排归 InkSearchViewModel） -->
         <activity
-            android:name=".ui.book.search.SearchActivity"
-            android:launchMode="standard" />
+            android:name=".ui.main.search.InkSearchActivity"
+            android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:exported="false"
+            android:launchMode="standard"
+            android:theme="@style/AppTheme.Light"
+            android:windowSoftInputMode="adjustResize" />
         <!-- 关于界面 -->
         <activity
             android:name=".ui.about.AboutActivity"

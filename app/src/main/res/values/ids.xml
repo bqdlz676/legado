@@ -19,6 +19,8 @@
     <item name="text_watcher" type="id" />
     <item name="toolbar_overflow_menu_state" type="id" />
     <item name="menu_show_explore_categories" type="id" />
+    <!-- 阅读记录开关：发现页编程式挂到菜单，id 由原搜索菜单迁移至此，避免删菜单后断引用 -->
+    <item name="menu_show_read_record" type="id" />
     <item name="code_share_selection" type="id" />
 
 </resources>

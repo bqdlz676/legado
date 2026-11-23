@@ -1,4 +1,4 @@
-package io.legado.app.ui.book.search
+package io.legado.app.ui.main.search
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -7,6 +7,10 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+/**
+ * 检索命令闸门单测：旧命令被新命令 / 停止操作作废后不得再写结果；
+ * 运行中的命令允许跑完，作废命令的回调不得执行。纯 JVM 可跑。
+ */
 class SearchCommandGateTest {
 
     @Test

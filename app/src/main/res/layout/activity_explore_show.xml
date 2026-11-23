@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.book.search.SearchActivity">
+    tools:context=".ui.book.explore.ExploreShowActivity">
 
     <io.legado.app.ui.widget.TitleBar
         android:id="@+id/title_bar"

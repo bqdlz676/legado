@@ -37,7 +37,7 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.primaryTextColor
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
-import io.legado.app.ui.book.search.SearchActivity
+import io.legado.app.ui.main.search.InkSearchActivity
 import io.legado.app.utils.applyNavigationBarPadding
 import io.legado.app.utils.applyTint
 import io.legado.app.utils.cnCompare
@@ -367,7 +367,7 @@ class ReadRecordActivity : BaseActivity<ActivityReadRecordBinding>() {
                                 .maxByOrNull { it.durChapterTime }
                         }
                         if (book == null) {
-                            SearchActivity.start(this@ReadRecordActivity, item.bookName)
+                            InkSearchActivity.start(this@ReadRecordActivity, item.bookName)
                         } else {
                             startActivityForBook(book)
                         }
