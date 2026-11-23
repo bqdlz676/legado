@@ -38,9 +38,17 @@ object ChronoPlaces {
         fun inSpan(year: Int): Boolean = year in start..end
         fun overlaps(range: IntRange): Boolean = start <= range.last && end >= range.first
 
-        /** 显式列优先；缺省按三源交叉 + tier 推导 */
+        /**
+         * 置信度：显式 confidence 字符串（资产列 / 种子字面量）仅作覆盖；
+         * 无显式值时按三源渠道交叉 + 参考层 + tier 走 [Confidence.grade] 打分。
+         */
         val confidenceTag: Confidence
-            get() = Confidence.of(declaredConfidence ?: confidence)
+            get() {
+                val explicit = declaredConfidence?.takeIf { it.isNotBlank() }
+                    ?: confidence.takeIf { it.isNotBlank() }
+                return if (explicit != null) Confidence.of(explicit)
+                else Confidence.grade(channels, refLayer, tier)
+            }
     }
 
     data class Resolve(

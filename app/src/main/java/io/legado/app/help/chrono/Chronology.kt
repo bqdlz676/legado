@@ -23,8 +23,8 @@ import java.time.LocalDate
  */
 object Chronology {
 
-    /** 「距今」以 1950 年为基准，考古学通用口径 */
-    const val PRESENT_BASE = 1950
+    /** 「距今」以运行时当前公历年为基准（规格切片05：前722 → 距今2748 = 2026+722） */
+    val presentBase: Int get() = LocalDate.now().year
 
     private const val GAN = "甲乙丙丁戊己庚辛壬癸"
     private const val ZHI = "子丑寅卯辰巳午未申酉戌亥"
@@ -87,7 +87,7 @@ object Chronology {
         val yearsAgo: Int,
         val rows: List<TimelineRow>,
     ) {
-        /** 一行摘要标签，如「前722年（己未）· 距今约2672年」 */
+        /** 一行摘要标签，如「前722年（己未）· 距今约2748年」 */
         val title: String get() = yearTitle(year)
     }
 
@@ -473,8 +473,8 @@ object Chronology {
         }
     }
 
-    /** 距今多少年，基准 1950 */
-    fun yearsAgo(year: Int): Int = PRESENT_BASE - year
+    /** 距今多少年，基准为运行时当前公历年（LocalDate.now().year） */
+    fun yearsAgo(year: Int): Int = presentBase - year
 
     /** 显示用：公元前/公元 + 干支 + 距今 */
     fun yearLabel(year: Int): String {
@@ -489,20 +489,20 @@ object Chronology {
     fun dynastyOf(year: Int): String? = when {
         year in -1046..-771 -> "西周"
         year in -770..-476 -> "春秋"
-        year in -475..-221 -> "战国"
+        year in -475..-222 -> "战国"
         year in -221..-202 -> "秦"
         year in -201..8 -> "西汉"
         year in 9..24 -> "新"
         year in 25..220 -> "东汉"
         year in 221..264 -> "三国"
         year in 265..316 -> "西晋"
-        year in 317..420 -> "东晋/十六国"
-        year in 420..589 -> "南北朝"
+        year in 317..419 -> "东晋/十六国"
+        year in 420..580 -> "南北朝"
         year in 581..618 -> "隋"
-        year in 618..907 -> "唐"
-        year in 907..960 -> "五代十国"
-        year in 960..1127 -> "北宋/辽"
-        year in 1127..1279 -> "南宋/金/西夏"
+        year in 618..906 -> "唐"
+        year in 907..959 -> "五代十国"
+        year in 960..1126 -> "北宋/辽"
+        year in 1127..1270 -> "南宋/金/西夏"
         year in 1271..1368 -> "元"
         year in 1368..1644 -> "明"
         year in 1644..1911 -> "清"

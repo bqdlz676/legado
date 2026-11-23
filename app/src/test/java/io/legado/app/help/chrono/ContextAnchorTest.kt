@@ -20,6 +20,7 @@ class ContextAnchorTest {
     @Before
     fun setUp() {
         ChronoPlaces.resetForTest()
+        ContextAnchor.reset()
         ContextAnchor.personProvider = null
         ContextAnchor.allusionProvider = null
     }
@@ -103,5 +104,55 @@ class ContextAnchorTest {
         assertTrue(person!!.isDefault)
         assertEquals(-551, person.start)
         assertEquals(-479, person.end)
+    }
+
+    @Test
+    fun `guess from text writes year and state anchor`() {
+        ContextAnchor.guessFromText("隐公元年")
+        assertEquals(-722, ContextAnchor.getYear())
+        assertEquals("鲁", ContextAnchor.state)
+        assertEquals("春秋", ContextAnchor.getDynasty())
+        assertTrue(ContextAnchor.hasAnchor())
+    }
+
+    @Test
+    fun `resolve uses anchor year when name resolves without explicit year`() {
+        ContextAnchor.setYear(-722, "鲁")
+
+        val result = ContextAnchor.resolve("晋")
+        assertTrue(result.isNotEmpty())
+
+        val defaults = result.filter { it.isDefault }
+        assertEquals(1, defaults.size)
+        val hit = defaults.first()
+        assertEquals(ContextAnchor.Type.PLACE, hit.type)
+        assertEquals("P003", hit.id)
+        assertFalse(hit.refLayer)
+
+        val modern = result.firstOrNull { it.id == "P057" }
+        assertNotNull(modern)
+        assertTrue(modern!!.refLayer)
+        assertFalse(modern.isDefault)
+        assertEquals("low", modern.confidence.wire)
+    }
+
+    @Test
+    fun `chapter and book state round trip`() {
+        ContextAnchor.setChapter("春秋左传", "隐公元年")
+        assertEquals("春秋左传", ContextAnchor.bookId)
+        assertEquals("隐公元年", ContextAnchor.title)
+
+        val state = ContextAnchor.get()
+        assertEquals("春秋左传", state.bookName)
+        assertEquals("隐公元年", state.chapterTitle)
+
+        ContextAnchor.setYearRange(-722..-453, "鲁")
+        assertEquals(-722, ContextAnchor.getRange()?.first)
+        assertEquals(-453, ContextAnchor.getRange()?.last)
+        assertNotNull(ContextAnchor.getDynasty())
+
+        ContextAnchor.reset()
+        assertFalse(ContextAnchor.hasAnchor())
+        assertNull(ContextAnchor.getYear())
     }
 }

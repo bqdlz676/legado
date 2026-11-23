@@ -198,6 +198,8 @@ object PlaceTimeDict {
             names.forEach { (n, el) -> el.forEach { idNames.getOrPut(it.id) { mutableSetOf() }.add(n) } }
             val seeds = ents.values.map { e ->
                 val channel = SourceChannel.classify(e.source)
+                val channels = setOfNotNull(channel)
+                val refLayer = channel == SourceChannel.REFERENCE
                 ChronoPlaces.PlaceSeed(
                     id = e.id,
                     name = e.name,
@@ -206,14 +208,15 @@ object PlaceTimeDict {
                     end = e.end,
                     tier = e.tier,
                     aliases = (idNames[e.id] ?: emptySet()).toList(),
-                    confidence = e.confidenceTag,
+                    // 显式 confidence 列仅作覆盖；缺列时由 grade(channels, refLayer, tier) 按三源交叉打分
+                    confidence = e.confidence ?: "",
                     source = e.source ?: "",
                     note = e.note,
                     lng = e.lng,
                     lat = e.lat,
                     era = e.era,
-                    refLayer = channel == SourceChannel.REFERENCE,
-                    channels = setOfNotNull(channel),
+                    refLayer = refLayer,
+                    channels = channels,
                     declaredConfidence = e.confidence,
                 )
             }
