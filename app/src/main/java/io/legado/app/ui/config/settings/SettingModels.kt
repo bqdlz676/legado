@@ -48,5 +48,14 @@ data class ListRow(
     val onChange: (String) -> Unit,
 ) : SettingRow
 
+/** 颜色行：右侧渲染 [color] 色块；点击触发 [onOpen]（打开颜色选择弹层，回传标题）。 */
+data class ColorSwatchRow(
+    val key: String,
+    val title: String,
+    val summary: String,
+    val color: Int,
+    val onOpen: (String) -> Unit,
+) : SettingRow
+
 /** 分组：[title] 为空时不渲染分组标题。 */
 data class SettingGroup(val title: String?, val rows: List<SettingRow>)

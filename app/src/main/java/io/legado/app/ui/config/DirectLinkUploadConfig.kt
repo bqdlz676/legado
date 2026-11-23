@@ -87,7 +87,7 @@ class DirectLinkUploadConfig : DialogFragment() {
                     modifier = Modifier.weight(1f),
                     style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
                 )
-                InkSwitch(checked = compress, enabled = true) { compress = it }
+                InkSwitch(checked = compress, enabled = true, onCheckedChange = { compress = it })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 InkButton(stringRes(R.string.import_default_rule), variant = InkButtonVariant.GHOST) {

@@ -1,10 +1,6 @@
 package io.legado.app.ui.config.sections
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import io.legado.app.R
 import io.legado.app.constant.PreferKey
@@ -17,7 +13,6 @@ import io.legado.app.ui.config.settings.SwitchRow
 import io.legado.app.ui.config.settings.ValueRow
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefString
-import io.legado.app.utils.removePref
 
 /**
  * 封面分区（对应旧 pref_config_cover.xml + CoverConfigFragment）。
@@ -28,12 +23,11 @@ import io.legado.app.utils.removePref
 @Composable
 fun CoverSection(actions: SectionActions) {
     val context = LocalContext.current
-    var pendingImageKey by remember { mutableStateOf<String?>(null) }
 
     fun pickCover(key: String) {
         actions.pickImage { uri ->
             if (uri != null) {
-                putPrefString(key, uri.toString())
+                context.putPrefString(key, uri.toString())
                 BookCover.upDefaultCover()
             }
         }
@@ -57,7 +51,6 @@ fun CoverSection(actions: SectionActions) {
             stringRes(R.string.day),
             listOf(
                 ValueRow(stringRes(R.string.default_cover), context.getPrefString(PreferKey.defaultCover) ?: stringRes(R.string.select_image)) {
-                    pendingImageKey = PreferKey.defaultCover
                     pickCover(PreferKey.defaultCover)
                 },
                 SwitchRow(PreferKey.coverShowName, stringRes(R.string.cover_show_name), stringRes(R.string.cover_show_name_summary), true) {

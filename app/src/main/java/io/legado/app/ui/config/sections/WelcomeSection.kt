@@ -71,7 +71,7 @@ fun WelcomeSection(actions: SectionActions) {
             max = 5000,
             current = context.getPrefInt(PreferKey.welcomeShowTime, 500),
             unit = "ms",
-            onConfirm = { putPrefInt(PreferKey.welcomeShowTime, it) },
+            onConfirm = { context.putPrefInt(PreferKey.welcomeShowTime, it) },
             onDismiss = { timeTarget = false },
         )
     }
@@ -83,11 +83,11 @@ fun WelcomeSection(actions: SectionActions) {
         ) {
             androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
                 io.legado.app.ui.components.InkButton(stringRes(R.string.select_image), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) {
-                    actions.pickImage { uri -> if (uri != null) putPrefString(key, uri.toString()) }
+                    actions.pickImage { uri -> if (uri != null) context.putPrefString(key, uri.toString()) }
                     imageTarget = null
                 }
                 io.legado.app.ui.components.InkButton(stringRes(R.string.delete), variant = io.legado.app.ui.components.InkButtonVariant.GHOST) {
-                    putPrefString(key, null)
+                    context.putPrefString(key, null)
                     imageTarget = null
                 }
             }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -140,13 +141,14 @@ fun GroupHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** 行容器：最小高 56dp（≥48dp 点击目标），朱砂浸染按压反馈，底部暖灰细线。 */
+/** 行容器：最小高 56dp（≥48dp 点击目标），朱砂浸染按压反馈，底部暖灰细线。
+ *  content 带 [RowScope] 接收者，槽内才能用 [RowScope.weight] 等分标题列与右侧控件。 */
 @Composable
 fun SettingRowShell(
     onClick: (() -> Unit)?,
     enabled: Boolean,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+    content: @Composable RowScope.() -> Unit,
 ) {
     val gesture = rememberInkPress(enabled = enabled, onClick = onClick ?: {})
     Row(
@@ -163,17 +165,22 @@ fun SettingRowShell(
         if (gesture.overlayAlpha > 0f) {
             Box(
                 Modifier
-                    .matchParentSize()
+                    .fillMaxSize()
                     .background(ComponentTokens.textAccent.copy(alpha = gesture.overlayAlpha)),
             )
         }
     }
 }
 
-/** 行内标题 + 说明列（左侧主文）。 */
+/** 行内标题 + 说明列（左侧主文）。weight 由调用方在 RowScope 内经 [modifier] 传入。 */
 @Composable
-fun RowTitleBlock(title: String, summary: String?, danger: Boolean = false) {
-    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+fun RowTitleBlock(
+    title: String,
+    summary: String?,
+    danger: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.padding(end = 12.dp)) {
         BasicText(
             text = title,
             style = TextStyle(
@@ -194,6 +201,17 @@ fun RowTitleBlock(title: String, summary: String?, danger: Boolean = false) {
             )
         }
     }
+}
+
+/** 右侧色块（ColorSwatchRow 尾部）：24dp 圆形取色样片，描边暖灰细线便于浅色辨识。 */
+@Composable
+fun ColorSwatchBlock(color: Int) {
+    Box(
+        Modifier
+            .size(24.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Color(color)),
+    )
 }
 
 /** 右侧取值文字（ValueRow 尾部）。 */
@@ -260,7 +278,7 @@ fun InkSwitch(
             .clip(RoundedCornerShape(50))
             .background(trackColor)
             .pointerInput(enabled) {
-                detectTapGestures(enabled = enabled) { onCheckedChange(!checked) }
+                detectTapGestures { if (enabled) onCheckedChange(!checked) }
             },
         contentAlignment = Alignment.CenterStart,
     ) {
@@ -304,12 +322,13 @@ private fun rememberInkPress(enabled: Boolean = true, onClick: () -> Unit): InkP
     ).value
     val modifier = Modifier.pointerInput(enabled) {
         detectTapGestures(
-            enabled = enabled,
             onPress = {
-                pressed = true
-                val released = tryAwaitRelease()
-                pressed = false
-                if (released) onClick()
+                if (enabled) {
+                    pressed = true
+                    val released = tryAwaitRelease()
+                    pressed = false
+                    if (released) onClick()
+                }
             },
             onTap = { },
         )

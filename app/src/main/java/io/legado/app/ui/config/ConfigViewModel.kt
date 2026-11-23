@@ -3,6 +3,7 @@ package io.legado.app.ui.config
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.core.net.toUri
 import io.legado.app.R
 import io.legado.app.base.BaseViewModel
 import io.legado.app.constant.AppLog
@@ -12,7 +13,6 @@ import io.legado.app.help.AppWebDav
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.storage.Backup
 import io.legado.app.help.storage.ImportOldData
-import io.legado.app.help.storage.LanBackupSession
 import io.legado.app.help.storage.LanBackupTransfer
 import io.legado.app.help.storage.Restore
 import io.legado.app.utils.FileUtils
@@ -72,14 +72,17 @@ class ConfigViewModel(application: Application) : BaseViewModel(application) {
 
     /** 本地 / 本地+WebDAV 备份；返回失败文案，成功返回 null。 */
     suspend fun backup(backupPath: String?, uploadWebDav: Boolean): String? =
-        runCatching {
+        runCatching<Unit> {
             withContext(Dispatchers.IO) {
                 Backup.backupLocked(appCtx, backupPath, uploadWebDav)
             }
-        }.getOrElse { error ->
-            AppLog.put("备份出错\n${error.localizedMessage}", error)
-            error.localizedMessage
-        }
+        }.fold(
+            onSuccess = { null },
+            onFailure = { error ->
+                AppLog.put("备份出错\n${error.localizedMessage}", error)
+                error.localizedMessage
+            },
+        )
 
     /** 从本地 zip 恢复。 */
     suspend fun restoreFromUri(uri: Uri) {
@@ -106,13 +109,12 @@ class ConfigViewModel(application: Application) : BaseViewModel(application) {
         withContext(Dispatchers.IO) { AppWebDav.backUpWebDav(fileName) }
     }
 
-    /** 局域网发送：打包 + 建会话 + 生成二维码。 */
-    suspend fun lanPrepare(): Result<Pair<LanBackupSession, Bitmap>> = runCatching {
+    /** 局域网发送：打包 + 建会话 + 生成二维码；只回吐二维码位图，不暴露 internal 会话类型。 */
+    suspend fun lanPrepare(): Result<Bitmap> = runCatching {
         val backupFile = withContext(Dispatchers.IO) { Backup.backupForLanTransferLocked(appCtx) }
         val session = LanBackupTransfer.prepare(backupFile, deviceName())
-        val qrCode = QRCodeUtils.createQRCode(session.qrText)
+        QRCodeUtils.createQRCode(session.qrText)
             ?: throw IllegalStateException("生成二维码失败")
-        session to qrCode
     }
 
     /** 局域网接收：拉取备份并恢复。 */

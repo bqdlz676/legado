@@ -11,6 +11,7 @@ import io.legado.app.constant.PreferKey
 import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.config.settings.ListRow
 import io.legado.app.ui.config.settings.NumberPickerSheet
+import io.legado.app.ui.config.settings.NumberTarget
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
 import io.legado.app.ui.config.settings.SectionActions
@@ -32,15 +33,9 @@ fun OtherSection(actions: SectionActions) {
     val context = LocalContext.current
     val vm = actions.vm
 
-    // 数字弹层目标
-    data class NumberTarget(
-        val titleRes: Int, val min: Int, val max: Int, val current: Int,
-        val apply: (Int) -> Unit,
-    )
     var numberTarget by remember { mutableStateOf<NumberTarget?>(null) }
 
     // 文本编辑弹层目标
-    data class TextTarget(val titleRes: Int, val initial: String?, val apply: (String) -> Unit)
     var textTarget by remember { mutableStateOf<TextTarget?>(null) }
 
     val languageEntries = context.resources.getStringArray(R.array.language).toList()
@@ -94,12 +89,12 @@ fun OtherSection(actions: SectionActions) {
             listOf(
                 ValueRow(stringRes(R.string.user_agent), summary = AppConfig.userAgent) {
                     textTarget = TextTarget(R.string.user_agent, AppConfig.userAgent) { v ->
-                        if (v.isBlank()) removePref(PreferKey.userAgent) else putPrefString(PreferKey.userAgent, v)
+                        if (v.isBlank()) context.removePref(PreferKey.userAgent) else context.putPrefString(PreferKey.userAgent, v)
                     }
                 },
                 ValueRow(stringRes(R.string.custom_hosts), stringRes(R.string.custom_hosts_summary)) {
                     textTarget = TextTarget(R.string.custom_hosts, AppConfig.customHosts) { v ->
-                        putPrefString(PreferKey.customHosts, v)
+                        context.putPrefString(PreferKey.customHosts, v)
                     }
                 },
                 SwitchRow(PreferKey.webServiceWakeLock, stringRes(R.string.web_service_wake_lock), stringRes(R.string.web_service_wake_lock_summary), false),
@@ -135,12 +130,12 @@ fun OtherSection(actions: SectionActions) {
                     }
                 },
                 SwitchRow(PreferKey.replaceEnableDefault, stringRes(R.string.replace_enable_default_t), stringRes(R.string.replace_enable_default_s), true),
-                SwitchRow(PreferKey.mediaButtonOnExit, stringRes(R.string.media_button_on_exit_title), stringRes(R.string.media_button_on_exit_summary), true),
+                SwitchRow("mediaButtonOnExit", stringRes(R.string.media_button_on_exit_title), stringRes(R.string.media_button_on_exit_summary), true),
                 SwitchRow(PreferKey.readAloudByMediaButton, stringRes(R.string.read_aloud_by_media_button_title), stringRes(R.string.read_aloud_by_media_button_summary), false),
                 SwitchRow(PreferKey.ignoreAudioFocus, stringRes(R.string.ignore_audio_focus_title), stringRes(R.string.ignore_audio_focus_summary), false),
                 SwitchRow(PreferKey.autoClearExpired, stringRes(R.string.auto_clear_expired), stringRes(R.string.auto_clear_expired_summary), true),
                 SwitchRow(PreferKey.showAddToShelfAlert, stringRes(R.string.show_add_to_shelf_alert_title), stringRes(R.string.show_add_to_shelf_alert_summary), true),
-                SwitchRow(PreferKey.autoUpdateVariant, stringRes(R.string.auto_update), stringRes(R.string.auto_update_summary), true),
+                SwitchRow("autoUpdateVariant", stringRes(R.string.auto_update), stringRes(R.string.auto_update_summary), true),
                 SwitchRow(PreferKey.liveUpdateNotifications, stringRes(R.string.live_update_notifications), stringRes(R.string.live_update_notifications_summary), false),
                 SwitchRow(PreferKey.showMangaUi, stringRes(R.string.show_manga_ui), def = true),
                 ValueRow(stringRes(R.string.video_setting), stringRes(R.string.video_setting_summary)) {
@@ -155,7 +150,7 @@ fun OtherSection(actions: SectionActions) {
                 SwitchRow(PreferKey.jsSourceApiTokenRequired, stringRes(R.string.js_source_api_token_required_title), stringRes(R.string.js_source_api_token_required_summary), true),
                 ValueRow(stringRes(R.string.js_source_api_token_title), stringRes(R.string.js_source_api_token_summary)) {
                     textTarget = TextTarget(R.string.js_source_api_token_title, context.getPrefString(PreferKey.jsSourceApiToken)) { v ->
-                        putPrefString(PreferKey.jsSourceApiToken, v)
+                        context.putPrefString(PreferKey.jsSourceApiToken, v)
                     }
                 },
                 ValueRow(stringRes(R.string.clear_cache), stringRes(R.string.clear_cache_summary), danger = true) { vm.clearCache() },
@@ -199,3 +194,6 @@ fun OtherSection(actions: SectionActions) {
 
 @Composable
 private fun stringRes(id: Int): String = androidx.compose.ui.res.stringResource(id)
+
+/** 文本编辑弹层待决目标（仅本分区使用）。 */
+private data class TextTarget(val titleRes: Int, val initial: String?, val apply: (String) -> Unit)

@@ -3,6 +3,7 @@ package io.legado.app.ui.config.settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -12,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefBoolean
 import io.legado.app.utils.putPrefString
@@ -44,6 +46,7 @@ fun SettingList(groups: List<SettingGroup>, modifier: Modifier = Modifier) {
                     is SwitchRow -> "sw-${row.key}"
                     is ValueRow -> "val-${row.title}"
                     is ListRow -> "list-${row.key}"
+                    is ColorSwatchRow -> "color-${row.key}"
                     is GroupHeader -> "h-${row.title}"
                 }
             }) { row ->
@@ -52,6 +55,7 @@ fun SettingList(groups: List<SettingGroup>, modifier: Modifier = Modifier) {
                     is SwitchRow -> SwitchRowItem(row)
                     is ValueRow -> ValueRowItem(row)
                     is ListRow -> ListRowItem(row)
+                    is ColorSwatchRow -> ColorSwatchRowItem(row)
                 }
             }
             item(key = "divider-${group.title}") { Spacer(Modifier.height(8.dp)) }
@@ -64,19 +68,32 @@ private fun SwitchRowItem(row: SwitchRow) {
     val context = LocalContext.current
     val checked = rememberPrefBoolean(row.key, row.def)
     SettingRowShell(onClick = null, enabled = row.enabled) {
-        RowTitleBlock(row.title, row.summary)
-        InkSwitch(checked = checked, enabled = row.enabled) { next ->
-            context.putPrefBoolean(row.key, next)
-            row.onChange?.invoke(next)
-        }
+        RowTitleBlock(row.title, row.summary, modifier = Modifier.weight(1f))
+        InkSwitch(
+            checked = checked,
+            enabled = row.enabled,
+            onCheckedChange = { next ->
+                context.putPrefBoolean(row.key, next)
+                row.onChange?.invoke(next)
+            },
+        )
     }
 }
 
 @Composable
 private fun ValueRowItem(row: ValueRow) {
     SettingRowShell(onClick = row.onClick, enabled = row.enabled) {
-        RowTitleBlock(row.title, row.summary, danger = row.danger)
+        RowTitleBlock(row.title, row.summary, danger = row.danger, modifier = Modifier.weight(1f))
         RowValueText(row.summary, arrow = true)
+    }
+}
+
+@Composable
+private fun ColorSwatchRowItem(row: ColorSwatchRow) {
+    SettingRowShell(onClick = { row.onOpen(row.title) }, enabled = true) {
+        RowTitleBlock(row.title, row.summary, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(12.dp))
+        ColorSwatchBlock(row.color)
     }
 }
 
@@ -87,7 +104,7 @@ private fun ListRowItem(row: ListRow) {
     var sheetVisible by remember { mutableStateOf(false) }
     val currentLabel = row.entries.getOrNull(row.values.indexOf(current)) ?: current
     SettingRowShell(onClick = { sheetVisible = true }, enabled = true) {
-        RowTitleBlock(row.title, row.summary ?: currentLabel)
+        RowTitleBlock(row.title, row.summary ?: currentLabel, modifier = Modifier.weight(1f))
         RowValueText(currentLabel, arrow = true)
     }
     ListPickSheet(

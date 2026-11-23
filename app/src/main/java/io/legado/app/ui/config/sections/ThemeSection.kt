@@ -4,11 +4,10 @@ import android.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,9 +25,10 @@ import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ThemeConfig
 import io.legado.app.ui.config.ConfigTag
 import io.legado.app.ui.config.settings.NumberPickerSheet
+import io.legado.app.ui.config.settings.NumberTarget
+import io.legado.app.ui.config.settings.ColorSwatchRow
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
-import io.legado.app.ui.config.settings.SettingRowShell
 import io.legado.app.ui.config.settings.SectionActions
 import io.legado.app.ui.config.settings.SwitchRow
 import io.legado.app.ui.config.settings.TextEditSheet
@@ -53,9 +53,6 @@ fun ThemeSection(actions: SectionActions) {
     var themeNameTarget by remember { mutableStateOf<String?>(null) }
     var bgImageTarget by remember { mutableStateOf<String?>(null) }
 
-    data class NumberTarget(val titleRes: Int, val min: Int, val max: Int, val current: Int, val apply: (Int) -> Unit)
-    data class ColorTarget(val key: String, val title: String)
-
     val iconEntries = context.resources.getStringArray(R.array.icon_names).toList()
     val iconValues = context.resources.getStringArray(R.array.icons).toList()
     val currentIcon = context.getPrefString(PreferKey.launcherIcon) ?: "ic_launcher"
@@ -79,7 +76,7 @@ fun ThemeSection(actions: SectionActions) {
                 },
                 ValueRow(stringRes(R.string.font_scale), stringRes(R.string.font_scale_summary)) {
                     val scale = context.getPrefInt(PreferKey.fontScale, 0).takeIf { it > 0 } ?: 10
-                    numberTarget = NumberTarget(R.string.font_scale, 8, 16, scale) { putPrefInt(PreferKey.fontScale, it) }
+                    numberTarget = NumberTarget(R.string.font_scale, 8, 16, scale) { context.putPrefInt(PreferKey.fontScale, it) }
                 },
                 ValueRow(stringRes(R.string.cover_config), stringRes(R.string.cover_config_summary)) {
                     actions.openConfig(ConfigTag.COVER_CONFIG)
@@ -98,10 +95,10 @@ fun ThemeSection(actions: SectionActions) {
         SettingGroup(
             stringRes(R.string.day),
             listOf(
-                ColorRow(PreferKey.cPrimary, stringRes(R.string.primary), stringRes(R.string.day_color_primary)) { colorTarget = ColorTarget(PreferKey.cPrimary, it) },
-                ColorRow(PreferKey.cAccent, stringRes(R.string.accent), stringRes(R.string.day_color_accent)) { colorTarget = ColorTarget(PreferKey.cAccent, it) },
-                ColorRow(PreferKey.cBackground, stringRes(R.string.background_color), stringRes(R.string.day_background_color)) { colorTarget = ColorTarget(PreferKey.cBackground, it) },
-                ColorRow(PreferKey.cBBackground, stringRes(R.string.navbar_color), stringRes(R.string.day_navbar_color)) { colorTarget = ColorTarget(PreferKey.cBBackground, it) },
+                ColorSwatchRow(PreferKey.cPrimary, stringRes(R.string.primary), stringRes(R.string.day_color_primary), context.getPrefInt(PreferKey.cPrimary, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cPrimary, it) },
+                ColorSwatchRow(PreferKey.cAccent, stringRes(R.string.accent), stringRes(R.string.day_color_accent), context.getPrefInt(PreferKey.cAccent, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cAccent, it) },
+                ColorSwatchRow(PreferKey.cBackground, stringRes(R.string.background_color), stringRes(R.string.day_background_color), context.getPrefInt(PreferKey.cBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cBackground, it) },
+                ColorSwatchRow(PreferKey.cBBackground, stringRes(R.string.navbar_color), stringRes(R.string.day_navbar_color), context.getPrefInt(PreferKey.cBBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cBBackground, it) },
                 ValueRow(stringRes(R.string.background_image)) { bgImageTarget = PreferKey.bgImage },
                 SwitchRow(PreferKey.tNavBar, stringRes(R.string.immersion_nav_bar), stringRes(R.string.day_nav_bar_immersion), false),
                 ValueRow(stringRes(R.string.save_theme_config), stringRes(R.string.save_day_theme_summary)) { themeNameTarget = "saveDayTheme" },
@@ -110,10 +107,10 @@ fun ThemeSection(actions: SectionActions) {
         SettingGroup(
             stringRes(R.string.night),
             listOf(
-                ColorRow(PreferKey.cNPrimary, stringRes(R.string.primary), stringRes(R.string.night_primary)) { colorTarget = ColorTarget(PreferKey.cNPrimary, it) },
-                ColorRow(PreferKey.cNAccent, stringRes(R.string.accent), stringRes(R.string.night_accent)) { colorTarget = ColorTarget(PreferKey.cNAccent, it) },
-                ColorRow(PreferKey.cNBackground, stringRes(R.string.background_color), stringRes(R.string.night_background_color)) { colorTarget = ColorTarget(PreferKey.cNBackground, it) },
-                ColorRow(PreferKey.cNBBackground, stringRes(R.string.navbar_color), stringRes(R.string.night_navbar_color)) { colorTarget = ColorTarget(PreferKey.cNBBackground, it) },
+                ColorSwatchRow(PreferKey.cNPrimary, stringRes(R.string.primary), stringRes(R.string.night_primary), context.getPrefInt(PreferKey.cNPrimary, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNPrimary, it) },
+                ColorSwatchRow(PreferKey.cNAccent, stringRes(R.string.accent), stringRes(R.string.night_accent), context.getPrefInt(PreferKey.cNAccent, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNAccent, it) },
+                ColorSwatchRow(PreferKey.cNBackground, stringRes(R.string.background_color), stringRes(R.string.night_background_color), context.getPrefInt(PreferKey.cNBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNBackground, it) },
+                ColorSwatchRow(PreferKey.cNBBackground, stringRes(R.string.navbar_color), stringRes(R.string.night_navbar_color), context.getPrefInt(PreferKey.cNBBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNBBackground, it) },
                 ValueRow(stringRes(R.string.background_image)) { bgImageTarget = PreferKey.bgImageN },
                 SwitchRow(PreferKey.tNavBarN, stringRes(R.string.immersion_nav_bar), stringRes(R.string.night_nav_bar_immersion), false),
                 ValueRow(stringRes(R.string.save_theme_config), stringRes(R.string.save_night_theme_summary)) { themeNameTarget = "saveNightTheme" },
@@ -132,7 +129,7 @@ fun ThemeSection(actions: SectionActions) {
         ColorPickerSheet(
             title = target.title,
             current = context.getPrefInt(target.key, Color.BLACK),
-            onPick = { putPrefInt(target.key, it) },
+            onPick = { context.putPrefInt(target.key, it) },
             onDismiss = { colorTarget = null },
         )
     }
@@ -148,34 +145,15 @@ fun ThemeSection(actions: SectionActions) {
 
     bgImageTarget?.let { key ->
         BackgroundImageSheet(
-            key = key,
-            onPickImage = { actions.pickImage { uri -> uri?.let { putPrefString(key, it.toString()) } } },
-            onClear = { removePref(key) },
+            onPickImage = { actions.pickImage { uri -> uri?.let { context.putPrefString(key, it.toString()) } } },
+            onClear = { context.removePref(key) },
             onDismiss = { bgImageTarget = null },
         )
     }
 }
 
-@Composable
-private fun ColorRow(
-    key: String,
-    title: String,
-    summary: String,
-    onOpen: (String) -> Unit,
-) {
-    val context = LocalContext.current
-    val color = context.getPrefInt(key, Color.BLACK)
-    SettingRowShell(onClick = { onOpen(title) }, enabled = true) {
-        io.legado.app.ui.config.settings.RowTitleBlock(title, summary)
-        Spacer(Modifier.width(12.dp))
-        Box(
-            Modifier
-                .size(24.dp)
-                .clip(RoundedCornerShape(50))
-                .background(androidx.compose.ui.graphics.Color(color)),
-        )
-    }
-}
+/** 颜色选择弹层待决目标（仅本分区使用）。 */
+private data class ColorTarget(val key: String, val title: String)
 
 @Composable
 private fun ColorPickerSheet(
@@ -207,7 +185,6 @@ private fun ColorPickerSheet(
 
 @Composable
 private fun BackgroundImageSheet(
-    key: String,
     onPickImage: () -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,

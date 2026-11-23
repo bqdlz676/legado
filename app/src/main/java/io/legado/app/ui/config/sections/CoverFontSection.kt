@@ -39,7 +39,6 @@ import io.legado.app.utils.putPrefInt
 @Composable
 fun CoverFontSection(actions: SectionActions) {
     val context = LocalContext.current
-    data class SizeTarget(val key: String, val titleRes: Int, val current: Int)
     var sizeTarget by remember { mutableStateOf<SizeTarget?>(null) }
 
     val sizeRows = listOf(
@@ -78,7 +77,7 @@ fun CoverFontSection(actions: SectionActions) {
             min = 50,
             max = 200,
             current = t.current,
-            onConfirm = { putPrefInt(t.key, it) },
+            onConfirm = { context.putPrefInt(t.key, it) },
             onDismiss = { sizeTarget = null },
         )
     }
@@ -112,6 +111,9 @@ private fun CoverPreviewCard() {
         }
     }
 }
+
+/** 字号盘待决目标（仅本分区使用）。 */
+private data class SizeTarget(val key: String, val titleRes: Int, val current: Int)
 
 @Composable
 private fun stringRes(id: Int): String = androidx.compose.ui.res.stringResource(id)

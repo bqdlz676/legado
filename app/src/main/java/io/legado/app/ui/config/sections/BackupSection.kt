@@ -28,6 +28,7 @@ import io.legado.app.ui.config.settings.InkBottomSheetHost
 import io.legado.app.ui.config.settings.ListPickSheet
 import io.legado.app.ui.config.settings.MultiChoiceSheet
 import io.legado.app.ui.config.settings.NumberPickerSheet
+import io.legado.app.ui.config.settings.NumberTarget
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
 import io.legado.app.ui.config.settings.SectionActions
@@ -63,14 +64,6 @@ fun BackupSection(actions: SectionActions) {
     var lanSheet by remember { mutableStateOf<LanState>(LanState.Closed) }
     var confirmLocalPw by remember { mutableStateOf(false) }
 
-    data class TextTarget(val key: String, val titleRes: Int, val initial: String?, val password: Boolean)
-    data class NumberTarget(val titleRes: Int, val min: Int, val max: Int, val current: Int, val apply: (Int) -> Unit)
-    sealed class LanState {
-        object Closed : LanState()
-        object Menu : LanState()
-        data class Qr(val bitmap: Bitmap) : LanState()
-    }
-
     val groups = listOf(
         SettingGroup(
             stringRes(R.string.web_dav_set),
@@ -92,7 +85,7 @@ fun BackupSection(actions: SectionActions) {
                 },
                 ValueRow(stringRes(R.string.webdav_backup_keep_count_t), stringRes(R.string.webdav_backup_keep_count_s)) {
                     numberTarget = NumberTarget(R.string.webdav_backup_keep_count_t, 0, 999, AppConfig.webDavBackupKeepCount) {
-                        putPrefInt(PreferKey.webDavBackupKeepCount, it)
+                        context.putPrefInt(PreferKey.webDavBackupKeepCount, it)
                     }
                 },
                 SwitchRow(PreferKey.webDavBookAutoUpload, stringRes(R.string.webdav_book_auto_upload_t), stringRes(R.string.webdav_book_auto_upload_s), false),
@@ -106,7 +99,7 @@ fun BackupSection(actions: SectionActions) {
             listOf(
                 ValueRow(stringRes(R.string.set_local_password), stringRes(R.string.set_local_password_summary)) { confirmLocalPw = true },
                 ValueRow(stringRes(R.string.backup_path), stringRes(R.string.select_backup_path)) {
-                    actions.pickFolder { uri -> if (uri != null) putPrefString(PreferKey.backupPath, uri) }
+                    actions.pickFolder { uri -> if (uri != null) context.putPrefString(PreferKey.backupPath, uri) }
                 },
                 ValueRow(stringRes(R.string.backup_content), stringRes(R.string.backup_content_summary)) { contentMulti = true },
                 ValueRow(stringRes(R.string.lan_backup_transfer), stringRes(R.string.lan_backup_transfer_summary)) { lanSheet = LanState.Menu },
@@ -130,7 +123,7 @@ fun BackupSection(actions: SectionActions) {
 
     textTarget?.let { t ->
         TextEditSheet(true, stringRes(t.titleRes), t.initial, "", password = t.password, onConfirm = { v ->
-            putPrefString(t.key, v)
+            context.putPrefString(t.key, v)
             vm.upWebDavConfig()
         }, onDismiss = { textTarget = null })
     }
@@ -141,20 +134,34 @@ fun BackupSection(actions: SectionActions) {
 
     if (contentMulti) {
         val checked = BooleanArray(BackupConfig.contentKeys.size) { BackupConfig.contentIsEnabled(BackupConfig.contentKeys[it]) }
-        MultiChoiceSheet(true, stringRes(R.string.backup_content), BackupConfig.contentTitles.toList(), checked) { result ->
-            BackupConfig.contentKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = !result[i] }
-            BackupConfig.saveIgnoreConfig()
-            contentMulti = false
-        }
+        MultiChoiceSheet(
+            true,
+            stringRes(R.string.backup_content),
+            BackupConfig.contentTitles.toList(),
+            checked,
+            onConfirm = { result ->
+                BackupConfig.contentKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = !result[i] }
+                BackupConfig.saveIgnoreConfig()
+                contentMulti = false
+            },
+            onDismiss = { contentMulti = false },
+        )
     }
 
     if (ignoreMulti) {
         val checked = BooleanArray(BackupConfig.ignoreKeys.size) { BackupConfig.ignoreConfig[BackupConfig.ignoreKeys[it]] ?: false }
-        MultiChoiceSheet(true, stringRes(R.string.restore_ignore), BackupConfig.ignoreTitle.toList(), checked) { result ->
-            BackupConfig.ignoreKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = result[i] }
-            BackupConfig.saveIgnoreConfig()
-            ignoreMulti = false
-        }
+        MultiChoiceSheet(
+            true,
+            stringRes(R.string.restore_ignore),
+            BackupConfig.ignoreTitle.toList(),
+            checked,
+            onConfirm = { result ->
+                BackupConfig.ignoreKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = result[i] }
+                BackupConfig.saveIgnoreConfig()
+                ignoreMulti = false
+            },
+            onDismiss = { ignoreMulti = false },
+        )
     }
 
     if (autoBackupSheet) {
@@ -201,7 +208,7 @@ fun BackupSection(actions: SectionActions) {
             onSend = {
                 lanSheet = LanState.Closed
                 scope.launch {
-                    vm.lanPrepare().onSuccess { (_, bitmap) -> lanSheet = LanState.Qr(bitmap) }
+                    vm.lanPrepare().onSuccess { bitmap -> lanSheet = LanState.Qr(bitmap) }
                         .onFailure { actions.toast(it.localizedMessage ?: "") }
                 }
             },
@@ -237,13 +244,22 @@ private fun LanMenuSheet(onSend: () -> Unit, onReceive: () -> Unit, onDismiss: (
 
 @Composable
 private fun AutoBackupSheet(onDismiss: () -> Unit) {
+    val context = LocalContext.current
     var enabled by remember { mutableStateOf(AppConfig.autoBackup) }
     var webDav by remember { mutableStateOf(AppConfig.autoBackupWebDav) }
     var days by remember { mutableStateOf(AppConfig.autoBackupIntervalDays) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            io.legado.app.ui.config.settings.RowTitleBlock(stringRes(R.string.auto_backup_t), null)
-            io.legado.app.ui.config.settings.InkSwitch(checked = enabled, enabled = true) { enabled = it }
+            io.legado.app.ui.config.settings.RowTitleBlock(
+                stringRes(R.string.auto_backup_t),
+                null,
+                modifier = Modifier.weight(1f),
+            )
+            io.legado.app.ui.config.settings.InkSwitch(
+                checked = enabled,
+                enabled = true,
+                onCheckedChange = { enabled = it },
+            )
         }
         Row(Modifier.fillMaxWidth()) {
             io.legado.app.ui.components.InkButton(
@@ -253,18 +269,37 @@ private fun AutoBackupSheet(onDismiss: () -> Unit) {
             )
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            io.legado.app.ui.config.settings.RowTitleBlock(stringRes(R.string.auto_backup_interval_days), null)
+            io.legado.app.ui.config.settings.RowTitleBlock(
+                stringRes(R.string.auto_backup_interval_days),
+                null,
+                modifier = Modifier.weight(1f),
+            )
             io.legado.app.ui.components.InkButton(days.toString(), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) {
                 days = days.coerceIn(1, 365)
             }
         }
         io.legado.app.ui.components.InkButton(stringRes(R.string.ok)) {
-            putPrefBoolean(PreferKey.autoBackup, enabled)
-            putPrefBoolean(PreferKey.autoBackupWebDav, webDav)
-            putPrefInt(PreferKey.autoBackupIntervalDays, days)
+            context.putPrefBoolean(PreferKey.autoBackup, enabled)
+            context.putPrefBoolean(PreferKey.autoBackupWebDav, webDav)
+            context.putPrefInt(PreferKey.autoBackupIntervalDays, days)
             onDismiss()
         }
     }
+}
+
+/** 文本编辑弹层待决目标（仅本分区使用）。 */
+private data class TextTarget(
+    val key: String,
+    val titleRes: Int,
+    val initial: String?,
+    val password: Boolean,
+)
+
+/** 局域网备份弹层状态机：关闭 / 菜单 / 发送二维码。 */
+private sealed interface LanState {
+    object Closed : LanState
+    object Menu : LanState
+    data class Qr(val bitmap: Bitmap) : LanState
 }
 
 @Composable

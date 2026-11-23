@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -130,7 +132,7 @@ private fun AssignScreen(
         }
         val decodable = t.keys.toList()
         if (decodable.isEmpty()) {
-            toastOnUi(io.legado.app.utils.appCtx.getString(R.string.bottom_bar_skin_no_images))
+            context.toastOnUi(context.getString(R.string.bottom_bar_skin_no_images))
             return@LaunchedEffect
         }
         val prefill = withContext(Dispatchers.IO) { BottomBarSkinManager.buildPrefill(decodable) }
@@ -146,7 +148,7 @@ private fun AssignScreen(
         val observer = Observer<BottomBarSkinAssignViewModel.SaveOutcome?> { outcome ->
             outcome ?: return@Observer
             viewModel.consume(outcome)
-            if (outcome.name != null) onSaved() else toastOnUi(R.string.bottom_bar_skin_invalid)
+            if (outcome.name != null) onSaved() else context.toastOnUi(R.string.bottom_bar_skin_invalid)
         }
         viewModel.saveResult.observe(lifecycleOwner, observer)
         onDispose { viewModel.saveResult.removeObserver(observer) }
@@ -175,19 +177,19 @@ private fun AssignScreen(
                         style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 16.sp()),
                     )
                 }
-                Thumb(row.selected) { paletteFor = index to true }
+                Thumb(row.selected, enabled = true) { paletteFor = index to true }
                 Spacer(Modifier.size(12.dp))
                 Thumb(row.normal, enabled = row.selected != null) { paletteFor = index to false }
             }
         }
         item {
-            io.legado.app.ui.components.InkButton(context.getString(R.string.save), modifier = Modifier.fillMaxWidth()) {
+            io.legado.app.ui.components.InkButton(context.getString(R.string.bottom_bar_skin_save), modifier = Modifier.fillMaxWidth()) {
                 val assigns = LinkedHashMap<String, BottomBarSkinManager.SlotAssign>()
                 rows.forEach { r ->
                     r.selected?.let { sel -> assigns[r.slot] = BottomBarSkinManager.SlotAssign(sel, r.normal) }
                 }
                 if (assigns.isEmpty()) {
-                    toastOnUi(R.string.bottom_bar_skin_need_selected)
+                    context.toastOnUi(R.string.bottom_bar_skin_need_selected)
                     return@InkButton
                 }
                 viewModel.save(name.trim(), assigns, sessionId, editName)
@@ -212,14 +214,14 @@ private fun AssignScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(palette) { file ->
+                    androidx.compose.foundation.lazy.grid.items(palette) { file ->
                         Box(
                             Modifier
                                 .size(56.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(ComponentTokens.bgSurface)
                                 .pointerInput(file) {
-                                    androidx.compose.foundation.gestures.detectTapGestures(onTap = {
+                                    detectTapGestures(onTap = {
                                         rows = rows.toMutableList().also {
                                             if (isSelected) {
                                                 it[index].selected = file
@@ -250,7 +252,7 @@ private fun Thumb(file: File?, enabled: Boolean, onClick: () -> Unit) {
             .clip(RoundedCornerShape(8.dp))
             .background(ComponentTokens.bgSurface)
             .pointerInput(enabled) {
-                if (enabled) androidx.compose.foundation.gestures.detectTapGestures(onTap = { onClick() })
+                if (enabled) detectTapGestures(onTap = { onClick() })
             },
         contentAlignment = Alignment.Center,
     ) {

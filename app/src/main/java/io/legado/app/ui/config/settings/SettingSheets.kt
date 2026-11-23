@@ -205,7 +205,7 @@ fun MultiChoiceSheet(
                         style = TextStyle(color = ComponentTokens.textPrimary, fontSize = 16.sp, fontFamily = FontFamily.Serif),
                     )
                     Spacer(Modifier.weight(1f))
-                    InkSwitch(checked = state[index], enabled = true) { state[index] = it }
+                    InkSwitch(checked = state[index], enabled = true, onCheckedChange = { state[index] = it })
                 }
             }
             Spacer(Modifier.height(12.dp))

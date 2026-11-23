@@ -61,7 +61,7 @@ class CoverRuleConfigDialog : DialogFragment() {
                     modifier = Modifier.weight(1f),
                     style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
                 )
-                InkSwitch(checked = enable, enabled = true) { enable = it }
+                InkSwitch(checked = enable, enabled = true, onCheckedChange = { enable = it })
             }
             FormField(stringRes(R.string.r_search_url), searchUrl) { searchUrl = it }
             FormField(stringRes(R.string.rule_cover_url), coverRule) { coverRule = it }
