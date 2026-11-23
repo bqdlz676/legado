@@ -4,7 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -88,11 +92,11 @@ class JsSourceEditActivity : FragmentActivity() {
             ?: JsSourceEditStage.READY
 
         setContent {
-            androidx.compose.foundation.layout.Box(
-                androidx.compose.ui.Modifier
+            Box(
+                Modifier
                     .fillMaxSize()
                     .background(ComponentTokens.bgPage),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
+                contentAlignment = Alignment.Center,
             ) { InkLoadingDots() }
         }
 

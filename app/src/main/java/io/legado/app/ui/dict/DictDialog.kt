@@ -74,7 +74,7 @@ class DictDialog() : DialogFragment() {
         }
         return ComposeView(requireContext()).apply {
             setContent {
-                val state = collectAsState(viewModel.uiState).value
+                val state = viewModel.uiState.collectAsState().value
                 DictLookupContent(
                     state = state,
                     onSelectRule = viewModel::selectRule,

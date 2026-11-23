@@ -112,7 +112,7 @@ fun DetailSheetContent(
 private fun TimelineBridge(year: Int?, onYearChanged: (Int) -> Unit) {
     AndroidView(
         factory = { ctx ->
-            InkTimelineView(ctx).apply { onYearChanged = onYearChanged }
+            InkTimelineView(ctx).also { view -> view.onYearChanged = onYearChanged }
         },
         update = { view ->
             view.year = year ?: 0
