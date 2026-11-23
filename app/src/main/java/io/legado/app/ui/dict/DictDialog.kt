@@ -21,7 +21,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +38,7 @@ import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.components.InkEmptyState
+import io.legado.app.ui.components.InkHalfSheet
 import io.legado.app.utils.toastOnUi
 
 /**
@@ -45,7 +48,9 @@ import io.legado.app.utils.toastOnUi
  * 入口不变。规则订阅 / 取词执行归 [DictViewModel]，标签页与释义排版归本类 Compose 内容。
  *
  * 兜底：空词 → 提示并关闭；无启用词典 → 空态；取词失败 → 错误文案 + 重试。
- * 注：旧版 Markwon / Glide 图片渲染链不在本次编排层重写范围内，富文本图片降级为纯文本释义。
+ * 富文本图片：`<img>` / Markdown 图片经 [DictRichParser] 切成图片块，Glide 解码为 Bitmap 后
+ * 由 Compose [androidx.compose.foundation.Image] 绘制；加载中纸色骨架、失败墨色小字 + 原文 URL，
+ * 单击（无 click 动作）/ 长按走统一 [InkHalfSheet] 查看大图。
  */
 class DictDialog() : DialogFragment() {
 
@@ -74,6 +79,7 @@ class DictDialog() : DialogFragment() {
                     state = state,
                     onSelectRule = viewModel::selectRule,
                     onRetry = viewModel::retry,
+                    onImageClick = viewModel::onButtonClick,
                     onDismiss = { dismissAllowingStateLoss() },
                 )
             }
@@ -85,8 +91,12 @@ class DictDialog() : DialogFragment() {
         state: DictDialogState,
         onSelectRule: (Int) -> Unit,
         onRetry: () -> Unit,
+        onImageClick: (name: String, click: String) -> Unit,
         onDismiss: () -> Unit,
     ) {
+        var viewerSrc by remember { mutableStateOf<String?>(null) }
+        val baseUrl = state.activeRule?.urlRule
+
         Column(
             Modifier
                 .fillMaxWidth()
@@ -176,21 +186,33 @@ class DictDialog() : DialogFragment() {
                         .height(240.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    androidx.compose.foundation.text.BasicText(
-                        stripMarkdownMarkers(state.content),
-                        style = TextStyle(
-                            color = ComponentTokens.textPrimary,
-                            fontSize = 15.sp,
-                            fontFamily = FontFamily.Serif,
-                            lineHeight = 24.sp,
-                        ),
+                    val blocks = remember(state.content, baseUrl) {
+                        DictRichParser.parse(state.content, baseUrl)
+                    }
+                    DictRichContent(
+                        blocks = blocks,
+                        onImageTap = { block ->
+                            // 旧链口径：图片自带 click 脚本时单击执行动作；否则单击打开大图。
+                            val click = block.click
+                            if (click.isNullOrBlank()) {
+                                viewerSrc = block.src
+                            } else {
+                                onImageClick("image", click)
+                            }
+                        },
+                        onImageLongClick = { block -> viewerSrc = block.src },
                     )
                 }
             }
         }
-    }
 
-    private fun stripMarkdownMarkers(text: String): String = text
-        .removePrefix("<md>")
-        .removeSuffix("</md>")
+        // 大图查看：复用统一半屏 Sheet（独立窗口模式），不新造弹层。
+        InkHalfSheet(
+            visible = viewerSrc != null,
+            onDismiss = { viewerSrc = null },
+            dialog = true,
+            title = "图片",
+            content = { viewerSrc?.let { DictImageViewer(it) } },
+        )
+    }
 }
