@@ -42,8 +42,8 @@ class ChronoAnchorSourceTest {
         val anchor = Chronology.placeAnchor("晋")
         assertNotNull(anchor)
         // 春秋晋都绛 / 新田 / 晋国面的并集区间覆盖春秋
-        assertTrue(anchor!!.from <= -722)
-        assertTrue(anchor.to >= -453)
+        assertTrue(anchor!!.from!! <= -722)
+        assertTrue(anchor!!.to!! >= -453)
         assertEquals("medium", anchor.confidence)
     }
 

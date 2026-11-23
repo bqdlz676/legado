@@ -86,7 +86,7 @@ class PlaceGeoTimeDictTest {
     }
 
     @Test
-    fun `same name disambiguated by era: jiang at -700, xintian at -500`() {
+    fun `same name disambiguated by era：jiang at -700, xintian at -500`() {
         // -700：绛（故绛）在区间内；新田（迁侯马在前 585 年后）未到 → 绛
         val early = ContextAnchor.resolve("晋", -700)
         assertEquals("P003", early.first().id)
@@ -251,14 +251,14 @@ class PlaceGeoTimeDictTest {
     }
 
     @Test
-    fun `asset schema integrity: fk, span, coords, confidence all valid`() {
+    fun `asset schema integrity：fk, span, coords, confidence all valid`() {
         val (_, ents, nameRows) = loadMirror()
         assertTrue("实体数量下限 100", ents.size >= 100)
         assertTrue("名称快照行数下限 300", nameRows.size >= 300)
     }
 
     @Test
-    fun `asset soul loop: jin zhou zheng lu resolve correctly at anchor years`() {
+    fun `asset soul loop：jin zhou zheng lu resolve correctly at anchor years`() {
         val (idx, _, _) = loadMirror()
 
         val (jinHit, jinOthers) = idx.resolve("晋", -700)

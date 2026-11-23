@@ -208,8 +208,8 @@ class PlaceDictTest {
     fun `PlaceGeo of 按主键返回坐标 未知主键返回 null`() {
         val jiang = PlaceGeo.of("P003")
         assertTrue(jiang != null && jiang.canPlotPoint)
-        assertEquals(111.70, jiang!!.lng, 0.01)
-        assertEquals(35.73, jiang.lat, 0.01)
+        assertEquals(111.70, jiang!!.lng!!, 0.01)
+        assertEquals(35.73, jiang!!.lat!!, 0.01)
 
         val block = PlaceGeo.of("P050")
         assertTrue(block != null && !block!!.canPlotPoint && block.isBlock)
