@@ -80,7 +80,7 @@ object DateProvider : BubbleProvider {
         val princeYear = runCatching { Chronology.princeYear(prefix, nth) }.getOrNull()
 
         val year: Int
-        val candidates: List<String>
+        val candidates: List<BubbleCandidate>
         val source: String
         when {
             eraHits.isNotEmpty() -> {
@@ -88,7 +88,12 @@ object DateProvider : BubbleProvider {
                 val default = eraHits.firstOrNull { anchored != null && anchored in it.first.startYear..it.first.endYear }
                     ?: eraHits.first()
                 year = default.second
-                candidates = eraHits.map { "${it.first.name}（${it.first.dynasty}）" }
+                candidates = eraHits.map {
+                    BubbleCandidate(
+                        query = it.first.name,
+                        display = "${it.first.name}（${it.first.dynasty}）",
+                    )
+                }
                 source = "纪年表 era.json（公版年号世系）"
             }
             princeYear != null -> {

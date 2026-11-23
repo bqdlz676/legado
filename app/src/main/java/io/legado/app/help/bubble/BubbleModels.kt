@@ -84,7 +84,8 @@ sealed class Action {
  * @param body       气泡内 2~3 行解释
  * @param detail     进半屏 sheet 的完整内容（全义项 / 生卒 / 今地 / 出处 / 对照年等，可多行）
  * @param actions    可执行动作（冻结四类），顺序即按钮顺序
- * @param candidates 同名 / 多义候选（展示名列表），供一键切换；无候选为空列表，绝不塞假数据
+ * @param candidates 同名 / 多义候选；[BubbleCandidate.query] 为可查裸 token/id（重查用），
+ *                   [BubbleCandidate.display] 为带朝代 / 辖区等括号装饰的展示名；无候选为空列表，绝不塞假数据
  * @param source     出处标注，如「Harvard CBDB #xxx」「《说文解字》」；每条数据必须带来源与版本
  * @param allowWebSearch 兜底标志：本地未收录时是否允许「联网检索」入口；正常命中为 false
  * @param allowNotebook  兜底标志：是否允许「加入生字本」入口；正常命中为 false
@@ -97,8 +98,20 @@ data class BubbleContent(
     val body: String,
     val detail: String,
     val actions: List<Action>,
-    val candidates: List<String>,
+    val candidates: List<BubbleCandidate>,
     val source: String,
     val allowWebSearch: Boolean = false,
     val allowNotebook: Boolean = false,
+)
+
+/**
+ * 气泡候选条目（切片-02 §4 候选切换）。
+ *
+ * [query] 是回传解析链重查的裸名 / 主键，不带任何括号装饰；
+ * [display] 是气泡上展示的名字，可附朝代、辖区、年代等说明。
+ * 点选切换时只回传 [query]，避免展示串里的括号装饰把重查词污染成查不到的整串。
+ */
+data class BubbleCandidate(
+    val query: String,
+    val display: String,
 )

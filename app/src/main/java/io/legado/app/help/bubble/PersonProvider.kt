@@ -47,7 +47,7 @@ object PersonProvider : BubbleProvider {
         val others = runCatching { ContextAnchor.resolve(clean, anchor.getYear()) }
             .getOrNull()
             ?.filter { it.type == ContextAnchor.Type.PERSON && !it.isDefault }
-            ?.map { it.name }
+            ?.map { BubbleCandidate(query = it.name, display = it.name) }
             .orEmpty()
             .distinct()
 

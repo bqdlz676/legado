@@ -103,7 +103,10 @@ object PlaceProvider : BubbleProvider {
         }
 
         val candidates = others.take(6).map { o ->
-            "${o.name}（${o.era.ifBlank { "古" }} ${spanLabel(o)}${if (!o.isPoint) "·辖区" else ""}）"
+            BubbleCandidate(
+                query = o.name,
+                display = "${o.name}（${o.era.ifBlank { "古" }} ${spanLabel(o)}${if (!o.isPoint) "·辖区" else ""}）",
+            )
         }
 
         return BubbleContent(

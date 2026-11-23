@@ -1,6 +1,9 @@
 package io.legado.app.ui.book.read.ink
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -10,6 +13,7 @@ import androidx.compose.runtime.setValue
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.help.bubble.BubbleResolver
+import io.legado.app.help.bubble.NotebookStore
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
 import io.legado.app.ui.book.read.ReadBookViewModel
@@ -122,6 +126,32 @@ class InkReadActivity : ComponentActivity() {
 
         setContent {
             val controller = rememberInkReadController()
+
+            // 兜底入口真实接线：web → 浏览器网页搜索当前气泡词条；notebook → 生字本本地落库并回执。
+            val fallbackHandler: (String) -> Unit = fallbackHandler@{ kind ->
+                val token = controller.bubbleContent?.token?.trim().orEmpty()
+                if (token.isEmpty()) return@fallbackHandler
+                when (kind) {
+                    "web" -> runCatching {
+                        val url = "https://www.baidu.com/s?wd=" + Uri.encode(token)
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    }
+                    "notebook" -> {
+                        val ok = NotebookStore.add(
+                            context = this@InkReadActivity,
+                            token = token,
+                            bookName = ReadBook.book?.name.orEmpty(),
+                            chapterTitle = chapterTitle.orEmpty(),
+                        )
+                        Toast.makeText(
+                            this@InkReadActivity,
+                            if (ok) "已加入生字本" else "生字本已有该条",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
+            }
+
             InkReaderBook(
                 bookId = bookId,
                 chapterId = chapterId,
@@ -133,6 +163,7 @@ class InkReadActivity : ComponentActivity() {
                 onMenu = { Unit },
                 onSeek = { fraction -> controller.seekTo(fraction) },
                 controller = controller,
+                onFallback = fallbackHandler,
             )
         }
     }

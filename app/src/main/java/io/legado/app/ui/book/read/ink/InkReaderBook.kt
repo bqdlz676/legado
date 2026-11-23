@@ -22,7 +22,8 @@ import io.legado.app.help.bubble.Action
  *
  * @param onBubbleAction 气泡动作回调；缺省走 [InkActionDispatcher] 分发到地图 / 人物 /
  *                       纪年 / 关系页。宿主需要自定义接管时传入自己的实现。
- * @param onCandidateSelect 候选切换：候选展示名回传宿主，由控制器走整词解析重查回填。
+ * @param onCandidateSelect 候选切换：候选裸查询 token 回传宿主，由控制器走整词解析重查回填。
+ * @param onFallback 兜底入口回调（"web" 联网 / "notebook" 生字本）；缺省为空操作。
  */
 @Composable
 fun InkReaderBook(
@@ -38,6 +39,7 @@ fun InkReaderBook(
     controller: InkReadController = rememberInkReadController(),
     onBubbleAction: ((Action) -> Unit)? = null,
     onCandidateSelect: ((String) -> Unit)? = null,
+    onFallback: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
 
@@ -67,6 +69,7 @@ fun InkReaderBook(
         onSeek = onSeek,
         onBubbleAction = actionHandler,
         onCandidateSelect = candidateHandler,
+        onFallback = onFallback ?: {},
         modifier = modifier,
     )
 }

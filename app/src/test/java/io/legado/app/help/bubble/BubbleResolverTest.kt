@@ -2,6 +2,8 @@ package io.legado.app.help.bubble
 
 import io.legado.app.help.chrono.ChronoPlaces
 import io.legado.app.help.chrono.ContextAnchor
+import io.legado.app.help.bubble.BubbleCandidate
+import io.legado.app.help.bubble.NotebookStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -32,20 +34,21 @@ class BubbleResolverTest {
         private val result: BubbleContent? = null,
         private val record: MutableList<String>? = null,
         private val throwOnCall: Boolean = false,
+        private val byToken: Map<String, BubbleContent?> = emptyMap(),
     ) : BubbleProvider {
-        override fun query(token: String, anchor: ContextAnchor) = strike()
+        override fun query(token: String, anchor: ContextAnchor) = strike(token)
         override fun hitAt(paragraph: String, pos: Int, anchor: ContextAnchor) = strike()
         override fun matchAllusion(paragraph: String, pos: Int, anchor: ContextAnchor) = strike()
         override fun matchWord(paragraph: String, pos: Int, anchor: ContextAnchor) = strike()
 
-        private fun strike(): BubbleContent? {
+        private fun strike(token: String? = null): BubbleContent? {
             record?.add(tag)
             if (throwOnCall) throw IllegalStateException("boom")
-            return result
+            return if (token != null && byToken.isNotEmpty()) byToken[token] else result
         }
     }
 
-    private fun content(kind: String, token: String, candidates: List<String> = emptyList()) =
+    private fun content(kind: String, token: String, candidates: List<BubbleCandidate> = emptyList()) =
         BubbleContent(
             kind = kind,
             token = token,
@@ -209,7 +212,14 @@ class BubbleResolverTest {
 
     @Test
     fun `candidates carried through to bubble`() {
-        val hit = content(BubbleKind.PLACE, "晋", candidates = listOf("晋（诸侯国）", "晋（今山西晋城）"))
+        val hit = content(
+            BubbleKind.PLACE,
+            "晋",
+            candidates = listOf(
+                BubbleCandidate("晋", "晋（诸侯国）"),
+                BubbleCandidate("晋", "晋（今山西晋城）"),
+            ),
+        )
         val r = resolver(
             date = nullStub,
             allusion = nullStub,
@@ -219,7 +229,63 @@ class BubbleResolverTest {
             char = nullStub,
         )
         val bubble = r.resolve("晋", 0)
-        assertEquals(listOf("晋（诸侯国）", "晋（今山西晋城）"), bubble!!.candidates)
+        assertEquals(
+            listOf(
+                BubbleCandidate("晋", "晋（诸侯国）"),
+                BubbleCandidate("晋", "晋（今山西晋城）"),
+            ),
+            bubble!!.candidates,
+        )
+    }
+
+    @Test
+    fun `candidate switch re-queries bare token not decorated display name`() {
+        val jiang = content(BubbleKind.PLACE, "绛")
+        val candidate = BubbleCandidate(query = "绛", display = "绛（晋 城邑 前722–前376）")
+        val place = Stub(
+            "place",
+            byToken = mapOf("绛" to jiang),
+        )
+        val r = resolver(
+            date = nullStub,
+            allusion = nullStub,
+            person = nullStub,
+            place = place,
+            word = nullStub,
+            char = nullStub,
+        )
+
+        // 点选候选：回传裸 query，重查链命中并回填该条目。
+        val switched = r.queryToken(candidate.query, ContextAnchor)
+        assertNotNull(switched)
+        assertEquals("绛", switched!!.token)
+        assertSame(jiang, switched)
+
+        // 展示串带括号装饰时查不到（旧缺陷：整串污染重查词），证明重查必须走裸 query。
+        assertNull(r.queryToken(candidate.display, ContextAnchor))
+    }
+
+    @Test
+    fun `notebook store encode decode round trip preserves token book chapter timestamp`() {
+        val entries = listOf(
+            NotebookStore.Entry("重耳", "春秋左传", "隐公元年", 1737000000000L),
+            NotebookStore.Entry("退避三舍", "春秋左传", "僖公二十三年", 1737000001000L),
+        )
+        val raw = NotebookStore.encode(entries)
+        val restored = NotebookStore.decode(raw)
+        assertEquals(entries, restored)
+    }
+
+    @Test
+    fun `notebook store decode skips malformed lines without throwing`() {
+        val raw = buildString {
+            appendLine("重耳\t春秋左传\t隐公元年\t1737000000000")
+            appendLine("坏行\t只有两列")
+            appendLine("\t\t\tnot-a-number")
+        }
+        val restored = NotebookStore.decode(raw)
+        assertEquals(1, restored.size)
+        assertEquals("重耳", restored.first().token)
     }
 
     // ---------- 缓存 ----------

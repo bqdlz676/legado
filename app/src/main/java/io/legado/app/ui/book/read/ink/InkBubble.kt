@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.help.bubble.Action
+import io.legado.app.help.bubble.BubbleCandidate
 import io.legado.app.help.bubble.BubbleContent
 import io.legado.app.help.bubble.BubbleKind
 import kotlin.math.roundToInt
@@ -165,7 +166,8 @@ fun InkBubble(
                         onCycle = {
                             val next = nextCandidateIndex(candidates.size, candidateIndex)
                             candidateIndex = next
-                            onCandidateSelect(candidates[next])
+                            // 点选回传裸查询 token（display 上的朝代 / 辖区括号装饰不进重查链）。
+                            onCandidateSelect(candidates[next].query)
                         },
                     )
                 }
@@ -205,14 +207,14 @@ fun InkBubble(
 
 @Composable
 private fun CandidateRow(
-    candidates: List<String>,
+    candidates: List<BubbleCandidate>,
     index: Int,
     onCycle: () -> Unit,
 ) {
     val label = if (index == 0) {
         "共 ${candidates.size} 个义项 ›"
     } else {
-        "候选 ${index + 1}/${candidates.size}：${candidates[index]} ›"
+        "候选 ${index + 1}/${candidates.size}：${candidates[index].display} ›"
     }
     InkIconButton(onClick = onCycle) {
         BasicText(
