@@ -1,6 +1,9 @@
 package io.legado.app.help.bubble
 
+import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
+import io.legado.app.help.dict.ChineseDict
+import android.content.Context
 import java.util.LinkedHashMap
 
 /**
@@ -8,10 +11,10 @@ import java.util.LinkedHashMap
  *
  * 优先级链（顺序不可调；同位置多命中取更高优先级；同优先级取更长词）：
  *  1. 纪年 / 干支 / 朔望 —— [date]，正则先扫，最快；
- *  2. 典故 —— [allusion].matchAllusion，2~4 字，已下划线优先；
+ *  2. 典故 —— [allusion]，2~4 字，已下划线优先；
  *  3. 人名 —— [person]，档案 / 别名印证，同名按锚点消歧；
  *  4. 地名 —— [place]，按 [ContextAnchor] 年代选层；
- *  5. 多字词 —— [word].matchWord，2~5 字，长词优先；英语词同样在此槽位出气泡；
+ *  5. 多字词 —— [word]，2~5 字，长词优先；
  *  6. 单字 —— [char]，字义 + 说文 + 用例；
  *  7. Missing —— [missing] 兜底，允许联网检索 / 加入生字本。
  *
@@ -20,10 +23,10 @@ import java.util.LinkedHashMap
  * 不整表线性扫。任何一路异常都被兜住，最终至少返回一张 Missing 气泡，不留空白态、不崩溃。
  *
  * @param date     纪年 / 干支 / 朔望 Provider
- * @param allusion 典故 Provider（默认装配复用 [word] 的典故槽位）
+ * @param allusion 典故 Provider
  * @param person   人名 Provider
  * @param place    地名 Provider
- * @param word     多字词 / 英语词 Provider
+ * @param word     多字词 Provider
  * @param char     单字 Provider
  * @param missing  兜底 Provider
  * @param cacheSize 热路径缓存条数（够一章反复点按）
@@ -66,7 +69,7 @@ class BubbleResolverImpl(
         return result
     }
 
-    /** 非段落场景（搜索栏 / 生字本回看）按整词走 Provider 查询链；全空返回 null。 */
+    /** 非段落场景（搜索栏 / 生字本回看 / 候选切换）按整词走 Provider 查询链；全空返回 null。 */
     fun queryToken(token: String, anchor: ContextAnchor = ContextAnchor): BubbleContent? {
         val clean = BubbleSupport.cleanToken(token)
         if (clean.isEmpty()) return null
@@ -120,7 +123,8 @@ class BubbleResolverImpl(
 
 /**
  * 默认装配：真实骨架 Provider。后续数据表接入时只替换各 Provider 内部实现，
- * 优先级编排与本入口不动。
+ * 优先级编排与本入口不动。典故槽与多字词槽共用 [WordProvider]，由其内部
+ * [BubbleProvider.matchAllusion] / [BubbleProvider.matchWord] 分流出典故事与普通词。
  */
 val DefaultBubbleResolver = BubbleResolverImpl(
     date = DateProvider,
@@ -136,13 +140,11 @@ val DefaultBubbleResolver = BubbleResolverImpl(
 object BubbleResolver {
 
     /** 预热：注入应用 Context 并触达各字典惰性加载（App 启动协程里调用，失败不阻启动）。 */
-    fun preload(context: android.content.Context) {
+    fun preload(context: Context) {
         BubbleEnv.preload(context)
-        runCatching { DateProvider.warm(context) }
-        runCatching { WordProvider.warm(context) }
-        runCatching { PersonProvider.warm(context) }
-        runCatching { PlaceProvider.warm(context) }
-        runCatching { CharProvider.warm(context) }
+        runCatching { ChineseDict.preload() }
+        runCatching { Chronology.ensureLoaded(context) }
+        // D2 / D3 / D4 为纯内存种子，首次查询时惰性建索引；此处仅占位便于后续资产预载扩展。
     }
 
     fun resolve(paragraph: String, pos: Int, anchor: ContextAnchor = ContextAnchor): BubbleContent? =

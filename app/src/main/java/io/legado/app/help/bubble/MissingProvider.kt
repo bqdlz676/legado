@@ -7,6 +7,10 @@ import io.legado.app.help.chrono.ContextAnchor
  *
  * 规格 §2：全空走 Missing 兜底，允许「查网络 / 加入生字本」。
  * 任何位置 / 任何字符都必须兜出一张气泡：不崩溃、不留空白态、不强行释义、不编来源。
+ *
+ * 兜底动作不进 [Action] sealed 层级：联网检索与生字本落库由 [BubbleFallback] 真实接线，
+ * 本 Provider 只通过 [BubbleContent.allowWebSearch] / [BubbleContent.allowNotebook]
+ * 两个标志位告知 UI 出对应按钮。
  */
 object MissingProvider : BubbleProvider {
 

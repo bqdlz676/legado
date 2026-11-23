@@ -47,6 +47,9 @@ object BubbleKind {
  * 「联网检索 / 加入生字本」不是导航动作，属于 Missing 兜底入口，改由
  * [BubbleContent.allowWebSearch] / [BubbleContent.allowNotebook] 两个标志位告知 UI 出按钮，
  * 不进本 sealed 层级。
+ *
+ * 各子类构造器末尾的可空字段是路由附加信息（地名展示名 / 人物主键 / 时间轴标题），
+ * 不是新增动作类型；冻结主键参 [placeId] / [name] / [year] 不可改。
  */
 sealed class Action {
 
@@ -56,7 +59,7 @@ sealed class Action {
         val placeName: String? = null,
     ) : Action()
 
-    /** 打开人物档案页。[personId] 对齐 CBDB / 人物库主键，可空（仅按名检索时）。 */
+    /** 打开人物档案页。[name] 为本名；[personId] 对齐 CBDB / 人物库主键，可空（仅按名检索时）。 */
     data class OpenPerson(
         val name: String,
         val personId: String? = null,

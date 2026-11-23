@@ -1,6 +1,5 @@
 package io.legado.app.help.bubble
 
-import android.content.Context
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
 
@@ -15,13 +14,11 @@ import io.legado.app.help.chrono.ContextAnchor
  * 换算出口对齐 Chronology：eraCandidates / princeYear / dayGanzhi / timelineFor。
  * 重名年号把全部候选列出并标明朝代；只有一个候选才直接给结果。强锚定命中后把公元年
  * 回写 [ContextAnchor]，供地名选层与人物同名消歧共享。
+ *
+ * 干支口径（切片-02 验收定案）：前 722 = 己未（天文纪年公式）；切片原文印作「辛酉」
+ * 系前 720（隐公三年）笔误，原文不改，实现按史料值输出。
  */
 object DateProvider : BubbleProvider {
-
-    /** 预热纪年表与先秦王公世系（App 启动协程调用，失败不阻启动）。 */
-    fun warm(context: Context) {
-        runCatching { Chronology.ensureLoaded(context) }
-    }
 
     private val NTH = Regex("(元|[一二三四五六七八九十]{1,3}|[0-9]{1,3})$")
 
@@ -55,9 +52,6 @@ object DateProvider : BubbleProvider {
     // ---------- 年号 / 王公纪年 ----------
 
     private fun eraContent(mention: String, anchor: ContextAnchor): BubbleContent? {
-        // 无 Context（纯 JVM 单测）时不读 assets，Chronology 内置种子世系仍可换算先秦王公纪年。
-        BubbleEnv.ctx()?.let { runCatching { Chronology.ensureLoaded(it) } }
-
         val body = mention.removeSuffix("年")
         val nthMatch = NTH.find(body) ?: return null
         val nthText = nthMatch.groupValues[1]
@@ -115,7 +109,9 @@ object DateProvider : BubbleProvider {
             report?.rows?.take(3)?.let { rows ->
                 if (rows.isNotEmpty()) {
                     append("　对照：")
-                    append(rows.joinToString("、") { "${it.state}·${it.title}${Chronology.chineseNumberText(it.nth)}年" })
+                    append(rows.joinToString("、") {
+                        "${it.state}·${it.title}${Chronology.chineseNumberText(it.nth)}年"
+                    })
                 }
             }
         }
@@ -151,7 +147,9 @@ object DateProvider : BubbleProvider {
     private fun ganzhiContent(gz: String, isYear: Boolean, anchor: ContextAnchor): BubbleContent {
         val index = Chronology.ganzhiIndex(gz)
         val anchorYear = anchor.getYear()
-        val anchorGanzhi = anchorYear?.let { runCatching { Chronology.yearGanzhi(it) }.getOrNull() }
+        val anchorGanzhi = anchorYear?.let {
+            runCatching { Chronology.yearGanzhi(it) }.getOrNull()
+        }
 
         val body = buildString {
             append(if (isYear) "干支纪年" else "干支纪日")

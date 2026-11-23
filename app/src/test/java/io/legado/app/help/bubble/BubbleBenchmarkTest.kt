@@ -1,6 +1,7 @@
 package io.legado.app.help.bubble
 
 import io.legado.app.help.chrono.ContextAnchor
+import io.legado.app.help.dict.ChineseDict
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -9,7 +10,8 @@ import org.junit.Test
  * 气泡解析性能 bench（规格切片-02 §5：冷启动首触气泡 ≤ 300ms（含加载）；之后 ≤ 80ms）。
  *
  * 口径说明（避免把宿主 JVM 数字当真机结论）：
- * - 冷路径：全新 resolver、缓存为空的第一次 resolve（对应真机「首触含词典加载」的代码路径）；
+ * - 冷路径：清空 D1 内存索引、全新 resolver、缓存为空的第一次 resolve
+ *   （对应真机「首触含词典加载」的代码路径）；
  * - 热路径：同一位置反复点击，走 LRU 缓存命中；
  * - 本 bench 在宿主 JVM 上跑，只验证解析编排路径不超时；荣耀 WIN 真机上的冷启动词典加载
  *   耗时仍需真机复测，未在本机验证的部分不计入通过结论。
@@ -21,6 +23,7 @@ class BubbleBenchmarkTest {
         const val WARM_BUDGET_MS = 80L
         const val WARM_ROUNDS = 200
         const val WARM_DROP = 20
+        const val BATCH_ROUNDS = 500
     }
 
     private val paragraph = "晋侯、秦伯围郑，以其无礼于晋，且贰于楚也。"
@@ -28,6 +31,7 @@ class BubbleBenchmarkTest {
     @Before
     fun setUp() {
         ContextAnchor.reset()
+        ChineseDict.resetForBench()
     }
 
     private fun newResolver() = BubbleResolverImpl(
@@ -36,7 +40,7 @@ class BubbleBenchmarkTest {
 
     @Test
     fun `cold first resolve within 300ms budget`() {
-        // 全新装配，缓存为空；模拟首触。
+        // 全新装配，D1 索引已清空；模拟首触。
         val resolver = newResolver()
         val start = System.nanoTime()
         val bubble = resolver.resolve(paragraph, 0)
@@ -69,9 +73,9 @@ class BubbleBenchmarkTest {
     fun `batch resolve stays under budget per call`() {
         val resolver = newResolver()
         val start = System.nanoTime()
-        repeat(500) { i -> resolver.resolve(paragraph, i % paragraph.length) }
+        repeat(BATCH_ROUNDS) { i -> resolver.resolve(paragraph, i % paragraph.length) }
         val totalMs = (System.nanoTime() - start) / 1_000_000.0
-        val perCallMs = totalMs / 500.0
+        val perCallMs = totalMs / BATCH_ROUNDS.toDouble()
 
         assertTrue("批量单次解析应 ≤ ${WARM_BUDGET_MS}ms，实际 ${perCallMs}ms（总 ${totalMs}ms）", perCallMs < WARM_BUDGET_MS)
     }

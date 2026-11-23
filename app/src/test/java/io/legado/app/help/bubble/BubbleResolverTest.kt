@@ -2,8 +2,6 @@ package io.legado.app.help.bubble
 
 import io.legado.app.help.chrono.ChronoPlaces
 import io.legado.app.help.chrono.ContextAnchor
-import io.legado.app.help.bubble.BubbleCandidate
-import io.legado.app.help.bubble.NotebookStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -16,15 +14,16 @@ import org.junit.Test
 /**
  * 气泡数据层 · 解析入口验收（规格切片-02 §2 识别优先级、§5 验收用例）。
  *
- * 本类在宿主 JVM 上跑纯逻辑：Provider 用桩件注入，验证编排顺序、兜底与缓存；
- * 各字典真实命中留给数据表接入后的集成测试。无 Context 环境下真实 Provider 一律
- * 降级返回 null，由 Missing 兜底，不抛异常、不留空白态。
+ * 本类在宿主 JVM 上跑纯逻辑：编排顺序 / 兜底 / 缓存放行桩件注入；
+ * 各字典真实命中走 D1~D4 / C1 纯内存种子。无 Context 环境下兜底入口
+ * （联网 / 生字本）返回 null / false，不抛异常、不留空白态。
  */
 class BubbleResolverTest {
 
     @Before
     fun setUp() {
         ContextAnchor.reset()
+        ChronoPlaces.resetForTest()
     }
 
     // ---------- 桩件 ----------
@@ -95,7 +94,7 @@ class BubbleResolverTest {
     }
 
     @Test
-    fun `skeleton providers all null fall back to missing with web and notebook actions`() {
+    fun `skeleton providers all null fall back to missing with web and notebook flags`() {
         val bubble = BubbleResolver.resolve("抽", 0)
         assertNotNull(bubble)
         assertEquals(BubbleKind.MISSING, bubble!!.kind)
@@ -160,7 +159,7 @@ class BubbleResolverTest {
             word = Stub("word"),
             char = Stub("char"),
         )
-        val bubble = r.resolve("晋楚治兵，遇于中原，其辟君三舍。", 12)
+        val bubble = r.resolve("退避三舍，以报楚成王", 1)
         assertSame(hit, bubble)
         assertEquals(BubbleKind.ALLUSION, bubble!!.kind)
     }
@@ -197,7 +196,7 @@ class BubbleResolverTest {
 
     @Test
     fun `word beats char`() {
-        val hit = content(BubbleKind.WORD, "重耳")
+        val hit = content(BubbleKind.WORD, "君子")
         val r = resolver(
             date = nullStub,
             allusion = nullStub,
@@ -206,7 +205,7 @@ class BubbleResolverTest {
             word = Stub("word", hit),
             char = Stub("char"),
         )
-        val bubble = r.resolve("重耳", 1)
+        val bubble = r.resolve("君子", 1)
         assertSame(hit, bubble)
     }
 
@@ -242,10 +241,7 @@ class BubbleResolverTest {
     fun `candidate switch re-queries bare token not decorated display name`() {
         val jiang = content(BubbleKind.PLACE, "绛")
         val candidate = BubbleCandidate(query = "绛", display = "绛（晋 城邑 前722–前376）")
-        val place = Stub(
-            "place",
-            byToken = mapOf("绛" to jiang),
-        )
+        val place = Stub("place", byToken = mapOf("绛" to jiang))
         val r = resolver(
             date = nullStub,
             allusion = nullStub,
@@ -255,7 +251,6 @@ class BubbleResolverTest {
             char = nullStub,
         )
 
-        // 点选候选：回传裸 query，重查链命中并回填该条目。
         val switched = r.queryToken(candidate.query, ContextAnchor)
         assertNotNull(switched)
         assertEquals("绛", switched!!.token)
@@ -263,29 +258,6 @@ class BubbleResolverTest {
 
         // 展示串带括号装饰时查不到（旧缺陷：整串污染重查词），证明重查必须走裸 query。
         assertNull(r.queryToken(candidate.display, ContextAnchor))
-    }
-
-    @Test
-    fun `notebook store encode decode round trip preserves token book chapter timestamp`() {
-        val entries = listOf(
-            NotebookStore.Entry("重耳", "春秋左传", "隐公元年", 1737000000000L),
-            NotebookStore.Entry("退避三舍", "春秋左传", "僖公二十三年", 1737000001000L),
-        )
-        val raw = NotebookStore.encode(entries)
-        val restored = NotebookStore.decode(raw)
-        assertEquals(entries, restored)
-    }
-
-    @Test
-    fun `notebook store decode skips malformed lines without throwing`() {
-        val raw = buildString {
-            appendLine("重耳\t春秋左传\t隐公元年\t1737000000000")
-            appendLine("坏行\t只有两列")
-            appendLine("\t\t\tnot-a-number")
-        }
-        val restored = NotebookStore.decode(raw)
-        assertEquals(1, restored.size)
-        assertEquals("重耳", restored.first().token)
     }
 
     // ---------- 缓存 ----------
@@ -366,7 +338,7 @@ class BubbleResolverTest {
 
     @Test
     fun `queryToken walks provider chain`() {
-        val hit = content(BubbleKind.PERSON, "重耳")
+        val hit = content(BubbleKind.PERSON, "孔子")
         val r = resolver(
             date = nullStub,
             allusion = nullStub,
@@ -375,11 +347,17 @@ class BubbleResolverTest {
             word = nullStub,
             char = nullStub,
         )
-        assertSame(hit, r.queryToken("重耳"))
+        assertSame(hit, r.queryToken("孔子"))
         assertNull(r.queryToken(""))
     }
 
-    // ---------- Provider 纯逻辑（无 Context 降级路径） ----------
+    @Test
+    fun `english token cleaned keeps apostrophe and hyphen`() {
+        assertEquals("don't", BubbleSupport.cleanToken("don't！"))
+        assertEquals("half-life", BubbleSupport.cleanToken("（half-life）"))
+    }
+
+    // ---------- Provider 纯逻辑（纯内存种子，无 Context 依赖） ----------
 
     @Test
     fun `missing provider always returns a non-null bubble`() {
@@ -422,35 +400,50 @@ class BubbleResolverTest {
         // 干支口径定案：前 722 = 己未（辛酉为前 720，不允许回退错值）。
         assertTrue(bubble.headline.contains("己未") || bubble.detail.contains("己未"))
         assertFalse(bubble.headline.contains("辛酉") || bubble.detail.contains("辛酉"))
+        // 同年对照：周平王四十九年。
+        assertTrue(bubble.body.contains("四十九") || bubble.detail.contains("四十九"))
     }
 
     @Test
-    fun `action sealed keeps exactly four frozen subclasses`() {
-        val names = Action::class.sealedSubclasses.map { it.simpleName }.toSet()
-        assertEquals(
-            setOf("OpenMap", "OpenPerson", "OpenTimeline", "OpenRelation"),
-            names,
-        )
+    fun `seed char resolves with senses shuowen and usage`() {
+        val bubble = CharProvider.query("一", ContextAnchor)
+        assertNotNull(bubble)
+        assertEquals(BubbleKind.CHAR, bubble!!.kind)
+        assertEquals("一", bubble.token)
+        assertEquals("yi", bubble.phonetic)
+        assertTrue(bubble.detail.contains("义项"))
+        assertTrue(bubble.detail.contains("说文"))
+        assertTrue(bubble.detail.contains("用例"))
+        assertTrue(bubble.source.isNotBlank())
     }
 
     @Test
-    fun `place default hit excludes low confidence and reference layer entities`() {
-        ChronoPlaces.resetForTest()
-        // 锚到《左传》春秋（前 722）：默认命中春秋晋都，今址参考层与 low 泛称只进候选。
-        val resolved = ChronoPlaces.resolve("晋", -722)
-        assertNotNull(resolved.hit)
-        val hit = resolved.hit!!
-        assertFalse(hit.refLayer)
-        assertTrue(hit.confidenceTag.canDefault)
-        assertEquals("P003", hit.id)
-        val others = resolved.others.map { it.id }.toSet()
-        assertTrue(others.contains("P057")) // 今址参考层（晋城）不进默认
-        assertTrue(others.contains("A012")) // low 泛称不进默认
+    fun `plain seeded-out char does not pop allusion`() {
+        // 「抽」不在种子字库：单字 Provider 返回 null，交 Missing 兜底；
+        // 典故槽只做 2~4 字整词匹配，绝不把单字拆成典故。
+        assertNull(CharProvider.query("抽", ContextAnchor))
+        assertNull(WordProvider.matchAllusion("抽", 0, ContextAnchor))
+        val bubble = BubbleResolver.resolve("抽", 0)
+        assertNotNull(bubble)
+        assertFalse(bubble!!.kind == BubbleKind.ALLUSION)
+    }
 
-        // 无锚点年：不猜，hit = null，全部候选照收。
-        val unanchored = ChronoPlaces.resolve("晋", null)
-        assertNull(unanchored.hit)
-        assertTrue(unanchored.candidates.isNotEmpty())
+    @Test
+    fun `underlined allusion word hits as allusion not split into chars`() {
+        val bubble = WordProvider.matchAllusion("退避三舍，以报楚成王", 1, ContextAnchor)
+        assertNotNull(bubble)
+        assertEquals(BubbleKind.ALLUSION, bubble!!.kind)
+        assertEquals("退避三舍", bubble.token)
+        assertTrue(bubble.source.contains("《"))
+        assertTrue(bubble.detail.isNotBlank())
+    }
+
+    @Test
+    fun `common word hits word slot`() {
+        val bubble = WordProvider.matchWord("君子之儒，小人之比", 0, ContextAnchor)
+        assertNotNull(bubble)
+        assertEquals(BubbleKind.WORD, bubble!!.kind)
+        assertEquals("君子", bubble.token)
     }
 
     @Test
@@ -462,19 +455,73 @@ class BubbleResolverTest {
         assertTrue(bubble.actions.any { it is Action.OpenPerson })
         assertTrue(bubble.actions.any { it is Action.OpenRelation })
         assertTrue(bubble.source.isNotBlank())
+        assertTrue(bubble.detail.contains("本名"))
     }
 
     @Test
-    fun `char and word providers degrade to null without context`() {
-        // 无 assets Context：字 / 词 Provider 不硬造释义，返回 null 交兜底。
-        assertNull(CharProvider.query("抽", ContextAnchor))
-        assertNull(WordProvider.query("退避三舍", ContextAnchor))
-        assertNull(PlaceProvider.query("晋", ContextAnchor))
+    fun `place anchored to spring and autumn lists modern reference as candidate`() {
+        // 锚到《左传》春秋区间（前 722~前 453）：默认命中春秋晋地，今址参考层只进候选。
+        ContextAnchor.setYearRange(-722..-453, "鲁")
+        val bubble = PlaceProvider.query("晋", ContextAnchor)
+        assertNotNull(bubble)
+        assertEquals(BubbleKind.PLACE, bubble!!.kind)
+        assertTrue(bubble.actions.any { it is Action.OpenMap })
+        assertTrue(bubble.candidates.any { it.display.contains("晋城") })
     }
 
     @Test
-    fun `english token cleaned keeps apostrophe and hyphen`() {
-        assertEquals("don't", BubbleSupport.cleanToken("don't！"))
-        assertEquals("half-life", BubbleSupport.cleanToken("（half-life）"))
+    fun `place anchored to tang dynasty resolves jinzhou`() {
+        // 读唐史（贞观年间）：同名异地晋州进入区间，春秋晋国出区间排后。
+        ContextAnchor.setYear(629, "唐")
+        val bubble = PlaceProvider.query("晋", ContextAnchor)
+        assertNotNull(bubble)
+        assertEquals(BubbleKind.PLACE, bubble!!.kind)
+        val mapAction = bubble!!.actions.filterIsInstance<Action.OpenMap>().singleOrNull()
+        assertNotNull(mapAction)
+        assertEquals("P-JINZHOU", mapAction!!.placeId)
+        assertTrue(bubble.body.contains("晋州") || bubble.detail.contains("晋州"))
+    }
+
+    @Test
+    fun `action sealed keeps exactly four frozen subclasses`() {
+        val names = Action::class.sealedSubclasses.map { it.simpleName }.toSet()
+        assertEquals(
+            setOf("OpenMap", "OpenPerson", "OpenTimeline", "OpenRelation"),
+            names,
+        )
+    }
+
+    // ---------- 生字本 ----------
+
+    @Test
+    fun `notebook store encode decode round trip preserves token book chapter timestamp`() {
+        val entries = listOf(
+            NotebookStore.Entry("重耳", "春秋左传", "隐公元年", 1737000000000L),
+            NotebookStore.Entry("退避三舍", "春秋左传", "僖公二十三年", 1737000001000L),
+        )
+        val raw = NotebookStore.encode(entries)
+        val restored = NotebookStore.decode(raw)
+        assertEquals(entries, restored)
+    }
+
+    @Test
+    fun `notebook store decode skips malformed lines without throwing`() {
+        val raw = buildString {
+            appendLine("重耳\t春秋左传\t隐公元年\t1737000000000")
+            appendLine("坏行\t只有两列")
+            appendLine("\t\t\tnot-a-number")
+        }
+        val restored = NotebookStore.decode(raw)
+        assertEquals(1, restored.size)
+        assertEquals("重耳", restored.first().token)
+    }
+
+    @Test
+    fun `fallback web search url encodes token and notebook degrades without context`() {
+        val url = BubbleFallback.webSearchUrl("退避三舍")
+        assertTrue(url.startsWith("https://www.baidu.com/s?wd="))
+        // 宿主 JVM 无 applicationContext：联网 Intent 与落库均安全降级为 null / false。
+        assertNull(BubbleFallback.webSearchIntent("退避三舍"))
+        assertFalse(BubbleFallback.saveToNotebook("重耳", "春秋左传", "隐公元年"))
     }
 }

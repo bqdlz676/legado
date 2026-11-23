@@ -13,7 +13,7 @@ internal object BubbleSupport {
     /** 汉字（含扩展 A 区常用范围）。 */
     fun isHan(c: Char): Boolean = c.code in 0x4E00..0x9FFF || c.code in 0x3400..0x4DBF
 
-    /** 拉丁字母（英语单词气泡用，规格：英语词也出气泡）。 */
+    /** 拉丁字母（英语词气泡用，规格：英语词也出气泡）。 */
     fun isLatin(c: Char): Boolean = c in 'a'..'z' || c in 'A'..'Z'
 
     /** 数字 / 阿拉伯数字纪年片段。 */
@@ -97,6 +97,17 @@ internal object BubbleSupport {
             if (pos in m.range) return m.value
         }
         return null
+    }
+
+    /** 公元年 → 展示用年标：负数为公元前（天文纪年 -722 = 前722），非负为公元年。 */
+    fun yearText(y: Int): String = if (y <= 0) "前${1 - y}" else "公元$y"
+
+    /** 生卒年对 → 展示串；任一年无载如实标注，不补约数。 */
+    fun lifeSpanText(birth: Int?, death: Int?): String {
+        if (birth == null && death == null) return "生卒无载"
+        val b = birth?.let { yearText(it) } ?: "生年无载"
+        val d = death?.let { yearText(it) } ?: "卒年无载"
+        return "$b — $d"
     }
 
     /** 一个可查片段（token 与其在段落中的起止下标，闭区间）。 */

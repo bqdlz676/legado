@@ -1,9 +1,7 @@
 package io.legado.app.help.bubble
 
-import android.content.Context
 import io.legado.app.help.chrono.ContextAnchor
-import io.legado.app.help.relation.PersonPinyin
-import io.legado.app.help.relation.PersonProfile
+import io.legado.app.help.person.PersonProfile
 
 /**
  * 人名 Provider（优先级链第 3 层）。
@@ -17,11 +15,6 @@ import io.legado.app.help.relation.PersonProfile
  */
 object PersonProvider : BubbleProvider {
 
-    /** 预热内置档案 + CBDB 外部档案（App 启动协程调用，失败不阻启动）。 */
-    fun warm(context: Context) {
-        runCatching { PersonProfile.ensureLoaded(context) }
-    }
-
     override fun hitAt(paragraph: String, pos: Int, anchor: ContextAnchor): BubbleContent? {
         if (pos !in paragraph.indices) return null
         // 先按 2~5 字长词窗口查称谓 / 全名（谥号、爵称、排行称谓在别名库归并）。
@@ -33,47 +26,61 @@ object PersonProvider : BubbleProvider {
     }
 
     override fun query(token: String, anchor: ContextAnchor): BubbleContent? {
-        val ctx = BubbleEnv.ctx()
         val clean = BubbleSupport.cleanToken(token)
         if (clean.length < 2) return null
 
         val p = runCatching { PersonProfile.profileOf(clean) }.getOrNull() ?: return null
-        val canonical = runCatching { PersonProfile.canonical(clean) }.getOrNull() ?: p.name
+        val canonical = runCatching { PersonProfile.canonical(clean) }.getOrNull()
+            ?.takeIf { it.isNotBlank() } ?: p.name
 
-        val pinyin = ctx?.let { runCatching { PersonPinyin.of(it, canonical) }.getOrNull() }
-            ?.takeIf { it.isNotBlank() && it != "?" }
+        val span = runCatching { PersonProfile.lifeSpan(clean) }.getOrNull()
+        val birth = span?.first ?: p.birthYear
+        val death = span?.second ?: p.deathYear
 
-        // 同名消歧：锚点年过滤后的候选，默认命中之外的进 candidates 供一键切换。
-        val others = runCatching { ContextAnchor.resolve(clean, anchor.getYear()) }
+        // 同名消歧：默认命中之外的同名者进 candidates，供气泡「还有 N 种解释」一键切换。
+        val others = runCatching { PersonProfile.candidatesOf(clean) }
             .getOrNull()
-            ?.filter { it.type == ContextAnchor.Type.PERSON && !it.isDefault }
-            ?.map { BubbleCandidate(query = it.name, display = it.name) }
             .orEmpty()
-            .distinct()
+            .filter { it.personId != p.personId }
+            .distinctBy { it.personId }
 
-        val lifeSpan = runCatching { PersonProfile.lifeSpan(p) }.getOrNull().orEmpty()
+        val callNames = buildList {
+            p.courtesyName?.let { add("字 $it") }
+            p.styleName?.let { add("号 $it") }
+            addAll(p.titles.map { "爵谥 $it" })
+            addAll(p.aliases)
+        }.distinct()
 
         val bodyParts = ArrayList<String>(4)
-        if (lifeSpan.isNotBlank()) bodyParts += lifeSpan
-        if (p.state.isNotBlank()) bodyParts += p.state
+        bodyParts += BubbleSupport.lifeSpanText(birth, death)
+        if (p.nationality.isNotBlank()) bodyParts += p.nationality
         if (p.identity.isNotBlank()) bodyParts += p.identity
-        if (p.alias.isNotEmpty()) bodyParts += "称谓　" + p.alias.joinToString("、")
+        if (p.biography.isNotBlank()) bodyParts += p.biography
+        if (callNames.isNotEmpty()) bodyParts += "称谓　" + callNames.joinToString("、")
 
-        val detailParts = ArrayList<String>(4)
+        val detailParts = ArrayList<String>(6)
         detailParts += "本名　${p.name}"
-        if (p.alias.isNotEmpty()) detailParts += "字 / 号 / 别称　" + p.alias.joinToString("、")
-        if (lifeSpan.isNotBlank()) detailParts += "生卒　$lifeSpan"
-        if (p.identity.isNotBlank()) detailParts += "事迹　${p.identity}"
+        if (callNames.isNotEmpty()) detailParts += "字 / 号 / 别称　" + callNames.joinToString("、")
+        detailParts += "生卒　" + BubbleSupport.lifeSpanText(birth, death)
+        if (p.identity.isNotBlank()) detailParts += "身份　${p.nationality}·${p.identity}"
+        if (p.biography.isNotBlank()) detailParts += "小传　${p.biography}"
+        if (p.notableEvent.isNotBlank()) detailParts += "事迹　${p.notableEvent}"
+        if (p.lineage.isNotEmpty()) detailParts += "谱系　" + p.lineage.joinToString("、")
 
-        // 内置种子档案标本地来源；外部 CBDB 档案标 Harvard CBDB（收录号随 personId 透传）。
-        val fromSeed = runCatching { PersonProfile.find(clean) != null }.getOrNull() == true
-        val source = if (fromSeed) "内置人物档案（公版史料）" else "Harvard CBDB"
-        val personId = if (fromSeed) null else "person:$canonical"
+        val candidates = others.map { other ->
+            val decor = listOfNotNull(other.dynasty, other.identity)
+                .filter { it.isNotBlank() }
+                .joinToString("·")
+            BubbleCandidate(
+                query = other.name,
+                display = if (decor.isBlank()) other.name else "${other.name}（$decor）",
+            )
+        }
 
         return BubbleContent(
             kind = BubbleKind.PERSON,
             token = canonical,
-            phonetic = pinyin,
+            phonetic = null,
             headline = buildString {
                 append(canonical)
                 if (p.identity.isNotBlank()) append(" · ").append(p.identity)
@@ -81,11 +88,11 @@ object PersonProvider : BubbleProvider {
             body = bodyParts.joinToString("\n"),
             detail = detailParts.joinToString("\n"),
             actions = listOf(
-                Action.OpenPerson(canonical, personId),
+                Action.OpenPerson(canonical, p.personId),
                 Action.OpenRelation(canonical),
             ),
-            candidates = others,
-            source = source,
+            candidates = candidates,
+            source = p.source.label,
         )
     }
 }

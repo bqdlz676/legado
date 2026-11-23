@@ -6,11 +6,12 @@ import splitties.init.appCtx
 /**
  * 气泡层环境持有器。
  *
- * 各字典（字 / 词 / 典故 / 人物 / 地名 / 纪年）读 assets 都需要 [Context]，但冻结的
- * Provider 契约 [BubbleProvider.query] 不接收 Context；这里收口到唯一入口：
+ * D1~D4 / C1 上游字典均为纯 Kotlin 离线数据层，查询本身不依赖 Context；
+ * 只有兜底入口需要 Context：生字本落库（SharedPreferences）与联网检索（ACTION_VIEW）。
+ * 这里收口到唯一入口：
  *  - 真机：App 启动预热时调 [preload] 注入 applicationContext；未注入时回退 splitties [appCtx]；
- *  - 宿主 JVM 单测：appCtx 未初始化，[ctx] 返回 null，Provider 据此降级返回 null，
- *    由 Missing 兜底，不抛异常、不空白态。
+ *  - 宿主 JVM 单测：appCtx 未初始化，[ctx] 返回 null，兜底入口据此返回 false / null，
+ *    不抛异常、不空白态。
  *
  * 任何 Provider 都不许自行缓存 Context 之外的全局状态；同名消歧与年代锚点一律走
  * [io.legado.app.help.chrono.ContextAnchor] 共享总线。
