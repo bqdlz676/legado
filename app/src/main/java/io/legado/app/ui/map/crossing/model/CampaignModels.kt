@@ -203,6 +203,11 @@ data class CorpsView(
     val alive: Boolean,
     val surrendered: Boolean,
     val route: List<Geo>,
+    /** 情报雾（F8）：本方军、或被任一可见本方军看到的敌军 = true。 */
+    val observed: Boolean = false,
+    /** 观测到的实时坐标；未观测时为 null（不下发旧坐标，避免透视）。 */
+    val reportLat: Double? = null,
+    val reportLng: Double? = null,
 )
 
 /** 一回合的推演快照（回放 / 分支对比消费）。 */
