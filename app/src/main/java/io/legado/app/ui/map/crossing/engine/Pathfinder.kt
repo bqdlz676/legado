@@ -27,7 +27,7 @@ class Pathfinder(
     fun find(from: Cell, to: Cell, type: ArmyType, avoid: Set<Cell> = emptySet()): List<Cell> {
         if (from == to) return listOf(from)
         val target = nearestPassable(to, type) ?: return straightPath(from, to, type)
-        val path = astar(from, target, type, avoid, visibilityPenalty = emptyList())
+        val path = astar(from, target, type, avoid, emptyList())
         return if (path.isEmpty()) straightPath(from, to, type) else path
     }
 
@@ -94,7 +94,10 @@ class Pathfinder(
         val base = TerrainCost.enterCost(next, type, map, weatherCondition)
         if (base >= TerrainCost.BLOCKED_COST) return TerrainCost.BLOCKED_COST
         var cost = base * (if (diagonal) DIAGONAL_FACTOR else 1.0)
-        if (enemyPositions.isNotEmpty() && map.visible(next, from)) {
+        // 规格 L65「强制绕开敌方视线」：以每一处敌军位置为视点，候选格处于任一敌军通视
+        // 范围内即加价；只判自身当前格与候选格通视不算绕开敌方观察区。
+        val watched = enemyPositions.any { enemy -> map.visible(enemy, next) }
+        if (watched) {
             // 侧翼绕路：走入敌军通视范围加价，但不堵死（被发现不等于不能走）。
             cost *= VISIBILITY_PENALTY
         }
