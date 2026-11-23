@@ -27,18 +27,67 @@ class Pathfinder(
     fun find(from: Cell, to: Cell, type: ArmyType, avoid: Set<Cell> = emptySet()): List<Cell> {
         if (from == to) return listOf(from)
         val target = nearestPassable(to, type) ?: return straightPath(from, to, type)
-        val path = astar(from, target, type, avoid, emptyList())
+        val path = astar(from, target, type, avoid, emptyList(), viewRadius = 0, strictView = false)
         return if (path.isEmpty()) straightPath(from, to, type) else path
     }
 
     /**
-     * 侧翼路径：A* 基础上，对敌军视线内的格追加视线惩罚，强制绕开敌方观察区。
-     * 地形不通时同样退回直线折线兜底。
+     * 侧翼路径（List 形态入口，保留给现有调用方）：等价于 [flankRoute] 的 `path` 字段。
+     * 需要判断本次侧翼是否被迫退化（视野封锁绕不开）时，请直接用 [flankRoute] 读 `degraded`。
      */
-    fun flankPath(from: Cell, to: Cell, type: ArmyType, enemyPositions: List<Cell>): List<Cell> {
-        val target = nearestPassable(to, type) ?: return straightPath(from, to, type)
-        val path = astar(from, target, type, emptySet(), enemyPositions)
-        return if (path.isEmpty()) straightPath(from, to, type) else path
+    fun flankPath(
+        from: Cell,
+        to: Cell,
+        type: ArmyType,
+        enemyPositions: List<Cell>,
+        visionRadiusCells: Int = radiusFor(type),
+    ): List<Cell> = flankRoute(from, to, type, enemyPositions, visionRadiusCells).path
+
+    /**
+     * 侧翼路径（带降级标志）：A* 基础上**强制避开**任一敌军可见半径内的格；敌军所在格绝对不入路。
+     *
+     * 视线口径（与 `CampaignController.updateIntelligence` 的情报口径一致，§三）：
+     * - [TerrainMap.visible] 只判两点之间有无山脊遮挡（两点 LOS），**本身不携带半径**；
+     * - 半径闸门用八向格距 [cellDist] ≤ [visionRadiusCells]，两点同时满足才算「被敌军看见」。
+     *
+     * 退化口径（绕不开视野封锁时的三级兜底，逐级放宽，绝不返回空路径）：
+     * 1. 严格模式 A*：视野内格直接剪枝；搜到通路 → [FlankRoute.degraded] = false；
+     * 2. 严格模式无路 → 放宽为「视野代价最小路径」：视野内格保留但乘 [VISIBILITY_PENALTY] 加价，
+     *    此时路径仍可能暴露，`degraded = true`；
+     * 3. 加价模式仍无路 → 退回朝目标逐格钳制的直线折线，`degraded = true`。
+     * 起点 / 目标格不受视野剪枝（否则路径无从起步或永远无法落点）；敌军所在格在两种模式下都排除。
+     */
+    fun flankRoute(
+        from: Cell,
+        to: Cell,
+        type: ArmyType,
+        enemyPositions: List<Cell>,
+        visionRadiusCells: Int = radiusFor(type),
+    ): FlankRoute {
+        if (from == to) return FlankRoute(listOf(from), degraded = false, reason = "起点即终点")
+        val target = nearestPassable(to, type)
+        if (target == null) {
+            return FlankRoute(
+                straightPath(from, to, type, enemyPositions.toSet()),
+                degraded = true,
+                reason = "目标周边无可通行落点，已退化为直线折线兜底",
+            )
+        }
+        val strict = astar(from, target, type, emptySet(), enemyPositions, visionRadiusCells, strictView = true)
+        if (strict.isNotEmpty()) return FlankRoute(strict, degraded = false, reason = "")
+        val penalized = astar(from, target, type, emptySet(), enemyPositions, visionRadiusCells, strictView = false)
+        if (penalized.isNotEmpty()) {
+            return FlankRoute(
+                penalized,
+                degraded = true,
+                reason = "敌军视野封锁全部绕行通路，已退化为视野代价最小路径（仍可能暴露）",
+            )
+        }
+        return FlankRoute(
+            straightPath(from, to, type, enemyPositions.toSet()),
+            degraded = true,
+            reason = "视野与地形双重封锁，已退化为朝目标钳制的直线折线兜底",
+        )
     }
 
     // ── A* ────────────────────────────────────────────────────
@@ -49,6 +98,8 @@ class Pathfinder(
         type: ArmyType,
         avoid: Set<Cell>,
         enemyPositions: List<Cell>,
+        viewRadius: Int,
+        strictView: Boolean,
     ): List<Cell> {
         val n = map.gridN
         val startKey = encode(from, n)
@@ -57,6 +108,7 @@ class Pathfinder(
         val open = PriorityQueue<Node>(compareBy { it.f })
         open += Node(startKey, heuristic(from, to))
         val closed = HashSet<Long>()
+        val enemySet = enemyPositions.toSet()
 
         while (open.isNotEmpty()) {
             val current = open.poll()
@@ -70,8 +122,14 @@ class Pathfinder(
                 if (key in closed) continue
                 if (next in avoid) continue
                 if (!map.passable(next, type)) continue
+                // 敌军所在格任何模式下都不入路（§包抄：避开敌方视野，更不得踏上敌军阵地）。
+                if (next in enemySet) continue
 
-                val stepCost = stepCost(cur, next, type, enemyPositions)
+                val watched = enemyPositions.any { watchedBy(it, next, viewRadius) }
+                // 严格侧翼模式：视野内格剪枝（等价 BLOCKED），而不是加价放行。
+                if (strictView && watched) continue
+
+                val stepCost = stepCost(cur, next, type, watched)
                 val tentative = (gScore[current.key] ?: Double.MAX_VALUE) + stepCost
                 if (tentative < (gScore[key] ?: Double.MAX_VALUE)) {
                     cameFrom[key] = current.key
@@ -83,22 +141,28 @@ class Pathfinder(
         return emptyList()
     }
 
-    /** 单步代价：八向对角 ×√2，叠加地形进入代价与敌军视线惩罚。 */
+    /**
+     * 纯函数：[enemy] 能否看见 [cell]。口径 = 八向格距 ≤ [viewRadius] 且 [map.visible] 两点通视；
+     * 抽出为公共纯函数以便单测直接断言视野判定，不依赖 A* 搜索结果。
+     */
+    fun watchedBy(enemy: Cell, cell: Cell, viewRadius: Int): Boolean {
+        if (cellDist(enemy, cell) > viewRadius) return false
+        return map.visible(enemy, cell)
+    }
+
+    /** 单步代价：八向对角 ×√2，叠加地形进入代价；[watched] 时在退化模式下叠加视线加价。 */
     private fun stepCost(
         from: Cell,
         next: Cell,
         type: ArmyType,
-        enemyPositions: List<Cell>,
+        watched: Boolean,
     ): Double {
         val diagonal = from.col != next.col && from.row != next.row
         val base = TerrainCost.enterCost(next, type, map, weatherCondition)
         if (base >= TerrainCost.BLOCKED_COST) return TerrainCost.BLOCKED_COST
         var cost = base * (if (diagonal) DIAGONAL_FACTOR else 1.0)
-        // 规格 L65「强制绕开敌方视线」：以每一处敌军位置为视点，候选格处于任一敌军通视
-        // 范围内即加价；只判自身当前格与候选格通视不算绕开敌方观察区。
-        val watched = enemyPositions.any { enemy -> map.visible(enemy, next) }
         if (watched) {
-            // 侧翼绕路：走入敌军通视范围加价，但不堵死（被发现不等于不能走）。
+            // 仅退化（非严格）模式到达这里：被发现不等于不能走，加价诱导绕路但不堵死。
             cost *= VISIBILITY_PENALTY
         }
         return cost
@@ -131,15 +195,20 @@ class Pathfinder(
         return null
     }
 
-    /** 直线兜底：朝目标逐格钳制；被堵时在可通行邻格中选最接近目标的一格。 */
-    private fun straightPath(from: Cell, to: Cell, type: ArmyType): List<Cell> {
+    /** 直线兜底：朝目标逐格钳制；被堵时在可通行邻格中选最接近目标的一格；[blocked] 为额外禁入格。 */
+    private fun straightPath(
+        from: Cell,
+        to: Cell,
+        type: ArmyType,
+        blocked: Set<Cell> = emptySet(),
+    ): List<Cell> {
         val path = ArrayList<Cell>()
         var cur = from
         path += cur
         var guard = 0
         while (cur != to && guard < map.gridN * 2) {
             guard++
-            val candidates = map.neighbors8(cur).filter { map.passable(it, type) }
+            val candidates = map.neighbors8(cur).filter { map.passable(it, type) && it !in blocked }
             if (candidates.isEmpty()) break
             cur = candidates.minByOrNull { cellDist(it, to) } ?: break
             if (path.contains(cur)) break
@@ -180,10 +249,31 @@ class Pathfinder(
         /** 启发式用最低路况系数（平地 1.0），保证 A* 可采纳。 */
         const val MIN_TERRAIN_FACTOR: Double = 1.0
 
-        /** 侧翼路径：敌军视线内格的加价倍数。 */
+        /** 退化模式下：敌军视线内格的加价倍数（严格模式不使用，视野内格直接剪枝）。 */
         const val VISIBILITY_PENALTY: Double = 1.8
 
         /** 目标不可通行时向外搜索的半径（格）。 */
         const val SEARCH_RADIUS: Int = 4
+
+        /**
+         * 各兵种视野半径（格）；与 `CampaignController.visionRadius` 同表
+         * （骑兵 6 / 精锐 5 / 常规 4 / 民兵 3），两处数值须保持同步。
+         */
+        fun radiusFor(type: ArmyType): Int = when (type) {
+            ArmyType.CAVALRY -> 6
+            ArmyType.ELITE -> 5
+            ArmyType.REGULAR -> 4
+            ArmyType.MILITIA -> 3
+        }
     }
 }
+
+/**
+ * 侧翼寻路结果。[path] 全程非空（三级兜底保证）；[degraded] = true 表示严格避视野无路、
+ * 已按退化口径放宽（加价绕行或直线折线）；[reason] 记录本次退化口径，供日志 / 调试断言。
+ */
+data class FlankRoute(
+    val path: List<Cell>,
+    val degraded: Boolean,
+    val reason: String,
+)
