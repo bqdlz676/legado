@@ -1,0 +1,73 @@
+{
+  "schema": "luowen-font-manifest/v1",
+  "subsetStatus": "NOT_GENERATED",
+  "statusNote": "沙箱离线构建未拉取字体源文件，本目录当前未打包任何子集；运行时加载器探测不到资产即回落系统 serif/sans/mono，不崩、不出空白态。子集由 subset_generate.py 在 CI 或本地生成后落入本目录，文件名命中下列 candidates 即被自动识别。",
+  "assetDir": "fonts",
+  "budgetNote": "正文首屏子集 ≤ 200KB、常用 2500 字；数字极小子集 ≤ 20KB。超出体积红线的内置资产会被加载器拒绝并回落系统字体。",
+  "licenseRedline": "仅允许嵌入 SIL OFL 等明确允许应用内嵌与再分发许可的字体（Noto Serif SC / 思源宋体 / Noto Sans SC / Inter / JetBrains Mono 均为 OFL 或同类自由许可）；禁止引入 Wikipedia / OpenStreetMap / CC-CEDICT 等数据或其派生字体资产；字体来源与版本须在字库出处清单登记。",
+  "roles": [
+    {
+      "role": "BODY_SERIF",
+      "spec": "正文宋体 Noto Serif SC；首屏常用子集 ≤ 200KB；font-display: swap",
+      "strategy": "PRELOAD_SWAP",
+      "fallback": "SERIF",
+      "budgetBytes": 204800,
+      "commonChars": 2500,
+      "candidates": [
+        "NotoSerifSC-Regular.otf",
+        "NotoSerifSC-Regular.ttf",
+        "SourceHanSerifSC-Regular.otf",
+        "SourceHanSerifSC-Regular.ttf"
+      ]
+    },
+    {
+      "role": "TITLE_SERIF",
+      "spec": "标题思源宋体 SemiBold；首屏阻塞；swap 过渡，不允许 FOIT",
+      "strategy": "BLOCKING_TITLE",
+      "fallback": "SERIF_BOLD",
+      "budgetBytes": 204800,
+      "candidates": [
+        "NotoSerifSC-SemiBold.otf",
+        "NotoSerifSC-SemiBold.ttf",
+        "SourceHanSerifSC-SemiBold.otf",
+        "SourceHanSerifSC-SemiBold.ttf"
+      ]
+    },
+    {
+      "role": "LABEL_SANS",
+      "spec": "注音小字 Noto Sans SC Light 10sp；延迟加载",
+      "strategy": "LAZY",
+      "fallback": "SANS",
+      "budgetBytes": null,
+      "sizeSp": 10,
+      "candidates": [
+        "NotoSansSC-Light.otf",
+        "NotoSansSC-Light.ttf"
+      ]
+    },
+    {
+      "role": "NUMBER_TABULAR",
+      "spec": "数字/年份 Inter Tabular Nums；numbers only 极小子集",
+      "strategy": "ON_DEMAND",
+      "fallback": "SANS_TABULAR",
+      "budgetBytes": 20480,
+      "candidates": [
+        "Inter-TabularNumbers.otf",
+        "Inter-TabularNumbers.ttf",
+        "Inter-Nums.otf",
+        "Inter-Nums.ttf"
+      ]
+    },
+    {
+      "role": "MONO",
+      "spec": "等宽 JetBrains Mono；典籍编号 / CBDB ID；按需加载",
+      "strategy": "ON_DEMAND",
+      "fallback": "MONO",
+      "budgetBytes": null,
+      "candidates": [
+        "JetBrainsMono-Regular.otf",
+        "JetBrainsMono-Regular.ttf"
+      ]
+    }
+  ]
+}
