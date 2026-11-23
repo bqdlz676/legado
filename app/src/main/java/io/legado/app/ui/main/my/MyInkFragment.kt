@@ -27,6 +27,7 @@ import io.legado.app.ui.config.ConfigActivity
 import io.legado.app.ui.config.ConfigTag
 import io.legado.app.ui.dict.rule.DictRuleActivity
 import io.legado.app.ui.file.FileManageActivity
+import io.legado.app.ui.globe.GlobeActivity
 import io.legado.app.ui.main.MainFragmentInterface
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.utils.getPrefBoolean
@@ -82,6 +83,11 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
         }
         rows += Row(Row.NAV, "文件管理", "本地书籍与缓存文件", R.drawable.ic_folder) {
             open(FileManageActivity::class.java)
+        }
+
+        rows += Row(Row.HEAD, "舆 图")
+        rows += Row(Row.NAV, "3D 地球仪", "旋转经纬，纵观战役疆域", R.drawable.ic_cfg_web) {
+            open(GlobeActivity::class.java)
         }
 
         rows += Row(Row.HEAD, "外 观")
