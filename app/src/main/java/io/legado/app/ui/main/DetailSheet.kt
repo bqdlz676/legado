@@ -16,6 +16,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import io.legado.app.R
 import io.legado.app.help.ChineseDict
 import io.legado.app.help.NameResolver
+import io.legado.app.help.bubble.PersonProfileWiring
 import io.legado.app.help.PlaceTimeDict
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
@@ -173,11 +174,10 @@ class DetailSheet : BottomSheetDialogFragment() {
             append(prof?.source?.label?.takeIf { it.isNotBlank() } ?: "未收录")
         })
 
-        // 注音：D2 冻结 API 不含拼音，走通用字库逐字拼（同 PersonDetailActivity 先例）；
-        // 旧人名专用异读表（郦食其 / 樊於期等）D2 暂无等价入口，待接，不在此硬造。
-        val py = runCatching {
+        // 注音：人名专用异读门面优先（郦食其 / 樊於期等固定读法），未命中回落通用字库逐字拼。
+        val py = PersonProfileWiring.pinyin(name) {
             ChineseDict.pinyinOfWord(ctx, name)
-        }.getOrNull().orEmpty()
+        }.orEmpty()
         if (py.isNotBlank()) body("读音　$py")
 
         val excerpt = arguments?.getString(ARG_DETAIL).orEmpty()
@@ -239,9 +239,11 @@ class DetailSheet : BottomSheetDialogFragment() {
                 append(if (b != null) fmt(b) else "?").append(" — ")
                 append(if (d != null) fmt(d) else "?")
             }
-            // 在位起讫（旧 L1 reignStart/reignEnd）D2 档案未建模，待接。
             if (isBlank()) append("生卒无载")
         })
+        // 在位起讫：走 D2 reignOf 门面；非君主 / 史料无载如实标「在位无载」，不编约数、不留空白。
+        val reign = PersonProfile.reignOf(name) ?: Pair(prof?.reignStart, prof?.reignEnd)
+        body(PersonProfileWiring.reignLabel(reign?.first, reign?.second) { fmt(it) })
         body(buildString {
             append(if (prof?.nationality?.isNotBlank() == true) prof!!.nationality else "国别无载")
             append("　·　").append(if (prof?.identity?.isNotBlank() == true) prof!!.identity else "身份无载")

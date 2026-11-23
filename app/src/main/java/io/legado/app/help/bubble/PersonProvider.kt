@@ -1,6 +1,7 @@
 package io.legado.app.help.bubble
 
 import io.legado.app.help.chrono.ContextAnchor
+import io.legado.app.help.person.ConfidenceTier
 import io.legado.app.help.person.PersonProfile
 import io.legado.app.help.person.PersonSource
 import kotlin.math.abs
@@ -99,10 +100,16 @@ object PersonProvider : BubbleProvider {
             )
         }
 
+        // 注音走人名专用异读门面（档案读音 > 注册整词覆盖 > 内置异读表）；
+        // 专用读音未命中保持 null，交上层字库兜底，本层不猜读音。
+        val phonetic = runCatching {
+            PersonProfile.pinyinOf(canonical.ifBlank { selected.name })
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+
         return BubbleContent(
             kind = BubbleKind.PERSON,
             token = canonical,
-            phonetic = null,
+            phonetic = phonetic,
             headline = buildString {
                 append(canonical)
                 if (selected.identity.isNotBlank()) append(" · ").append(selected.identity)
@@ -149,11 +156,13 @@ object PersonProvider : BubbleProvider {
         )
 
     /**
-     * 同名消歧排序（复刻 PersonDirectory.disambiguate 口径）：
+     * 同名消歧排序（对齐 PersonDirectory.disambiguate 口径）：
+     * 0. 分层过滤：L3 孤证（[ConfidenceTier.canDefault] = false）不进默认命中；
+     *    全部为孤证时才回退孤证池；其余同名者仍留在候选清单，不丢弃；
      * 1. 锚点精确年被生卒区间覆盖者优先；
      * 2. 锚点区间与生卒区间相交者优先；
      * 3. 生卒中点距锚点（精确年 / 区间中点）最近者；
-     * 4. 仍无法区分取 [PersonProfile.preferred]，否则首位；其余同名进候选清单，不丢弃。
+     * 4. 仍无法区分取 [PersonProfile.preferred]，否则首位。
      */
     private fun selectByAnchor(
         candidates: List<PersonProfile>,
@@ -162,19 +171,23 @@ object PersonProvider : BubbleProvider {
         if (candidates.isEmpty()) return null
         if (candidates.size == 1) return candidates.first()
 
+        // L3 孤证不进默认命中；全是孤证时才回退孤证池，避免一上来抛脏数据。
+        val defaultable = candidates.filter { it.tier.canDefault }
+        val pool = defaultable.ifEmpty { candidates }
+
         val year = anchor.getYear()
         if (year != null) {
-            candidates.firstOrNull { inSpan(it, year) }?.let { return it }
-            nearestMidpoint(candidates, year)?.let { return it }
+            pool.firstOrNull { inSpan(it, year) }?.let { return it }
+            nearestMidpoint(pool, year)?.let { return it }
         }
 
         val range = anchor.getRange() ?: anchor.candidateYears.firstOrNull()
         if (range != null) {
-            candidates.firstOrNull { overlaps(it, range) }?.let { return it }
-            nearestMidpoint(candidates, (range.first + range.last) / 2)?.let { return it }
+            pool.firstOrNull { overlaps(it, range) }?.let { return it }
+            nearestMidpoint(pool, (range.first + range.last) / 2)?.let { return it }
         }
 
-        return candidates.firstOrNull { it.preferred } ?: candidates.first()
+        return pool.firstOrNull { it.preferred } ?: pool.first()
     }
 
     private fun inSpan(p: PersonProfile, year: Int): Boolean =

@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import io.legado.app.R
 import io.legado.app.help.ChineseDict
 import io.legado.app.help.HanConv
+import io.legado.app.help.bubble.PersonProfileWiring
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.person.PersonProfile
@@ -49,9 +50,11 @@ class PersonDetailActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.tv_name).text = display
 
-        // 注音属展示辅助：D2 冻结 API 不含拼音，走通用字库 ChineseDict 取词级 / 字级读音；
-        // 旧 relation 包的 PersonPinyin 随扁平栈一并断开。
-        val py = ChineseDict.pinyinOfWord(this, prof?.name ?: name)
+        // 注音：人名专用异读门面优先（档案读音 > 注册整词覆盖 > 内置异读表），
+        // 未命中回落通用字库 ChineseDict 词级 / 字级读音；旧 relation 包扁平栈已断开。
+        val py = PersonProfileWiring.pinyin(prof?.name ?: name) {
+            ChineseDict.pinyinOfWord(this, prof?.name ?: name)
+        }.orEmpty()
 
         // 生卒年：优先 D2 的 `lifeSpan(name)`（别名归并后取档案生卒），回退档案字段本身；
         // 任一年份无载对应位置为 null，页面如实标「?」，不补约数。
