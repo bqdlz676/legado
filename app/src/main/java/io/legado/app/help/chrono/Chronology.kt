@@ -23,8 +23,8 @@ import java.time.LocalDate
  */
 object Chronology {
 
-    /** 「距今」以运行时当前公历年为基准（规格切片05：前722 → 距今2748 = 2026+722） */
-    val presentBase: Int get() = LocalDate.now().year
+    /** 「距今」以 1950 年为冻结基准（考古学通用口径，用户拍板；不随运行时当前年漂移） */
+    const val PRESENT_BASE = 1950
 
     private const val GAN = "甲乙丙丁戊己庚辛壬癸"
     private const val ZHI = "子丑寅卯辰巳午未申酉戌亥"
@@ -87,7 +87,7 @@ object Chronology {
         val yearsAgo: Int,
         val rows: List<TimelineRow>,
     ) {
-        /** 一行摘要标签，如「前722年（己未）· 距今约2748年」 */
+        /** 一行摘要标签，如「前722年（己未）· 距今约2672年」 */
         val title: String get() = yearTitle(year)
     }
 
@@ -473,8 +473,8 @@ object Chronology {
         }
     }
 
-    /** 距今多少年，基准为运行时当前公历年（LocalDate.now().year） */
-    fun yearsAgo(year: Int): Int = presentBase - year
+    /** 距今多少年，基准 1950（考古学通用口径，用户拍板） */
+    fun yearsAgo(year: Int): Int = PRESENT_BASE - year
 
     /** 显示用：公元前/公元 + 干支 + 距今 */
     fun yearLabel(year: Int): String {

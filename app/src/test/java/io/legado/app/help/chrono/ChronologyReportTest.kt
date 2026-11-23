@@ -6,7 +6,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
 
 /**
  * 契约 §三 富结构时间轴 + 候选年代验收：
@@ -24,7 +23,7 @@ class ChronologyReportTest {
 
         assertEquals(-722, report.year)
         assertEquals("己未", report.ganzhi)
-        assertEquals(LocalDate.now().year + 722, report.yearsAgo) // 当前年基准：2026 → 2748
+        assertEquals(2672, report.yearsAgo) // PRESENT_BASE 1950 - (-722)
 
         val byState = report.rows.associateBy { it.state }
         assertEquals(49, byState["周"]?.nth)
@@ -70,11 +69,10 @@ class ChronologyReportTest {
     }
 
     @Test
-    fun `years ago uses runtime current year`() {
-        val now = LocalDate.now().year
-        assertEquals(now, Chronology.yearsAgo(0))
-        assertEquals(now - 1850, Chronology.yearsAgo(1850))
-        assertEquals(now + 722, Chronology.yearsAgo(-722))
-        assertEquals(0, Chronology.yearsAgo(now))
+    fun `years ago uses 1950 frozen base`() {
+        assertEquals(1950, Chronology.yearsAgo(0))
+        assertEquals(100, Chronology.yearsAgo(1850))
+        assertEquals(2672, Chronology.yearsAgo(-722))
+        assertEquals(0, Chronology.yearsAgo(1950))
     }
 }
