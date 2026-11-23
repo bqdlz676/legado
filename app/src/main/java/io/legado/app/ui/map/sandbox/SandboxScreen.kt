@@ -56,10 +56,10 @@ fun SandboxScreenHost(
                     // 单指拖动 → 旋转；双指捏合 → 缩放；双指同滑 → 平移并锁旋转。
                     val twoFinger = zoom != 1.0f
                     if (twoFinger) {
-                        rig.pinchZoom(zoom)
-                        rig.panBy(pan.x * PAN_SPEED_KM, pan.y * PAN_SPEED_KM)
+                        rig.pinchZoom(zoom.toDouble())
+                        rig.panBy((pan.x * PAN_SPEED_KM).toDouble(), (pan.y * PAN_SPEED_KM).toDouble())
                     } else {
-                        rig.rotateBy(pan.x * ROTATE_SPEED_DEG, pan.y * ROTATE_SPEED_DEG)
+                        rig.rotateBy((pan.x * ROTATE_SPEED_DEG).toDouble(), (pan.y * ROTATE_SPEED_DEG).toDouble())
                     }
                     interaction.zoomDuringPlay()
                     tick++

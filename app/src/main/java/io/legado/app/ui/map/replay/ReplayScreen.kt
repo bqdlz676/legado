@@ -178,7 +178,7 @@ private fun DashboardRow(director: ReplayDirector) {
                 ),
             )
             Spacer(Modifier.width(12.dp))
-            ProgressLine(director.progress())
+            ProgressLine(director.progress().toFloat())
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

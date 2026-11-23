@@ -4,7 +4,7 @@ import io.legado.app.ui.map.globe.replay.campaign.Campaign
 import io.legado.app.ui.map.globe.replay.campaign.SeedCampaigns
 import io.legado.app.ui.map.globe.replay.marker.GlobeMarker
 import io.legado.app.ui.map.globe.replay.power.PowerLayer
-import io.legado.app.ui.map.globe.replay.power.SeedPowers
+import io.legado.app.ui.map.globe.data.SeedPowers
 import io.legado.app.ui.map.globe.replay.route.GlobeRoute
 import kotlin.math.min
 

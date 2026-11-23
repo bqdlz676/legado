@@ -23,6 +23,16 @@ data class LatLng(val lat: Double, val lng: Double) {
             require(pair.size >= 2) { "坐标数组至少需要 [lng, lat] 两个值" }
             return LatLng(lat = pair[1], lng = pair[0])
         }
+
+        /**
+         * 行军天数：公里 ÷（日行里数 × 每里公里数），向上取整。
+         * 边界兜底：里程为 0 或日行里数非法时返回 0，不抛异常。
+         */
+        fun marchDays(km: Double, dailyLi: Int): Int {
+            if (km <= 0.0 || dailyLi <= 0) return 0
+            val dailyKm = dailyLi * SandboxConfig.KM_PER_LI
+            return (km / dailyKm).roundToInt().coerceAtLeast(1)
+        }
     }
 
     /** 与另一坐标的球面距离（公里，haversine）。 */
@@ -56,15 +66,4 @@ data class LatLng(val lat: Double, val lng: Double) {
         return (Math.toDegrees(atan2(x, y)) + 360.0) % 360.0
     }
 
-    companion object March {
-        /**
-         * 行军天数：公里 ÷（日行里数 × 每里公里数），向上取整。
-         * 边界兜底：里程为 0 或日行里数非法时返回 0，不抛异常。
-         */
-        fun marchDays(km: Double, dailyLi: Int): Int {
-            if (km <= 0.0 || dailyLi <= 0) return 0
-            val dailyKm = dailyLi * SandboxConfig.KM_PER_LI
-            return (km / dailyKm).roundToInt().coerceAtLeast(1)
-        }
-    }
 }

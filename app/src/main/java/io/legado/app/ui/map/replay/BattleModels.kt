@@ -4,7 +4,7 @@ package io.legado.app.ui.map.replay
  * 战役回放数据模型（纯 JVM，切片-07 军队棋子 / 箭头 / 麾下状态）。
  *
  * 本文件只放阵营、士气、意图、事件等枚举与数据结构，不含渲染；
- * 模型与 assets/map/campaigns/*.json 的字段口径对齐，批量解析由数据管道完成，
+ * 模型与 assets/map/campaigns 目录下各 .json 的字段口径对齐，批量解析由数据管道完成，
  * 本模块种子数据直接构造，不引 JSON 库。
  */
 
