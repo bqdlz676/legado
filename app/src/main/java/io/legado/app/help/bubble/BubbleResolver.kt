@@ -144,6 +144,8 @@ object BubbleResolver {
         BubbleEnv.preload(context)
         runCatching { ChineseDict.preload() }
         runCatching { Chronology.ensureLoaded(context) }
+        // 预热后显式重绑人物消歧入口：防止遗留扁平层后注册把共享总线的 personProvider 覆盖掉。
+        runCatching { PersonProvider.bindAnchorProvider() }
         // D2 / D3 / D4 为纯内存种子，首次查询时惰性建索引；此处仅占位便于后续资产预载扩展。
     }
 

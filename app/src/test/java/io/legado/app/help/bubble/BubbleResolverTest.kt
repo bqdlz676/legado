@@ -459,6 +459,49 @@ class BubbleResolverTest {
     }
 
     @Test
+    fun `person provider registers itself onto shared anchor disambiguation bus`() {
+        PersonProvider.bindAnchorProvider()
+        assertNotNull(ContextAnchor.personProvider)
+        val candidates = ContextAnchor.personProvider!!.invoke("孔子")
+        assertEquals(1, candidates.size)
+        assertEquals(ContextAnchor.Type.PERSON, candidates.single().type)
+        assertEquals(-551, candidates.single().start)
+        assertEquals(-479, candidates.single().end)
+    }
+
+    @Test
+    fun `anchor bus lists all same-name persons with lifespan spans`() {
+        PersonProvider.bindAnchorProvider()
+        val candidates = ContextAnchor.personProvider!!.invoke("韩信")
+        assertEquals(2, candidates.size)
+        assertTrue(candidates.all { it.type == ContextAnchor.Type.PERSON })
+        assertTrue(candidates.all { it.name == "韩信" })
+    }
+
+    @Test
+    fun `same-name query keeps preferred record when anchor cannot split`() {
+        ContextAnchor.setYear(-200, "西汉")
+        val bubble = PersonProvider.query("韩信", ContextAnchor)
+        assertNotNull(bubble)
+        assertEquals(BubbleKind.PERSON, bubble!!.kind)
+        val personAction = bubble.actions.filterIsInstance<Action.OpenPerson>().single()
+        assertEquals("seed:hanxin-huaiyin", personAction.personId)
+        // 另一位同名者进候选清单，不丢弃。
+        assertEquals(1, bubble.candidates.size)
+        assertEquals("韩信", bubble.candidates.single().query)
+    }
+
+    @Test
+    fun `anchor year range feeds person span overlap and default hit`() {
+        ContextAnchor.setYear(-500, "春秋")
+        val resolved = ContextAnchor.resolve("孔子", -500)
+        val person = resolved.singleOrNull { it.type == ContextAnchor.Type.PERSON }
+        assertNotNull(person)
+        assertTrue(person!!.isDefault)
+        assertEquals("seed:kongzi", person.id)
+    }
+
+    @Test
     fun `place anchored to spring and autumn lists modern reference as candidate`() {
         // 锚到《左传》春秋区间（前 722~前 453）：默认命中春秋晋地，今址参考层只进候选。
         ContextAnchor.setYearRange(-722..-453, "鲁")
