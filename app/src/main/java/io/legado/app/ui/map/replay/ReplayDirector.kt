@@ -91,6 +91,10 @@ class ReplayDirector(
     val clashes: MutableList<ClashEffect> = mutableListOf()
     val encounters: MutableList<EncounterRing> = mutableListOf()
 
+    // 上一帧仍相邻的敌我对子。交战只在「由不相邻变为相邻」的沿边触发：
+    // 否则一场交战 DONE 被清理后，位置没动的同一对子下一帧会立刻再炸一场，动画永远清不空。
+    private val adjacentClashPairs = mutableSetOf<String>()
+
     /** 交战触发距离阈值（公里）：敌我棋子进入此距离判定相邻交战。 */
     var clashThresholdKm: Double = CLASH_THRESHOLD_KM
         private set
@@ -125,11 +129,14 @@ class ReplayDirector(
     /** 拖动金线跳转回合；棋子瞬移、箭头跟切。 */
     fun seek(turnValue: Double) {
         turn = turnValue.coerceIn(0.0, campaign.rounds.toDouble())
+        // 时间轴瞬移后位置关系重算，旧的相邻沿边状态作废，避免跳回开战前被沿边标志压住。
+        adjacentClashPairs.clear()
     }
 
     /** 点阶段铜点：跳到该 phase 第一回合，地图箭头瞬切。 */
     fun jumpPhase(phase: BattlePhase) {
         turn = phase.turn.coerceIn(0, campaign.rounds).toDouble()
+        adjacentClashPairs.clear()
     }
 
     fun currentPhase(): BattlePhase? = campaign.phaseAt(turn.toInt())
@@ -176,9 +183,12 @@ class ReplayDirector(
     fun update(dtMs: Long) {
         val now = clock()
 
-        // 推演推进：每回合 1.2s；播完自动暂停。
-        if (playing && !campaign.isComplete(turn)) {
-            turn += dtMs.toDouble() / ReplayConfig.TURN_DURATION_MS
+        // 推演推进：每回合 1.2s；播完自动暂停。已在末回合时按播放也要立即钳制停稳，
+        // 不能因为外层「未播完」条件不成立就跳过收尾，否则 playing 会一直挂在结束态。
+        if (playing) {
+            if (!campaign.isComplete(turn)) {
+                turn += dtMs.toDouble() / ReplayConfig.TURN_DURATION_MS
+            }
             if (campaign.isComplete(turn)) {
                 turn = campaign.rounds.toDouble()
                 playing = false
@@ -238,15 +248,23 @@ class ReplayDirector(
     private fun detectClashes(now: Long) {
         val own = armiesByRole(SideRole.OWN)
         val enemy = armiesByRole(SideRole.ENEMY)
+        val currentAdjacent = mutableSetOf<String>()
         own.forEach { a ->
             enemy.forEach { b ->
                 val dist = LatLng(a.lat, a.lng).distanceKm(LatLng(b.lat, b.lng))
-                if (dist <= clashThresholdKm && !hasActiveClash(now)) {
-                    val mid = LatLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2)
-                    clashes.add(ClashEffect("clash-${a.id}-${b.id}", mid, now))
+                val pairKey = "${a.id}~${b.id}"
+                if (dist <= clashThresholdKm) {
+                    currentAdjacent.add(pairKey)
+                    // 沿边触发：上一帧不相邻、这一帧才贴近才开战；同一场交战未结束前不重复生成。
+                    if (!adjacentClashPairs.contains(pairKey) && !hasActiveClash(now)) {
+                        val mid = LatLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2)
+                        clashes.add(ClashEffect("clash-${a.id}-${b.id}", mid, now))
+                    }
                 }
             }
         }
+        adjacentClashPairs.clear()
+        adjacentClashPairs.addAll(currentAdjacent)
 
         // 箭头相遇 → 300ms 朱砂遭遇光环。
         val arrows = arrows()

@@ -58,6 +58,8 @@ class SandboxInteraction(
         private set
 
     fun selectPiece(pieceId: String) {
+        // 剧场模式下所有交互锁定（切片-06：纯播放，只剩左下退出出口），选中不生效。
+        if (theaterMode) return
         selectedPieceId = pieceId
         // 重新选中棋子时清掉上一条预演虚线，避免两支军队的命令叠在一起。
         orderPreview = null

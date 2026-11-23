@@ -19,12 +19,14 @@ class Mat4Test {
     }
 
     @Test
-    fun `绕 Y 轴旋转 90 度把 X 轴转到 Z 轴`() {
+    fun `绕 Y 轴旋转 90 度把 X 轴转到负 Z 轴`() {
+        // 标准右手坐标系（X × Y = Z，叉乘见 Vec3.cross）：绕 +Y 右手定则转 90°，
+        // +X → -Z（Rodrigues：k×v = (0,1,0)×(1,0,0) = (0,0,-1)）。
         val m = Mat4.rotationY(Math.PI / 2)
         val p = m.transformPoint(Vec3.UNIT_X)
         assertEquals(0.0, p.x, 1e-6)
         assertEquals(0.0, p.y, 1e-6)
-        assertEquals(1.0, p.z, 1e-6)
+        assertEquals(-1.0, p.z, 1e-6)
     }
 
     @Test

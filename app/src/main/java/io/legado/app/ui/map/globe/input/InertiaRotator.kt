@@ -26,6 +26,9 @@ class InertiaRotator(
 
     // 末段拖动窗口：角速度 = 末段角位移 ÷ 末段时长。旧实现把整段累计角位移当初速度，
     // 量纲是「角度」而非「角度/秒」，快拖会冲过头、慢拖又偏软；这里只取松手前最后一段。
+    // 注意：基线是否存在必须用独立标志位，不能拿时间戳 == 0 当哨兵——首帧合法时间戳就是 0，
+    // 否则第二段拖动会被误判为仍无基准，末段时长折算成兜底帧长，角速度量纲全错。
+    private var hasDragBaseline = false
     private var lastNowNanos = 0L
     private var lastDyaw = 0.0
     private var lastDpitch = 0.0
@@ -45,6 +48,7 @@ class InertiaRotator(
         v0Pitch = 0.0
         velocityYaw = 0.0
         velocityPitch = 0.0
+        hasDragBaseline = false
         lastNowNanos = 0L
         lastDyaw = 0.0
         lastDpitch = 0.0
@@ -57,7 +61,11 @@ class InertiaRotator(
      * @param nowNanos 当前纳秒时间戳；测试可显式传入以确定性估算角速度，默认取系统时钟。
      */
     fun onDrag(dxPx: Double, dyPx: Double, nowNanos: Long = System.nanoTime()) {
-        val dtSec = if (lastNowNanos == 0L) 0.0 else (nowNanos - lastNowNanos) / 1_000_000_000.0
+        val dtSec = if (hasDragBaseline) {
+            (nowNanos - lastNowNanos) / 1_000_000_000.0
+        } else {
+            0.0
+        }
         val dyaw = dxPx * dragSensitivity
         val dpitch = -dyPx * dragSensitivity
         yawDeg += dyaw
@@ -66,6 +74,7 @@ class InertiaRotator(
         lastDyaw = dyaw
         lastDpitch = dpitch
         lastDtSec = dtSec.coerceAtLeast(0.0)
+        hasDragBaseline = true
         lastNowNanos = nowNanos
     }
 
@@ -124,6 +133,7 @@ class InertiaRotator(
         v0Yaw = 0.0
         v0Pitch = 0.0
         coastTime = 0.0
+        hasDragBaseline = false
         lastNowNanos = 0L
         lastDyaw = 0.0
         lastDpitch = 0.0
