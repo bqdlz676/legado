@@ -31,6 +31,13 @@ class ReplayPass {
     private var powerVertCount = 0
     private var powerBuilt = false
 
+    // 逐帧变化的动态流：ribbon / 箭头 / 粒子 / 光针 / 金点，VBO 与缓冲按容量复用，不逐帧建删。
+    private val ribbonBuffer = GlDynamicBuffer()
+    private val arrowBuffer = GlDynamicBuffer()
+    private val particleBuffer = GlDynamicBuffer()
+    private val needleBuffer = GlDynamicBuffer()
+    private val dotBuffer = GlDynamicBuffer()
+
     // ---------- 生命周期 ----------
 
     fun onSurfaceCreated() {
@@ -42,6 +49,11 @@ class ReplayPass {
         if (powerVbo != 0) GLES20.glDeleteBuffers(1, intArrayOf(powerVbo), 0)
         powerVbo = 0
         powerBuilt = false
+        ribbonBuffer.release()
+        arrowBuffer.release()
+        particleBuffer.release()
+        needleBuffer.release()
+        dotBuffer.release()
         progColor?.release()
         progPoint?.release()
         progColor = null
@@ -134,7 +146,7 @@ class ReplayPass {
             putColorVert(ribbon, left, cr, cg, cb, 0.9f)
             putColorVert(ribbon, right, cr, cg, cb, 0.9f)
         }
-        drawColorStrip(proj, view, model, ribbon)
+        drawColorStrip(proj, view, model, ribbon, ribbonBuffer)
 
         // 箭头锋芒：在进度最前端，三角形尾窄锋尖
         val head = route.arrowHead(progress, radius)
@@ -147,7 +159,7 @@ class ReplayPass {
             putColorVert(arrow, base - side * size * 0.35, cr, cg, cb, 1f)
             putColorVert(arrow, base + side * size * 0.35, cr, cg, cb, 1f)
             putColorVert(arrow, tip, cr, cg, cb, 1f)
-            drawColorTriangles(proj, view, model, arrow)
+            drawColorTriangles(proj, view, model, arrow, arrowBuffer)
         }
 
         // 流动粒子：沿弧线方向向后错落分布
@@ -161,7 +173,7 @@ class ReplayPass {
             particles.add((3.5f - k * 0.15f).coerceAtLeast(1.5f))
             particles.add(cr); particles.add(cg); particles.add(cb); particles.add(0.95f)
         }
-        if (particles.isNotEmpty()) drawPoints(proj, view, model, particles)
+        if (particles.isNotEmpty()) drawPoints(proj, view, model, particles, particleBuffer)
     }
 
     // ---------- 城池光针 ----------
@@ -194,8 +206,8 @@ class ReplayPass {
             dots.add(GlobeConfig.NEEDLE_TOP_DOT_RADIUS * 3f)
             dots.add(gr); dots.add(gg); dots.add(gb); dots.add(1f)
         }
-        if (needles.isNotEmpty()) drawColorTriangles(proj, view, model, needles)
-        if (dots.isNotEmpty()) drawPoints(proj, view, model, dots)
+        if (needles.isNotEmpty()) drawColorTriangles(proj, view, model, needles, needleBuffer)
+        if (dots.isNotEmpty()) drawPoints(proj, view, model, dots, dotBuffer)
     }
 
     // ---------- 绘制工具 ----------
@@ -214,45 +226,55 @@ class ReplayPass {
         GLES20.glVertexAttribPointer(prog.attrib("aColor"), 4, GLES20.GL_FLOAT, false, 7 * 4, 12)
     }
 
-    private fun drawColorStrip(proj: Mat4, view: Mat4, model: Mat4, verts: ArrayList<Float>) {
+    private fun drawColorStrip(
+        proj: Mat4, view: Mat4, model: Mat4,
+        verts: ArrayList<Float>, buffer: GlDynamicBuffer,
+    ) {
         if (verts.size < 14) return
         val prog = progColor ?: return
         prog.use()
         bindCommon(prog, proj, view, model)
-        val buf = toFloatBuffer(verts)
-        val vbo = uploadArrayBuffer(buf)
+        val arr = FloatArray(verts.size) { verts[it] }
+        val vbo = buffer.upload(arr)
+        if (vbo == 0) return
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
         GLES20.glEnableVertexAttribArray(prog.attrib("aPos"))
         GLES20.glVertexAttribPointer(prog.attrib("aPos"), 3, GLES20.GL_FLOAT, false, 7 * 4, 0)
         GLES20.glEnableVertexAttribArray(prog.attrib("aColor"))
         GLES20.glVertexAttribPointer(prog.attrib("aColor"), 4, GLES20.GL_FLOAT, false, 7 * 4, 12)
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, verts.size / 7)
-        GLES20.glDeleteBuffers(1, intArrayOf(vbo), 0)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, arr.size / 7)
     }
 
-    private fun drawColorTriangles(proj: Mat4, view: Mat4, model: Mat4, verts: ArrayList<Float>) {
+    private fun drawColorTriangles(
+        proj: Mat4, view: Mat4, model: Mat4,
+        verts: ArrayList<Float>, buffer: GlDynamicBuffer,
+    ) {
         if (verts.size < 21) return
         val prog = progColor ?: return
         prog.use()
         bindCommon(prog, proj, view, model)
-        val buf = toFloatBuffer(verts)
-        val vbo = uploadArrayBuffer(buf)
+        val arr = FloatArray(verts.size) { verts[it] }
+        val vbo = buffer.upload(arr)
+        if (vbo == 0) return
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
         GLES20.glEnableVertexAttribArray(prog.attrib("aPos"))
         GLES20.glVertexAttribPointer(prog.attrib("aPos"), 3, GLES20.GL_FLOAT, false, 7 * 4, 0)
         GLES20.glEnableVertexAttribArray(prog.attrib("aColor"))
         GLES20.glVertexAttribPointer(prog.attrib("aColor"), 4, GLES20.GL_FLOAT, false, 7 * 4, 12)
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, verts.size / 7)
-        GLES20.glDeleteBuffers(1, intArrayOf(vbo), 0)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, arr.size / 7)
     }
 
-    private fun drawPoints(proj: Mat4, view: Mat4, model: Mat4, verts: ArrayList<Float>) {
+    private fun drawPoints(
+        proj: Mat4, view: Mat4, model: Mat4,
+        verts: ArrayList<Float>, buffer: GlDynamicBuffer,
+    ) {
         if (verts.isEmpty()) return
         val prog = progPoint ?: return
         prog.use()
         bindCommon(prog, proj, view, model)
-        val buf = toFloatBuffer(verts)
-        val vbo = uploadArrayBuffer(buf)
+        val arr = FloatArray(verts.size) { verts[it] }
+        val vbo = buffer.upload(arr)
+        if (vbo == 0) return
         val stride = 8 * 4
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
         GLES20.glEnableVertexAttribArray(prog.attrib("aPos"))
@@ -261,8 +283,7 @@ class ReplayPass {
         GLES20.glVertexAttribPointer(prog.attrib("aSize"), 1, GLES20.GL_FLOAT, false, stride, 12)
         GLES20.glEnableVertexAttribArray(prog.attrib("aColor"))
         GLES20.glVertexAttribPointer(prog.attrib("aColor"), 4, GLES20.GL_FLOAT, false, stride, 16)
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, verts.size / 8)
-        GLES20.glDeleteBuffers(1, intArrayOf(vbo), 0)
+        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, arr.size / 8)
     }
 
     private fun putColorVert(out: ArrayList<Float>, p: Vec3, r: Float, g: Float, b: Float, a: Float) {
@@ -275,14 +296,6 @@ class ReplayPass {
         val ref = if (Math.abs(dir.y) < 0.9) Vec3.UNIT_Y else Vec3.UNIT_X
         val side = ref.cross(dir).normalize()
         return if (side.length < 1e-6) fallback else side
-    }
-
-    private fun toFloatBuffer(list: ArrayList<Float>): java.nio.FloatBuffer {
-        val arr = FloatArray(list.size) { list[it] }
-        val buf = java.nio.ByteBuffer.allocateDirect(arr.size * 4)
-            .order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
-        buf.put(arr).position(0)
-        return buf
     }
 
     private fun uploadArrayBuffer(buf: java.nio.Buffer): Int {

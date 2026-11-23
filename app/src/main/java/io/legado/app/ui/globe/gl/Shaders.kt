@@ -228,6 +228,7 @@ object Shaders {
     const val LABEL_VERT = """
         attribute vec3 aPos;
         attribute vec2 aUv;
+        attribute float aFade;
         uniform mat4 uProj;
         uniform mat4 uView;
         uniform float uOpacity;
@@ -235,7 +236,7 @@ object Shaders {
         varying float vOpacity;
         void main() {
             vUv = aUv;
-            vOpacity = uOpacity;
+            vOpacity = uOpacity * aFade;
             gl_Position = uProj * uView * vec4(aPos, 1.0);
         }
     """

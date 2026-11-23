@@ -9,6 +9,7 @@ import io.legado.app.ui.globe.core.math.Vec3
 import io.legado.app.ui.globe.core.mesh.LodLevel
 import io.legado.app.ui.globe.core.mesh.SphereMesh
 import io.legado.app.ui.globe.core.scene.GlobeScene
+import io.legado.app.ui.globe.core.terrain.TerrainSource
 import io.legado.app.ui.globe.gl.ShaderProgram
 import io.legado.app.ui.globe.gl.Shaders
 import io.legado.app.ui.globe.gl.TextureFactory
@@ -61,6 +62,15 @@ class GlobeRenderer(
     private var atlas: AtlasLabels? = null
     private val replayPass = ReplayPass()
 
+    /** 地形采样源：把分类后的沿法线位移喂给球体顶点（7 种地表 / 雪线 / fbm 森林凸起）。 */
+    private val terrainSource = TerrainSource()
+
+    /** 太阳盘四角为常量，VBO 一次性建好不逐帧建删。 */
+    private var sunVbo = 0
+
+    /** 标签 billboard 逐帧重组位置，但 VBO 与缓冲按容量复用，不逐帧 glGen/Delete。 */
+    private val labelBuffer = GlDynamicBuffer()
+
     private var viewportW = 1
     private var viewportH = 1
     private var lastFrameMs = 0L
@@ -93,6 +103,7 @@ class GlobeRenderer(
         texCloud = TextureFactory.uploadTexture(TextureFactory.cloudTexture())
 
         buildStarBuffer()
+        buildSunBuffer()
         atlas = AtlasLabels.build()
         atlasTex = TextureFactory.uploadTexture(atlas?.bitmap)
     }
@@ -142,6 +153,8 @@ class GlobeRenderer(
         meshCache.clear()
         cloudMesh?.release(); innerShell?.release(); outerShell?.release()
         if (starVbo != 0) GLES20.glDeleteBuffers(1, intArrayOf(starVbo), 0)
+        if (sunVbo != 0) GLES20.glDeleteBuffers(1, intArrayOf(sunVbo), 0)
+        labelBuffer.release()
         if (atlasTex != 0) GLES20.glDeleteTextures(1, intArrayOf(atlasTex), 0)
         atlas?.release()
         progSurface?.release(); progAtmos?.release(); progAtmosGlow?.release()
@@ -178,7 +191,11 @@ class GlobeRenderer(
 
     private fun meshFor(level: LodLevel): GlMesh? {
         meshCache[level]?.let { return it }
-        val mesh = SphereMesh.build(level, scene.radius)
+        // 顶点位移接地形分类器：水域贴球，陆地按高程基准起伏，森林叠加 fbm 树冠凸起，
+        // 雪线 >3500m / 极地冰盖由分类器判定；位移沿球面法线方向叠加。
+        val mesh = SphereMesh.build(level, scene.radius) { lat, lng, _, _, _ ->
+            terrainSource.sample(lat, lng).displacementUnits
+        }
         val glMesh = GlMesh.upload(mesh)
         meshCache[level] = glMesh
         return glMesh
@@ -314,17 +331,10 @@ class GlobeRenderer(
         GLES20.glUniform3f(prog.uniform("uCameraUp"), up.x.toFloat(), up.y.toFloat(), up.z.toFloat())
         GLES20.glUniform1f(prog.uniform("uRadius"), GlobeConfig.SUN_DISC_DIAMETER / 2f)
 
-        val corners = floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)
-        val buf = java.nio.ByteBuffer.allocateDirect(corners.size * 4)
-            .order(java.nio.ByteOrder.nativeOrder())
-            .asFloatBuffer()
-        buf.put(corners).position(0)
-        val id = uploadArrayBuffer(buf)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, id)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, sunVbo)
         GLES20.glEnableVertexAttribArray(prog.attrib("aCorner"))
         GLES20.glVertexAttribPointer(prog.attrib("aCorner"), 2, GLES20.GL_FLOAT, false, 0, 0)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GLES20.glDeleteBuffers(1, intArrayOf(id), 0)
     }
 
     private fun drawLabels(model: Mat4) {
@@ -333,8 +343,9 @@ class GlobeRenderer(
         val visible = scene.visiblePlaces().filter { it.second > 0.01f }
         if (visible.isEmpty()) return
 
-        // 每个地名一个 billboard 四边形；单 atlas 单次 draw call
-        val verts = ArrayList<Float>()
+        // 每个地名一个 billboard 四边形；单 atlas 单次 draw call。
+        // 顶点布局：pos3 + uv2 + fade1；淡出系数逐顶点传入 shader，不再被丢弃。
+        val verts = ArrayList<Float>(visible.size * 4 * 6)
         visible.forEach { (place, fade) ->
             val dir = Geo.direction(place.lat, place.lng)
             val worldDir = model.transformPoint(dir).normalize()
@@ -352,31 +363,30 @@ class GlobeRenderer(
             )
             for ((p, uv) in quads) {
                 verts.add(p.x.toFloat()); verts.add(p.y.toFloat()); verts.add(p.z.toFloat())
-                verts.add(uv.first); verts.add(uv.second)
+                verts.add(uv.first); verts.add(uv.second); verts.add(fade)
             }
-            // 淡出系数走 uniform 兜底：远距地名已在 visible() 中过滤，这里不再逐顶点传
-            @Suppress("UNUSED_VARIABLE") val usedFade = fade
         }
+        if (verts.isEmpty()) return
+
+        val arr = FloatArray(verts.size) { verts[it] }
+        val id = labelBuffer.upload(arr)
+        if (id == 0) return
+
         prog.use()
         GLES20.glUniformMatrix4fv(prog.uniform("uProj"), 1, false, proj.m, 0)
         GLES20.glUniformMatrix4fv(prog.uniform("uView"), 1, false, view.m, 0)
         GLES20.glUniform1f(prog.uniform("uOpacity"), 1f)
         bindTexture(prog, "uAtlas", 0, atlasTex)
 
-        val buf = java.nio.ByteBuffer.allocateDirect(verts.size * 4)
-            .order(java.nio.ByteOrder.nativeOrder())
-            .asFloatBuffer()
-        verts.forEach { buf.put(it) }
-        buf.position(0)
-        val id = uploadArrayBuffer(buf)
-        val stride = 5 * 4
+        val stride = 6 * 4
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, id)
         GLES20.glEnableVertexAttribArray(prog.attrib("aPos"))
         GLES20.glVertexAttribPointer(prog.attrib("aPos"), 3, GLES20.GL_FLOAT, false, stride, 0)
         GLES20.glEnableVertexAttribArray(prog.attrib("aUv"))
         GLES20.glVertexAttribPointer(prog.attrib("aUv"), 2, GLES20.GL_FLOAT, false, stride, 12)
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, verts.size / 5)
-        GLES20.glDeleteBuffers(1, intArrayOf(id), 0)
+        GLES20.glEnableVertexAttribArray(prog.attrib("aFade"))
+        GLES20.glVertexAttribPointer(prog.attrib("aFade"), 1, GLES20.GL_FLOAT, false, stride, 20)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, arr.size / 6)
     }
 
     // ---------- 工具 ----------
@@ -429,6 +439,15 @@ class GlobeRenderer(
         buf.put(data).position(0)
         starVbo = uploadArrayBuffer(buf)
         starCount = stars.size
+    }
+
+    private fun buildSunBuffer() {
+        val corners = floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)
+        val buf = java.nio.ByteBuffer.allocateDirect(corners.size * 4)
+            .order(java.nio.ByteOrder.nativeOrder())
+            .asFloatBuffer()
+        buf.put(corners).position(0)
+        sunVbo = uploadArrayBuffer(buf)
     }
 
     private fun uploadArrayBuffer(buf: java.nio.Buffer): Int {

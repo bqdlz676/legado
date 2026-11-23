@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.opengl.GLES20
 import io.legado.app.ui.globe.core.terrain.CoverType
 import io.legado.app.ui.globe.core.terrain.FbmNoise
+import io.legado.app.ui.globe.core.terrain.TerrainSource
 import kotlin.math.abs
 
 /**
@@ -21,13 +22,14 @@ object TextureFactory {
     private const val W = 512
     private const val H = 256
 
+    /** 海陆 / 覆盖 / 高程判定与球面顶点位移共用同一套确定性地形源，避免纹理与隆起错位。 */
+    private val terrain = TerrainSource()
+
+    /** 云层 / 夜景金点专用噪声。 */
     private val noise = FbmNoise(seed = 20261123)
 
-    private fun landMask(u: Double, v: Double): Double {
-        // 简化大陆轮廓：低频 fbm 阈值，仅作兜底示意，不代表真实海陆
-        val n = noise.fbm(u * 4.0, v * 2.0, 5)
-        return if (n > 0.52) 1.0 else 0.0
-    }
+    private fun landMask(u: Double, v: Double): Double =
+        if (terrain.landMaskUv(u, v)) 1.0 else 0.0
 
     fun dayTexture(): Bitmap {
         val px = IntArray(W * H)
@@ -37,7 +39,7 @@ object TextureFactory {
             for (x in 0 until W) {
                 val u = x.toDouble() / W
                 val land = landMask(u, v)
-                val band = noise.fbm(u * 8.0, v * 4.0, 4)
+                val band = terrain.coverBandUv(u, v)
                 val ice = abs(lat) > 66.5
                 val color = when {
                     ice -> CoverType.ICE.hex
@@ -67,7 +69,7 @@ object TextureFactory {
                     ice -> CoverType.ICE
                     land < 0.5 -> CoverType.WATER
                     else -> {
-                        val band = noise.fbm(u * 8.0, v * 4.0, 4)
+                        val band = terrain.coverBandUv(u, v)
                         when {
                             band > 0.66 -> CoverType.FOREST
                             band > 0.5 -> CoverType.GRASS
