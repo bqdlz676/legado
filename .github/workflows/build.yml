@@ -47,8 +47,14 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x gradlew
 
-      - name: Build debug APK
-        run: ./gradlew clean assembleDebug --no-daemon --stacktrace
+      - name: Clean (full rebuild, no incremental)
+        run: ./gradlew clean --no-daemon --stacktrace
+
+      - name: Run all module unit tests and benches
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Build debug and release APKs
+        run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
 
       - name: List APK outputs
         run: find app/build/outputs/apk -name "*.apk" -type f
@@ -57,5 +63,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: legado-debug-apk
-          path: app/build/outputs/apk/**/*.apk
+          path: app/build/outputs/apk/**/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: legado-release-apk
+          path: app/build/outputs/apk/**/release/*.apk
           if-no-files-found: error
