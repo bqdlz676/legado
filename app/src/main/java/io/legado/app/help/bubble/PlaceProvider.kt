@@ -25,9 +25,10 @@ object PlaceProvider : BubbleProvider {
     override fun hitAt(paragraph: String, pos: Int, anchor: ContextAnchor): BubbleContent? {
         if (pos !in paragraph.indices) return null
 
-        // 2~4 字窗口长词优先；地名多为双字国名 / 邑名。
+        // 2~4 字窗口长词优先；地名多为双字国名 / 邑名，但先秦诸侯国名常为单字
+        // （晋 / 齐 / 鲁 / 郑 / 秦 / 楚 …，见种子别名表），单字窗同样要进地名链，
+        // 查无命中再回落多字词 / 单字槽（规格切片-02 §5 验收：点「晋」出地名气泡）。
         for (span in BubbleSupport.windows(paragraph, pos, 4)) {
-            if (span.length < 2) continue
             compose(span.token, anchor)?.let { return it }
         }
         return null
@@ -35,7 +36,8 @@ object PlaceProvider : BubbleProvider {
 
     override fun query(token: String, anchor: ContextAnchor): BubbleContent? {
         val clean = BubbleSupport.cleanToken(token)
-        if (clean.length < 2) return null
+        // 地名槽不设字数下限：单字诸侯国名是种子别名的合法命中形态；仅清洗后为空才放行。
+        if (clean.isEmpty()) return null
         return compose(clean, anchor)
     }
 
