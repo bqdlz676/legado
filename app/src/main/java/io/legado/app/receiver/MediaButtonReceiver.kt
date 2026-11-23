@@ -14,7 +14,7 @@ import io.legado.app.model.ReadBook
 import io.legado.app.service.AudioPlayService
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.audio.AudioPlayActivity
-import io.legado.app.ui.book.read.ReadBookActivity
+import io.legado.app.ui.book.read.ink.InkReadActivity
 import io.legado.app.utils.LogUtils
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.postEvent
@@ -102,8 +102,10 @@ class MediaButtonReceiver : BroadcastReceiver() {
                     // break
                 }
 
-                LifecycleHelp.isExistActivity(ReadBookActivity::class.java) ->
-                    postEvent(EventBus.MEDIA_BUTTON, true)
+                LifecycleHelp.isExistActivity(InkReadActivity::class.java) ->
+                    // 新阅读壳尚未订阅 MEDIA_BUTTON 事件（UI 态联动待接）；这里直接走模型层从当前
+                    // 已加载章节启动朗读，与旧页前台时 onClickReadAloud 的未运行分支等价。
+                    ReadBook.readAloud()
 
                 LifecycleHelp.isExistActivity(AudioPlayActivity::class.java) ->
                     postEvent(EventBus.MEDIA_BUTTON, true)

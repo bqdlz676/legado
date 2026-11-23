@@ -50,7 +50,7 @@ import io.legado.app.model.isContentLoadFailurePlaceholder
 import io.legado.app.model.ParagraphTtsStart
 import io.legado.app.model.ParagraphTtsStopped
 import io.legado.app.receiver.MediaButtonReceiver
-import io.legado.app.ui.book.read.ReadBookActivity
+import io.legado.app.ui.book.read.ink.InkReadActivity
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.book.read.paragraph.ParagraphAloudHighlight
@@ -1028,7 +1028,7 @@ abstract class BaseReadAloudService : BaseService(),
             .setContentTitle(nTitle)
             .setContentText(nSubtitle)
             .setContentIntent(
-                activityPendingIntent<ReadBookActivity>("activity")
+                activityPendingIntent<InkReadActivity>("activity")
             )
             .setVibrate(null)
             .setSound(null)

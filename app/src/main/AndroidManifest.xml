@@ -188,7 +188,15 @@
             android:name=".ui.book.read.ReadBookActivity"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask" />
+
+        <!-- 落文竖排阅读壳（灵魂闭环入口）；S-Pen 远程动作关联目标，翻页键处理待新壳接入 -->
+        <activity
+            android:name=".ui.book.read.ink.InkReadActivity"
+            android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/AppTheme.Light">
             <intent-filter>
                 <action android:name="com.samsung.android.support.REMOTE_ACTION" />
             </intent-filter>
@@ -197,14 +205,6 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-
-        <!-- 落文竖排阅读壳（灵魂闭环入口） -->
-        <activity
-            android:name=".ui.book.read.ink.InkReadActivity"
-            android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:theme="@style/AppTheme.Light" />
 
         <!-- 纪年时间轴（气泡 OpenTimeline 消费方） -->
         <activity
