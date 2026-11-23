@@ -104,9 +104,11 @@ class BubbleResolverImpl(
             headline = token.ifBlank { "此处" },
             body = "本地字词典未收录，可联网检索，或先收入生字本待日后复查。",
             detail = "未命中任何字典 / 人物 / 地名 / 纪年条目；此处不强行释义。",
-            actions = listOf(Action.SearchWeb(token), Action.AddToNotebook(token)),
+            actions = emptyList(),
             candidates = emptyList(),
             source = "本地词库未命中",
+            allowWebSearch = true,
+            allowNotebook = true,
         )
 
     private inline fun safe(block: () -> BubbleContent?): BubbleContent? =

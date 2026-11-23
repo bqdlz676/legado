@@ -41,9 +41,12 @@ object BubbleKind {
 }
 
 /**
- * 气泡可执行动作。规格 §1 冻结四类：OpenMap / OpenPerson / OpenTimeline / OpenRelation；
- * [SearchWeb] / [AddToNotebook] 为 Missing 兜底专用扩展动作（规格 §2 允许兜底联网与生字本）。
- * 注意：UI 层 `when(action)` 已穷尽全部子类，新增动作必须同步改渲染层。
+ * 气泡可执行动作。冻结契约只允许四类：OpenMap / OpenPerson / OpenTimeline / OpenRelation，
+ * 不许增删；UI 层 `when(action)` 按这四类穷尽分支。
+ *
+ * 「联网检索 / 加入生字本」不是导航动作，属于 Missing 兜底入口，改由
+ * [BubbleContent.allowWebSearch] / [BubbleContent.allowNotebook] 两个标志位告知 UI 出按钮，
+ * 不进本 sealed 层级。
  */
 sealed class Action {
 
@@ -69,16 +72,6 @@ sealed class Action {
     data class OpenRelation(
         val name: String,
     ) : Action()
-
-    /** 兜底：联网检索该词（本地词库未命中时）。 */
-    data class SearchWeb(
-        val token: String,
-    ) : Action()
-
-    /** 兜底：加入生字本（本地词库未命中时）。 */
-    data class AddToNotebook(
-        val token: String,
-    ) : Action()
 }
 
 /**
@@ -90,9 +83,11 @@ sealed class Action {
  * @param headline   一行摘要，如「郑庄公 · 春秋初霸」
  * @param body       气泡内 2~3 行解释
  * @param detail     进半屏 sheet 的完整内容（全义项 / 生卒 / 今地 / 出处 / 对照年等，可多行）
- * @param actions    可执行动作，顺序即按钮顺序
+ * @param actions    可执行动作（冻结四类），顺序即按钮顺序
  * @param candidates 同名 / 多义候选（展示名列表），供一键切换；无候选为空列表，绝不塞假数据
  * @param source     出处标注，如「Harvard CBDB #xxx」「《说文解字》」；每条数据必须带来源与版本
+ * @param allowWebSearch 兜底标志：本地未收录时是否允许「联网检索」入口；正常命中为 false
+ * @param allowNotebook  兜底标志：是否允许「加入生字本」入口；正常命中为 false
  */
 data class BubbleContent(
     val kind: String,
@@ -104,4 +99,6 @@ data class BubbleContent(
     val actions: List<Action>,
     val candidates: List<String>,
     val source: String,
+    val allowWebSearch: Boolean = false,
+    val allowNotebook: Boolean = false,
 )

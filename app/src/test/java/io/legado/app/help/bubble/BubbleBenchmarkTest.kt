@@ -30,7 +30,7 @@ class BubbleBenchmarkTest {
         ContextAnchor.reset()
     }
 
-    private fun newResolver() = BubbleResolver(
+    private fun newResolver() = BubbleResolverImpl(
         DateProvider, WordProvider, PersonProvider, PlaceProvider, WordProvider, CharProvider, MissingProvider,
     )
 

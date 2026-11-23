@@ -24,9 +24,11 @@ object MissingProvider : BubbleProvider {
             headline = t,
             body = "本地字词典未收录「$t」，可联网检索，或先收入生字本待日后复查。",
             detail = "未命中任何字典 / 人物 / 地名 / 纪年条目；此处不强行释义，避免误注。",
-            actions = listOf(Action.SearchWeb(t), Action.AddToNotebook(t)),
+            actions = emptyList(),
             candidates = emptyList(),
             source = "本地词库未命中",
+            allowWebSearch = true,
+            allowNotebook = true,
         )
     }
 }

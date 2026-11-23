@@ -1,7 +1,9 @@
 package io.legado.app.help.bubble
 
+import io.legado.app.help.chrono.ChronoPlaces
 import io.legado.app.help.chrono.ContextAnchor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -64,7 +66,7 @@ class BubbleResolverTest {
         word: BubbleProvider,
         char: BubbleProvider,
         missing: BubbleProvider = MissingProvider,
-    ) = BubbleResolver(date, allusion, person, place, word, char, missing)
+    ) = BubbleResolverImpl(date, allusion, person, place, word, char, missing)
 
     private val nullStub = Stub("null")
 
@@ -76,8 +78,8 @@ class BubbleResolverTest {
         val bubble = r.resolve("", 0)
         assertNotNull(bubble)
         assertEquals(BubbleKind.MISSING, bubble!!.kind)
-        assertTrue(bubble.actions.any { it is Action.SearchWeb })
-        assertTrue(bubble.actions.any { it is Action.AddToNotebook })
+        assertTrue(bubble.allowWebSearch)
+        assertTrue(bubble.allowNotebook)
     }
 
     @Test
@@ -95,9 +97,9 @@ class BubbleResolverTest {
         assertNotNull(bubble)
         assertEquals(BubbleKind.MISSING, bubble!!.kind)
         assertEquals("抽", bubble.token)
-        val actions = bubble.actions.map { it::class.simpleName }
-        assertTrue(actions.contains("SearchWeb"))
-        assertTrue(actions.contains("AddToNotebook"))
+        assertTrue(bubble.allowWebSearch)
+        assertTrue(bubble.allowNotebook)
+        assertTrue(bubble.actions.isEmpty())
         assertTrue(bubble.candidates.isEmpty())
         assertNotNull(bubble.source)
     }
@@ -317,8 +319,9 @@ class BubbleResolverTest {
     fun `missing provider always returns a non-null bubble`() {
         val bubble = MissingProvider.query("", ContextAnchor)
         assertEquals(BubbleKind.MISSING, bubble.kind)
-        assertTrue(bubble.actions.any { it is Action.SearchWeb })
-        assertTrue(bubble.actions.any { it is Action.AddToNotebook })
+        assertTrue(bubble.allowWebSearch)
+        assertTrue(bubble.allowNotebook)
+        assertTrue(bubble.actions.isEmpty())
         assertTrue(bubble.candidates.isEmpty())
     }
 
@@ -350,6 +353,38 @@ class BubbleResolverTest {
         assertNotNull(timeline)
         assertEquals(-722, timeline!!.year)
         assertTrue(bubble.detail.contains("对照") || bubble.body.contains("对照"))
+        // 干支口径定案：前 722 = 己未（辛酉为前 720，不允许回退错值）。
+        assertTrue(bubble.headline.contains("己未") || bubble.detail.contains("己未"))
+        assertFalse(bubble.headline.contains("辛酉") || bubble.detail.contains("辛酉"))
+    }
+
+    @Test
+    fun `action sealed keeps exactly four frozen subclasses`() {
+        val names = Action::class.sealedSubclasses.map { it.simpleName }.toSet()
+        assertEquals(
+            setOf("OpenMap", "OpenPerson", "OpenTimeline", "OpenRelation"),
+            names,
+        )
+    }
+
+    @Test
+    fun `place default hit excludes low confidence and reference layer entities`() {
+        ChronoPlaces.resetForTest()
+        // 锚到《左传》春秋（前 722）：默认命中春秋晋都，今址参考层与 low 泛称只进候选。
+        val resolved = ChronoPlaces.resolve("晋", -722)
+        assertNotNull(resolved.hit)
+        val hit = resolved.hit!!
+        assertFalse(hit.refLayer)
+        assertTrue(hit.confidenceTag.canDefault)
+        assertEquals("P003", hit.id)
+        val others = resolved.others.map { it.id }.toSet()
+        assertTrue(others.contains("P057")) // 今址参考层（晋城）不进默认
+        assertTrue(others.contains("A012")) // low 泛称不进默认
+
+        // 无锚点年：不猜，hit = null，全部候选照收。
+        val unanchored = ChronoPlaces.resolve("晋", null)
+        assertNull(unanchored.hit)
+        assertTrue(unanchored.candidates.isNotEmpty())
     }
 
     @Test
