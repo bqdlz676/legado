@@ -1,4 +1,15 @@
-# 云端编译报告（2026-11-23，run 45082967053 / commit fe28f57）
+# 云端编译报告（2026-11-23，最新 run 45087598131 / commit 965d75a：BUILD SUCCESSFUL，已出 debug APK）
+
+## 0. 最新结论（覆盖下文历史快照）
+- `:app:compileAppDebugKotlin` 云端 **0 条 `e:`**；`:app:dexBuilderAppDebug`、`:app:packageAppDebug` 均通过，`assembleDebug` 成功。
+- 产物：`app/build/outputs/apk/app/debug/app-app-debug.apk`；Actions artifact `legado-debug-apk`（ID 14780087410，98,912,116 字节）。
+- 成功 run：https://github.com/bqdlz676/legado/actions/runs/45087598131 （commit 965d75a）。
+- 本轮修复提交：`69d1888`（引擎外 52 条初修）→ `af783c1`（移除未暴露的 VelocityTracker）→ `965d75a`（竖向拖拽 dragAmount 为 Float，去 `.y`）。
+- 未跑单元测试；APK 未装机/未真机验证；三引擎冻结签名与 applicationId/namespace 未改。
+
+---
+
+# 历史快照：云端编译报告（2026-11-23，run 45082967053 / commit fe28f57）
 
 ## 1. Workflow 推送状态
 - `.github/workflows/build.yml` 已写入并随 `ba87c94`、`fe28f57` 两次推送 `origin/main`。
