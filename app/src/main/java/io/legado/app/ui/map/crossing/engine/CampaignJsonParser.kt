@@ -1,5 +1,6 @@
 package io.legado.app.ui.map.crossing.engine
 
+import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -132,7 +133,9 @@ object CampaignJsonParser {
         val holdTurns = int(v, "holdTurns", 3).coerceAtLeast(1)
         val op = str(v, "op", "AND").uppercase()
         val sub = mutableListOf<VictoryDef>()
-        v.getAsJsonArray("sub")?.forEach { item ->
+        // sub 被素材写成对象 / 字符串 / 数字时，getAsJsonArray 会抛 IllegalStateException；
+        // 走 jsonArray 守卫回落空表，胜利条件按主条件判定，不穿透到壳层。
+        jsonArray(v, "sub")?.forEach { item ->
             if (item.isJsonObject) {
                 sub += parseVictoryDef(item.asJsonObject, warnings)
             } else {
@@ -143,7 +146,8 @@ object CampaignJsonParser {
     }
 
     private fun parseSides(obj: JsonObject): List<SideDef> {
-        val arr = obj.getAsJsonArray("sides") ?: return emptyList()
+        // sides 类型错位（对象 / 字符串 / 数字 / JsonNull）回落空阵营表，不抛；守卫见 jsonArray。
+        val arr = jsonArray(obj, "sides") ?: return emptyList()
         val out = mutableListOf<SideDef>()
         arr.forEach { el ->
             if (!el.isJsonObject) return@forEach
@@ -158,7 +162,8 @@ object CampaignJsonParser {
     }
 
     private fun parseDiplomacy(obj: JsonObject): List<DiplomacyDef> {
-        val arr = obj.getAsJsonArray("diplomacy") ?: return emptyList()
+        // diplomacy 类型错位回落空盟约表；守卫见 jsonArray，不抛穿透。
+        val arr = jsonArray(obj, "diplomacy") ?: return emptyList()
         val out = mutableListOf<DiplomacyDef>()
         arr.forEach { el ->
             if (!el.isJsonObject) return@forEach
@@ -173,7 +178,8 @@ object CampaignJsonParser {
     }
 
     private fun parseArmies(obj: JsonObject, warnings: MutableList<String>): List<ArmyDef> {
-        val arr = obj.getAsJsonArray("armies") ?: return emptyList()
+        // armies 类型错位回落空军队表（壳层 degraded 标志随之置真）；守卫见 jsonArray。
+        val arr = jsonArray(obj, "armies") ?: return emptyList()
         val out = mutableListOf<ArmyDef>()
         arr.forEachIndexed { index, el ->
             if (!el.isJsonObject) {
@@ -201,7 +207,8 @@ object CampaignJsonParser {
     }
 
     private fun parseEvents(obj: JsonObject, warnings: MutableList<String>): List<EventDef> {
-        val arr = obj.getAsJsonArray("events") ?: return emptyList()
+        // events 类型错位回落空事件表；守卫见 jsonArray，不抛穿透。
+        val arr = jsonArray(obj, "events") ?: return emptyList()
         val out = mutableListOf<EventDef>()
         arr.forEachIndexed { index, el ->
             if (!el.isJsonObject) {
@@ -245,7 +252,8 @@ object CampaignJsonParser {
             if (!el.isJsonObject) return TerrainDef(procedural = true, emptyList(), emptyList())
             val t = el.asJsonObject
             val ridges = mutableListOf<RidgeDef>()
-            t.getAsJsonArray("ridges")?.forEach { r ->
+            // ridges 类型错位回落空山脊表；守卫见 jsonArray，避免一条畸形山脊拖垮整座地形。
+            jsonArray(t, "ridges")?.forEach { r ->
                 if (r.isJsonObject) {
                     val ro = r.asJsonObject
                     ridges += RidgeDef(
@@ -255,7 +263,8 @@ object CampaignJsonParser {
                 }
             }
             val rivers = mutableListOf<RiverDef>()
-            t.getAsJsonArray("rivers")?.forEachIndexed { index, rv ->
+            // rivers 类型错位（对象 / 字符串 / 数字 / JsonNull）回落空河流表；守卫见 jsonArray。
+            jsonArray(t, "rivers")?.forEachIndexed { index, rv ->
                 if (!rv.isJsonObject) {
                     warnings += "terrain.rivers[$index] 不是对象，已跳过"
                     return@forEachIndexed
@@ -274,7 +283,9 @@ object CampaignJsonParser {
                 else warnings += "terrain.rivers[$index] 有效点列不足 2 个，已跳过"
             }
             TerrainDef(
-                procedural = t.get("procedural")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true,
+                // procedural 被素材写成字符串 / 数字时 asBoolean 会抛；走 boolPrimitive 守卫回落 true，
+                // 不把一条开关错位放大成整座地形回退（守卫见 boolPrimitive）。
+                procedural = boolPrimitive(t, "procedural", true),
                 ridges = ridges,
                 rivers = rivers,
             )
@@ -284,9 +295,16 @@ object CampaignJsonParser {
         }
     }
 
-    /** 单个河流点列元素类型守卫：非数组 / 非数 / 长度不足返回 null，不抛异常。 */
+    /**
+     * 单个河流折线点类型守卫，任何畸形形态都返回 null，不抛异常：
+     * - 元素为 null / JsonNull / 对象 / 字符串 / 数字 / 布尔（非数组）→ null；
+     * - 点数组长度 <2（奇数坐标，如 [0.1]）→ null；长度 >2 时只取前 [lng, lat] 两位；
+     * - 坐标为字符串 "abc"（getAsNumber 抛）/ 对象（getAsNumber 抛）→ catch 回落 null；
+     * - 坐标解析出 NaN / Infinity → isFinite 过滤回落 null。
+     * 适用条件：河流折线归一化 0..1 坐标；本守卫不做范围钳制，越界由地形层消费。
+     */
     private fun guardedPoint(el: com.google.gson.JsonElement?): Geo? {
-        if (el == null || !el.isJsonArray) return null
+        if (el == null || el.isJsonNull || !el.isJsonArray) return null
         val arr = el.asJsonArray
         if (arr.size() < 2) return null
         return try {
@@ -339,6 +357,32 @@ object CampaignJsonParser {
         val el: JsonElement = obj.get(key) ?: return default
         return try {
             if (el.isJsonPrimitive) el.getAsNumber().toDouble() else default
+        } catch (t: Throwable) {
+            default
+        }
+    }
+
+    /**
+     * 数组取值守卫：字段缺失 / JsonNull / 非数组（对象、字符串、数字、布尔）一律返回 null，不抛。
+     * 适用条件：Gson `JsonObject.getAsJsonArray(name)` 在字段存在但类型错位时直接抛
+     * `IllegalStateException`，会穿透到 UI 层；本守卫把类型错位统一降级为空表，由调用方记 warning。
+     */
+    private fun jsonArray(obj: JsonObject, key: String): JsonArray? {
+        val el = obj.get(key) ?: return null
+        if (el.isJsonNull || !el.isJsonArray) return null
+        return el.asJsonArray
+    }
+
+    /**
+     * 布尔取值守卫：字段缺失 / 非布尔 primitive / 解析异常回落 [default]，不抛。
+     * 适用条件：`asBoolean` 对非布尔字符串 / 数字会抛；procedural 等开关被素材写错类型时按默认值走，
+     * 避免一条开关错位把整块地形拖进外层兜底分支。
+     */
+    private fun boolPrimitive(obj: JsonObject, key: String, default: Boolean): Boolean {
+        val el = obj.get(key) ?: return default
+        if (!el.isJsonPrimitive) return default
+        return try {
+            el.asBoolean
         } catch (t: Throwable) {
             default
         }
