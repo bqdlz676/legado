@@ -27,6 +27,11 @@ package io.legado.app.help.person
  * @param dynasty       朝代 / 时期，同名消歧展示用，可空
  * @param source        出处标注（CBDB 收录号或公版典籍篇卷），绝不允许空出处
  * @param preferred     同名分组内的默认命中项（无上下文锚点时先出这一位）
+ * @param reignStart    在位起年（公元年，负为公元前）；非君主或史料无载为 null，不编
+ * @param reignEnd      在位止年；无载为 null
+ * @param tier          L1/L2/L3 置信分层；L3 孤证只进候选池，不默认命中
+ * @param proofread     是否已人工校核（confidence 与 proofread 分开：一个管数据可靠性，一个管校没校过）
+ * @param pinyin        人名专用异读拼音（整词读音，如 郦食其 → lì yì jī）；无专用读音为 null
  */
 data class PersonProfile(
     val personId: String,
@@ -45,6 +50,11 @@ data class PersonProfile(
     val dynasty: String? = null,
     val source: PersonSource,
     val preferred: Boolean = false,
+    val reignStart: Int? = null,
+    val reignEnd: Int? = null,
+    val tier: ConfidenceTier = ConfidenceTier.L3,
+    val proofread: Boolean = false,
+    val pinyin: String? = null,
 ) {
 
     /** 该人物的全部称呼（本名 + 字 + 号 + 封号 + 别称），供别名归并索引与候选展示。 */
@@ -84,5 +94,22 @@ data class PersonProfile(
          * 无候选返回空列表，绝不塞假数据。
          */
         fun candidatesOf(name: String): List<PersonProfile> = PersonDirectory.candidatesOf(name)
+
+        // ---- D2 回填能力（交接清单 #17，经 PersonDirectory 扩展点）----
+
+        /** 在位起讫对（起年，止年）；非君主或无载对应位置为 null；查无此人为 null。 */
+        fun reignOf(name: String): Pair<Int?, Int?>? = PersonDirectory.reignOf(name)
+
+        /** 置信分层（L1/L2/L3）；查无此人为 null。 */
+        fun tierOf(name: String): ConfidenceTier? = PersonDirectory.tierOf(name)
+
+        /** 人名专用异读拼音；档案无专用读音时回落 [PersonPinyin] 整词表，再无命中返回 null。 */
+        fun pinyinOf(name: String): String? = PersonDirectory.pinyinOf(name)
+
+        /** 同名分组持久化表中的同名人行（朝代 · 身份 · 生卒标签）；无分组返回空列表。 */
+        fun duplicatesOf(name: String): List<PersonDupRow> = PersonDirectory.duplicatesOf(name)
+
+        /** 整本出场持久化表中的出场记录（按书 / 章序号排序）；无出场返回空列表。 */
+        fun appearancesOf(name: String): List<AppearanceRecord> = PersonDirectory.appearancesOf(name)
     }
 }

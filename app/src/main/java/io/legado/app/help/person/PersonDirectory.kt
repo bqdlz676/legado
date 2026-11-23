@@ -1,24 +1,32 @@
 package io.legado.app.help.person
 
+import java.io.File
+
 /**
  * 人物档案目录：别名归并索引 + 同名分组消歧 + 种子档案 + 外部（CBDB）注册扩展点。
  *
  * 职责边界（模块 D2）：
- * - 只做「称呼 → 档案」的归并与同名区分，不碰气泡 UI、不碰拼音、不碰关系抽取；
+ * - 只做「称呼 → 档案」的归并与同名区分，不碰气泡 UI、不碰关系抽取；
  * - 纯 Kotlin / 纯 JVM，不依赖 android.content.Context，宿主单测可直接跑；
  * - 数据可信 = 命：每条记录必须带 [PersonSource]，无出处记录在注册时即被拒绝，不进索引。
  *
  * 同名消歧规则：
  * 1. 主键 [PersonProfile.personId] 精确命中，直接返回（候选切换走这条）；
  * 2. 上下文年份命中生卒区间者优先；区间均无载时取年代中点最近者；
- * 3. 仍无法区分时，返回分组内 [PersonProfile.preferred] 项，其余同名者进 [candidatesOf] 供一键切换。
+ * 3. 分层优先：L1 手校 > L2 核验 > L3 孤证；L3 不进默认命中，只留候选池；
+ * 4. 仍无法区分时，返回分组内 [PersonProfile.preferred] 项，其余同名者进 [candidatesOf] 供一键切换。
+ *
+ * 回填能力（交接清单 #17）全部经本对象的 register 系列扩展点灌入，不另起门面：
+ * 在位起讫 [PersonProfile.reignStart] / [PersonProfile.reignEnd]；
+ * L1/L2/L3 置信分层 [PersonProfile.tier]；整本出场持久化表 [AppearanceRecord]；
+ * 同名分组持久化 [PersonDupRow]；人名专用异读拼音 [PersonProfile.pinyin]。
  */
 internal object PersonDirectory {
 
     /** 内置种子档案：少量、有公版典籍出处；生卒无载者如实置 null，不补约数。 */
     private val seed: List<PersonProfile> = buildSeed()
 
-    /** 外部档案（后续接入 Harvard CBDB 资产解析后注册到此）；种子优先，外部补缺。 */
+    /** 外部档案（CBDB 资产解析层注册到此）；种子优先，外部补缺。 */
     private val external: MutableList<PersonProfile> = mutableListOf()
 
     private var all: List<PersonProfile> = seed
@@ -26,6 +34,15 @@ internal object PersonDirectory {
 
     /** 归一化称呼 → personId 列表（一个称呼可能对应同名/撞称多人，故为列表）。 */
     private val byCallName: MutableMap<String, MutableList<String>> = mutableMapOf()
+
+    /** 同名分组持久化表：归一化本名 → 分组行（L2 在前，孤证沉底）。 */
+    private val dupGroups: MutableMap<String, MutableList<PersonDupRow>> = mutableMapOf()
+
+    /** 整本出场持久化表：personId → 出场记录（同书同章重复登记覆盖旧记录）。 */
+    private val appearanceMap: MutableMap<String, MutableList<AppearanceRecord>> = mutableMapOf()
+
+    /** 档案外注册的整词异读拼音覆盖：归一化称呼 → 读音。 */
+    private val pinyinOverrides: MutableMap<String, String> = mutableMapOf()
 
     init {
         rebuild()
@@ -59,8 +76,117 @@ internal object PersonDirectory {
     /** 全部在册档案（测试 / 自检遍历出处用）。 */
     fun allRecords(): List<PersonProfile> = all
 
+    // ---- D2 回填：在位起讫 ----
+
+    /** 在位起讫对（起年，止年）；查无此人返回 null；字段无载对应位置为 null。 */
+    fun reignOf(raw: String): Pair<Int?, Int?>? {
+        val p = profileOf(raw) ?: return null
+        return Pair(p.reignStart, p.reignEnd)
+    }
+
+    // ---- D2 回填：L1/L2/L3 置信分层 ----
+
+    /** 档案分层；查无此人为 null。 */
+    fun tierOf(raw: String): ConfidenceTier? = profileOf(raw)?.tier
+
+    /** 各分层在册档案条数（自检 / bench 表大小断言用）。 */
+    fun countByTier(tier: ConfidenceTier): Int = all.count { it.tier == tier }
+
+    // ---- D2 回填：人名专用异读拼音 ----
+
     /**
-     * 注册外部档案（CBDB 解析层调用）。重复 [PersonProfile.personId] 以后注册者覆盖；
+     * 异读拼音：档案专用读音 > 注册整词覆盖 > 内置异读表；都查不到返回 null，
+     * 由 D1 字库逐字兜底，本层不猜读音。
+     */
+    fun pinyinOf(raw: String): String? {
+        profileOf(raw)?.pinyin?.let { return it }
+        val key = normalize(raw)
+        if (key.isNotEmpty()) pinyinOverrides[key]?.let { return it }
+        return PersonPinyin.wordOverride(raw)
+    }
+
+    // ---- D2 回填：同名分组持久化 ----
+
+    /** 同名分组行；无分组返回空列表。 */
+    fun duplicatesOf(raw: String): List<PersonDupRow> =
+        dupGroups[normalize(raw)].orEmpty()
+
+    /** 同名分组提示语：均有生卒可辨 / 含孤证；无分组返回 null。 */
+    fun dupTag(raw: String): String? {
+        val rows = duplicatesOf(raw)
+        if (rows.size < 2) return null
+        val l3 = rows.count { it.tier == ConfidenceTier.L3 }
+        return if (l3 > 0) "同名 ${rows.size} 人，$l3 条孤证（不默认命中）"
+        else "同名 ${rows.size} 人，均有生卒可辨"
+    }
+
+    fun dupGroupCount(): Int = dupGroups.size
+
+    // ---- D2 回填：整本出场持久化表 ----
+
+    /** 出场记录（按书、章序号排序）；无出场返回空列表。 */
+    fun appearancesOf(raw: String): List<AppearanceRecord> {
+        val id = profileOf(raw)?.personId ?: normalize(raw)
+        if (id.isEmpty()) return emptyList()
+        return appearanceMap[id]
+            ?.sortedWith(compareBy({ it.bookId }, { it.order }, { it.chapterId }))
+            .orEmpty()
+    }
+
+    /** 首次出场 → 关键事迹 → 末次出场一句话摘要；无出场返回「未收录」。 */
+    fun appearanceSummary(raw: String): String {
+        val list = appearancesOf(raw)
+        if (list.isEmpty()) return "未收录"
+        val first = list.first()
+        val last = list.last()
+        val sb = StringBuilder()
+        sb.append("首次　").append(chapterLabel(first)).append("　").append(trimLine(first.line))
+        if (list.size > 2) {
+            val mid = list[list.size / 2]
+            sb.append("\n关键　").append(chapterLabel(mid)).append("　").append(trimLine(mid.line))
+        }
+        sb.append("\n末次　").append(chapterLabel(last)).append("　").append(trimLine(last.line))
+        val books = list.map { it.bookId }.distinct().size
+        val chapters = list.map { "${it.bookId}/${it.chapterId}" }.distinct().size
+        sb.append("\n共 ").append(books).append(" 书 · ").append(chapters).append(" 章 · ")
+            .append(list.size).append(" 段")
+        return sb.toString()
+    }
+
+    fun appearanceCount(): Int = appearanceMap.values.sumOf { it.size }
+
+    /** 序列化为落盘行（整本出场表可重建，行式文本不引 Room）。 */
+    fun dumpAppearanceLines(): List<String> =
+        appearanceMap.values.flatten().map(AppearanceRecord.Companion::encode)
+
+    /** 从落盘行回填出场表；容错：坏行跳过，不抛异常。 */
+    fun loadAppearanceLines(lines: List<String>) {
+        synchronized(this) {
+            lines.forEach { ln ->
+                AppearanceRecord.decode(ln)?.let { recordAppearance(it) }
+            }
+        }
+    }
+
+    /** 落盘到指定文件（临时文件 + 原子改名，旧文件先删再换）。 */
+    fun persistAppearances(file: File) {
+        val lines = dumpAppearanceLines()
+        val tmp = File(file.parentFile, "${file.name}.tmp")
+        tmp.bufferedWriter().use { w -> lines.forEach { w.write(it); w.newLine() } }
+        if (file.exists()) file.delete()
+        tmp.renameTo(file)
+    }
+
+    /** 从指定文件回填出场表；文件不存在或读失败保持空表，不崩。 */
+    fun restoreAppearances(file: File) {
+        if (!file.exists()) return
+        runCatching { loadAppearanceLines(file.readLines()) }
+    }
+
+    // ---- register 扩展点（冻结签名 + 回填附属表）----
+
+    /**
+     * 注册外部档案（资产解析层 / CBDB 解析层调用）。重复 [PersonProfile.personId] 以后注册者覆盖；
      * 无出处、本名空、称呼空的记录直接拒绝，抛 [IllegalArgumentException]，不进索引。
      */
     @Synchronized
@@ -69,6 +195,45 @@ internal object PersonDirectory {
         external.addAll(records)
         rebuild()
     }
+
+    /** 注册同名分组持久化表（person_dup.txt 解析灌入）。 */
+    @Synchronized
+    fun registerDuplicates(rows: List<PersonDupRow>) {
+        rows.forEach { row ->
+            val key = normalize(row.name)
+            require(key.isNotEmpty()) { "同名分组本名不能为空" }
+            val bucket = dupGroups.getOrPut(key) { mutableListOf() }
+            bucket.removeAll { it.birth == row.birth && it.death == row.death && it.era == row.era }
+            bucket.add(row)
+        }
+        dupGroups.forEach { (_, bucket) ->
+            bucket.sortWith(
+                compareByDescending<PersonDupRow> { it.tier == ConfidenceTier.L2 }
+                    .thenByDescending { it.birth }
+            )
+        }
+    }
+
+    /** 注册整词异读拼音覆盖（档案 / 资产解析灌入）。 */
+    @Synchronized
+    fun registerPinyin(entries: Map<String, String>) {
+        entries.forEach { (name, reading) ->
+            val key = normalize(name)
+            if (key.isNotEmpty() && reading.isNotBlank()) pinyinOverrides[key] = reading
+        }
+    }
+
+    /** 登记一条出场记录；同书同章重复登记覆盖旧记录。 */
+    @Synchronized
+    fun recordAppearance(record: AppearanceRecord) {
+        val bucket = appearanceMap.getOrPut(record.personId) { mutableListOf() }
+        bucket.removeAll { it.bookId == record.bookId && it.chapterId == record.chapterId }
+        bucket.add(record)
+    }
+
+    /** 批量登记出场记录（章节正文粗稿灌入）。 */
+    @Synchronized
+    fun recordAppearances(records: List<AppearanceRecord>) = records.forEach { recordAppearance(it) }
 
     // ---- 内部实现 ----
 
@@ -98,13 +263,17 @@ internal object PersonDirectory {
         if (candidates.isEmpty()) return null
         if (candidates.size == 1) return candidates.first()
 
+        // L3 孤证不进默认命中；全是孤证时才回退到孤证池，避免一上来抛脏数据。
+        val defaultable = candidates.filter { it.tier.canDefault }
+        val pool = defaultable.ifEmpty { candidates }
+
         if (year != null) {
             // 1. 生卒区间直接覆盖该年
-            candidates.firstOrNull {
+            pool.firstOrNull {
                 it.birthYear != null && it.deathYear != null && year in it.birthYear!!..it.deathYear!!
             }?.let { return it }
             // 2. 年代中点最近者
-            val withMid = candidates.mapNotNull { p ->
+            val withMid = pool.mapNotNull { p ->
                 val b = p.birthYear ?: return@mapNotNull null
                 val d = p.deathYear ?: return@mapNotNull null
                 p to (b + d) / 2
@@ -113,8 +282,15 @@ internal object PersonDirectory {
                 return withMid.minByOrNull { kotlin.math.abs(it.second - year) }!!.first
             }
         }
-        // 3. 默认命中项；否则首位（候选清单由 candidatesOf 给出，不丢其余同名者）
-        return candidates.firstOrNull { it.preferred } ?: candidates.first()
+        // 3. 默认命中项；否则按分层 L1 > L2 > L3，再取首位（候选清单由 candidatesOf 给出，不丢其余同名者）
+        return pool.firstOrNull { it.preferred }
+            ?: pool.sortedWith(compareBy { tierRank(it.tier) }).first()
+    }
+
+    private fun tierRank(tier: ConfidenceTier): Int = when (tier) {
+        ConfidenceTier.L1 -> 0
+        ConfidenceTier.L2 -> 1
+        ConfidenceTier.L3 -> 2
     }
 
     /** 称呼归一化：去首尾空白与包裹引号/括号，折叠内部空白；不做繁简转换（归一键表层另管）。 */
@@ -128,6 +304,14 @@ internal object PersonDirectory {
             if (s.isNotEmpty() && s.last() in wrap) { s = s.substring(0, s.length - 1); changed = true }
         }
         return s.replace(Regex("\\s+"), "")
+    }
+
+    private fun chapterLabel(r: AppearanceRecord): String =
+        "${r.chapterTitle.ifBlank { "第${r.order + 1}章" }}（${r.bookId}）"
+
+    private fun trimLine(s: String): String {
+        val one = s.replace('\n', ' ')
+        return if (one.length <= 46) one else one.take(45) + "…"
     }
 
     // ---- 种子档案（公版史料出处；生卒无载置 null）----
@@ -411,5 +595,7 @@ internal object PersonDirectory {
         dynasty = dynasty,
         source = source,
         preferred = preferred,
+        tier = ConfidenceTier.L1,
+        proofread = true,
     )
 }
