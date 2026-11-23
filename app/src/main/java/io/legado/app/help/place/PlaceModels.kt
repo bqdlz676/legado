@@ -74,8 +74,9 @@ sealed class PlaceSource {
     /** 公版典籍地理推定。[citation] 标注到篇 / 卷，避开现代点校本版权表述。 */
     data class ClassicText(val citation: String) : PlaceSource()
 
-    /** 今址参考层。[label] 为现代地名说明，如「今山西晋城市」。 */
-    data class ModernReference(val label: String) : PlaceSource()
+    /** 今址参考层。[modernName] 为现代地名说明，如「今山西晋城市」；
+     *  不叫 `label`，避免与父类 [PlaceSource.label]（格式化展示串）遮蔽冲突。 */
+    data class ModernReference(val modernName: String) : PlaceSource()
 
     /** 气泡 / 地名卡上直接展示的出处字符串，绝不允许为空。 */
     val label: String
@@ -84,7 +85,7 @@ sealed class PlaceSource {
             is Chgis -> "CHGIS #$recordId"
             is TanAtlas -> citation
             is ClassicText -> citation
-            is ModernReference -> "今址参考层·$label"
+            is ModernReference -> "今址参考层·$modernName"
         }
 }
 
