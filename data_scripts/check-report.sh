@@ -18,7 +18,8 @@ for f in "$@"; do
   need "认知成本"     '认知成本'
   need "未验证项"     '未验证'
   need "grep/命中证据" 'grep|命中|0 命中'
-  need "文件:行 落点"  '[A-Za-z0-9_]+\.(kt|xml|gradle|kt|md):[0-9]+'
+  # 原式只认 ASCII 文件名；本项目文档多为中文名，放宽为非空白字符+扩展名+行号，仍要求「文件:行」形态不放水
+  need "文件:行 落点"  '[^ 	`|()]+\.(kt|xml|gradle|md|txt):[0-9]+'
   if [ "$miss" -gt 0 ]; then echo "  ⇒ 缺 $miss 项，打回"; fail=1; else echo "  ⇒ 合规"; fi
 done
 exit "$fail"
