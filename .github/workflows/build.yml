@@ -53,8 +53,11 @@ jobs:
       - name: Run all module unit tests and benches
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Build debug and release APKs
-        run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: List APK outputs
         run: find app/build/outputs/apk -name "*.apk" -type f
