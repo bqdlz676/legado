@@ -212,7 +212,9 @@ class ReplayTerrainTest {
 
     @Test
     fun `退化 DEM 实例高度恒 0 且标记降级`() {
-        val degraded = DemTerrainElevation.create(0, 0, null, bbox)
+        // 显式标注 null 类型：create 同时有 IntArray? / ByteArray? 两个重载，裸 null 会触发重载歧义。
+        val emptyData: IntArray? = null
+        val degraded = DemTerrainElevation.create(0, 0, emptyData, bbox)
         val director = ReplayDirector(
             campaign(listOf(piece("p1", "a", 35.0, 112.0))),
             elevation = degraded,
