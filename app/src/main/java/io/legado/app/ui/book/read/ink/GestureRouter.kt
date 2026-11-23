@@ -38,4 +38,13 @@ internal object GestureRouter {
         val hit = host.probeChar(x, y)
         host.onCenterLongPress(x, y, hit)
     }
+
+    /**
+     * 返回手势出口：与硬件返回键 / Activity 分发器共用宿主 [ReaderShellHost.handleBack]
+     * 同一裁决函数，手势层不另写层级判定（铁律63：单一决策源）。
+     *
+     * 当前系统手势导航返回经 OnBackPressedDispatcher 进入 Activity 回调；
+     * 后续若加入屏内右滑返回手势，一律从本方法进同一出口，禁止在路由内自判气泡 / 朗读。
+     */
+    fun onBack(host: ReaderShellHost): InkBackResult = host.handleBack()
 }

@@ -39,4 +39,39 @@ interface ReaderShellHost {
 
     /** 翻页动画是否进行中（进行中屏蔽新的气泡与边缘翻页，避免动画打架）。 */
     fun isPageAnimating(): Boolean
+
+    /**
+     * 返回统一出口：硬件返回键、系统手势返回、手势路由 back 全部只走本方法，
+     * Activity / Compose 壳 / 手势层禁止另写一套层级判定（铁律63：单一决策源，防两套状态漂移）。
+     *
+     * 层级对齐旧壳 ReadBookActivity.onBackPressedDispatcher.addCallback：
+     * 先消化页内覆盖层（气泡 / 朗读），无可消化时返回 [InkBackResult.ExitToShelf]
+     * 由调用方走退出链路。
+     */
+    fun handleBack(): InkBackResult
+}
+
+/**
+ * 返回统一出口的裁决结果。
+ *
+ * 层级顺序（与旧壳 611–635 分支一一对应；旧壳有对应物的才移植）：
+ *  1. [BubbleDismissed]  气泡开着 → 关气泡，页内消化；
+ *  2. [ReadAloudPaused]  朗读播放中 → 暂停朗读，页内消化；
+ *  3. [ReturnKeyLocked]  「禁用返回键」偏好开启 → 消费返回、不退出；
+ *  4. [ExitToShelf]      无覆盖层 → 调用方 finish() 回书架。
+ *
+ * 旧壳的「全文搜索结果退出 / 搜索前进度恢复 / 自动翻页停止」在新壳无对应状态，不移植。
+ */
+enum class InkBackResult {
+    /** 气泡已关闭；返回在阅读页内消化，不退出。 */
+    BubbleDismissed,
+
+    /** 朗读已暂停；返回在阅读页内消化，不退出（对齐旧壳 isPlay() → pause 分支）。 */
+    ReadAloudPaused,
+
+    /** 「禁用返回键」偏好生效；返回被消费、不退出（对齐旧壳 disableReturnKey 分支）。 */
+    ReturnKeyLocked,
+
+    /** 无任何页内覆盖层；调用方应执行 finish() 退出阅读回到书架。 */
+    ExitToShelf,
 }

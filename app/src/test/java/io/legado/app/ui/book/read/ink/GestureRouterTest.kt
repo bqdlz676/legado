@@ -59,6 +59,14 @@ class GestureRouterTest {
         override fun isTextSelected(): Boolean = selected
 
         override fun isPageAnimating(): Boolean = animating
+
+        var backResult: InkBackResult = InkBackResult.ExitToShelf
+        var backCalls = 0
+
+        override fun handleBack(): InkBackResult {
+            backCalls++
+            return backResult
+        }
     }
 
     private fun newHit(): CharHit {
@@ -150,5 +158,13 @@ class GestureRouterTest {
         val host = FakeHost().apply { probeResult = newHit() }
         GestureRouter.onLongPress(host, zoneOf(500f, 500f), 500f, 500f)
         assertSame(host.probeResult, host.longPressHit)
+    }
+
+    @Test
+    fun `返回手势路由委托宿主同一出口，不自判层级`() {
+        val host = FakeHost().apply { backResult = InkBackResult.BubbleDismissed }
+        val result = GestureRouter.onBack(host)
+        assertEquals(InkBackResult.BubbleDismissed, result)
+        assertEquals(1, host.backCalls)
     }
 }

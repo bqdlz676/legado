@@ -1,0 +1,273 @@
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:222:5 No value passed for parameter 'enabled'.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:234:25 Cannot access 'fun showMdFile(title: String, fileName: String): Unit': it is private in 'io.legado.app.ui.about.AboutActivity'.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:235:27 Candidate 'fun Fragment.checkAppUpdate(beta: Boolean = ...): Unit' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:236:32 Candidate 'fun Fragment.checkAppUpdate(beta: Boolean = ...): Unit' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:238:22 Cannot access 'fun showMdFile(title: String, fileName: String): Unit': it is private in 'io.legado.app.ui.about.AboutActivity'.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:239:25 Cannot access 'fun showMdFile(title: String, fileName: String): Unit': it is private in 'io.legado.app.ui.about.AboutActivity'.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:240:28 Cannot access 'fun showMdFile(title: String, fileName: String): Unit': it is private in 'io.legado.app.ui.about.AboutActivity'.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:243:22 Cannot access 'fun saveLog(): Job': it is private in 'io.legado.app.ui.about.AboutActivity'.
+app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:244:29 Cannot access 'fun createHeapDump(): Job': it is private in 'io.legado.app.ui.about.AboutActivity'.
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:103:15 Type 'State<Float>' has no method 'getValue(Nothing?, KProperty0<*>)', so it cannot serve as a delegate.
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:121:33 Unresolved reference 'graphicsLayer'.
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:121:49 Unresolved reference 'translationX'.
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:83:43 Unresolved reference 'shape'.
+app/src/main/java/io/legado/app/ui/about/AppLogDialog.kt:130:21 Argument already passed for this parameter.
+app/src/main/java/io/legado/app/ui/about/AppLogDialog.kt:147:37 Unresolved reference 'clickable'.
+app/src/main/java/io/legado/app/ui/about/CrashLogsDialog.kt:138:57 Unresolved reference 'clickable'.
+app/src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt:85:56 No value passed for parameter 'p1'.
+app/src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt:99:63 Unresolved reference 'putInt'.
+app/src/main/java/io/legado/app/ui/about/UpdateDialog.kt:124:9 Unresolved reference 'toastOnUi'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskDebugActivity.kt:118:20 Unresolved reference 'lifecycleScope'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskDebugActivity.kt:92:9 Unresolved reference 'lifecycleScope'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskEditScreen.kt:152:13 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt:26:82 Unresolved reference 'asStateFlow' on receiver of type 'MutableStateFlow<AutoTaskListState>'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt:33:9 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt:169:13 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt:350:5 No value passed for parameter 'onDismissRequest'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt:401:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskDialog.kt:117:34 Unresolved reference 'collectAsState'.
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskDialog.kt:78:47 Unresolved reference 'collectAsStateValue' on receiver of type 'StateFlow<ImportAutoTaskState>'.
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskDialog.kt:98:25 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskViewModel.kt:64:65 Unresolved reference 'localizedMessage' on receiver of type 'ImportAutoTaskState'.
+app/src/main/java/io/legado/app/ui/book/read/ReadBookActivity.kt:1649:41 No value passed for parameter 'id'.
+app/src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugActivity.kt:33:23 Type 'State<SourceDebugUiState>' has no method 'getValue(Nothing?, KProperty0<*>)', so it cannot serve as a delegate.
+app/src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugActivity.kt:52:38 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugActivity.kt:52:38 No value passed for parameter 'input'.
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:219:66 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:223:50 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:298:14 No value passed for parameter 'indication'.
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:298:14 No value passed for parameter 'interactionSource'.
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:301:17 No parameter with name 'onLongClick' found.
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:407:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugViewModel.kt:59:50 Unresolved reference 'localizedMessage' on receiver of type 'SourceDebugUiState'.
+app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt:143:51 Argument type mismatch: actual type is '() -> Unit', but 'OnBackPressedCallback' was expected.
+app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt:207:40 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt:207:40 No value passed for parameter 'input'.
+app/src/main/java/io/legado/app/ui/book/source/edit/JsSourceEditActivity.kt:92:22 Unresolved reference 'fillMaxSize'.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditScreen.kt:427:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditState.kt:23:23 Type checking has run into a recursive problem. Easiest workaround: specify the types of your declarations explicitly.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditViewModel.kt:104:16 Unresolved reference 'field'.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditViewModel.kt:104:33 Cannot infer type for type parameter 'R'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditViewModel.kt:104:33 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditViewModel.kt:104:37 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditViewModel.kt:104:43 Cannot infer type for type parameter 'B'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditViewModel.kt:98:23 Unresolved reference 'field'.
+app/src/main/java/io/legado/app/ui/book/source/manage/BookSourceActivity.kt:122:18 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/book/source/manage/BookSourceActivity.kt:122:18 No value passed for parameter 'input'.
+app/src/main/java/io/legado/app/ui/book/source/manage/BookSourceActivity.kt:220:9 Unresolved reference 'lifecycleScope'.
+app/src/main/java/io/legado/app/ui/book/source/manage/BookSourceActivity.kt:47:23 Candidate 'fun <reified VM : ViewModel> Fragment.viewModels(noinline ownerProducer: () -> ViewModelStoreOwner = ..., noinline extrasProducer: (() -> CreationExtras)? = ..., noinline factoryProducer: (() -> ViewModelProvider.Factory)? = ...): Lazy<VM>' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/book/source/manage/BookSourceActivity.kt:74:23 Type 'State<SourceManageUiState>' has no method 'getValue(Nothing?, KProperty0<*>)', so it cannot serve as a delegate.
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:146:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:168:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:203:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:297:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:338:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:375:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:423:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:460:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:490:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:86:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageViewModel.kt:138:23 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageViewModel.kt:148:23 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageViewModel.kt:96:23 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/components/HandleFileSheet.kt:49:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/components/ToolScaffold.kt:113:23 No parameter with name 'minHeight' found.
+app/src/main/java/io/legado/app/ui/components/ToolScaffold.kt:303:23 No parameter with name 'minHeight' found.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:160:2 Unresolved reference 'Composable'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:161:13 Functions which invoke @Composable functions must be marked with the @Composable annotation
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:168:32 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:169:17 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:170:18 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:171:21 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:172:19 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:173:21 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:174:26 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:176:30 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:185:5 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:222:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:233:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:244:2 Unresolved reference 'Composable'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:245:13 Functions which invoke @Composable functions must be marked with the @Composable annotation
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:253:5 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:257:14 Unresolved reference 'pointerInput' on receiver of type 'Modifier'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:258:54 Unresolved reference 'detectTapGestures'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:103:2 Unresolved reference 'Composable'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:104:13 Functions which invoke @Composable functions must be marked with the @Composable annotation
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:111:32 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:113:17 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:114:17 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:115:20 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:116:19 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:117:23 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:126:30 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:133:43 Unresolved reference 'appCtx'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:144:46 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:145:5 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:149:54 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:155:5 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:178:17 No value passed for parameter 'enabled'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:184:78 Unresolved reference 'save'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:190:21 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:199:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:215:27 Argument type mismatch: actual type is 'List<File>', but 'Int' was expected.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:222:74 Unresolved reference 'detectTapGestures'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:225:68 Assignment type mismatch: actual type is 'Int', but 'File?' was expected.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:227:66 Assignment type mismatch: actual type is 'Int', but 'File?' was expected.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:234:29 Type inference failed. The value of the type parameter 'K' must be mentioned in input types (argument types, receiver type, or expected type). Try to specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:245:2 Unresolved reference 'Composable'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:246:13 Functions which invoke @Composable functions must be marked with the @Composable annotation
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:247:5 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:253:67 Unresolved reference 'detectTapGestures'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:264:2 Unresolved reference 'Composable'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:265:13 Functions which invoke @Composable functions must be marked with the @Composable annotation
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:265:71 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/ConfigViewModel.kt:110:17 'public' function exposes its 'internal' return type argument 'LanBackupSession'.
+app/src/main/java/io/legado/app/ui/config/ConfigViewModel.kt:127:58 Unresolved reference 'toUri' on receiver of type 'File'.
+app/src/main/java/io/legado/app/ui/config/ConfigViewModel.kt:75:9 Return type mismatch: expected 'String?', actual 'Any!'.
+app/src/main/java/io/legado/app/ui/config/CoverRuleConfigDialog.kt:64:17 No value passed for parameter 'onCheckedChange'.
+app/src/main/java/io/legado/app/ui/config/CoverRuleConfigDialog.kt:64:61 Argument type mismatch: actual type is '() -> Unit', but 'Modifier' was expected.
+app/src/main/java/io/legado/app/ui/config/CoverRuleConfigDialog.kt:64:72 Unresolved reference 'it'.
+app/src/main/java/io/legado/app/ui/config/DirectLinkUploadConfig.kt:90:17 No value passed for parameter 'onCheckedChange'.
+app/src/main/java/io/legado/app/ui/config/DirectLinkUploadConfig.kt:90:63 Argument type mismatch: actual type is '() -> Unit', but 'Modifier' was expected.
+app/src/main/java/io/legado/app/ui/config/DirectLinkUploadConfig.kt:90:76 Unresolved reference 'it'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:109:66 Unresolved reference 'putPrefString'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:131:17 Candidate 'fun <T, R> T.let(block: (T) -> R): R' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:131:17 Cannot infer type for type parameter 'R'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:131:17 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:131:23 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:132:41 Unresolved reference 'titleRes'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:132:54 Unresolved reference 'initial'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:132:80 Unresolved reference 'password'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:133:13 Unresolved reference 'putPrefString'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:133:29 Unresolved reference 'key'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:138:19 Candidate 'fun <T, R> T.let(block: (T) -> R): R' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:138:19 Cannot infer type for type parameter 'R'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:138:19 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:138:25 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:139:45 Unresolved reference 'titleRes'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:139:58 Function invocation 'min()' expected.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:139:65 Function invocation 'max()' expected.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:139:72 Unresolved reference 'current'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:139:95 Function invocation 'apply(...)' expected.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:139:95 No value passed for parameter 'block'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:144:114 Argument type mismatch: actual type is '(??? (Unknown type for value parameter result)) -> Unit', but '() -> Unit' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:144:116 Cannot infer type for value parameter 'result'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:144:9 No value passed for parameter 'onConfirm'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:145:98 Unresolved reference 'not' for operator '!'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:145:99 Cannot infer type for type parameter 'V'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:153:112 Argument type mismatch: actual type is '(??? (Unknown type for value parameter result)) -> Unit', but '() -> Unit' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:153:114 Cannot infer type for value parameter 'result'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:153:9 No value passed for parameter 'onConfirm'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:154:97 Argument type mismatch: actual type is 'V? (of fun <K, V> Map<out K, V>.get)', but 'Boolean' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:154:97 Cannot infer type for type parameter 'V'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:246:103 Unresolved reference 'it'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:246:46 No value passed for parameter 'onCheckedChange'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:246:91 Argument type mismatch: actual type is '() -> Unit', but 'Modifier' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:262:13 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:263:13 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:264:13 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:56:23 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:56:49 Unresolved reference 'TextTarget'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:56:62 Null cannot be a value of a non-null type 'uninferred T (of fun <T> mutableStateOf)'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:57:25 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:57:51 Unresolved reference 'NumberTarget'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:57:66 Null cannot be a value of a non-null type 'uninferred T (of fun <T> mutableStateOf)'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:63:21 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:63:32 Inapplicable candidate(s): fun <T> mutableStateOf(value: T, policy: SnapshotMutationPolicy<T> = ...): MutableState<T>
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:63:47 Unresolved reference 'LanState'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:63:57 Unresolved reference 'LanState'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:68:5 Modifier 'sealed' is not applicable to 'local class'.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:69:9 Named object 'Closed' cannot be local. Try to use an anonymous object instead.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:70:9 Named object 'Menu' cannot be local. Try to use an anonymous object instead.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:71:14 'Class' is prohibited here.
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:95:25 Unresolved reference 'putPrefInt'.
+app/src/main/java/io/legado/app/ui/config/sections/CoverFontSection.kt:81:27 Unresolved reference 'putPrefInt'.
+app/src/main/java/io/legado/app/ui/config/sections/CoverSection.kt:36:17 Unresolved reference 'putPrefString'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:102:25 Unresolved reference 'putPrefString'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:138:37 Unresolved reference 'mediaButtonOnExit'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:143:37 Unresolved reference 'autoUpdateVariant'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:158:25 Unresolved reference 'putPrefString'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:97:42 Unresolved reference 'removePref'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:97:79 Unresolved reference 'putPrefString'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:100:13 Argument type mismatch: actual type is 'List<Any>', but 'List<SettingRow>' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:112:13 Argument type mismatch: actual type is 'List<Any>', but 'List<SettingRow>' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:126:19 Candidate 'fun <T, R> T.let(block: (T) -> R): R' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:126:19 Cannot infer type for type parameter 'R'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:126:19 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:126:25 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:127:45 Unresolved reference 'titleRes'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:127:58 Function invocation 'min()' expected.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:127:65 Function invocation 'max()' expected.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:127:72 Unresolved reference 'current'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:128:27 Function invocation 'apply(...)' expected.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:128:27 No value passed for parameter 'block'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:131:18 Candidate 'fun <T, R> T.let(block: (T) -> R): R' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:131:18 Cannot infer type for type parameter 'R'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:131:18 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:131:24 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:133:28 Unresolved reference 'title'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:134:49 Unresolved reference 'key'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:135:24 Unresolved reference 'putPrefInt'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:135:42 Unresolved reference 'key'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:152:67 Unresolved reference 'putPrefString'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:153:25 Unresolved reference 'removePref'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:171:9 Unresolved reference 'Box'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:195:21 Unresolved reference 'Box'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:225:46 Unresolved reference 'detectTapGestures'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:51:25 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:51:51 Unresolved reference 'NumberTarget'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:51:66 Null cannot be a value of a non-null type 'uninferred T (of fun <T> mutableStateOf)'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:52:24 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:52:50 Unresolved reference 'ColorTarget'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:52:64 Null cannot be a value of a non-null type 'uninferred T (of fun <T> mutableStateOf)'.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:82:86 Unresolved reference 'putPrefInt'.
+app/src/main/java/io/legado/app/ui/config/sections/WelcomeSection.kt:74:27 Unresolved reference 'putPrefInt'.
+app/src/main/java/io/legado/app/ui/config/sections/WelcomeSection.kt:86:65 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/config/sections/WelcomeSection.kt:90:21 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/config/settings/SettingControls.kt:166:22 Unresolved reference 'matchParentSize'.
+app/src/main/java/io/legado/app/ui/config/settings/SettingControls.kt:176:32 Unresolved reference 'weight'.
+app/src/main/java/io/legado/app/ui/config/settings/SettingControls.kt:263:35 No parameter with name 'enabled' found.
+app/src/main/java/io/legado/app/ui/config/settings/SettingControls.kt:307:13 No parameter with name 'enabled' found.
+app/src/main/java/io/legado/app/ui/config/settings/SettingList.kt:57:77 Unresolved reference 'dp'.
+app/src/main/java/io/legado/app/ui/config/settings/SettingList.kt:68:61 Argument type mismatch: actual type is '(??? (Unknown lambda parameter type)) -> ??? (Unknown lambda return type)', but 'Modifier' was expected.
+app/src/main/java/io/legado/app/ui/config/settings/SettingList.kt:68:63 Cannot infer type for value parameter 'next'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/settings/SettingList.kt:68:9 No value passed for parameter 'onCheckedChange'.
+app/src/main/java/io/legado/app/ui/config/settings/SettingSheets.kt:208:21 No value passed for parameter 'onCheckedChange'.
+app/src/main/java/io/legado/app/ui/config/settings/SettingSheets.kt:208:71 Argument type mismatch: actual type is '() -> Unit', but 'Modifier' was expected.
+app/src/main/java/io/legado/app/ui/config/settings/SettingSheets.kt:208:88 Unresolved reference 'it'.
+app/src/main/java/io/legado/app/ui/dict/DictDialog.kt:77:29 Candidate 'fun <T> StateFlow<T>.collectAsState(context: CoroutineContext = ...): State<T>' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/dict/DictDialog.kt:77:29 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleListViewModel.kt:208:9 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleListViewModel.kt:211:38 Unresolved reference 'fromJsonObject' on receiver of type 'Gson'.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleListViewModel.kt:211:69 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleListViewModel.kt:212:23 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleListViewModel.kt:27:82 Unresolved reference 'asStateFlow' on receiver of type 'MutableStateFlow<DictRuleListState>'.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleListViewModel.kt:34:9 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleScreen.kt:298:32 No value passed for parameter 'onDismissRequest'.
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleScreen.kt:377:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/dict/rule/DictRuleScreen.kt:416:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/file/FilePickerDialog.kt:144:34 Unresolved reference 'collectAsState'.
+app/src/main/java/io/legado/app/ui/file/FilePickerDialog.kt:96:47 Unresolved reference 'collectAsStateValue' on receiver of type 'StateFlow<FilePickerState>'.
+app/src/main/java/io/legado/app/ui/file/HandleFileActivity.kt:100:25 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/file/HandleFileActivity.kt:96:18 Functions which invoke @Composable functions must be marked with the @Composable annotation
+app/src/main/java/io/legado/app/ui/file/HandleFileViewModel.kt:42:36 Unresolved reference 'localizedMessage' on receiver of type 'String?'.
+app/src/main/java/io/legado/app/ui/file/HandleFileViewModel.kt:59:30 Unresolved reference 'writeBytes' on receiver of type 'DocumentFile'.
+app/src/main/java/io/legado/app/ui/file/HandleFileViewModel.kt:70:32 Unresolved reference 'localizedMessage' on receiver of type 'String?'.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditActivity.kt:101:13 Only one companion object is allowed per class.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditActivity.kt:101:23 Conflicting declarations:
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditActivity.kt:23:15 Conflicting declarations:
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditActivity.kt:91:34 Unresolved reference 'TRANSFER_THRESHOLD'.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditScreen.kt:182:13 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditViewModel.kt:113:47 'when' expression must be exhaustive. Add the 'CONTEXT_UNAVAILABLE', 'JS_EVALUATION' branches or an 'else' branch.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditViewModel.kt:144:9 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditViewModel.kt:147:18 Unresolved reference 'fromJsonObject' on receiver of type 'Gson'.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditViewModel.kt:147:52 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditViewModel.kt:148:23 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditViewModel.kt:84:22 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleActivity.kt:166:9 Unresolved reference 'lifecycleScope'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleListViewModel.kt:29:85 Unresolved reference 'asStateFlow' on receiver of type 'MutableStateFlow<ReplaceRuleListState>'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleListViewModel.kt:52:9 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleListViewModel.kt:84:9 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleScreen.kt:199:13 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleScreen.kt:436:5 No value passed for parameter 'onDismissRequest'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleScreen.kt:500:9 @Composable invocations can only happen from the context of a @Composable function

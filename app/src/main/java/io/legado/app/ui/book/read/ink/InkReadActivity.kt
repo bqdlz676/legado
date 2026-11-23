@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +30,8 @@ import io.legado.app.ui.book.read.ReadBookViewModel
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.utils.eventObservable
+import io.legado.app.utils.toastOnUi
+import io.legado.app.R
 
 /**
  * 落文 · 竖排阅读壳宿主（U5-A 灵魂闭环入口）。
@@ -163,6 +166,18 @@ class InkReadActivity : ComponentActivity() {
         controller = InkReadController(this)
         controller.onReadAloudToggle = {
             if (BaseReadAloudService.isRun) ReadAloud.pause(this) else ReadAloud.play(this)
+        }
+
+        // 返回键 / 系统手势返回统一出口：层级裁决全部在 controller.handleBack()，
+        // 与手势路由 GestureRouter.onBack 走同一函数；Activity 只按裁决结果做副作用
+        // （暂停提示 / 退出回书架），不在此复制气泡 / 朗读 / 偏好判定。
+        onBackPressedDispatcher.addCallback(this) {
+            when (controller.handleBack()) {
+                InkBackResult.BubbleDismissed -> Unit
+                InkBackResult.ReadAloudPaused -> toastOnUi(R.string.read_aloud_pause)
+                InkBackResult.ReturnKeyLocked -> Unit
+                InkBackResult.ExitToShelf -> finish()
+            }
         }
 
         // MEDIA_BUTTON 总线订阅（对齐旧 ReadBookActivity 的 observeEvent(MEDIA_BUTTON)）：

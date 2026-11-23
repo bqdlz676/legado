@@ -2,6 +2,7 @@ package io.legado.app.ui.book.read.ink
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -51,6 +52,10 @@ class InkTimelineActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 本页无气泡 / 半屏 / 抽屉等页内覆盖层，返回即回阅读壳；显式回调与站内同类
+        // Compose Activity（AudioPlayActivity / ReadMangaActivity）口径一致，
+        // 避免依赖默认返回行为在后续加覆盖层时漏挂裁决。
+        onBackPressedDispatcher.addCallback(this) { finish() }
         val year = intent.getIntExtra(EXTRA_YEAR, Int.MIN_VALUE)
             .takeIf { it != Int.MIN_VALUE }
         val label = intent.getStringExtra(EXTRA_LABEL)

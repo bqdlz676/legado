@@ -91,6 +91,12 @@ fun InkReaderShell(
         state.dismissBubble()
     }
 
+    // 宿主气泡内容被外部关闭（返回键 / 翻页 / 进度跳转 / 章切换）时，同步清掉壳侧镜像状态，
+    // 避免 state 残留 Visible 锚点；内容非空时不动，展示状态仍由宿主灌入。
+    LaunchedEffect(bubbleContent) {
+        if (bubbleContent == null) state.dismissBubble()
+    }
+
     // ViewBridge 降级通道：挂 / 摘引擎 View 监听
     val bridge = remember { ViewGestureBridge(shellHost, bottomBarPx) }
     LaunchedEffect(engineView, dispatchMode) {

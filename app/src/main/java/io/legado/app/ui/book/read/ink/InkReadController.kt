@@ -18,6 +18,7 @@ import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngine
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngineFactory
 import io.legado.app.ui.book.read.vertical.VerticalPage
+import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.getPrefString
 import kotlin.math.roundToInt
 
@@ -236,6 +237,35 @@ class InkReadController(
 
     override fun isPageAnimating(): Boolean = pageView.isTurnAnimating()
 
+    // ---------- 返回统一出口（硬件键 / 手势返回 / Activity 分发器共用，禁止另写一套） ----------
+
+    /**
+     * 返回裁决单一事实源（见 [ReaderShellHost.handleBack] 与 [InkBackResult] 层级说明）。
+     *
+     * 边界兜底：引擎未排版 / 章节加载中 / 书未打开时 [bubbleContent] 必为 null，
+     * 本方法不触碰引擎与正文，直接落到朗读 / 偏好 / 退出分支，不出空白态、不崩。
+     */
+    override fun handleBack(): InkBackResult {
+        // 层级 1：气泡开着 → 先关气泡。半屏详情 Dialog 由其窗口自身消费返回，
+        // 运行时到不了本分支；Dialog 关闭后气泡仍在时，再按本层关气泡。
+        if (bubbleContent != null) {
+            dismissBubble()
+            return InkBackResult.BubbleDismissed
+        }
+        // 层级 2：朗读播放中 → 暂停（旧壳 622–626 同分支）。toggle 回调在播放态即暂停。
+        if (BaseReadAloudService.isPlay()) {
+            onReadAloudToggle?.invoke()
+            return InkBackResult.ReadAloudPaused
+        }
+        // 层级 3：「禁用返回键」偏好开启 → 消费返回不退出（旧壳 631–633 同口径；
+        // 旧分支附带的「菜单不可见」条件在新壳无动作菜单对应物，不移植）。
+        if (context.getPrefBoolean(PREF_DISABLE_RETURN_KEY)) {
+            return InkBackResult.ReturnKeyLocked
+        }
+        // 层级 4：无可消化覆盖层 → 交 Activity finish() 回书架。
+        return InkBackResult.ExitToShelf
+    }
+
     // ---------- 候选切换 / 进度跳转 ----------
 
     /**
@@ -341,6 +371,12 @@ class InkReadController(
 
         /** 气泡解析结果缓存条数（够一章反复点按）。 */
         const val BUBBLE_CACHE_MAX = 32
+
+        /**
+         * 「禁用返回键」偏好原始键名，与旧壳 pref_config_read.xml 及 ReadBookActivity:631
+         * 保持同一键，不另造 AppConfig 字段（新壳设置页未接，键位口径先对齐旧壳）。
+         */
+        const val PREF_DISABLE_RETURN_KEY = "disableReturnKey"
     }
 
     private data class CachedChapter(val title: String?, val body: String)
