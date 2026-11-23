@@ -1,0 +1,79 @@
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:103:15 Type 'State<Float>' has no method 'getValue(Nothing?, KProperty0<*>)', so it cannot serve as a delegate.
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:121:33 Unresolved reference 'graphicsLayer'.
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:121:49 Unresolved reference 'translationX'.
+app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:83:43 Unresolved reference 'shape'.
+app/src/main/java/io/legado/app/ui/about/AppLogDialog.kt:130:21 Argument already passed for this parameter.
+app/src/main/java/io/legado/app/ui/about/AppLogDialog.kt:147:37 Unresolved reference 'clickable'.
+app/src/main/java/io/legado/app/ui/about/CrashLogsDialog.kt:138:57 Unresolved reference 'clickable'.
+app/src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt:85:56 No value passed for parameter 'p1'.
+app/src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt:99:63 Unresolved reference 'putInt'.
+app/src/main/java/io/legado/app/ui/about/UpdateDialog.kt:124:9 Unresolved reference 'toastOnUi'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskDebugActivity.kt:118:20 Unresolved reference 'lifecycleScope'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskDebugActivity.kt:92:9 Unresolved reference 'lifecycleScope'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskEditScreen.kt:152:13 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt:26:82 Unresolved reference 'asStateFlow' on receiver of type 'MutableStateFlow<AutoTaskListState>'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt:33:9 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt:169:13 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt:350:5 No value passed for parameter 'onDismissRequest'.
+app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt:401:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskDialog.kt:117:34 Unresolved reference 'collectAsState'.
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskDialog.kt:78:47 Unresolved reference 'collectAsStateValue' on receiver of type 'StateFlow<ImportAutoTaskState>'.
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskDialog.kt:98:25 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskViewModel.kt:64:65 Unresolved reference 'localizedMessage' on receiver of type 'ImportAutoTaskState'.
+app/src/main/java/io/legado/app/ui/book/read/ReadBookActivity.kt:1649:41 No value passed for parameter 'id'.
+app/src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugActivity.kt:33:23 Type 'State<SourceDebugUiState>' has no method 'getValue(Nothing?, KProperty0<*>)', so it cannot serve as a delegate.
+app/src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugActivity.kt:52:38 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugActivity.kt:52:38 No value passed for parameter 'input'.
+app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugViewModel.kt:59:50 Unresolved reference 'localizedMessage' on receiver of type 'SourceDebugUiState'.
+app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt:143:51 Argument type mismatch: actual type is '() -> Unit', but 'OnBackPressedCallback' was expected.
+app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt:207:40 None of the following candidates is applicable:
+app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt:207:40 No value passed for parameter 'input'.
+app/src/main/java/io/legado/app/ui/book/source/edit/JsSourceEditActivity.kt:92:22 Unresolved reference 'fillMaxSize'.
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditScreen.kt:427:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditState.kt:23:23 Type checking has run into a recursive problem. Easiest workaround: specify the types of your declarations explicitly.
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageViewModel.kt:138:23 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageViewModel.kt:148:23 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageViewModel.kt:96:23 Unresolved reference 'viewModelScope'.
+app/src/main/java/io/legado/app/ui/components/HandleFileSheet.kt:49:9 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/components/ToolScaffold.kt:113:23 No parameter with name 'minHeight' found.
+app/src/main/java/io/legado/app/ui/components/ToolScaffold.kt:303:23 No parameter with name 'minHeight' found.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinActivity.kt:261:54 Unresolved reference 'detectTapGestures'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:217:59 Unresolved reference 'items'.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:217:76 Cannot infer type for value parameter 'file'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/BottomBarSkinAssignActivity.kt:218:25 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt:291:20 Redeclaration:
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:152:132 Argument type mismatch: actual type is '(??? (Unknown lambda parameter type)) -> ??? (Unknown lambda return type)', but 'Boolean' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:152:134 Cannot infer type for value parameter 'v'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:152:34 No value passed for parameter 'initial'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:152:45 Argument type mismatch: actual type is 'Int', but 'String' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:152:81 Argument type mismatch: actual type is 'String?', but 'Int' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:186:38 Cannot access 'data class TextTarget : Any': it is private in file.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:187:30 Cannot access 'data class TextTarget : Any': it is private in file.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:189:25 Argument type mismatch: actual type is 'TextTarget', but '(String) -> Unit' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:189:32 Function invocation 'apply(...)' expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:189:32 No value passed for parameter 'block'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:199:20 Redeclaration:
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:39:49 Cannot access 'data class TextTarget : Any': it is private in file.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:91:34 No value passed for parameter 'initial'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:91:45 Argument type mismatch: actual type is 'Int', but 'String' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:91:66 Argument type mismatch: actual type is 'String', but 'Int' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:91:87 Argument type mismatch: actual type is '(??? (Unknown lambda parameter type)) -> ??? (Unknown lambda return type)', but 'Boolean' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:91:89 Cannot infer type for value parameter 'v'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:96:34 No value passed for parameter 'initial'.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:96:45 Argument type mismatch: actual type is 'Int', but 'String' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:96:68 Argument type mismatch: actual type is 'String?', but 'Int' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:96:91 Argument type mismatch: actual type is '(??? (Unknown lambda parameter type)) -> ??? (Unknown lambda return type)', but 'Boolean' was expected.
+app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt:96:93 Cannot infer type for value parameter 'v'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt:202:46 Unresolved reference 'detectTapGestures'.
+app/src/main/java/io/legado/app/ui/dict/DictDialog.kt:77:29 Candidate 'fun <T> StateFlow<T>.collectAsState(context: CoroutineContext = ...): State<T>' is inapplicable because of a receiver type mismatch.
+app/src/main/java/io/legado/app/ui/dict/DictDialog.kt:77:29 Cannot infer type for type parameter 'T'. Specify it explicitly.
+app/src/main/java/io/legado/app/ui/file/FilePickerDialog.kt:144:34 Unresolved reference 'collectAsState'.
+app/src/main/java/io/legado/app/ui/file/FilePickerDialog.kt:96:47 Unresolved reference 'collectAsStateValue' on receiver of type 'StateFlow<FilePickerState>'.
+app/src/main/java/io/legado/app/ui/file/HandleFileActivity.kt:100:25 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/file/HandleFileActivity.kt:96:18 Functions which invoke @Composable functions must be marked with the @Composable annotation
+app/src/main/java/io/legado/app/ui/main/detail/DetailSheetContent.kt:115:42 'val' cannot be reassigned.
+app/src/main/java/io/legado/app/ui/replace/edit/ReplaceEditScreen.kt:182:13 @Composable invocations can only happen from the context of a @Composable function
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleActivity.kt:166:9 Unresolved reference 'lifecycleScope'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleScreen.kt:210:10 Syntax error: Expecting ')'.
+app/src/main/java/io/legado/app/ui/replace/ReplaceRuleScreen.kt:211:6 Syntax error: Unexpected tokens (use ';' to separate expressions on the same line).
+app/src/main/java/io/legado/app/ui/widget/SelectActionBar.kt:190:18 Unresolved reference 'menu_del'.

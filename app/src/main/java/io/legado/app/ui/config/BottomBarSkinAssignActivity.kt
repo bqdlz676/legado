@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.DisposableEffect
@@ -214,7 +215,7 @@ private fun AssignScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    androidx.compose.foundation.lazy.grid.items(palette) { file ->
+                    gridItems(palette) { file ->
                         Box(
                             Modifier
                                 .size(56.dp)

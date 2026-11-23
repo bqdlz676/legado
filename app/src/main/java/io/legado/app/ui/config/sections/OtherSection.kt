@@ -35,8 +35,8 @@ fun OtherSection(actions: SectionActions) {
 
     var numberTarget by remember { mutableStateOf<NumberTarget?>(null) }
 
-    // 文本编辑弹层目标
-    var textTarget by remember { mutableStateOf<TextTarget?>(null) }
+    // 文本编辑弹层目标（回调回写型；与 BackupSection 按偏好键回写的 TextTarget 同名会在包级 Redeclaration，故本分区用独立名）
+    var textTarget by remember { mutableStateOf<TextEditTarget?>(null) }
 
     val languageEntries = context.resources.getStringArray(R.array.language).toList()
     val languageValues = context.resources.getStringArray(R.array.language_value).toList()
@@ -88,12 +88,12 @@ fun OtherSection(actions: SectionActions) {
             stringRes(R.string.other_setting),
             listOf(
                 ValueRow(stringRes(R.string.user_agent), summary = AppConfig.userAgent) {
-                    textTarget = TextTarget(R.string.user_agent, AppConfig.userAgent) { v ->
+                    textTarget = TextEditTarget(R.string.user_agent, AppConfig.userAgent) { v ->
                         if (v.isBlank()) context.removePref(PreferKey.userAgent) else context.putPrefString(PreferKey.userAgent, v)
                     }
                 },
                 ValueRow(stringRes(R.string.custom_hosts), stringRes(R.string.custom_hosts_summary)) {
-                    textTarget = TextTarget(R.string.custom_hosts, AppConfig.customHosts) { v ->
+                    textTarget = TextEditTarget(R.string.custom_hosts, AppConfig.customHosts) { v ->
                         context.putPrefString(PreferKey.customHosts, v)
                     }
                 },
@@ -149,7 +149,7 @@ fun OtherSection(actions: SectionActions) {
                 },
                 SwitchRow(PreferKey.jsSourceApiTokenRequired, stringRes(R.string.js_source_api_token_required_title), stringRes(R.string.js_source_api_token_required_summary), true),
                 ValueRow(stringRes(R.string.js_source_api_token_title), stringRes(R.string.js_source_api_token_summary)) {
-                    textTarget = TextTarget(R.string.js_source_api_token_title, context.getPrefString(PreferKey.jsSourceApiToken)) { v ->
+                    textTarget = TextEditTarget(R.string.js_source_api_token_title, context.getPrefString(PreferKey.jsSourceApiToken)) { v ->
                         context.putPrefString(PreferKey.jsSourceApiToken, v)
                     }
                 },
@@ -195,5 +195,10 @@ fun OtherSection(actions: SectionActions) {
 @Composable
 private fun stringRes(id: Int): String = androidx.compose.ui.res.stringResource(id)
 
-/** 文本编辑弹层待决目标（仅本分区使用）。 */
-private data class TextTarget(val titleRes: Int, val initial: String?, val apply: (String) -> Unit)
+/**
+ * 文本编辑弹层待决目标（仅本分区使用；回调回写型）。
+ *
+ * 命名避开同包 BackupSection 内按偏好键回写的 `TextTarget`：
+ * Kotlin 同包两个顶层声明即便都标 private，同名仍按 Redeclaration 冲突（可见性管访问、不管身份）。
+ */
+private data class TextEditTarget(val titleRes: Int, val initial: String?, val apply: (String) -> Unit)
