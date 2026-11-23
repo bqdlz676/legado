@@ -1,8 +1,12 @@
 package io.legado.app.ui.book.read.ink
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,15 +15,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Observer
+import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.help.bubble.BubbleResolver
 import io.legado.app.help.bubble.NotebookStore
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
+import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.ReadBookViewModel
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.toc.TocActivityResult
+import io.legado.app.utils.eventObservable
 
 /**
  * 落文 · 竖排阅读壳宿主（U5-A 灵魂闭环入口）。
@@ -40,6 +49,26 @@ import io.legado.app.ui.book.toc.TocActivityResult
 class InkReadActivity : ComponentActivity() {
 
     private val viewModel: ReadBookViewModel by viewModels()
+
+    /**
+     * 阅读控制器提升为 Activity 字段：硬件键 / 媒体键翻页通道在 Composable 之外也要能拿到，
+     * 故不再由 remember 在组合内创建，改在 onCreate 实例化后传入 [InkReaderBook]。
+     */
+    private lateinit var controller: InkReadController
+
+    /**
+     * MEDIA_BUTTON 广播接收器（交接清单 #11 遗留：新壳此前未订阅媒体键）。
+     * 耳机线控 / 蓝牙遥控的上一曲 / 下一曲在此翻页，播放暂停键交朗读切换；
+     * 键码 → 命令的纯解析规则在 [InkPageKeys]，本接收器只取 KeyEvent 转发。
+     */
+    private val mediaButtonReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != Intent.ACTION_MEDIA_BUTTON) return
+            @Suppress("DEPRECATION")
+            val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
+            controller.handleMediaKey(event.keyCode)
+        }
+    }
 
     // ── 搬运到 Compose 壳的书 / 章状态 ──────────────────────────────
     private var bookId by mutableStateOf("")
@@ -130,9 +159,23 @@ class InkReadActivity : ComponentActivity() {
         viewModel.initData(intent)
         refreshFromReadBook()
 
-        setContent {
-            val controller = rememberInkReadController()
+        // 控制器在组合外实例化，供 onKeyDown / 媒体键通道直接调用；朗读切换回调接服务起停。
+        controller = InkReadController(this)
+        controller.onReadAloudToggle = {
+            if (BaseReadAloudService.isRun) ReadAloud.pause(this) else ReadAloud.play(this)
+        }
 
+        // MEDIA_BUTTON 总线订阅（对齐旧 ReadBookActivity 的 observeEvent(MEDIA_BUTTON)）：
+        // true = 起朗读；false = 按当前暂停态反切。观察者随 Activity 生命周期自动注销。
+        eventObservable<Boolean>(EventBus.MEDIA_BUTTON).observe(this, Observer { playing ->
+            if (playing) {
+                ReadAloud.play(this)
+            } else {
+                ReadBook.readAloud(!BaseReadAloudService.pause)
+            }
+        })
+
+        setContent {
             // 相邻章正文预热：切片-08「预载前后各一章」，翻章命中缓存即重排，不等二次加载。
             LaunchedEffect(chapterId, chapterBody) {
                 ReadBook.prevTextChapter?.let { prev ->
@@ -190,6 +233,31 @@ class InkReadActivity : ComponentActivity() {
                 onFallback = fallbackHandler,
             )
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // 动态注册媒体键接收器；NOT_EXPORTED：只消费系统 MEDIA_BUTTON 广播，不对外暴露入口。
+        ContextCompat.registerReceiver(
+            this,
+            mediaButtonReceiver,
+            IntentFilter(Intent.ACTION_MEDIA_BUTTON),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+    }
+
+    override fun onStop() {
+        runCatching { unregisterReceiver(mediaButtonReceiver) }
+        super.onStop()
+    }
+
+    /**
+     * 硬件键翻页通道：音量键 / 方向键 / 翻页键 / 空格上翻下翻；未识别键交系统默认处理。
+     * 键位解析与翻页门禁在控制器纯逻辑层，此处只转发键码，不重复判定手势分区。
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (controller.handleHardwareKey(keyCode, event.repeatCount)) return true
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onDestroy() {

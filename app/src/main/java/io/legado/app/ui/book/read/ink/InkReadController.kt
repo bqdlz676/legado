@@ -8,13 +8,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Rect
+import io.legado.app.constant.PreferKey
 import io.legado.app.help.bubble.BubbleCandidate
 import io.legado.app.help.bubble.BubbleContent
 import io.legado.app.help.bubble.BubbleResolver
 import io.legado.app.help.chrono.ContextAnchor
+import io.legado.app.help.config.AppConfig
+import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngine
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngineFactory
 import io.legado.app.ui.book.read.vertical.VerticalPage
+import io.legado.app.utils.getPrefString
 import kotlin.math.roundToInt
 
 /**
@@ -81,6 +85,9 @@ class InkReadController(
     /** 滚动计数：变化即关气泡（竖排翻页通道暂并入 pageTick，预留滚动扩展位）。 */
     var scrollTick by mutableStateOf(0)
         private set
+
+    /** 朗读切换回调：由宿主 Activity 灌入（起 / 停朗读服务），控制器不直接碰 Service 生命周期。 */
+    var onReadAloudToggle: (() -> Unit)? = null
 
     init {
         pageView.onSizeChanged = { w, h -> layoutIfNeeded(w, h) }
@@ -256,6 +263,74 @@ class InkReadController(
         pageTick++
         publishPage(page)
     }
+
+    // ---------- 外部翻页通道：硬件键 / 媒体键（交接清单 #11 遗留） ----------
+
+    /** 引擎是否可上翻（首页为 false）；引擎尚未排版时不可翻，交空页兜底。 */
+    fun canPrev(): Boolean = engine?.canPrev == true
+
+    /** 引擎是否可下翻（末页为 false）；引擎尚未排版时不可翻，交空页兜底。 */
+    fun canNext(): Boolean = engine?.canNext == true
+
+    /**
+     * 硬件键翻页通道（宿主 Activity.onKeyDown 接入）。
+     *
+     * 键码 → 命令的解析规则在纯 JVM [InkPageKeys]；门禁裁决在 [PageTurnGate]，
+     * 与边缘点按翻页共用同一 [turnPage] 通道，动画屏蔽 / 边界夹取口径一致。
+     *
+     * @return true = 按键已被阅读页消费；false = 交系统默认处理。
+     */
+    fun handleHardwareKey(keyCode: Int, repeatCount: Int): Boolean {
+        val command = InkPageKeys.resolveHardwareKey(keyCode, repeatCount, pageKeyConfig())
+            ?: return false
+        return dispatchCommand(command)
+    }
+
+    /**
+     * 媒体键翻页通道（宿主 Activity 内 MEDIA_BUTTON 广播接收器接入）。
+     * @return true = 媒体键已被阅读页消费。
+     */
+    fun handleMediaKey(keyCode: Int): Boolean {
+        val command = InkPageKeys.resolveMediaKey(keyCode) ?: return false
+        return dispatchCommand(command)
+    }
+
+    /** 命令分发：翻页先过门禁，朗读切换交宿主回调；命令已识别即视为消费。 */
+    private fun dispatchCommand(command: PageCommand): Boolean = when (command) {
+        is PageCommand.Turn -> {
+            val gate = PageTurnGate(
+                animating = pageView.isTurnAnimating(),
+                canPrev = canPrev(),
+                canNext = canNext(),
+            )
+            if (gate.evaluate(command.direction).allowed) {
+                turnPage(command.direction)
+            }
+            true
+        }
+
+        PageCommand.ToggleReadAloud -> {
+            onReadAloudToggle?.invoke()
+            true
+        }
+    }
+
+    /** 从 AppConfig / 朗读服务状态拼装按键解析配置；自定义键码从偏好读取，非法值忽略。 */
+    private fun pageKeyConfig(): PageKeyConfig = PageKeyConfig(
+        volumeKeyEnabled = AppConfig.volumeKeyPage,
+        volumeKeyPageOnPlay = AppConfig.volumeKeyPageOnPlay,
+        readAloudPlaying = BaseReadAloudService.isPlay(),
+        keyPageOnLongPress = AppConfig.keyPageOnLongPress,
+        prevCustomKeys = customKeyCodes(PreferKey.prevKeys),
+        nextCustomKeys = customKeyCodes(PreferKey.nextKeys),
+    )
+
+    private fun customKeyCodes(prefKey: String): Set<Int> =
+        context.getPrefString(prefKey)
+            ?.split(",")
+            ?.mapNotNull { it.trim().toIntOrNull() }
+            ?.toSet()
+            .orEmpty()
 
     private companion object {
         /** 章切换时取正文前段多少字参与年代线索猜测。 */
