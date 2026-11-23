@@ -17,7 +17,11 @@ import androidx.webkit.WebViewAssetLoader
 import io.legado.app.help.ChineseDict
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.person.PersonProfile
-import io.legado.app.help.relation.RelationExtractor
+import io.legado.app.help.person.graph.Appearance
+import io.legado.app.help.person.graph.Edge
+import io.legado.app.help.person.graph.Graph
+import io.legado.app.help.person.graph.Node
+import io.legado.app.help.person.graph.PersonGraphExtractor
 import io.legado.app.model.ReadBook
 import io.legado.app.utils.printOnDebug
 import org.json.JSONArray
@@ -33,7 +37,7 @@ class RelationActivity : AppCompatActivity() {
     private lateinit var webView: WebView
 
     @Volatile
-    private var lastGraph: RelationExtractor.Graph? = null
+    private var lastGraph: Graph? = null
 
     /** 页面没加载完就先存着，onPageFinished 再画 */
     @Volatile
@@ -97,7 +101,7 @@ class RelationActivity : AppCompatActivity() {
             return
         }
         Coroutine.async {
-            // D2 人物目录是纯 JVM 内存索引，无 Context 预热；旧 relation 档案的资产加载不再调用
+            // D2 人物目录是纯 JVM 内存索引，无 Context 预热；抽取器与图谱模型均在 help.person.graph 包
             val text0 = readLocalText(book.bookUrl)
             val text = if (scopeAll || text0.isNullOrBlank()) text0
             else chapterTextOf(book, text0)
@@ -126,7 +130,7 @@ class RelationActivity : AppCompatActivity() {
                 }
                 return@async
             }
-            val extracted = RelationExtractor.extract(this@RelationActivity, listOf(book.name to text), book.name)
+            val extracted = PersonGraphExtractor.extract(this@RelationActivity, listOf(book.name to text), book.name)
             // 抽取只负责人名 / 共现；阵营、身份、生卒、称谓以 D2 档案为准覆盖富化
             val graph = enrichGraph(extracted)
             lastGraph = graph
@@ -187,10 +191,10 @@ class RelationActivity : AppCompatActivity() {
     }
 
     /** 用 D2 档案批量富化图谱节点；抽取器产出的共现次数与出场段落原样保留。 */
-    private fun enrichGraph(graph: RelationExtractor.Graph): RelationExtractor.Graph =
+    private fun enrichGraph(graph: Graph): Graph =
         graph.copy(nodes = graph.nodes.map { enrichNode(it) })
 
-    private fun enrichNode(node: RelationExtractor.Node): RelationExtractor.Node {
+    private fun enrichNode(node: Node): Node {
         val d2 = PersonProfile.profileOf(node.name) ?: return node
         val calls = buildList {
             d2.courtesyName?.let { add("字 $it") }
@@ -296,20 +300,20 @@ class RelationActivity : AppCompatActivity() {
     }
 
     /** 缓存里只有 JSON，还原出图谱供点节点打开人物详情 */
-    private fun graphFromJson(json: String, source: String): RelationExtractor.Graph {
-        val nodes = ArrayList<RelationExtractor.Node>()
-        val edges = ArrayList<RelationExtractor.Edge>()
+    private fun graphFromJson(json: String, source: String): Graph {
+        val nodes = ArrayList<Node>()
+        val edges = ArrayList<Edge>()
         runCatching {
             val root = JSONObject(json)
             val na = root.optJSONArray("nodes") ?: JSONArray()
             for (i in 0 until na.length()) {
                 val o = na.getJSONObject(i)
-                val ap = ArrayList<RelationExtractor.Appearance>()
+                val ap = ArrayList<Appearance>()
                 o.optJSONArray("appearances")?.let { arr ->
                     for (j in 0 until arr.length()) {
                         val a = arr.getJSONObject(j)
                         ap.add(
-                            RelationExtractor.Appearance(
+                            Appearance(
                                 a.optString("chapter"),
                                 a.optString("text")
                             )
@@ -321,7 +325,7 @@ class RelationActivity : AppCompatActivity() {
                     for (j in 0 until arr.length()) al.add(arr.getString(j))
                 }
                 nodes.add(
-                    RelationExtractor.Node(
+                    Node(
                         id = o.optString("id"),
                         name = o.optString("name"),
                         faction = o.optString("faction"),
@@ -337,7 +341,7 @@ class RelationActivity : AppCompatActivity() {
             for (i in 0 until ea.length()) {
                 val o = ea.getJSONObject(i)
                 edges.add(
-                    RelationExtractor.Edge(
+                    Edge(
                         source = o.optString("source"),
                         target = o.optString("target"),
                         weight = o.optInt("weight"),
@@ -347,10 +351,10 @@ class RelationActivity : AppCompatActivity() {
                 )
             }
         }
-        return RelationExtractor.Graph(nodes, edges, source)
+        return Graph(nodes, edges, source)
     }
 
-    private fun toJson(graph: RelationExtractor.Graph): String {
+    private fun toJson(graph: Graph): String {
         val root = JSONObject()
         root.put("source", graph.source)
         val nodeArr = JSONArray()
