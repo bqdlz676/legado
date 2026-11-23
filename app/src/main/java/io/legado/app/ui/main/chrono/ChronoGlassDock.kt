@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -256,7 +255,9 @@ private fun ChronoGlassPanel(
 ) {
     if (progress <= 0.01f) return
     val density = LocalDensity.current
-    val velocityTracker = remember { VelocityTracker() }
+    // 该 Compose 档未暴露 VelocityTracker；用相邻两帧位移/时间差估算 px/ms 松手速度
+    var lastDragTime by remember { androidx.compose.runtime.mutableStateOf(0L) }
+    var releaseVelocity by remember { androidx.compose.runtime.mutableStateOf(0f) }
     Column(
         modifier
             .fillMaxWidth()
@@ -266,19 +267,21 @@ private fun ChronoGlassPanel(
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragStart = {
-                        velocityTracker.resetTracking()
+                        lastDragTime = 0L
+                        releaseVelocity = 0f
                         onDragStart()
                     },
                     onVerticalDrag = { change, delta ->
                         change.consume()
-                        velocityTracker.addPosition(change.uptimeMillis, change.position)
+                        val now = change.uptimeMillis
+                        if (lastDragTime != 0L) {
+                            val dt = (now - lastDragTime).coerceAtLeast(1L)
+                            releaseVelocity = delta.y / dt
+                        }
+                        lastDragTime = now
                         onDrag(delta.y)
                     },
-                    onDragEnd = { change ->
-                        velocityTracker.addPosition(change.uptimeMillis, change.position)
-                        val velocityY = velocityTracker.calculateVelocity().y
-                        onRelease(velocityY / 1000f)
-                    },
+                    onDragEnd = { onRelease(releaseVelocity) },
                     onDragCancel = { onRelease(0f) },
                 )
             },
