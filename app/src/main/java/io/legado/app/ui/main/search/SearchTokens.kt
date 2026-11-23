@@ -141,8 +141,14 @@ object SearchTokens {
     /** 历史分区标题。 */
     const val HISTORY_TITLE: String = "搜索历史"
 
-    /** 热门分区标题。 */
+    /** 热门分区标题（本机高频词档）。 */
     const val HOT_TITLE: String = "热门"
+
+    /** 热门回落档标题：最近搜索历史回流。 */
+    const val HOT_TITLE_HISTORY: String = "最近搜过"
+
+    /** 热门回落档标题：随包内置精选典籍词。 */
+    const val HOT_TITLE_SEED: String = "猜你想搜"
 
     /** 清空历史文案。 */
     const val CLEAR_HISTORY_LABEL: String = "清空历史"

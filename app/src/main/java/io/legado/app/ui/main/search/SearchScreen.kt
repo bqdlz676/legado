@@ -210,6 +210,7 @@ private fun IdleBody(
         SearchHistoryPanel(
             history = state.history,
             hot = state.hot,
+            hotSource = state.hotSource,
             onPick = onPick,
             onRemove = onRemove,
             onClearHistory = onClearHistory,

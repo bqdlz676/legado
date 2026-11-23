@@ -190,14 +190,40 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
                 .map { it.toSearchItem() }
         }
 
+    /** 本机历史词缓存：时间序（历史行）与频次序（热门行）两路流各自持有，任一刷新即重算热门。 */
+    private var historyKeys: List<String> = emptyList()
+    private var usageKeys: List<String> = emptyList()
+
     private fun observeHistory() {
         execute {
             appDb.searchKeywordDao.flowByTime()
                 .catch { AppLog.put("搜索界面获取搜索历史数据失败\n${it.localizedMessage}", it) }
                 .collect { keywords ->
-                    val cleaned = SearchHistory.clean(keywords.map { it.word })
-                    _uiState.update { it.copy(history = cleaned) }
+                    historyKeys = SearchHistory.clean(keywords.map { it.word })
+                    publishHot(historyKeys) { it.copy(history = historyKeys) }
                 }
+        }
+        execute {
+            appDb.searchKeywordDao.flowByUsage()
+                .catch { AppLog.put("搜索界面获取高频搜索词失败\n${it.localizedMessage}", it) }
+                .collect { keywords ->
+                    usageKeys = keywords.map { it.word }
+                    publishHot(historyKeys) { it }
+                }
+        }
+    }
+
+    /**
+     * 按当前两路本地词表重算热门档并回填状态。
+     * [statePatch] 允许历史流同时更新历史行；频次流只刷热门行，不动历史。
+     */
+    private fun publishHot(
+        currentHistory: List<String>,
+        statePatch: (SearchUiState) -> SearchUiState,
+    ) {
+        val hot = SearchHotResolver.resolve(usageKeys, currentHistory)
+        _uiState.update { state ->
+            statePatch(state).copy(hot = hot.keys, hotSource = hot.source)
         }
     }
 

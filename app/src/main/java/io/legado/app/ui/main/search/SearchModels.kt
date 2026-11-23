@@ -86,6 +86,7 @@ sealed interface SearchLoadState {
  * @param loadState 整页加载态
  * @param history 搜索历史（最近在前）
  * @param hot 热门词条
+ * @param hotSource 热门词条来源档位（高频 / 历史回流 / 内置精选 / 防御空态），UI 据此区分标题与点色
  * @param lastResults 上一次成功结果；离线 / 失败时作为缓存兜底保留，不丢失
  */
 data class SearchUiState(
@@ -94,6 +95,7 @@ data class SearchUiState(
     val loadState: SearchLoadState = SearchLoadState.Idle,
     val history: List<String> = emptyList(),
     val hot: List<String> = emptyList(),
+    val hotSource: SearchHotSource = SearchHotSource.EMPTY,
     val lastResults: List<SearchResultItem> = emptyList(),
 ) {
     /** 当前应展示在列表区的结果：Content 取本次结果，离线 / 失败取缓存，其余为空。 */

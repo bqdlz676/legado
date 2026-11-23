@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.sp
 fun SearchHistoryPanel(
     history: List<String>,
     hot: List<String>,
+    hotSource: SearchHotSource,
     onPick: (String) -> Unit,
     onRemove: (String) -> Unit,
     onClearHistory: () -> Unit,
@@ -73,7 +75,7 @@ fun SearchHistoryPanel(
             )
         }
         if (hot.isNotEmpty()) {
-            HotSection(hot = hot, onPick = onPick)
+            HotSection(hot = hot, source = hotSource, onPick = onPick)
         }
     }
 }
@@ -121,15 +123,31 @@ private fun HistorySection(
 }
 
 @Composable
-private fun HotSection(hot: List<String>, onPick: (String) -> Unit) {
+private fun HotSection(hot: List<String>, source: SearchHotSource, onPick: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionTitle(SearchTokens.HOT_TITLE)
+        SectionTitle(hotTitle(source))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(SearchTokens.CHIP_GAP)) {
             hot.forEach { key ->
-                HotChip(text = key, onClick = { onPick(key) })
+                HotChip(text = key, dotColor = hotDot(source), onClick = { onPick(key) })
             }
         }
     }
+}
+
+/** 热门行标题按来源档位区分：高频「热门」/ 历史回流「最近搜过」/ 内置精选「猜你想搜」。 */
+private fun hotTitle(source: SearchHotSource): String = when (source) {
+    SearchHotSource.USAGE -> SearchTokens.HOT_TITLE
+    SearchHotSource.HISTORY -> SearchTokens.HOT_TITLE_HISTORY
+    SearchHotSource.SEED -> SearchTokens.HOT_TITLE_SEED
+    SearchHotSource.EMPTY -> SearchTokens.HOT_TITLE
+}
+
+/** 前置点色按来源档位区分：高频暖金 / 历史回流古铜 / 内置精选云灰。 */
+private fun hotDot(source: SearchHotSource): Color = when (source) {
+    SearchHotSource.USAGE -> SearchTokens.BRAND_GOLD
+    SearchHotSource.HISTORY -> SearchTokens.BRAND_COPPER
+    SearchHotSource.SEED -> SearchTokens.TEXT_TERTIARY
+    SearchHotSource.EMPTY -> SearchTokens.BRAND_GOLD
 }
 
 @Composable
@@ -177,7 +195,7 @@ private fun HistoryChip(text: String, onClick: () -> Unit, onRemove: () -> Unit)
 }
 
 @Composable
-private fun HotChip(text: String, onClick: () -> Unit) {
+private fun HotChip(text: String, dotColor: Color, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
@@ -187,7 +205,7 @@ private fun HotChip(text: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Canvas(Modifier.size(6.dp)) {
-            drawCircle(color = SearchTokens.BRAND_GOLD, radius = size.minDimension / 2f)
+            drawCircle(color = dotColor, radius = size.minDimension / 2f)
         }
         Spacer(Modifier.width(6.dp))
         androidx.compose.foundation.text.BasicText(
