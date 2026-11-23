@@ -137,6 +137,33 @@ data class AnnotationMeta(
 ) {
     /** 导出附注：《左传·隐公元年》第 3 页批注 */
     fun footnote(): String = "《$chapterTitle》${pageLabel}批注"
+
+    companion object {
+        /**
+         * 阅读批注上下文 → 元信息（§8.4）。
+         *
+         * 书名空白视为自由画板，返回 null；章名空白时附注只落书名；
+         * 页码从 0 起换算为「第 N 页」。纯口径收口在模型层，便于 JVM 单测。
+         */
+        fun fromReadContext(
+            bookName: String,
+            chapterName: String,
+            pageIndex: Int,
+            plainText: String,
+            bgImageRef: String? = null,
+        ): AnnotationMeta? {
+            val book = bookName.trim()
+            if (book.isBlank()) return null
+            val chapter = chapterName.trim()
+            val chapterTitle = if (chapter.isBlank()) book else "$book·$chapter"
+            return AnnotationMeta(
+                chapterTitle = chapterTitle,
+                pageLabel = "第 ${pageIndex + 1} 页",
+                plainText = plainText,
+                bgImageRef = bgImageRef,
+            )
+        }
+    }
 }
 
 /** 压感模拟：根据落笔速度换算压感。慢速 → 压感高（笔触粗），快速 → 压感低（笔触细）。 */

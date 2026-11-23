@@ -333,11 +333,8 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
     val screenOrientation: String?
         get() = appCtx.getPrefString(PreferKey.screenOrientation)
 
-    var bookGroupStyle: Int
-        get() = appCtx.getPrefInt(PreferKey.bookGroupStyle, 0)
-        set(value) {
-            appCtx.putPrefInt(PreferKey.bookGroupStyle, value)
-        }
+    // 旧版书柜分组样式双路偏好（bookGroupStyle）随书架单路改造拆除，不再读取 / 写入；
+    // 历史遗留的同名 SharedPreferences 键保留在旧数据里不迁移，属于无害死键。
 
     var bookshelfLayout: Int
         get() = appCtx.getPrefInt(PreferKey.bookshelfLayout, 0)

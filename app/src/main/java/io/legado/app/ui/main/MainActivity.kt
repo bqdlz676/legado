@@ -53,11 +53,8 @@ import io.legado.app.ui.association.ImportHttpTtsDialog
 import io.legado.app.ui.association.ImportReplaceRuleDialog
 import io.legado.app.ui.association.ImportRssSourceDialog
 import io.legado.app.ui.association.ImportTxtTocRuleDialog
-import io.legado.app.ui.main.bookshelf.BaseBookshelfFragment
-import io.legado.app.ui.main.bookshelf.style1.BookshelfFragment1
-import io.legado.app.ui.main.bookshelf.style2.BookshelfFragment2
+import io.legado.app.ui.main.bookshelf.InkShelfFragment
 import io.legado.app.ui.main.explore.ExploreFragment
-import io.legado.app.ui.main.my.MyFragment
 import io.legado.app.ui.main.rss.RssFragment
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.ui.widget.text.BadgeView
@@ -93,8 +90,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
     override val binding by viewBinding(ActivityMainBinding::inflate)
     override val viewModel by viewModels<MainViewModel>()
     private val idBookshelf = 0
-    private val idBookshelf1 = 11
-    private val idBookshelf2 = 12
     private val idExplore = 1
     private val idRss = 2
     private val idMy = 3
@@ -129,7 +124,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 binding.viewPagerMain.currentItem = 0
                 return@addCallback
             }
-            (fragmentMap[getFragmentId(0)] as? BookshelfFragment2)?.let {
+            (fragmentMap[getFragmentId(0)] as? InkShelfFragment)?.let {
                 if (it.back()) {
                     return@addCallback
                 }
@@ -160,10 +155,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             //自动更新书籍
             val isAutoRefreshedBook = savedInstanceState?.getBoolean("isAutoRefreshedBook") ?: false
             if (AppConfig.autoRefreshBook && !isAutoRefreshedBook) {
-                // 墨板预热：书架出来 2s 后在后台把 WebView 引擎点着，进画板不等白屏
-            binding.viewPagerMain.postDelayed(2000) {
-                runCatching { InkSlatePreloader.warmUp(this@MainActivity) }
-            }
             binding.viewPagerMain.postDelayed(2000) {
                     viewModel.upAllBookToc()
                 }
@@ -231,7 +222,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 if (System.currentTimeMillis() - bookshelfReselected > 300) {
                     bookshelfReselected = System.currentTimeMillis()
                 } else {
-                    (fragmentMap[getFragmentId(0)] as? BaseBookshelfFragment)?.gotoTop()
+                    (fragmentMap[getFragmentId(0)] as? InkShelfFragment)?.gotoTop()
                 }
             }
 
@@ -295,9 +286,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
      * 如果重启太快fragment不会重建,这里更新一下书架的排序
      */
     override fun recreate() {
-        (fragmentMap[getFragmentId(0)] as? BaseBookshelfFragment)?.run {
-            upSort()
-        }
+        (fragmentMap[getFragmentId(0)] as? InkShelfFragment)?.upSort()
         super.recreate()
     }
 
@@ -469,13 +458,11 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
         }
     }
 
-    private fun getFragmentId(position: Int): Int {
-        val id = realPositions[position]
-        if (id == idBookshelf) {
-            return if (AppConfig.bookGroupStyle == 1) idBookshelf2 else idBookshelf1
-        }
-        return id
-    }
+    /**
+     * 书柜只走 [InkShelfFragment] 一条路；旧的分组样式双路分流已拆除，
+     * 位置槽位直接映射 fragment id，不再读旧样式偏好。
+     */
+    private fun getFragmentId(position: Int): Int = realPositions[position]
 
     private inner class PageChangeCallback : ViewPager.SimpleOnPageChangeListener() {
 
@@ -503,8 +490,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             val position = (any as MainFragmentInterface).position
                 ?: return POSITION_NONE
             val fragmentId = getId(position)
-            if ((fragmentId == idBookshelf1 && any is io.legado.app.ui.main.bookshelf.InkShelfFragment)
-                || (fragmentId == idBookshelf2 && any is BookshelfFragment2)
+            if ((fragmentId == idBookshelf && any is InkShelfFragment)
                 || (fragmentId == idExplore && any is io.legado.app.ui.main.explore.ExploreInkFragment)
                 || (fragmentId == idRss && any is RssFragment)
                 || (fragmentId == idMy && any is io.legado.app.ui.main.my.MyInkFragment)
@@ -516,8 +502,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
 
         override fun getItem(position: Int): Fragment {
             return when (getId(position)) {
-                idBookshelf1 -> io.legado.app.ui.main.bookshelf.InkShelfFragment(position)
-                idBookshelf2 -> BookshelfFragment2(position)
+                idBookshelf -> InkShelfFragment(position)
                 idExplore -> io.legado.app.ui.main.explore.ExploreInkFragment(position)
                 idRss -> RssFragment(position)
                 else -> io.legado.app.ui.main.my.MyInkFragment(position)

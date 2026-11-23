@@ -135,6 +135,31 @@ class InkSlateModelTest {
     }
 
     @Test
+    fun `阅读上下文拼出名章页码附注`() {
+        val meta = AnnotationMeta.fromReadContext(
+            bookName = "左传",
+            chapterName = "隐公元年",
+            pageIndex = 2,
+            plainText = "初，郑武公娶于申……",
+        )
+        requireNotNull(meta)
+        assertEquals("《左传·隐公元年》第 3 页批注", meta.footnote())
+        assertEquals("初，郑武公娶于申……", meta.plainText)
+    }
+
+    @Test
+    fun `缺章名时附注只落书名 页码从一起算`() {
+        val meta = AnnotationMeta.fromReadContext("史记", "", 0, "")
+        requireNotNull(meta)
+        assertEquals("《史记》第 1 页批注", meta.footnote())
+    }
+
+    @Test
+    fun `书名为空回落自由画板 不带批注`() {
+        assertNull(AnnotationMeta.fromReadContext("  ", "隐公元年", 2, "正文"))
+    }
+
+    @Test
     fun `文字笔迹挂文本后收笔`() {
         val state = blank()
             .selectTool(InkTool.TEXT)

@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,9 +71,14 @@ fun BookshelfScreen(
     onImport: () -> Unit,
     onDeleteBook: (ShelfBookUi) -> Unit,
     onRetry: () -> Unit,
+    scrollTopSignal: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyGridState()
+    // 外部回顶指令（双击底部书柜 tab）：信号自增后滚回首项；首帧 0 不触发。
+    LaunchedEffect(scrollTopSignal) {
+        if (scrollTopSignal > 0) listState.animateScrollToItem(0)
+    }
     // 列表滚动驱动的 camera parallax：卡片随滚动微前倾
     val parallax by remember(listState) {
         derivedStateOf {
@@ -107,6 +113,7 @@ fun BookshelfScreen(
             )
 
             ShelfState.OFFLINE -> OfflineShelf(
+                listState = listState,
                 books = books,
                 parallax = parallax,
                 onOpenBook = onOpenBook,
@@ -333,7 +340,7 @@ private fun RefreshingIndicator(modifier: Modifier = Modifier) {
                     .size(6.dp)
                     .padding(vertical = 3.dp)
                     .background(
-                        ShelfTokens.textTertiary.copy(alpha = alpha),
+                        ShelfTokens.brandGold.copy(alpha = alpha),
                         RoundedCornerShape(50),
                     ),
             )
@@ -383,6 +390,7 @@ private fun EmptyShelf(onImport: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 private fun OfflineShelf(
+    listState: LazyGridState,
     books: List<ShelfBookUi>,
     parallax: Float,
     onOpenBook: (ShelfBookUi) -> Unit,
@@ -420,7 +428,7 @@ private fun OfflineShelf(
             EmptyShelf(onImport = onImport, modifier = Modifier.padding(top = 24.dp))
         } else {
             ShelfGrid(
-                listState = rememberLazyGridState(),
+                listState = listState,
                 books = books,
                 parallax = parallax,
                 bannerDismissed = true,

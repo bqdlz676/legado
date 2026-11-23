@@ -32,7 +32,7 @@ import kotlin.math.sin
  * - 双击画布 = 撤销（§8.3）；
  * - 不包裹 MaterialTheme、不用 Material ripple、颜色只走 [ComponentTokens] / [InkPreset]。
  *
- * PNG 位图编码与 WebView 预热 / 复用属宿主层职责（§8.3 由 Application 侧 WebView 池落地），
+ * PNG 位图编码属宿主层职责（[InkSlateBitmap] 原生渲染，Activity 落盘），
  * 本组件只产出笔迹模型与 SVG 标记（[InkSlateSvg]）。
  */
 @Composable

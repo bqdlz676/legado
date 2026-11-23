@@ -50,6 +50,9 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     private var state by mutableStateOf(ShelfState.INIT_LOADING)
     private var uiBooks by mutableStateOf(emptyList<ShelfBookUi>())
 
+    /** 回顶信号计数：每次 [gotoTop] 自增，画面层观察到变化即滚回首项。 */
+    private var scrollTopSignal by mutableStateOf(0)
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -60,6 +63,7 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
                 state = state,
                 books = uiBooks,
                 newBookCount = uiBooks.count { it.isNew },
+                scrollTopSignal = scrollTopSignal,
                 onOpenBook = ::openBook,
                 onImport = ::openImport,
                 onDeleteBook = ::deleteBook,
@@ -71,6 +75,20 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
         observeBooks()
     }
+
+    /**
+     * 返回键消费：新书架是单组平铺，没有旧版「子分组退回根分组」层级，
+     * 因此不拦截返回键，交由 Activity 走退出 / 退到后台流程。
+     */
+    fun back(): Boolean = false
+
+    /** 双击底部书柜 tab：列表滚回首项（旧版 gotoTop 的等价能力）。 */
+    fun gotoTop() {
+        scrollTopSignal++
+    }
+
+    /** 配置变更后重排：重新订阅书籍流，按最近阅读时间刷新顺序（旧版 upSort 等价能力）。 */
+    fun upSort() = observeBooks()
 
     override fun onDestroyView() {
         flowJob?.cancel()

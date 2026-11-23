@@ -27,7 +27,6 @@ object PreferKey {
     const val showBookshelfStats = "showBookshelfStats"
     const val showBooknameLayout = "showBooknameLayout"
     const val bookshelfMargin = "bookshelfMargin"
-    const val bookGroupStyle = "bookGroupStyle"
     const val useDefaultCover = "useDefaultCover"
     const val loadCoverOnlyWifi = "loadCoverOnlyWifi"
     const val coverShowName = "coverShowName"
