@@ -10,8 +10,9 @@ import org.junit.Test
 
 /**
  * 同名消歧验收（规格切片 05 · 点「晋」）：
- *  按名字拉出全部候选（春秋晋都绛 / 晚期晋都新田 / 晋地泛称 / 现代山西晋城），
- *  时空锚定 -722~-453 后命中「春秋晋国」；现代晋城降级为今址参考层候选，不得默认命中。
+ *  按名字拉出全部候选（春秋晋都绛 / 晚期晋都新田 / 晋国面 / 北魏至唐宋晋州 / 现代山西晋城），
+ *  时空锚定 -722~-453 后命中「春秋晋国」；现代晋城降级为今址参考层候选，不得默认命中；
+ *  唐史语境（700 年）下春秋晋国出区间，晋州进候选但 tier3 单源 low，不默认命中。
  */
 class PlaceAnchorDisambiguationTest {
 
@@ -33,7 +34,7 @@ class PlaceAnchorDisambiguationTest {
         assertFalse(hit.refLayer)
         assertTrue(hit.confidenceTag.canDefault)
 
-        val modern = res.others.firstOrNull { it.id == "P057" }
+        val modern = res.others.firstOrNull { it.id == "P-JINCHENG" }
         assertNotNull(modern)
         assertTrue(modern!!.refLayer)
         assertEquals(ContextAnchor.Confidence.LOW, modern.confidenceTag)
@@ -52,7 +53,7 @@ class PlaceAnchorDisambiguationTest {
         assertFalse(hit.refLayer)
         assertNull(res.others.firstOrNull { it.id == hit.id })
 
-        val modern = res.candidates.firstOrNull { it.id == "P057" }
+        val modern = res.candidates.firstOrNull { it.id == "P-JINCHENG" }
         assertNotNull(modern)
         assertTrue(modern!!.refLayer)
     }
@@ -63,9 +64,23 @@ class PlaceAnchorDisambiguationTest {
         assertTrue(res.anchored)
         // 前722 现代晋城尚未建置，区间内无命中 → 不设默认
         assertNull(res.hit)
-        val modern = res.candidates.firstOrNull { it.id == "P057" }
+        val modern = res.candidates.firstOrNull { it.id == "P-JINCHENG" }
         assertNotNull(modern)
         assertTrue(modern!!.refLayer)
+    }
+
+    @Test
+    fun `tang era anchor surfaces jinzhou as non-default low candidate`() {
+        val res = ChronoPlaces.resolve("晋", year = 700)
+        assertTrue(res.anchored)
+        val jinzhou = res.candidates.firstOrNull { it.id == "P-JINZHOU" }
+        assertNotNull("唐史语境应出现晋州候选", jinzhou)
+        assertTrue(jinzhou!!.inSpan(700))
+        // tier3 文献推定单源 → low，不进默认命中
+        assertEquals(ContextAnchor.Confidence.LOW, jinzhou.confidenceTag)
+        assertFalse(jinzhou.confidenceTag.canDefault)
+        // 春秋晋国在 700 年早已出区间
+        assertTrue(res.candidates.none { it.id == "P003" && it.inSpan(700) })
     }
 
     @Test
@@ -81,7 +96,7 @@ class PlaceAnchorDisambiguationTest {
         val jiang = ChronoPlaces.all().first { it.id == "P003" }
         assertTrue(jiang.isPoint)
         assertTrue(jiang.tier <= 2) // tier2 考证点可画点
-        val fan = ChronoPlaces.all().first { it.id == "A012" }
-        assertFalse(fan.isPoint)
+        val jinState = ChronoPlaces.all().first { it.id == "P-JIN" }
+        assertFalse(jinState.isPoint)
     }
 }

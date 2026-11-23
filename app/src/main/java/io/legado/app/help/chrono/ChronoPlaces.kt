@@ -1,17 +1,21 @@
 package io.legado.app.help.chrono
 
 import io.legado.app.help.chrono.ContextAnchor.Confidence
+import io.legado.app.help.place.PlaceChannel
+import io.legado.app.help.place.PlaceDict
+import io.legado.app.help.place.PlaceEntry
 
 /**
- * 地名时空本体的纯 Kotlin 内核（不依赖 Android Context / Assets）。
+ * 地名时空本体在 C1 侧的置信度闸（纯 Kotlin 内核，不依赖 Android Context / Assets）。
  *
- * 设计要点：
- *  - 运行时由 [io.legado.app.help.PlaceTimeDict] 读完 place_entity.txt / place_name.txt
- *    后调用 [importRecords] 把资产表合并进来，按 id 覆盖种子；
- *  - 单测 / 无资产环境下用内置种子兜底，保证消歧链路不出现空白态；
- *  - 置信度沿用 schema 契约：high | medium | low；tier 1 实测→high，2 考证→medium，3 推定→low；
- *    三源交叉：3/3=high 默认命中，2/3=medium 标「待校」，≤1/3=low 标「待考·来源冲突」不进默认命中；
- *  - 今址参考层（[PlaceSeed.refLayer]）恒 low，永不进默认命中。
+ * 为什么需要这一层：D3 [PlaceDict] 只负责两表检索与同名返回，C1 消歧时还要统一套
+ * 三源交叉置信度闸 + 时空区间排序 + 今址参考层隔离。闸口径（切片-05 §坐标可信度分层）：
+ *  - 3/3 三源一致 → HIGH，默认命中；
+ *  - 2/3 两源一致 → MEDIUM，标「待校」，可进默认；
+ *  - ≤1/3 单源或来源冲突 → LOW，标「待考·来源冲突」，不进默认命中；
+ *  - 今址参考层（[PlaceSeed.refLayer]）恒 LOW，永不进默认命中。
+ *
+ * 生产数据转发自 D3 冻结门面；[importRecords] 是测试 / 资产灌入的覆盖缝，同 id 覆盖 D3 结果。
  */
 object ChronoPlaces {
 
@@ -60,25 +64,63 @@ object ChronoPlaces {
         val hasOthers: Boolean get() = others.isNotEmpty()
     }
 
+    /** 测试 / 资产灌入的覆盖记录：同 id 盖在 D3 结果之上。 */
     @Volatile
-    private var records: List<PlaceSeed> = builtIn()
+    private var overrides: List<PlaceSeed> = emptyList()
 
-    /** 资产表灌入：同 id 覆盖种子，种子独有的条目保留兜底 */
-    fun importRecords(all: List<PlaceSeed>) {
-        if (all.isEmpty()) return
-        val override = all.associateBy { it.id }
-        val merged = records.map { override[it.id] ?: it } +
-            all.filter { candidate -> records.none { it.id == candidate.id } }
-        records = merged
+    /** D3 渠道 → C1 渠道（两套枚举同构，显式映射避免跨包泄漏）。 */
+    private fun mapChannel(c: PlaceChannel): SourceChannel = when (c) {
+        PlaceChannel.ARCHAEOLOGY -> SourceChannel.ARCHAEOLOGY
+        PlaceChannel.ATLAS -> SourceChannel.ATLAS
+        PlaceChannel.TEXT -> SourceChannel.TEXT
+        PlaceChannel.REFERENCE -> SourceChannel.REFERENCE
     }
 
-    fun all(): List<PlaceSeed> = records
+    private fun fromEntry(e: PlaceEntry): PlaceSeed = PlaceSeed(
+        id = e.placeId,
+        name = e.name,
+        kind = e.kind.code,
+        start = e.fromYear,
+        end = e.toYear,
+        tier = e.tier.level,
+        aliases = e.aliases,
+        confidence = e.confidence.wire,
+        source = e.source.label,
+        note = e.note,
+        lng = e.geo?.lng ?: 0.0,
+        lat = e.geo?.lat ?: 0.0,
+        era = e.era ?: "",
+        refLayer = e.refLayer,
+        channels = e.channels.map(::mapChannel).toSet(),
+        declaredConfidence = null,
+    )
 
-    /** 按正名或别名取候选；查询名大小写/空白不敏感 */
+    /** 资产 / 测试灌入：同 id 覆盖 D3 种子，其余条目保留兜底。 */
+    fun importRecords(all: List<PlaceSeed>) {
+        if (all.isEmpty()) return
+        val merged = overrides.map { o -> all.firstOrNull { it.id == o.id } ?: o } +
+            all.filter { candidate -> overrides.none { it.id == candidate.id } }
+        overrides = merged
+    }
+
+    /** 全部在册条目（覆盖记录 + D3 全量），按 id 去重，覆盖记录优先。 */
+    fun all(): List<PlaceSeed> {
+        val base = PlaceDict.all().map(::fromEntry)
+        return mergeOverrides(base)
+    }
+
+    private fun mergeOverrides(base: List<PlaceSeed>): List<PlaceSeed> {
+        val byId = base.associateBy { it.id }.toMutableMap()
+        overrides.forEach { byId[it.id] = it }
+        return byId.values.toList()
+    }
+
+    /** 按正名或别名取候选；查询名大小写/空白不敏感。 */
     fun candidates(name: String): List<PlaceSeed> {
         val q = name.trim()
         if (q.isEmpty()) return emptyList()
-        return records.filter { r -> r.name == q || q in r.aliases }
+        val base = PlaceDict.find(name).map(::fromEntry)
+        return mergeOverrides(base).filter { r -> r.name == q || q in r.aliases }
     }
 
     /**
@@ -131,72 +173,8 @@ object ChronoPlaces {
         Confidence.HIGH -> 0; Confidence.MEDIUM -> 1; Confidence.LOW -> 2
     }
 
-    /** 仅供单测：还原内置种子 */
+    /** 仅供单测：清空覆盖记录。 */
     fun resetForTest() {
-        records = builtIn()
+        overrides = emptyList()
     }
-
-    private fun builtIn(): List<PlaceSeed> = listOf(
-        // 春秋晋都 · 绛（今山西翼城）：「晋 / 晋国」春秋语境的默认所指
-        PlaceSeed(
-            id = "P003", name = "绛", kind = 'P', start = -1035, end = -376, tier = 2,
-            aliases = listOf("晋", "晋国", "翼", "故绛"), confidence = "medium",
-            source = "CHGIS/谭其骧《中国历史地图集》", note = "晋国都城，今山西翼城",
-            lng = 111.40, lat = 35.70, era = "春秋",
-            channels = setOf(SourceChannel.ATLAS),
-        ),
-        // 晋国晚期都城 · 新田（今侯马）：与绛同名「晋」，靠年份区间消歧
-        PlaceSeed(
-            id = "P045", name = "新田", kind = 'P', start = -585, end = -376, tier = 2,
-            aliases = listOf("新田", "晋", "晋国"), confidence = "medium",
-            source = "CHGIS/谭其骧《中国历史地图集》", note = "晋国晚期都城，今侯马",
-            lng = 111.50, lat = 35.40, era = "春秋",
-            channels = setOf(SourceChannel.ATLAS),
-        ),
-        // 晋地泛称（面实体，tier3 文献推定，示意色块，非精确边界）
-        PlaceSeed(
-            id = "A012", name = "晋", kind = 'A', start = -221, end = 1911, tier = 3,
-            aliases = listOf("晋", "并州", "山西", "三晋"), confidence = "low",
-            source = "ctext 地理注释", note = "晋地/并州，山西地区泛称（示意色块，非精确边界）",
-            lng = 112.50, lat = 37.80, era = "西汉",
-            channels = setOf(SourceChannel.TEXT),
-        ),
-        // 现代山西晋城：今址参考层；晋都遗址在翼城/侯马，非此城，永不默认命中
-        PlaceSeed(
-            id = "P057", name = "晋城", kind = 'P', start = 1912, end = 2024, tier = 3,
-            aliases = listOf("晋", "晋城"), confidence = "low",
-            source = "今址参考层", note = "现代山西晋城；晋都遗址在翼城/侯马，非此城",
-            lng = 112.85, lat = 35.49, era = "近现代", refLayer = true,
-            channels = setOf(SourceChannel.REFERENCE),
-        ),
-        // 春秋十二诸侯都邑（种子，资产表载入后按 id 覆盖）
-        PlaceSeed(
-            id = "P001", name = "曲阜", kind = 'P', start = -1043, end = -256, tier = 2,
-            aliases = listOf("鲁", "鲁国", "奄"), confidence = "medium",
-            source = "CHGIS/谭其骧《中国历史地图集》", note = "鲁国都城，今山东曲阜",
-            lng = 116.98, lat = 35.60, era = "春秋",
-            channels = setOf(SourceChannel.ATLAS),
-        ),
-        PlaceSeed(
-            id = "P002", name = "临淄", kind = 'P', start = -1046, end = -221, tier = 2,
-            aliases = listOf("齐", "齐国", "营丘"), confidence = "medium",
-            source = "CHGIS/谭其骧《中国历史地图集》", note = "齐国都城，今山东淄博临淄区",
-            lng = 118.31, lat = 36.86, era = "春秋",
-            channels = setOf(SourceChannel.ATLAS),
-        ),
-        PlaceSeed(
-            id = "P008", name = "新郑", kind = 'P', start = -806, end = -375, tier = 2,
-            aliases = listOf("郑", "郑国", "郑韩故城"), confidence = "medium",
-            source = "CHGIS/谭其骧《中国历史地图集》", note = "郑国都城，今河南新郑",
-            lng = 113.74, lat = 34.40, era = "春秋",
-            channels = setOf(SourceChannel.ATLAS),
-        ),
-        PlaceSeed(
-            id = "P042", name = "洛邑", kind = 'P', start = -1036, end = 1911, tier = 1,
-            aliases = listOf("周", "东周", "洛阳", "成周", "雒阳", "河南"), confidence = "high",
-            source = "考古遗址实测", note = "成周洛邑，今洛阳，东周王城",
-            lng = 112.45, lat = 34.62, era = "东周",
-            channels = setOf(SourceChannel.ARCHAEOLOGY),
-        ),
-    )
 }

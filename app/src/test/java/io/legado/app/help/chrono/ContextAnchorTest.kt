@@ -9,10 +9,10 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 契约 §一 消歧入口验收：
- *  - resolve("晋", -700) 首选春秋晋国（诸侯国），现代晋城进候选且 isDefault=false
+ * 契约 §一 消歧入口验收（D3 地名种子主键对齐 PlaceSeedData）：
+ *  - resolve("晋", -700) 首选春秋晋都绛（诸侯国），现代晋城进候选且 isDefault=false
  *  - resolve("周", -700) → 东周 / 洛邑
- *  - resolve("郑", -700) → 郑国 / 新郑
+ *  - resolve("郑", -700) → 郑韩故城
  *  - 锚点为空不猜；low 置信度不进默认命中
  */
 class ContextAnchorTest {
@@ -26,7 +26,7 @@ class ContextAnchorTest {
     }
 
     @Test
-    fun `resolve 晋 at -700 prefers spring-autumn jin state, modern jincheng non-default`() {
+    fun `resolve 晋 at -700 prefers spring-autumn jin capital not modern jincheng`() {
         val cands = ContextAnchor.resolve("晋", -700)
         assertTrue(cands.isNotEmpty())
 
@@ -37,7 +37,7 @@ class ContextAnchorTest {
         assertTrue(hit.isDefault)
         assertTrue(hit.aliases.contains("晋国"))
 
-        val modern = cands.firstOrNull { it.id == "P057" }
+        val modern = cands.firstOrNull { it.id == "P-JINCHENG" }
         assertNotNull("现代晋城应进今址参考层候选", modern)
         assertFalse(modern!!.isDefault)
         assertEquals(ContextAnchor.Confidence.LOW, modern.confidence)
@@ -48,10 +48,11 @@ class ContextAnchorTest {
         val cands = ContextAnchor.resolve("周", -700)
         assertTrue(cands.isNotEmpty())
         val hit = cands.first()
-        assertEquals("P042", hit.id)
+        assertEquals("P020", hit.id)
         assertEquals("洛邑", hit.name)
         assertTrue(hit.isDefault)
-        assertEquals(ContextAnchor.Confidence.HIGH, hit.confidence)
+        // ATLAS + TEXT 两源交叉 → MEDIUM（待校），可进默认
+        assertEquals(ContextAnchor.Confidence.MEDIUM, hit.confidence)
     }
 
     @Test
@@ -59,8 +60,8 @@ class ContextAnchorTest {
         val cands = ContextAnchor.resolve("郑", -700)
         assertTrue(cands.isNotEmpty())
         val hit = cands.first()
-        assertEquals("P008", hit.id)
-        assertEquals("新郑", hit.name)
+        assertEquals("P010", hit.id)
+        assertEquals("郑韩故城", hit.name)
         assertTrue(hit.isDefault)
         assertTrue(-700 in (hit.start ?: 0)..(hit.end ?: 0))
     }
@@ -129,11 +130,21 @@ class ContextAnchorTest {
         assertEquals("P003", hit.id)
         assertFalse(hit.refLayer)
 
-        val modern = result.firstOrNull { it.id == "P057" }
+        val modern = result.firstOrNull { it.id == "P-JINCHENG" }
         assertNotNull(modern)
         assertTrue(modern!!.refLayer)
         assertFalse(modern.isDefault)
         assertEquals("low", modern.confidence.wire)
+    }
+
+    @Test
+    fun `range anchor resolves spring autumn jin without fixed year`() {
+        // 《左传》只锚到 -722~-453 区间（无精确年），区间相交仍应命中春秋晋国
+        ContextAnchor.setYearRange(-722..-453, "鲁")
+        val result = ContextAnchor.resolve("晋")
+        val defaults = result.filter { it.isDefault }
+        assertEquals(1, defaults.size)
+        assertEquals("P003", defaults.first().id)
     }
 
     @Test

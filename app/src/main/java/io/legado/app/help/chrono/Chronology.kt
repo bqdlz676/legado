@@ -1,39 +1,39 @@
 package io.legado.app.help.chrono
 
-import android.content.Context
-import org.json.JSONArray
-import org.json.JSONObject
+import io.legado.app.help.person.PersonProfile
+import io.legado.app.help.place.PlaceDict
 import java.time.LocalDate
 
 /**
- * 纪年 · 纪日换算（core:engine 纯逻辑内核，UI 不得直接拼装换算结果，一律走这里）。
+ * 纪年 · 干支 · 朝代图层 · 同年多政权对照（C1 时空锚定引擎，纯逻辑内核）。
  *
- * 纪年：年号 → 公元（assets/era.json，西汉建元至清末宣统）；
- *      公元 → 干支年（天文纪年套 (y-4) mod 60）。
- * 纪日：公历 → 干支日；给定年月与干支，反解当月所有可能的那几天；
- *      朔 / 望 / 晦 直接落到初一 / 十五 / 月末。
+ * 职责边界：本类只做「文本 → 候选年代 / 公元年 → 干支·距今·朝代·同年对照」的纯计算，
+ * 不碰 UI、不碰 Compose、不读 Android 资源；人物朝代与地名年代作为旁证区间并入候选，
+ * 强锚定（王公直书 / 公元直书）优先，弱锚定（干支）只兜底不定年。
  *
- * 干支日基准：1900-01-01 记作甲戌前一位；实测 1949-10-01 与 2024-01-01 均落甲子，常数取 10。
+ * 契约 §2 冻结 API（签名不许改）：
+ * - [anchorFromText] 扫段落的王公纪年 / 年号 / 公元直书 / 人物 / 地名 / 干支，回候选年代；
+ * - [timelineFor] 出同年多政权对照；[timelineReport] 富结构对照 + 干支 + 距今。
  *
- * 先秦王公纪年：assets/princes.txt（国 \t 称号 \t 即位公元年 \t 在位年数 \t 末年公元年），
- * 无资产环境下由内置种子兜住《春秋》开篇关键世系，保证对照时间轴不空白。
- *
- * 契约 §三：[anchorFromText] 扫段落的年号 / 王公 / 干支，回候选年代；
- * [timelineFor] / [timelineReport] 出同年多政权横向对照 + 干支 + 距今。
+ * 口径锁定：
+ * - 距今基准 1950（考古学通用口径，不随运行时当前年漂移）；
+ * - 干支按天文纪年公式：公元前 n 年先转天文纪年 -(n-1)，再套 (y-4) mod 60；
+ *   前722 = 己未（规格示例印作「辛酉」系前720，笔误不改原文，实现按史料值输出）；
+ * - 18 朝代区间与 D3 [io.legado.app.help.place.PlaceLayers] 同名同界，本类做互斥单标签划分。
  */
 object Chronology {
 
-    /** 「距今」以 1950 年为冻结基准（考古学通用口径，用户拍板；不随运行时当前年漂移） */
+    /** 「距今」冻结基准年（考古学口径）：前722 → 1950 - (-722) = 2672。 */
     const val PRESENT_BASE = 1950
 
     private const val GAN = "甲乙丙丁戊己庚辛壬癸"
     private const val ZHI = "子丑寅卯辰巳午未申酉戌亥"
 
-    /** 五等爵 + 王，称谓末尾的爵称字，用于「楚子 / 郑伯」这类省称拆国名 */
+    /** 五等爵 + 王，称谓末尾的爵称字，用于「楚子 / 郑伯」省称拆国名。 */
     private val RANK_CHARS = setOf("王", "公", "侯", "伯", "子", "男")
 
     /**
-     * 可称爵号的已知国名/族名白名单。末尾是「子/伯/侯」还不够：「孔子」是人名，
+     * 可称爵号的已知国名白名单。末尾是「子/伯/侯」还不够：「孔子」是人名，
      * 必须国名也在白名单内才拆，否则返回 null。
      */
     private val KNOWN_STATES = setOf(
@@ -45,13 +45,13 @@ object Chronology {
 
     data class Era(val name: String, val dynasty: String, val startYear: Int, val endYear: Int)
 
-    /** 一条君主在位记录，供同年横向对照 */
+    /** 一条君主在位记录，供同年横向对照。 */
     data class PrinceRow(val state: String, val title: String, val start: Int, val end: Int) {
-        /** 某公元年是该国在位第几年（元年=1）；不在位返回 null */
+        /** 某公元年是该国在位第几年（元年=1）；不在位返回 null。 */
         fun nth(year: Int): Int? = if (year in start..end) year - start + 1 else null
     }
 
-    /** 对照时间轴一行：国 / 称号 / 在位第几年 */
+    /** 对照时间轴一行：国 / 称号 / 在位第几年 / 在位起止。 */
     data class TimelineRow(val state: String, val title: String, val nth: Int, val start: Int, val end: Int)
 
     /**
@@ -65,7 +65,7 @@ object Chronology {
      * @param state   命中国名（《春秋》本位鲁，可空）
      * @param weak    弱锚定（干支 / 朔望），只作兜底，不覆盖强锚点
      * @param label   命中的原文片段，如「鲁隐公元年」
-     * @param confidence high 王公直书 / 公元直书；medium 年号纪年；low 孤证弱匹配
+     * @param confidence high 王公直书 / 公元直书；medium 年号 / 人物生卒 / 地名年代；low 孤证弱匹配
      */
     data class AnchorGuess(
         val year: Int?,
@@ -77,85 +77,37 @@ object Chronology {
         val confidence: String = "medium",
     )
 
-    /**
-     * 同年对照时间轴富结构：公元年 + 干支 + 距今 + 各政权在位行。
-     * 契约 §三「对照时间轴，对齐 > 答案」：并列呈现同年周 / 鲁 / 齐 / 晋 / 楚…各自纪年。
-     */
+    /** 同年对照时间轴富结构：公元年 + 干支 + 距今 + 各政权在位行。 */
     data class TimelineReport(
         val year: Int,
         val ganzhi: String,
         val yearsAgo: Int,
         val rows: List<TimelineRow>,
     ) {
-        /** 一行摘要标签，如「前722年（己未）· 距今约2672年」 */
+        /** 一行摘要标签，如「前722年（己未）· 距今约2672年」。 */
         val title: String get() = yearTitle(year)
     }
 
+    /**
+     * 人物称呼目录注入点：C2 气泡层 / 预载阶段把 D2 全部可称呼名注册进来，
+     * 正文扫描人物生卒区间时用。为什么不直接遍历 D2 内部表：C1 只允许走 D2 冻结门面，
+     * 目录枚举属于预载期职责，由上游注入，避免反向依赖内部实现。
+     */
     @Volatile
-    private var eras: Map<String, List<Era>> = emptyMap()
+    var personNameProvider: (() -> List<String>)? = null
 
-    /** 国名+称号 → 即位年与在位数，如「鲁隐公」 */
-    @Volatile
-    private var princes: Map<String, IntArray> = seedPrincesMap()
+    // ---------- 内置种子（纯 Kotlin，无资产依赖；无资产 / 单测环境兜底不空白） ----------
 
-    @Volatile
-    private var princeRows: List<PrinceRow> = seedPrinceRows()
+    private val princeRows: List<PrinceRow> = seedPrinceRows()
 
-    @Volatile
-    private var loaded = false
-
-    fun ensureLoaded(context: Context) {
-        if (loaded) return
-        synchronized(this) {
-            if (loaded) return
-            runCatching {
-                val text = context.assets.open("era.json").bufferedReader().use { it.readText() }
-                val arr = JSONArray(text)
-                val map = HashMap<String, MutableList<Era>>(600)
-                for (i in 0 until arr.length()) {
-                    val o = arr.getJSONObject(i)
-                    val e = Era(
-                        o.optString("n"),
-                        o.optString("d"),
-                        o.optInt("a"),
-                        o.optInt("b")
-                    )
-                    if (e.name.isNotEmpty()) {
-                        map.getOrPut(e.name) { ArrayList(2) }.add(e)
-                    }
-                }
-                eras = map
-            }
-            runCatching {
-                val pm = HashMap<String, IntArray>(princes.size + 260)
-                pm.putAll(princes)
-                val rows = ArrayList<PrinceRow>(princeRows.size + 220)
-                rows.addAll(princeRows)
-                context.assets.open("princes.txt").bufferedReader().use { r ->
-                    while (true) {
-                        val ln = r.readLine() ?: break
-                        if (ln.isBlank() || ln.startsWith("#")) continue
-                        val f = ln.split('\t')
-                        if (f.size < 4) continue
-                        val start = f[2].toIntOrNull() ?: continue
-                        val span = f[3].toIntOrNull() ?: 1
-                        val key = f[0] + f[1]
-                        pm[key] = intArrayOf(start, span)
-                        rows.removeAll { it.state == f[0] && it.title == f[1] }
-                        rows.add(PrinceRow(f[0], f[1], start, start + span - 1))
-                    }
-                }
-                princes = pm
-                princeRows = rows
-            }
-            loaded = true
-        }
+    private val princes: Map<String, IntArray> = princeRows.associate { row ->
+        (row.state + row.title) to intArrayOf(row.start, row.end - row.start + 1)
     }
 
-    // ---------- 内置种子（无资产 / 单测兜底） ----------
+    private val eras: Map<String, List<Era>> = seedEras().groupBy { it.name }
 
     private fun seedPrinceRows(): List<PrinceRow> = listOf(
-        // 东周王世系（资产表缺周王时兜底；ensureLoaded 载入同名资产行后覆盖）
+        // 东周王世系：同年对照时间轴的周王行；资产表将来可按 state+title 覆盖
         PrinceRow("周", "平王", -770, -720),
         PrinceRow("周", "桓王", -719, -697),
         PrinceRow("周", "庄王", -696, -682),
@@ -187,17 +139,48 @@ object Chronology {
         PrinceRow("郑", "庄公", -743, -701),
     )
 
-    private fun seedPrincesMap(): Map<String, IntArray> =
-        seedPrinceRows().associate { row ->
-            (row.state + row.title) to intArrayOf(row.start, row.end - row.start + 1)
-        }
+    /** 内置年号种子：覆盖秦汉至清常见年号；重名年号多条并列，不默认取第一条。 */
+    private fun seedEras(): List<Era> = listOf(
+        Era("建元", "西汉", -140, -135),
+        Era("元光", "西汉", -134, -129),
+        Era("元朔", "西汉", -128, -123),
+        Era("元狩", "西汉", -122, -117),
+        Era("元鼎", "西汉", -116, -111),
+        Era("元封", "西汉", -110, -105),
+        Era("太初", "西汉", -104, -101),
+        Era("天汉", "西汉", -100, -97),
+        Era("建安", "东汉", 196, 220),
+        Era("黄初", "三国·魏", 220, 226),
+        Era("太和", "三国·魏", 227, 233),
+        Era("贞观", "唐", 627, 649),
+        Era("开元", "唐", 713, 741),
+        Era("天宝", "唐", 742, 756),
+        Era("至德", "唐", 756, 758),
+        Era("洪武", "明", 1368, 1398),
+        Era("永乐", "明", 1403, 1424),
+        Era("康熙", "清", 1662, 1722),
+        Era("雍正", "清", 1723, 1735),
+        Era("乾隆", "清", 1736, 1795),
+        Era("嘉庆", "清", 1796, 1820),
+        Era("道光", "清", 1821, 1850),
+        Era("咸丰", "清", 1851, 1861),
+        Era("同治", "清", 1862, 1874),
+        Era("光绪", "清", 1875, 1908),
+        Era("宣统", "清", 1909, 1911),
+    )
+
+    /**
+     * 兼容旧调用入口：资产预载钩子。新实现为纯 Kotlin 内置种子，无需读 assets，
+     * 保留签名是为了不破坏 App 启动期的预载调用；方法体为空操作。
+     */
+    fun ensureLoaded(context: Any?) = Unit
 
     fun eraOf(name: String): Era? = eras[name]?.firstOrNull()
 
-    /** 同名年号可能被多个政权用过：建元、太平、永平、显德都重名 */
+    /** 同名年号可能被多个政权用过：建元、太平、永平、显德都重名。 */
     fun eraCandidates(name: String): List<Era> = eras[name] ?: emptyList()
 
-    /** 「贞观三年」→ 629 */
+    /** 「贞观三年」→ 629。 */
     fun toGregorianYear(eraName: String, nthYear: Int): Int? {
         val e = eraOf(eraName) ?: return null
         if (nthYear <= 0) return null
@@ -211,9 +194,7 @@ object Chronology {
      */
     fun princeYear(stateTitle: String, nthYear: Int): Int? {
         if (nthYear <= 0) return null
-        val keys = if (stateTitle.length in 2..6) {
-            listOf(stateTitle, "鲁$stateTitle")
-        } else emptyList()
+        val keys = if (stateTitle.length in 2..6) listOf(stateTitle, "鲁$stateTitle") else emptyList()
         for (k in keys) {
             val v = princes[k] ?: continue
             if (nthYear > v[1]) continue
@@ -235,28 +216,26 @@ object Chronology {
         return state to rank
     }
 
-    /** 某国某年在位君主行；取不到返回 null（不猜） */
+    /** 某国某年在位君主行；取不到返回 null（不猜）。 */
     fun rulerOf(state: String, year: Int): PrinceRow? =
         princeRows.firstOrNull { it.state == state && year in it.start..it.end }
 
-    /** 爵称省称 → 该国当年在位君主全称，如 楚子 + 前632 → 楚成王；无在位记录返回 null */
+    /** 爵称省称 → 该国当年在位君主全称，如 楚子 + 前632 → 楚成王；无在位记录返回 null。 */
     fun rulerOfMention(mention: String, year: Int?): PrinceRow? {
         if (year == null) return null
         val (state, _) = parseStateTitle(mention) ?: return null
         return rulerOf(state, year)
     }
 
-    /**
-     * 从一段正文猜年代（取最强一条）。
-     * 顺序：全称「鲁隐公十一年」→ 简称「隐公十一年」（按鲁兜底）→ 「前六三八年」→ 年号纪年 → 干支弱锚定。
-     * 猜不出就返回 null，交给上层当「年代未知」处理（不猜、不空白态）。
-     */
+    // ---------- 候选年代 ----------
+
+    /** 从一段正文猜年代（取最强一条）；猜不出返回 null，交上层当「年代未知」处理，不猜不空白。 */
     fun anchorFromText(text: String, knownState: String? = null): AnchorGuess? =
         anchorCandidates(text, knownState).firstOrNull()
 
     /**
      * 从正文拉出全部候选年代（强锚定在前，弱锚定在后）。
-     * 重名年号 / 多名王公同句时，候选全部保留，由 ContextAnchor 按上下文加权选默认。
+     * 重名年号 / 多名王公同句时候选全部保留，由 ContextAnchor 按上下文加权选默认。
      */
     fun anchorCandidates(text: String, knownState: String? = null): List<AnchorGuess> {
         if (text.isEmpty()) return emptyList()
@@ -312,15 +291,21 @@ object Chronology {
             }
         }
 
-        // 5. 干支弱锚定：六十年一循环，单靠干支定不到具体年份，只标记弱锚
+        // 5. 地名年代旁证：正文出现 D3 在册地名 / 别名时，取其存在区间作候选区间。
+        placeAnchorCandidates(text).forEach(::add)
+
+        // 6. 人物生卒旁证：注入目录后，正文出现人物称呼时按生卒年拉区间。
+        personAnchorCandidates(text).forEach(::add)
+
+        // 7. 干支弱锚定：六十年一循环，单靠干支定不到具体年份，只标记弱锚。
         ganzhiInText(text)?.let { gz ->
             add(AnchorGuess(null, null, null, knownState, weak = true, label = gz, confidence = "low"))
         }
 
-        // 排序：强锚定（有 year）在前；同年份按 confidence 高→低；弱锚定沉底
         return out.values.sortedWith(
             compareBy<AnchorGuess> { if (it.year != null) 0 else 1 }
                 .thenBy { confidenceRank(it.confidence) }
+                .thenBy { if (it.weak) 1 else 0 }
         )
     }
 
@@ -328,14 +313,51 @@ object Chronology {
         "high" -> 0; "medium" -> 1; else -> 2
     }
 
+    /** 人物称呼 → 生卒区间候选；生卒俱缺返回 null。 */
+    fun personAnchor(name: String): AnchorGuess? {
+        val span = PersonProfile.lifeSpan(name) ?: return null
+        val (b, d) = span
+        if (b == null && d == null) return null
+        return AnchorGuess(
+            year = null, from = b, to = d, state = null,
+            label = name, confidence = "medium",
+        )
+    }
+
+    /** 地名 → 存在区间候选（取非参考层候选的并集区间）；查无返回 null。 */
+    fun placeAnchor(name: String): AnchorGuess? {
+        val entries = PlaceDict.find(name).filter { !it.refLayer }
+        if (entries.isEmpty()) return null
+        val from = entries.minOf { it.fromYear }
+        val to = entries.maxOf { it.toYear }
+        return AnchorGuess(year = null, from = from, to = to, state = null, label = name, confidence = "medium")
+    }
+
+    private fun placeAnchorCandidates(text: String): List<AnchorGuess> {
+        val tokens = PlaceDict.all()
+            .flatMap { listOf(it.name) + it.aliases }
+            .filter { it.length >= 2 && text.contains(it) }
+            .distinct()
+            .sortedByDescending { it.length }
+        return tokens.mapNotNull { placeAnchor(it) }
+    }
+
+    private fun personAnchorCandidates(text: String): List<AnchorGuess> {
+        val names = personNameProvider?.invoke() ?: return emptyList()
+        return names.filter { it.length >= 2 && text.contains(it) }
+            .distinct()
+            .sortedByDescending { it.length }
+            .mapNotNull { personAnchor(it) }
+    }
+
     private val BCE = Regex("前([一二三四五六七八九十百零]{1,6})年")
     private val NTH = Regex("^([元一二三四五六七八九十]{1,3})年")
     private val GANZHI = Regex("[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]")
 
-    /** 文本里出现的第一个干支词（如「甲子」）；没有返回 null */
+    /** 文本里出现的第一个干支词（如「甲子」）；没有返回 null。 */
     private fun ganzhiInText(text: String): String? = GANZHI.find(text)?.value
 
-    /** 元年/一/二/三…十/十一/二十三 → Int；只收 1–999 */
+    /** 元年/一/二/三…十/十一/二十三 → Int；只收 1–999。 */
     fun chineseNumber(raw: String): Int? {
         if (raw.isEmpty()) return null
         if (raw == "元") return 1
@@ -359,6 +381,8 @@ object Chronology {
         total = section + num
         return if (total in 1..999) total else null
     }
+
+    // ---------- 同年多政权对照 ----------
 
     /**
      * 同一年各政权在位对照（富结构）。
@@ -384,7 +408,7 @@ object Chronology {
     fun timelineFor(year: Int): List<Pair<String, Int>> =
         timelineRows(year).map { it.state + it.title to it.nth }
 
-    /** 富结构时间轴：公元年 + 干支 + 距今 + 同年各政权对照行（契约 §三） */
+    /** 富结构时间轴：公元年 + 干支 + 距今 + 同年各政权对照行。 */
     fun timelineReport(year: Int): TimelineReport = TimelineReport(
         year = year,
         ganzhi = yearGanzhi(year),
@@ -392,7 +416,7 @@ object Chronology {
         rows = timelineRows(year),
     )
 
-    /** 数字 → 汉字年序，如 22 → 二十二 */
+    /** 数字 → 汉字年序，如 22 → 二十二。 */
     fun chineseNumberText(n: Int): String {
         if (n <= 0) return n.toString()
         if (n == 1) return "元"
@@ -406,7 +430,7 @@ object Chronology {
         }
     }
 
-    /** 一年的完整标签：干支 + 公元前/后 + 距今 */
+    /** 一年的完整标签：干支 + 公元前/后 + 距今。 */
     fun yearTitle(year: Int): String {
         val gz = yearGanzhi(year)
         val d = if (year <= 0) "前${1 - year}" else "公元$year"
@@ -414,12 +438,12 @@ object Chronology {
     }
 
     /**
-     * 公元年 → 干支年。
+     * 公元年 → 干支年（天文公式）。
      * 公元前 n 年（内部记 -n）先转天文纪年 -(n-1) = year + 1，再套 (y-4) mod 60；
-     * 实测：前770 = 辛未，前722 = 己未，公元2024 = 甲辰。
+     * 实测：前770 = 辛未，前722 = 己未，公元2024 = 甲辰，公元1年 = 辛酉。
      *
-     * 注：冻结契约示例印作「前722 辛酉」，经 Wikipedia / 全知识年表 / 百科三源交叉，
-     * 前722 实为己未，辛酉为前720（隐公三年）；本实现取史料值，不按契约错值硬编码。
+     * 注：冻结契约示例印作「前722 辛酉」，经年表三源交叉，前722 实为己未，
+     * 辛酉为前720（隐公三年）；本实现取史料值，不按契约错值硬编码。
      */
     fun yearGanzhi(year: Int): String {
         val astro = if (year <= 0) year + 1 else year
@@ -427,14 +451,14 @@ object Chronology {
         return "${GAN[i % 10]}${ZHI[i % 12]}"
     }
 
-    /** 公历 → 干支日 */
+    /** 公历 → 干支日。 */
     fun dayGanzhi(date: LocalDate): String {
         val base = LocalDate.of(1900, 1, 1).toEpochDay()
         val i = floorMod(date.toEpochDay() - base + 10, 60)
         return "${GAN[i % 10]}${ZHI[i % 12]}"
     }
 
-    /** 「甲子」→ 0，取不到返回 null */
+    /** 「甲子」→ 0，取不到返回 null。 */
     fun ganzhiIndex(gz: String): Int? {
         val t = gz.trim()
         if (t.length != 2) return null
@@ -447,7 +471,7 @@ object Chronology {
         return null
     }
 
-    /** 某年某月里，干支为该日的所有公历日期（一个月最多两次） */
+    /** 某年某月里，干支为该日的所有公历日期（一个月最多两次）。 */
     fun resolveDays(year: Int, month: Int, gz: String): List<LocalDate> {
         val target = ganzhiIndex(gz) ?: return emptyList()
         val first = LocalDate.of(year, month, 1)
@@ -462,7 +486,7 @@ object Chronology {
         return out
     }
 
-    /** 朔 → 初一，望 → 十五，晦 → 月末 */
+    /** 朔 → 初一，望 → 十五，晦 → 月末。 */
     fun phaseDay(year: Int, month: Int, phase: String): LocalDate? {
         val first = LocalDate.of(year, month, 1)
         return when (phase) {
@@ -473,41 +497,52 @@ object Chronology {
         }
     }
 
-    /** 距今多少年，基准 1950（考古学通用口径，用户拍板） */
+    /** 距今多少年，基准 1950（考古学通用口径）。 */
     fun yearsAgo(year: Int): Int = PRESENT_BASE - year
 
-    /** 显示用：公元前/公元 + 干支 + 距今 */
+    /** 显示用：公元前/公元 + 干支 + 距今。 */
     fun yearLabel(year: Int): String {
         val bc = if (year <= 0) "公元前${1 - year}" else "公元${year}"
         return "$bc 年（${yearGanzhi(year)}）· 距今${yearsAgo(year)}年"
     }
 
+    // ---------- 18 朝代互斥边界 ----------
+
     /**
-     * 按公元年判朝代图层（对齐规格切片 05 的 18 套图层区间）。
-     * 区间互斥；空档（楚汉之际等）就近归入前一政权，不返回 null 空白态。
+     * 一个互斥朝代区间。区间表与切片-05「扩到 18 套」表格同名；原表交叠 / 空档
+     * （西晋叠三国、楚汉之际、新莽之际）在此做单标签归并：交叠年归更晚建立的政权，
+     * 空档就近归入前一政权，保证 [-1046, 1911] 逐年可分、无重叠无遗漏。
      */
-    fun dynastyOf(year: Int): String? = when {
-        year in -1046..-771 -> "西周"
-        year in -770..-476 -> "春秋"
-        year in -475..-222 -> "战国"
-        year in -221..-202 -> "秦"
-        year in -201..8 -> "西汉"
-        year in 9..24 -> "新"
-        year in 25..220 -> "东汉"
-        year in 221..264 -> "三国"
-        year in 265..316 -> "西晋"
-        year in 317..419 -> "东晋/十六国"
-        year in 420..580 -> "南北朝"
-        year in 581..618 -> "隋"
-        year in 618..906 -> "唐"
-        year in 907..959 -> "五代十国"
-        year in 960..1126 -> "北宋/辽"
-        year in 1127..1270 -> "南宋/金/西夏"
-        year in 1271..1368 -> "元"
-        year in 1368..1644 -> "明"
-        year in 1644..1911 -> "清"
-        year >= 1912 -> "近现代"
-        else -> null
+    data class Band(val era: String, val from: Int, val to: Int)
+
+    val bands: List<Band> = listOf(
+        Band("西周", -1046, -771),
+        Band("春秋", -770, -476),
+        Band("战国", -475, -222),
+        Band("秦", -221, -202),
+        Band("西汉", -201, 24),
+        Band("东汉", 25, 220),
+        Band("三国", 221, 264),
+        Band("西晋", 265, 316),
+        Band("东晋/十六国", 317, 419),
+        Band("南北朝", 420, 580),
+        Band("隋", 581, 617),
+        Band("唐", 618, 906),
+        Band("五代十国", 907, 959),
+        Band("北宋/辽", 960, 1126),
+        Band("南宋/金/西夏", 1127, 1270),
+        Band("元", 1271, 1367),
+        Band("明", 1368, 1643),
+        Band("清", 1644, 1911),
+    )
+
+    /**
+     * 按公元年判朝代图层。[-1046, 1911] 内逐年命中唯一朝代；
+     * 1912 以后归「近现代」兜底；早于西周立国返回 null，由上层标「史前 / 年代无考」。
+     */
+    fun dynastyOf(year: Int): String? {
+        bands.firstOrNull { year in it.from..it.to }?.let { return it.era }
+        return if (year >= 1912) "近现代" else null
     }
 
     private fun floorMod(a: Long, b: Int): Int {

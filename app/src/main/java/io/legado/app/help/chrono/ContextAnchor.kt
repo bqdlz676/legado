@@ -4,8 +4,8 @@ package io.legado.app.help.chrono
  * ContextAnchor —— 纪年、字词、地名、人物四模块之间唯一的共享状态，
  * 也是全 app 唯一的名称消歧入口（[resolve]）。
  *
- * 不是可选件：纪年算出的年份写这里，地名按这里选朝代图层，人物同名按这里消歧。
- * 四个模块互不调用，只读写这一个锚点。
+ * 为什么必须是单点：纪年算出的年份写这里，地名按这里选朝代图层，人物同名按这里消歧。
+ * 四个模块互不调用，只读写这一个锚点；锚点不持 UI，不订阅生命周期，纯逻辑可单测。
  *
  * 锚定优先级（由高到低）：
  *   1 用户点年号气泡 → setYear（用户主动确认，最高）
@@ -48,9 +48,9 @@ object ContextAnchor {
 
             /**
              * 三源交叉打分。
-             * @param channels   该实体汇集到的去重学术渠道（实体行 + 名称快照行）
-             * @param refLayer   是否今址参考层
-             * @param tier       坐标层级 1 实测 / 2 考证 / 3 推定（tier1 遗址点按三源一致处理）
+             * @param channels 该实体汇集到的去重学术渠道（实体行 + 名称快照行）
+             * @param refLayer 是否今址参考层
+             * @param tier 坐标层级 1 实测 / 2 考证 / 3 推定（tier1 遗址点按三源一致处理）
              */
             fun grade(channels: Set<SourceChannel>, refLayer: Boolean, tier: Int): Confidence {
                 if (refLayer || SourceChannel.REFERENCE in channels) return LOW
@@ -77,25 +77,25 @@ object ContextAnchor {
         val confidence: Confidence,
         val source: String,
         val isDefault: Boolean = false,
-        /** 面/点：place 用，点优先排序；其余类型默认 true 不参与该档 */
+        /** 面/点：place 用，点优先排序；其余类型默认 true 不参与该档。 */
         val isPoint: Boolean = true,
         val note: String = "",
-        /** 今址参考层：永不进默认命中 */
+        /** 今址参考层：永不进默认命中。 */
         val refLayer: Boolean = false,
     ) {
         val confidenceLabel: String get() = confidence.label
     }
 
-    /** 当前书 */
+    /** 当前书。 */
     var bookId: String = ""
 
-    /** 当前章 */
+    /** 当前章。 */
     var chapterId: String = ""
 
-    /** 章节标题，如「隐公元年」 */
+    /** 章节标题，如「隐公元年」。 */
     var title: String = ""
 
-    /** 候选年代区间（弱锚定，可多条） */
+    /** 候选年代区间（弱锚定，可多条）。 */
     var candidateYears: List<IntRange> = emptyList()
 
     @Volatile
@@ -104,7 +104,7 @@ object ContextAnchor {
     @Volatile
     private var range: IntRange? = null
 
-    /** 当前文本所属国（《左传》按鲁，但一章可能写楚事） */
+    /** 当前文本所属国（《左传》按鲁，但一章可能写楚事）。 */
     @Volatile
     var state: String? = null
         private set
@@ -122,7 +122,7 @@ object ContextAnchor {
 
     // ---------- 锚点写入 ----------
 
-    /** 纪年换算后写入（用户确认或正文确指） */
+    /** 纪年换算后写入（用户确认或正文确指）。 */
     fun setYear(year: Int) {
         setYear(year, state)
     }
@@ -135,7 +135,7 @@ object ContextAnchor {
         notifyChanged()
     }
 
-    /** 模糊年代写入 */
+    /** 模糊年代写入。 */
     fun setYearRange(range: IntRange) {
         setYearRange(range, state)
     }
@@ -148,16 +148,16 @@ object ContextAnchor {
         notifyChanged()
     }
 
-    /** 取最佳锚定年份：能定到一年才返回 */
+    /** 取最佳锚定年份：能定到一年才返回。 */
     fun getYear(): Int? = year
 
-    /** 取候选年代区间（弱锚定兜底用） */
+    /** 取候选年代区间（弱锚定兜底用）。 */
     fun getRange(): IntRange? = range
 
-    /** 年份 → 朝代名 */
+    /** 年份 → 朝代名。 */
     fun getDynasty(): String? = eraOf(year ?: range?.first)
 
-    /** 是否已锚定年代 */
+    /** 是否已锚定年代。 */
     fun hasAnchor(): Boolean = year != null || range != null
 
     fun reset() {
@@ -221,13 +221,13 @@ object ContextAnchor {
         return y in r
     }
 
-    /** 按公元年判时代，给地图选图层用 */
+    /** 按公元年判时代，给地图选图层用。 */
     fun eraOf(y: Int?): String? {
         val v = y ?: year ?: range?.first ?: return null
         return Chronology.dynastyOf(v)
     }
 
-    /** 从一段正文猜年代：先年号，再王公纪年，再干支；都没把握就留空 */
+    /** 从一段正文猜年代：先王公/年号，再人物/地名旁证，再干支；都没把握就留空。 */
     fun guessFromText(text: String, knownState: String? = null) {
         if (text.isBlank()) return
         val hit = Chronology.anchorFromText(text, knownState) ?: return
@@ -303,22 +303,35 @@ object ContextAnchor {
         personProvider?.invoke(q)?.forEach(::put)
         allusionProvider?.invoke(q)?.forEach(::put)
 
-        val sorted = byKey.values.sortedWith(anchorComparator(year))
+        // 固定年优先；只有区间锚定时用区间相交参与排序与默认判定。
+        val effYear = year ?: this.year
+        val effRange = range
+        val sorted = byKey.values.sortedWith(anchorComparator(effYear, effRange))
 
-        // 默认命中：锚定年份下、落在存在区间内、非参考层、可默认的第一条；
+        // 默认命中：锚定年份 / 区间内、非参考层、可默认的第一条；
         // 无锚点、区间内无命中、区间内全 low / 参考层时不设默认（不猜）
-        val defaultIdx = if (year == null) -1 else
-            sorted.indexOfFirst { inSpan(it, year) && !it.refLayer && it.confidence.canDefault }
+        val defaultIdx = if (effYear == null && effRange == null) -1 else
+            sorted.indexOfFirst { inAnchor(it, effYear, effRange) && !it.refLayer && it.confidence.canDefault }
         return sorted.mapIndexed { i, c -> c.copy(isDefault = i == defaultIdx) }
     }
 
     private fun inSpan(c: Candidate, year: Int): Boolean =
         c.start != null && c.end != null && year in c.start..c.end
 
-    /** 消歧排序：时空命中 → 非参考层 → tier 高 → 区间窄 → 点优先 → 置信度高 */
-    private fun anchorComparator(year: Int?): Comparator<Candidate> =
+    private fun inRange(c: Candidate, range: IntRange): Boolean =
+        c.start != null && c.end != null && c.start <= range.last && c.end >= range.first
+
+    private fun inAnchor(c: Candidate, year: Int?, range: IntRange?): Boolean =
+        (year != null && inSpan(c, year)) || (range != null && inRange(c, range))
+
+    /** 消歧排序：时空命中（年精确 > 区间相交）→ 非参考层 → tier 高 → 区间窄 → 点优先 → 置信度高。 */
+    private fun anchorComparator(year: Int?, range: IntRange?): Comparator<Candidate> =
         compareBy<Candidate> { c ->
-            if (year != null && c.start != null && c.end != null && year in c.start..c.end) 0 else 1
+            when {
+                year != null && c.start != null && c.end != null && year in c.start..c.end -> 0
+                range != null && inRange(c, range) -> 1
+                else -> 2
+            }
         }.thenBy { if (it.refLayer) 1 else 0 }
             .thenBy { it.tier }
             .thenBy { c ->
