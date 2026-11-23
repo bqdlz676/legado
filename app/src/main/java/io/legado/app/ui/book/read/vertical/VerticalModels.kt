@@ -8,11 +8,11 @@ package io.legado.app.ui.book.read.vertical
  * - 字：列内自上而下排列；[CharCell.x]/[CharCell.y] 为字形方框左缘/上缘，方框见方。
  * - 所有几何量均为 px，原点在屏幕左上。
  *
- * 注意：本文件中 [CharCell] / [Column] / [VerticalPage] / [CharHit] 的构造签名为冻结 API，
+ * 注意：[CharCell] / [Column] / [VerticalPage] / [CharHit] 的构造签名为冻结 API，
  * 下游阅读页 UI 直接调用，字段名与顺序不可改。
  */
 
-/** 单字布局结果（分页后逐字缓存进 sparse array，供重排复用，对应规格“每列每字 x/y 缓存”）。 */
+/** 单字布局结果（分页后逐字缓存进 sparse array 等价结构，供重排复用，对应规格“每列每字 x/y 缓存”）。 */
 data class CharCell(
     /** 字形字符。 */
     val char: Char,
@@ -92,7 +92,7 @@ enum class CharKind {
     TITLE,
 }
 
-/** 引擎内部逐字布局记录（含侧排/列号等渲染信息，输出 [CharCell] 时剥离）。 */
+/** 引擎内部逐字布局记录（含列号等渲染信息，输出 [CharCell] 时剥离）。 */
 internal data class LayoutCell(
     val char: Char,
     val offset: Int,
@@ -126,9 +126,10 @@ internal data class PageData(
     val endOffset: Int,
 )
 
-/** 引擎内部一列数据。 */
+/** 引擎内部一列数据；[thickness] 单列横向厚度，供命中判定列跨度，不随空列丢失。 */
 internal data class ColumnData(
     val left: Float,
     val top: Float,
+    val thickness: Float,
     val cells: List<LayoutCell>,
 )

@@ -10,7 +10,7 @@ import io.legado.app.utils.spToPx
  * Android 字形测量实现：包装 [TextPaint]，供竖排分页器测量字宽。
  *
  * 字体：正文 Noto Serif SC（思源宋体）。[typeface] 由上层按字体加载结果注入；
- * 未注入时回退系统默认 serif，不在此处硬编码字体文件路径。
+ * 字体资产未打包前回退系统默认 serif，不在此处硬编码字体文件路径，避免丢资源即崩。
  */
 class TextPaintVerticalMetrics(
     private val typeface: Typeface? = null,
@@ -37,7 +37,7 @@ object VerticalLayoutEngineFactory {
 
     /**
      * @param bodySp 正文字号，默认 18sp（规格锁定值）。
-     * @param typeface Noto Serif SC 字体实例，上层加载字体资产后注入。
+     * @param typeface Noto Serif SC 字体实例，上层加载字体资产后注入；null 走系统 serif 兜底。
      */
     fun create(
         viewWidthPx: Int,
@@ -57,6 +57,6 @@ object VerticalLayoutEngineFactory {
         )
     }
 
-    /** 注音小字字号（px），供左侧 18% 批注栏取用。 */
+    /** 注音小字字号（px），供左侧 18% 批注栏取用；无衬线由渲染层选字体。 */
     fun annotationSizePx(): Float = VerticalTokens.ANNOTATION_SP.spToPx()
 }

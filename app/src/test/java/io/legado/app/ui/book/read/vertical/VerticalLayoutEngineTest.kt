@@ -13,7 +13,7 @@ import kotlin.math.abs
  *
  * 覆盖冻结 API：
  * - [VerticalLayoutEngine.layout] 分页/列序/字序/偏移/段落映射/进度；
- * - [VerticalLayoutEngine.hitTest] 精确命中、最近字回退、脱靶返回 null；
+ * - [VerticalLayoutEngine.hitTest] 精确命中、首字/末字角点、列间空白与注音栏脱靶、最近字回退；
  * - [VerticalLayoutEngine.pageTurnAt] 左 1/5 上翻、右 1/5 下翻、中间不翻；
  * - [VerticalLayoutEngine.invalidateCache] 清状态；字位缓存重排复用（×3 路径）。
  *
@@ -156,6 +156,50 @@ class VerticalLayoutEngineTest {
     }
 
     @Test
+    fun `hitTest first char corner top-left hits first char`() {
+        val engine = newEngine()
+        val page = engine.layout("城濮之战晋师", W, H)
+        val first = flatCells(page).first()
+
+        // 首字方框左上角闭区间边界。
+        val hit = engine.hitTest(first.x, first.y)
+
+        assertNotNull(hit)
+        assertEquals(first.char, hit!!.char)
+        assertEquals(first.offset, hit.offset)
+    }
+
+    @Test
+    fun `hitTest last char corner bottom-right hits last char`() {
+        val engine = newEngine()
+        val page = engine.layout("城濮之战晋师", W, H)
+        val last = flatCells(page).last()
+
+        // 末字方框右下角闭区间边界。
+        val hit = engine.hitTest(last.x + last.width, last.y + last.height)
+
+        assertNotNull(hit)
+        assertEquals(last.char, hit!!.char)
+        assertEquals(last.offset, hit.offset)
+    }
+
+    @Test
+    fun `hitTest inter-column gap returns null`() {
+        val text = "城濮之战晋师败楚子玉怒从晋师退舍三晨食毕而后陈".repeat(2)
+        val engine = newEngine()
+        val page = engine.layout(text, W, H)
+        assertTrue(page.columns.size >= 2)
+
+        val rightCol = page.columns[0]
+        val leftCol = page.columns[1]
+        // 右列左缘与左列右缘之间的列间距空白。
+        val gapX = (leftCol.left + leftCol.cells.first().width + rightCol.left) / 2f
+        val midY = (rightCol.cells.first().y + rightCol.cells.last().y) / 2f
+
+        assertNull(engine.hitTest(gapX, midY))
+    }
+
+    @Test
     fun `hitTest misses annotation band and empty area returns null`() {
         val engine = newEngine()
         engine.layout("城濮之战", W, H)
@@ -223,6 +267,26 @@ class VerticalLayoutEngineTest {
         val third = engine.layout(text, W, H)
         assertTrue(third.columns.isNotEmpty())
         assertFalse("清缓存后再次排版应为冷排版", engine.lastLayoutReusedCache)
+    }
+
+    @Test
+    fun `invalidateCache then recompute reproduces same offsets and geometry`() {
+        val engine = newEngine()
+        val text = "城濮之战晋师败楚子玉".repeat(6)
+
+        val first = engine.layout(text, W, H)
+        val before = flatCells(first).map { it.offset to (it.x to it.y) }
+
+        engine.invalidateCache()
+        val third = engine.layout(text, W, H)
+        val after = flatCells(third).map { it.offset to (it.x to it.y) }
+
+        assertEquals(before.size, after.size)
+        before.forEachIndexed { i, (offset, xy) ->
+            assertEquals(offset, after[i].first)
+            assertEquals(xy.first, after[i].second.first, 1e-4f)
+            assertEquals(xy.second, after[i].second.second, 1e-4f)
+        }
     }
 
     // ------------------------------------------------------------- classifier

@@ -9,7 +9,7 @@ package io.legado.app.ui.book.read.vertical
  * - 标题比正文大 2sp 加粗；标题列与正文列间距 24dp。
  *
  * 兜底说明（规格未写死、由实现收口）：
- * - 单列厚度取 1 em（一个字身宽）；若后续设计稿给出单列厚度，只改 [columnThicknessPx]。
+ * - 单列厚度取 1 em（一个字身宽）；标题列厚度取标题字号 1 em。
  * - 竖排“行距 1.8×”落在列内字距上；字形方框取 1 em 见方。
  * - sp/dp → px 由 Android 工厂层完成，本类只持有 px 数值，保持 JVM 可测。
  */
@@ -23,8 +23,10 @@ data class VerticalLayoutSpec(
     val noteBandWidthPx: Float,
     /** 正文版心宽（右侧 82%）。 */
     val textBlockWidthPx: Float,
-    /** 单列厚度（横向一个字身宽）。 */
-    val columnThicknessPx: Float,
+    /** 正文单列厚度（1 em）。 */
+    val bodyThicknessPx: Float,
+    /** 标题单列厚度（标题字号 1 em）。 */
+    val titleThicknessPx: Float,
     /** 列间距。 */
     val columnGapPx: Float,
     /** 列内纵向字距 pitch。 */
@@ -33,13 +35,12 @@ data class VerticalLayoutSpec(
     val titleGapPx: Float,
     val topPaddingPx: Float,
     val bottomPaddingPx: Float,
-    val sidePaddingPx: Float,
 ) {
     /** 正文版心左边界（竖排从右向左排，右边界贴屏右）。 */
-    val textBlockLeft: Float get() = noteBandWidthPx + sidePaddingPx
+    val textBlockLeft: Float get() = noteBandWidthPx
 
     /** 正文版心右边界。 */
-    val textBlockRight: Float get() = viewWidthPx - sidePaddingPx
+    val textBlockRight: Float get() = viewWidthPx
 
     val contentTop: Float get() = topPaddingPx
 
@@ -47,10 +48,10 @@ data class VerticalLayoutSpec(
 
     val contentHeight: Float get() = contentBottom - contentTop
 
-    /** 每页可容纳的列数（版心宽 ÷ 单列厚度+列间距，向下取整，至少 1）。 */
+    /** 每页可容纳的正文列数（版心宽 ÷ 单列厚度+列间距，向下取整，至少 1）。 */
     val columnsPerPage: Int
         get() {
-            val slot = columnThicknessPx + columnGapPx
+            val slot = bodyThicknessPx + columnGapPx
             if (slot <= 0f) return 1
             val count = ((textBlockRight - textBlockLeft) + columnGapPx) / slot
             return count.toInt().coerceAtLeast(1)
@@ -92,11 +93,10 @@ data class VerticalLayoutSpec(
             viewWidthPx: Float,
             viewHeightPx: Float,
             bodySizePx: Float,
-            titleSizePx: Float = bodySizePx + 2f,
+            titleSizePx: Float = bodySizePx + VerticalTokens.TITLE_SIZE_OFFSET_SP,
             titleGapPx: Float = VerticalTokens.TITLE_GAP_DP,
             topPaddingPx: Float = bodySizePx,
             bottomPaddingPx: Float = bodySizePx,
-            sidePaddingPx: Float = bodySizePx * 0.5f,
         ): VerticalLayoutSpec {
             val noteBand = viewWidthPx * VerticalTokens.NOTE_BAND_RATIO
             val textBlock = viewWidthPx * VerticalTokens.TEXT_BLOCK_RATIO
@@ -107,13 +107,13 @@ data class VerticalLayoutSpec(
                 titleSizePx = titleSizePx,
                 noteBandWidthPx = noteBand,
                 textBlockWidthPx = textBlock,
-                columnThicknessPx = bodySizePx,
+                bodyThicknessPx = bodySizePx,
+                titleThicknessPx = titleSizePx,
                 columnGapPx = bodySizePx * VerticalTokens.COLUMN_GAP_RATIO,
                 charPitchPx = bodySizePx * VerticalTokens.LINE_HEIGHT_RATIO,
                 titleGapPx = titleGapPx,
                 topPaddingPx = topPaddingPx,
                 bottomPaddingPx = bottomPaddingPx,
-                sidePaddingPx = sidePaddingPx,
             )
         }
     }

@@ -10,10 +10,11 @@ package io.legado.app.ui.book.read.vertical
  * - [advanceCache]：码位 → 字宽，换字号/字体时整体失效；
  * - [rectCache]：字符流下标 → [LayoutCell] 字位，重排时直接复用，跳过测量与几何计算。
  *
- * 核心层不引用 android.util.SparseArray（JVM 单测不可用），用 Int 键 HashMap 等价实现；
- * 接入 Android 后可按需替换为 SparseArray，对外接口不变。
+ * 为什么用 Int 键 HashMap 而不是 android.util.SparseArray：核心层必须在纯 JVM 单测里跑，
+ * 不引用 android.util；两者都是“整数下标 → 值”的稀疏映射，接入 Android 后可按需替换，
+ * 对外接口不变。
  *
- * @param advanceCapacity 字宽缓存上限，超出后整表失效，避免无界增长。
+ * @param advanceCapacity 字宽缓存上限，超出后整表失效，避免长章节无界增长。
  */
 internal class VerticalMeasureCache(
     private val advanceCapacity: Int = 4096,
@@ -58,6 +59,15 @@ internal class VerticalMeasureCache(
             return it
         }
         return null
+    }
+
+    /** 缓存字位是否已覆盖 0..[count]-1 全部下标；缺任一下标即视为不齐全，走冷排版。 */
+    fun coversRects(count: Int): Boolean {
+        if (rectCache.size < count) return false
+        for (i in 0 until count) {
+            if (!rectCache.containsKey(i)) return false
+        }
+        return true
     }
 
     val cachedRectCount: Int get() = rectCache.size

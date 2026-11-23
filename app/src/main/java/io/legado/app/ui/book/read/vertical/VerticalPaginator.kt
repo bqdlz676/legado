@@ -39,13 +39,12 @@ internal class VerticalPaginator(
             )
         }
 
-        // 重排 ×3 路径：缓存字位齐全时按列号重建页结构，不重新测量。
-        if (reuseCache) {
+        // 重排 ×3 路径：缓存字位齐全时按列号重建页结构，不重新测量、不重算几何。
+        if (reuseCache && cache.coversRects(expected)) {
             val rebuilt = rebuildFromCache(expected)
             if (rebuilt != null) {
-                val pages = paginate(rebuilt)
                 return PaginationResult(
-                    pages = pages,
+                    pages = paginate(rebuilt),
                     paragraphs = parseParagraphs(title, text),
                     totalCells = expected,
                     reusedFromCache = true,
@@ -59,39 +58,35 @@ internal class VerticalPaginator(
         var columnIndex = 0
         var runningRight = spec.textBlockRight
         var current: ColumnBuilder? = null
-        var bodyStarted = !title.isNullOrBlank()
 
         fun openColumn(isTitle: Boolean, gapBefore: Float): ColumnBuilder {
+            val thickness = if (isTitle) spec.titleThicknessPx else spec.bodyThicknessPx
             val right = runningRight - gapBefore
-            val left = right - spec.columnThicknessPx
-            val builder = ColumnBuilder(columnIndex, right, left, isTitle)
+            val left = right - thickness
+            val builder = ColumnBuilder(columnIndex, left, thickness, isTitle)
             runningRight = left - spec.columnGapPx
             columnIndex++
             columns.add(builder)
             return builder
         }
 
-        fun ensureColumn(isTitle: Boolean, gapBefore: Float): ColumnBuilder {
+        fun ensureColumn(isTitle: Boolean): ColumnBuilder {
             val cur = current
+            // 标题列 → 首列正文：留 24dp 标题间距；同类换列不留。
+            val gap = if (cur != null && cur.isTitle && !isTitle) spec.titleGapPx else 0f
             return if (cur != null && cur.isTitle == isTitle) cur
-            else openColumn(isTitle, gapBefore).also { current = it }
+            else openColumn(isTitle, gap).also { current = it }
         }
 
         fun emit(ch: Char, kind: CharKind, size: Float, isTitle: Boolean, rotated: Boolean) {
             val sizeKind = if (isTitle) CharKind.TITLE else kind
-            // 标题列 → 首列正文：留标题间距；其余换列不留。
-            val gap = if (!isTitle && bodyStarted && current?.isTitle == true) {
-                spec.titleGapPx
-            } else {
-                0f
-            }
-            val col = ensureColumn(isTitle, gap)
+            val col = ensureColumn(isTitle)
             if (!col.canFit(size)) {
                 current = openColumn(isTitle, 0f)
             }
             val target = current!!
             cache.advance(ch.code) {
-                metrics.measureAdvance(ch.toString(), size, isTitle)
+                metrics.measureAdvance(ch.toString(), size, bold = isTitle)
             }
             val cell = LayoutCell(
                 char = ch,
@@ -108,7 +103,7 @@ internal class VerticalPaginator(
             offset++
         }
 
-        // 1. 章节标题（最右列，竖排，字号更大）。
+        // 1. 章节标题（最右列，竖排，字号更大、加粗）。
         val titleText = title?.trim().orEmpty()
         if (titleText.isNotEmpty()) {
             paragraphs.add(ParagraphRange(offset, titleText))
@@ -116,7 +111,6 @@ internal class VerticalPaginator(
                 if (ch.isWhitespace()) continue
                 emit(ch, CharKind.TITLE, spec.titleSizePx, isTitle = true, rotated = false)
             }
-            bodyStarted = true
         }
 
         // 2. 正文段落（换行分段；空白不产生字形）。
@@ -134,9 +128,8 @@ internal class VerticalPaginator(
         }
 
         val pageColumns = columns.map { it.toColumnData() }
-        val pages = paginate(pageColumns)
         return PaginationResult(
-            pages = pages,
+            pages = paginate(pageColumns),
             paragraphs = paragraphs,
             totalCells = offset,
             reusedFromCache = false,
@@ -145,7 +138,6 @@ internal class VerticalPaginator(
 
     /** 缓存字位齐全时重建列结构；缺字或数量不符返回 null，走冷排版。 */
     private fun rebuildFromCache(expected: Int): List<ColumnData>? {
-        if (cache.cachedRectCount < expected) return null
         val byColumn = HashMap<Int, MutableList<LayoutCell>>()
         for (i in 0 until expected) {
             val cell = cache.rect(i) ?: return null
@@ -157,6 +149,7 @@ internal class VerticalPaginator(
             ColumnData(
                 left = first.x,
                 top = first.y,
+                thickness = first.size,
                 cells = sorted,
             )
         }
@@ -210,8 +203,8 @@ internal class VerticalPaginator(
 
     private inner class ColumnBuilder(
         val index: Int,
-        val right: Float,
         val left: Float,
+        val thickness: Float,
         val isTitle: Boolean,
     ) {
         val cells = mutableListOf<LayoutCell>()
@@ -229,6 +222,7 @@ internal class VerticalPaginator(
         fun toColumnData(): ColumnData = ColumnData(
             left = left,
             top = spec.contentTop,
+            thickness = thickness,
             cells = cells.toList(),
         )
     }

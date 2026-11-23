@@ -3,13 +3,13 @@ package io.legado.app.ui.book.read.vertical
 /**
  * 落文 · 竖排阅读引擎 —— 字形测量抽象与字符分类。
  *
- * 核心层不引用 android.graphics：Android 层用 TextPaint 实现 [VerticalTypefaceMetrics]，
- * 单测注入 [DefaultTypefaceMetrics] 伪测量，保证 JVM 可跑。
+ * 为什么把测量抽成接口：核心排版层要在纯 JVM 单测里跑，不能碰 android.graphics；
+ * Android 层用 TextPaint 实现 [VerticalTypefaceMetrics]，单测注入伪测量实现即可。
  */
 
 /** 字形测量抽象。 */
 interface VerticalTypefaceMetrics {
-    /** 测量单字（或内嵌小字串）在指定字号下的 advance（px）。 */
+    /** 测量单字（或内嵌小字串）在指定字号下的 advance（px）；bold 为标题加粗标记。 */
     fun measureAdvance(text: String, sizePx: Float, bold: Boolean): Float
 
     /** 字符分类。 */

@@ -19,7 +19,7 @@ import kotlin.math.abs
  */
 class VerticalLayoutEngine(
     private val bodySizePx: Float,
-    private val titleSizePx: Float = bodySizePx + 2f,
+    private val titleSizePx: Float = bodySizePx + VerticalTokens.TITLE_SIZE_OFFSET_SP,
     private val metrics: VerticalTypefaceMetrics = DefaultTypefaceMetrics(),
     /** 标题列与正文列横向间距（px）；Android 工厂按 24dp 换算传入。 */
     private val titleGapPx: Float = VerticalTokens.TITLE_GAP_DP,
@@ -91,15 +91,15 @@ class VerticalLayoutEngine(
     /** 逐字命中；未命中返回 null。命中优先于边缘翻页区。 */
     fun hitTest(x: Float, y: Float): CharHit? {
         val page = pages.getOrNull(currentIndex) ?: return null
-        val thickness = spec?.columnThicknessPx ?: return null
 
-        val column = page.columns.firstOrNull { x >= it.left && x <= it.left + thickness }
+        // 先按列跨度定位列；落在列间空白或左侧注音栏内直接脱靶，不做横向就近吸附。
+        val column = page.columns.firstOrNull { x >= it.left && x <= it.left + it.thickness }
             ?: return null
 
-        // 1. 方框精确命中。
+        // 1. 方框精确命中（首字/末字边界按闭区间处理）。
         column.cells.firstOrNull { it.contains(x, y) }?.let { return toHit(it) }
 
-        // 2. 纵向最近字回退（横向必须落在该列厚度内，容差半字距），供点字出气泡。
+        // 2. 纵向最近字回退（横向已落在该列厚度内，容差半字距），供点字出气泡。
         val pitch = spec?.charPitchPx ?: return null
         val tolerance = pitch * 0.5f
         val nearest = column.cells.minByOrNull { abs(it.y + it.size / 2f - y) } ?: return null
@@ -160,6 +160,9 @@ class VerticalLayoutEngine(
     internal fun debugCurrentCells(): List<LayoutCell> =
         pages.getOrNull(currentIndex)?.columns?.flatMap { it.cells }.orEmpty()
 
+    /** 测试/bench 取用：累计真实测量调用次数，不对外冻结。 */
+    internal fun debugMeasureCalls(): Int = cache.measureCalls
+
     private fun toHit(cell: LayoutCell): CharHit {
         val paragraph = paragraphs.lastOrNull { cell.offset >= it.startOffset }
         val pos = if (paragraph != null) cell.offset - paragraph.startOffset else 0
@@ -203,7 +206,12 @@ class VerticalLayoutEngine(
                 top = col.top,
             )
         }
-        val progress = if (total <= 0) 0f else (endOffset.toFloat() / total).coerceIn(0f, 1f)
+        // 末页进度收敛到 1；中间页按本页末字 / 全章字数估算。
+        val progress = when {
+            total <= 0 -> 0f
+            index == pages.lastIndex -> 1f
+            else -> (endOffset.toFloat() / total).coerceIn(0f, 1f)
+        }
         return VerticalPage(columns = columns, pageIndex = index, progress = progress)
     }
 }
