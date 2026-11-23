@@ -449,7 +449,7 @@ private fun StateFallback(
             .fillMaxSize()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
     ) {
         BasicText(
             text = title,
