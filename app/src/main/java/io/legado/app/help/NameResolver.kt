@@ -2,7 +2,6 @@ package io.legado.app.help
 
 import android.content.Context
 import io.legado.app.help.chrono.Chronology
-import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.relation.PersonPinyin
 import io.legado.app.help.relation.PersonProfile
 
@@ -42,35 +41,8 @@ object NameResolver {
             loadLords(context)
         }
         PlaceDict.ensureLoaded(context)
-        registerAnchorProvider()
-    }
-
-    /**
-     * 把人物档案接到 [ContextAnchor] 消歧入口：人名/别名 → 候选，
-     * 生卒俱全 high，仅其一 medium，生卒俱缺 low（low 不进默认命中）。
-     */
-    fun registerAnchorProvider() {
-        ContextAnchor.personProvider = provider@{ q ->
-            val p = PersonProfile.profileOf(q) ?: return@provider emptyList()
-            val conf = when {
-                p.birth != null && p.death != null -> ContextAnchor.Confidence.HIGH
-                p.birth != null || p.death != null -> ContextAnchor.Confidence.MEDIUM
-                else -> ContextAnchor.Confidence.LOW
-            }
-            listOf(
-                ContextAnchor.Candidate(
-                    id = "person:" + p.name,
-                    name = p.name,
-                    type = ContextAnchor.Type.PERSON,
-                    tier = 0,
-                    start = p.birth,
-                    end = p.death,
-                    aliases = p.alias,
-                    confidence = conf,
-                    source = listOf(p.state, p.identity).filter { it.isNotBlank() }.joinToString(" · "),
-                )
-            )
-        }
+        // 注意：本旧扁平层不再向 ContextAnchor.personProvider 写总线；人物消歧入口由新链
+        // help/bubble/PersonProvider.bindAnchorProvider() 统一注册，避免旧页后注册抢占覆盖。
     }
 
     fun matchAt(context: Context, text: String, pos: Int): Hit? {
