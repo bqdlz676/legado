@@ -7,7 +7,7 @@ import java.io.File
 class ReadRecordAuthorLayoutTest {
 
     private val activitySource: String by lazy {
-        readProjectFile("app/src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt")
+        readProjectFile("src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt")
     }
 
     @Test
@@ -26,6 +26,7 @@ class ReadRecordAuthorLayoutTest {
     @Test
     fun `read record last time follows the tallest reading time field`() {
         val rowStart = activitySource.indexOf("private fun RecordRow(")
+        assertTrue("RecordRow composable missing", rowStart >= 0)
         val row = activitySource.substring(rowStart)
 
         val readTimeIndex = row.indexOf("formatDuring(record.readTime")

@@ -521,11 +521,20 @@ class CampaignController private constructor(
         return start
     }
 
+    // 敌我判定必须叠加外交盟约：ALLIED 关系的另一阵营既不进敌方集合，也计入盟友集合。
+    // 只按 sideId 相异判敌会让外交盟友在遭遇战中互耗（F2 回归根因）。
     private fun Corps.filterEnemies(): List<Corps> =
-        corps.filter { it.id != this.id && it.sideId != this.sideId && it.combatReady() }
+        corps.filter {
+            it.id != this.id && it.sideId != this.sideId &&
+                it.sideId !in alliedSidesWith(this.sideId) && it.combatReady()
+        }
 
     private fun Corps.filterAllies(): List<Corps> =
-        corps.filter { it.id != this.id && it.sideId == this.sideId && it.combatReady() }
+        corps.filter {
+            it.id != this.id &&
+                (it.sideId == this.sideId || it.sideId in alliedSidesWith(this.sideId)) &&
+                it.combatReady()
+        }
 
     private fun dailyMaxCells(corps: Corps): Int {
         val kind = map.kindAt(corps.position)

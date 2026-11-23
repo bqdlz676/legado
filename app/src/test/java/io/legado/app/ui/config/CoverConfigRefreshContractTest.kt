@@ -7,7 +7,7 @@ import java.io.File
 class CoverConfigRefreshContractTest {
     @Test
     fun `default cover preference refreshes cover model and bookshelf`() {
-        val source = readProjectFile("app/src/main/java/io/legado/app/ui/config/sections/CoverSection.kt")
+        val source = readProjectFile("src/main/java/io/legado/app/ui/config/sections/CoverSection.kt")
         assertTrue(source.contains("PreferKey.useDefaultCover"))
         assertTrue(source.contains("BookCover.upDefaultCover()"))
         // 默认封面 / 封面图选择回写后必须触发封面模型重算；书架侧刷新由书架页 onResume 重载封面接管

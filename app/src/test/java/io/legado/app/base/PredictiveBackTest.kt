@@ -89,7 +89,9 @@ class PredictiveBackTest {
         // 启动时仍带 cursorPosition 供编辑器定位（旧 fieldId 多字段路由随旧适配器拆除）。
         val codeEdit = source.substringAfter("private val codeEdit = registerForActivityResult")
             .substringBefore("override fun onCreate")
-        assertTrue(codeEdit.contains("result.data?.getStringExtra(\"text\")"))
+        // 新壳先解包 data 再取 text 额外项（旧链式 result.data?.getStringExtra 的细节已迁移）。
+        assertTrue(codeEdit.contains("val data = result.data ?: return@registerForActivityResult"))
+        assertTrue(codeEdit.contains("data.getStringExtra(\"text\")"))
         assertTrue(codeEdit.contains("textFile"))
         assertTrue(codeEdit.contains("viewModel.update { rule -> rule.copy(pattern = text) }"))
         assertTrue(source.contains("putExtra(\"cursorPosition\", current.length)"))

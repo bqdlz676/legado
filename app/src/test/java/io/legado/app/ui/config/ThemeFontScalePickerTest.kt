@@ -9,7 +9,7 @@ class ThemeFontScalePickerTest {
 
     @Test
     fun `font scale picker keeps the effective configured or system value`() {
-        val source = readProjectFile("app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt")
+        val source = readProjectFile("src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt")
             .substringAfter("PreferKey.fontScale")
             .substringBefore("PreferKey.cover_config")
 

@@ -110,7 +110,8 @@ class AutoTaskEditActivitySourceTest {
 
         assertTrue(copyBlock.contains("withContext(Dispatchers.Default)"))
         assertTrue(copyBlock.contains("AutoTask.exportJson(listOf(_uiState.value.draft))"))
-        assertTrue(pasteBlock.contains("withContext(Dispatchers.Default)"))
+        // 粘贴解析走 execute 默认 IO 调度（旧显式 withContext(Default) 包裹已并入 execute 上下文）。
+        assertTrue(pasteBlock.contains("execute {"))
         assertTrue(pasteBlock.contains("GSON.fromJsonObject<AutoTaskRule>(text)"))
         assertTrue(pasteBlock.contains("GSON.fromJsonArray<AutoTaskRule>(text)"))
         assertTrue(pasteBlock.contains("singleOrNull()"))

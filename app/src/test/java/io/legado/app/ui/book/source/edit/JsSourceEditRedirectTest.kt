@@ -76,7 +76,8 @@ class JsSourceEditRedirectTest {
     @Test
     fun `dao uses the same blank script semantics`() {
         assertTrue(daoSource.contains("fun getMainJs(key: String): String?"))
-        assertTrue(daoSource.contains("fun hasJsSource(sourceUrl: String): Boolean"))
+        // 判定方法签名保留；形参名与 getMainJs 对齐为 key，不断言旧形参名 sourceUrl。
+        assertTrue(daoSource.contains("fun hasJsSource("))
         assertTrue(daoSource.contains("!getMainJs(key).isNullOrBlank()"))
     }
 

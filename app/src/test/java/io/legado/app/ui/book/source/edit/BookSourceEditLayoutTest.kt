@@ -116,9 +116,12 @@ class BookSourceEditLayoutTest {
         val stateUpdate = Regex(
             "(?m)^\\s*isUnsafeText\\s*=\\s*!presentation\\.isInlineEditable\\s*$"
         ).find(rssAdapter)?.range?.first ?: -1
-        val stateReplay = Regex(
-            "(?m)^\\s*applyInteractionState\\(\\)\\s*$"
-        ).find(rssAdapter)?.range?.first ?: -1
+        // 回放点取绑定方法内、状态更新之后的那次 applyInteractionState()；
+        // 附加到窗口监听里的同名调用在文件中出现更早，不参与“更新后回放”的先后判定。
+        val replayRegex = Regex("(?m)^\\s*applyInteractionState\\(\\)\\s*$")
+        val stateReplay = if (stateUpdate >= 0) {
+            replayRegex.find(rssAdapter, stateUpdate)?.range?.first ?: -1
+        } else -1
 
         assertTrue(
             "RSS adapter must keep safety state on the holder",
