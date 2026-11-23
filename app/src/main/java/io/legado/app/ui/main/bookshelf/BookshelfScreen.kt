@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +48,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
 /**
- * 落文 · 书架页（模块 9 入口 Composable）。
+ * 落文 · U4 书架页入口 Composable（切片-10）。
  *
  * 纯展示层：书籍数据、数据库订阅、跳转动作由接入层（Fragment / ViewModel）注入，
  * 本子任务只负责画面、动效、状态兜底。共享导航接线留主控统一 merge。
@@ -86,9 +84,9 @@ fun BookshelfScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(LuowenShelf.bgPage),
+            .background(ShelfTokens.bgPage),
     ) {
-        // 底部金色微粒场（衬在卡片下层）
+        // 底部金色微粒场（衬在卡片下层，不遮挡文字）
         GoldParticleField(modifier = Modifier.fillMaxSize())
 
         when (state) {
@@ -177,7 +175,7 @@ private fun ShelfGrid(
 
         if (refreshing) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                RefreshingBar()
+                RefreshingIndicator()
             }
         }
 
@@ -188,7 +186,9 @@ private fun ShelfGrid(
                 }
             } else {
                 // 刷新中且暂无缓存：先铺骨架，不留白
-                items(6) { SkeletonCard(alpha = 0.5f) }
+                itemsIndexed(items = List(6) { it }) { _, _ ->
+                    SkeletonCard(alpha = 0.5f)
+                }
             }
             return@LazyVerticalGrid
         }
@@ -218,35 +218,35 @@ private fun ShelfHeader(bookCount: Int, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .size(26.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(LuowenShelf.textAccent),
+                    .background(ShelfTokens.textAccent),
                 contentAlignment = Alignment.Center,
             ) {
                 BasicText(
                     text = "藏",
                     style = TextStyle(
-                        color = LuowenShelf.bgPage,
+                        color = ShelfTokens.bgPage,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        fontFamily = LuowenShelf.serifTitle,
+                        fontFamily = ShelfTokens.serifTitle,
                     ),
                 )
             }
             BasicText(
                 text = "落文书架",
                 style = TextStyle(
-                    color = LuowenShelf.textPrimary,
+                    color = ShelfTokens.textPrimary,
                     fontSize = 20.sp,
-                    fontWeight = LuowenShelf.titleWeight,
-                    fontFamily = LuowenShelf.serifTitle,
+                    fontWeight = ShelfTokens.titleWeight,
+                    fontFamily = ShelfTokens.serifTitle,
                 ),
             )
         }
         BasicText(
             text = "共 ${bookCount} 卷",
             style = TextStyle(
-                color = LuowenShelf.textTertiary,
+                color = ShelfTokens.textTertiary,
                 fontSize = 12.sp,
-                fontFamily = LuowenShelf.serifBody,
+                fontFamily = ShelfTokens.serifBody,
             ),
         )
     }
@@ -266,15 +266,8 @@ private fun NewBookBanner(
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .offset { IntOffset(offsetX.roundToInt(), 0) }
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(12.dp),
-                ambientColor = LuowenShelf.colorGlow,
-                spotColor = LuowenShelf.colorGlow,
-                clip = false,
-            )
             .clip(RoundedCornerShape(12.dp))
-            .background(LuowenShelf.bgSurface)
+            .background(ShelfTokens.bgSurface)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
@@ -297,14 +290,14 @@ private fun NewBookBanner(
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .background(LuowenShelf.brandGold, RoundedCornerShape(50)),
+                        .background(ShelfTokens.brandGold, RoundedCornerShape(50)),
                 )
                 BasicText(
                     text = "发现 ${newBookCount} 本新书",
                     style = TextStyle(
-                        color = LuowenShelf.textPrimary,
+                        color = ShelfTokens.textPrimary,
                         fontSize = 14.sp,
-                        fontFamily = LuowenShelf.serifBody,
+                        fontFamily = ShelfTokens.serifBody,
                     ),
                 )
             }
@@ -313,28 +306,38 @@ private fun NewBookBanner(
     }
 }
 
+/**
+ * 加载指示器（切片-15）：三个竖排云灰小点依次亮灭，600ms 循环，不放菊花。
+ */
 @Composable
-private fun RefreshingBar(modifier: Modifier = Modifier) {
+private fun RefreshingIndicator(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "shelf-refresh")
     val sweep by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Restart),
-        label = "shelf-refresh-sweep",
+        animationSpec = infiniteRepeatable(tween(600), RepeatMode.Restart),
+        label = "shelf-refresh-dots",
     )
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(2.dp)
-            .background(LuowenShelf.colorDivider),
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.35f)
-                .height(2.dp)
-                .background(LuowenShelf.brandGold)
-                .padding(start = (sweep * 100).dp),
-        )
+        repeat(3) { index ->
+            val phase = (sweep + index * 0.33f) % 1f
+            val alpha = 0.25f + 0.75f * (1f - kotlin.math.abs(phase - 0.5f) * 2f)
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .padding(vertical = 3.dp)
+                    .background(
+                        ShelfTokens.textTertiary.copy(alpha = alpha),
+                        RoundedCornerShape(50),
+                    ),
+            )
+        }
     }
 }
 
@@ -353,24 +356,24 @@ private fun EmptyShelf(onImport: () -> Unit, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .size(56.dp)
                 .clip(RoundedCornerShape(50))
-                .background(LuowenShelf.textPrimary.copy(alpha = 0.85f)),
+                .background(ShelfTokens.textPrimary.copy(alpha = 0.85f)),
         )
         BasicText(
             text = "案上无书",
             style = TextStyle(
-                color = LuowenShelf.textPrimary,
+                color = ShelfTokens.textPrimary,
                 fontSize = 22.sp,
-                fontWeight = LuowenShelf.titleWeight,
-                fontFamily = LuowenShelf.serifTitle,
+                fontWeight = ShelfTokens.titleWeight,
+                fontFamily = ShelfTokens.serifTitle,
                 textAlign = TextAlign.Center,
             ),
         )
         BasicText(
             text = "导入 txt / epub，或从书源发现新书",
             style = TextStyle(
-                color = LuowenShelf.textSecondary,
+                color = ShelfTokens.textSecondary,
                 fontSize = 13.sp,
-                fontFamily = LuowenShelf.serifBody,
+                fontFamily = ShelfTokens.serifBody,
                 textAlign = TextAlign.Center,
             ),
         )
@@ -394,7 +397,7 @@ private fun OfflineShelf(
                 .fillMaxWidth()
                 .padding(16.dp, 16.dp, 16.dp, 0.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(LuowenShelf.bgOverlay)
+                .background(ShelfTokens.bgOverlay)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -402,14 +405,14 @@ private fun OfflineShelf(
             Box(
                 modifier = Modifier
                     .size(7.dp)
-                    .background(LuowenShelf.brandGold, RoundedCornerShape(50)),
+                    .background(ShelfTokens.brandGold, RoundedCornerShape(50)),
             )
             BasicText(
                 text = "离线中 · 仅显示本地缓存，暂不可联网更新",
                 style = TextStyle(
-                    color = LuowenShelf.bgPage,
+                    color = ShelfTokens.bgPage,
                     fontSize = 12.sp,
-                    fontFamily = LuowenShelf.serifBody,
+                    fontFamily = ShelfTokens.serifBody,
                 ),
             )
         }
@@ -446,24 +449,24 @@ private fun StateFallback(
             .fillMaxSize()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Alignment.CenterVertically,
     ) {
         BasicText(
             text = title,
             style = TextStyle(
-                color = LuowenShelf.textPrimary,
+                color = ShelfTokens.textPrimary,
                 fontSize = 20.sp,
-                fontWeight = LuowenShelf.titleWeight,
-                fontFamily = LuowenShelf.serifTitle,
+                fontWeight = ShelfTokens.titleWeight,
+                fontFamily = ShelfTokens.serifTitle,
             ),
         )
         Spacer(Modifier.height(8.dp))
         BasicText(
             text = sub,
             style = TextStyle(
-                color = LuowenShelf.textSecondary,
+                color = ShelfTokens.textSecondary,
                 fontSize = 13.sp,
-                fontFamily = LuowenShelf.serifBody,
+                fontFamily = ShelfTokens.serifBody,
                 textAlign = TextAlign.Center,
             ),
         )
@@ -491,7 +494,7 @@ private fun SkeletonShelf(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        items(6) { SkeletonCard(alpha = alpha) }
+        itemsIndexed(items = List(6) { it }) { _, _ -> SkeletonCard(alpha = alpha) }
     }
 }
 
@@ -500,8 +503,8 @@ private fun SkeletonCard(alpha: Float, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .aspectRatio(0.66f)
-            .clip(RoundedCornerShape(14.dp))
-            .background(LuowenShelf.bgSurface.copy(alpha = alpha)),
+            .clip(RoundedCornerShape(ShelfTokens.CARD_RADIUS_DP.dp))
+            .background(ShelfTokens.bgSurface.copy(alpha = alpha)),
     )
 }
 
@@ -517,8 +520,8 @@ private fun ShelfInkButton(
     modifier: Modifier = Modifier,
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val bg = if (accent) LuowenShelf.textAccent else LuowenShelf.bgSurface
-    val fg = if (accent) LuowenShelf.bgPage else LuowenShelf.textPrimary
+    val bg = if (accent) ShelfTokens.textAccent else ShelfTokens.bgSurface
+    val fg = if (accent) ShelfTokens.bgPage else ShelfTokens.textPrimary
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
@@ -541,7 +544,7 @@ private fun ShelfInkButton(
             style = TextStyle(
                 color = fg,
                 fontSize = 13.sp,
-                fontFamily = LuowenShelf.serifBody,
+                fontFamily = ShelfTokens.serifBody,
             ),
         )
         if (pressed) {
@@ -549,7 +552,7 @@ private fun ShelfInkButton(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(LuowenShelf.textPrimary.copy(alpha = LuowenShelf.PRESS_ALPHA)),
+                    .background(ShelfTokens.textPrimary.copy(alpha = ShelfTokens.PRESS_ALPHA)),
             )
         }
     }

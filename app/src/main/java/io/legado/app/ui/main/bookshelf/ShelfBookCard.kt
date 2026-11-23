@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,9 +19,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,25 +32,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.BasicText
+import kotlinx.coroutines.delay
 
 /**
- * 落文 · 竖排书名卡片。
+ * 落文 · 竖排书名卡片（切片-10）。
  *
- * - 竖排书名 + 朱砂进度竖线 + 暖金微光阴影 + 宣纸颗粒底；
- * - 入场 scroll reveal，按顺位 stagger 浮入（350ms）；
- * - 按下 / 选中 spring 前倾 3D 旋转 5°；
- * - 长按删除：卡片碎成墨滴飞散后回调 [onDelete]；
- * - [parallax] 由列表滚动驱动，做 camera 微前倾。
+ * - 竖排书名即封面（无封面图），书名右侧一道朱砂竖线，线长 = 阅读进度比例；
+ * - 右缘淡墨水印阅读进度；底部细线进度：朱砂 = 已读，云灰 = 未读；作者 / 章节一行小字；
+ * - 阴影 = 暖金色微光溢出（0 0 12px rgba(212,165,74,.3)），不用黑灰阴影、不用 Material elevation；
+ * - 触摸卡片：spring 前倾 3D 旋转 5°，微光由暖金转为朱砂；
+ * - 点进卡片：卡片朝你飞来放大，书名字散成字粒后回调翻开正文；
+ * - 右滑删除：卡片碎成墨滴散开后回调删除；
+ * - 入场 scroll reveal，按顺位 stagger 浮入 350ms；[parallax] 由列表滚动驱动微前倾。
  */
 @Composable
 fun ShelfBookCard(
@@ -63,32 +66,32 @@ fun ShelfBookCard(
     // —— 入场浮入：stagger 逐个浮入 350ms ——
     val reveal = remember { Animatable(0f) }
     LaunchedEffect(book.id, index) {
-        kotlinx.coroutines.delay(index.coerceAtMost(10) * LuowenShelf.STAGGER_MS)
+        delay(index.coerceAtMost(10) * ShelfTokens.STAGGER_MS)
         reveal.animateTo(
             targetValue = 1f,
             animationSpec = tween(
-                durationMillis = LuowenShelf.CARD_REVEAL_MS.toInt(),
-                easing = LuowenShelf.cardReveal,
+                durationMillis = ShelfTokens.CARD_REVEAL_MS.toInt(),
+                easing = ShelfTokens.cardReveal,
             ),
         )
     }
 
-    // —— 按下墨触：朱砂 0→8%，120ms 回落 ——
+    // —— 按下墨触：朱砂 0→8%，120ms 回落（不用 Material ripple）——
     var pressed by remember { mutableStateOf(false) }
     val pressAlpha by animateFloatAsState(
-        targetValue = if (pressed) LuowenShelf.PRESS_ALPHA else 0f,
-        animationSpec = tween(LuowenShelf.MICRO_MS.toInt()),
-        label = "card-press",
+        targetValue = if (pressed) ShelfTokens.PRESS_ALPHA else 0f,
+        animationSpec = tween(ShelfTokens.MICRO_MS.toInt()),
+        label = "shelf-card-press",
     )
 
-    // —— 选中前倾：spring 带回弹 ——
+    // —— 前倾：spring 带回弹；按下前倾 5°，松开回正 ——
     val tiltY by animateFloatAsState(
-        targetValue = if (pressed) 5f else 0f,
+        targetValue = if (pressed) ShelfTokens.TILT_DEG else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium,
         ),
-        label = "card-tilt-y",
+        label = "shelf-card-tilt-y",
     )
     val tiltX by animateFloatAsState(
         targetValue = if (pressed) -2f else parallax * 2f,
@@ -96,80 +99,159 @@ fun ShelfBookCard(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium,
         ),
-        label = "card-tilt-x",
+        label = "shelf-card-tilt-x",
     )
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.985f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "card-scale",
+        label = "shelf-card-scale",
     )
 
-    // —— 删除碎墨 ——
+    // —— 点进：飞来放大 + 书名爆字粒，收口后回调翻开 ——
+    var opening by remember { mutableStateOf(false) }
+    val openProgress = remember { Animatable(0f) }
+    val titleMotes = remember(book.id) { ShelfParticles.seedTitleMotes(book.title) }
+    LaunchedEffect(opening) {
+        if (opening) {
+            openProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(ShelfTokens.PAGE_MS.toInt(), easing = ShelfTokens.cardReveal),
+            )
+            onOpen(book)
+        }
+    }
+
+    // —— 删除：碎墨滴飞散，消散后回调删除 ——
     var shattering by remember { mutableStateOf(false) }
     val shatter = remember { Animatable(0f) }
-    val droplets = remember(book.id) { seedDroplets(14) }
-
+    val droplets = remember(book.id) { ShelfParticles.seedInkDroplets(14) }
     LaunchedEffect(shattering) {
         if (shattering) {
             shatter.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(LuowenShelf.SHATTER_MS.toInt()),
+                animationSpec = tween(ShelfTokens.SHATTER_MS.toInt()),
             )
             onDelete(book)
         }
     }
 
-    val cardShape = RoundedCornerShape(14.dp)
     val density = LocalDensity.current
     val revealDy = with(density) { 26.dp.toPx() }
+    val glowPad = with(density) { ShelfTokens.GLOW_RADIUS_DP.dp.toPx() }
+    // 按下微光由暖金转为朱砂（切片-10：阴影从暖金变为朱砂）
+    val glowColor = if (pressed) ShelfTokens.textAccent else ShelfTokens.colorGlow
+    val cardShape = RoundedCornerShape(ShelfTokens.CARD_RADIUS_DP.dp)
 
     Box(
         modifier = modifier
             .aspectRatio(0.66f)
-            .shadow(
-                elevation = 12.dp,
-                shape = cardShape,
-                ambientColor = LuowenShelf.colorGlow,
-                spotColor = LuowenShelf.colorGlow,
-                clip = false,
-            )
-            .clip(cardShape)
-            .background(LuowenShelf.bgSurface)
-            .drawPaperGrain(book.id.hashCode())
-            .graphicsLayer(
-                rotationY = tiltY,
-                rotationX = tiltX,
-                scaleX = scale,
-                scaleY = scale,
-                alpha = reveal.value * (1f - shatter.value),
-                translationY = (1f - reveal.value) * revealDy,
-            )
-            .pointerInput(book.id) {
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        tryAwaitRelease()
-                        pressed = false
-                    },
-                    onTap = { onOpen(book) },
-                    onLongPress = { shattering = true },
-                )
-            },
+            .padding(ShelfTokens.GLOW_RADIUS_DP.dp),
     ) {
-        // 宣纸颗粒 + 底纹已在 drawPaperGrain；此处排内容
-        ShelfCardContent(book = book, modifier = Modifier.fillMaxSize())
-
-        // 朱砂按下泛色
+        // 暖金 / 朱砂微光溢出：Canvas 自绘三层叠晕，不用 elevation 阴影
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LuowenShelf.textAccent.copy(alpha = pressAlpha)),
-        )
+                .drawBehind {
+                    val inset = glowPad * 0.4f
+                    repeat(3) { layer ->
+                        val expand = glowPad * (1f + layer * 0.5f)
+                        drawRoundRect(
+                            color = glowColor,
+                            topLeft = Offset(-expand, -expand + ShelfTokens.GLOW_OVERFLOW_DP.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(
+                                size.width + expand * 2f,
+                                size.height + expand * 2f,
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                                ShelfTokens.CARD_RADIUS_DP.dp.toPx() + inset,
+                            ),
+                            alpha = 0.34f - layer * 0.1f,
+                        )
+                    }
+                },
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(cardShape)
+                    .background(ShelfTokens.bgSurface)
+                    .drawPaperGrain(book.id.hashCode())
+                    .graphicsLayer(
+                        rotationY = tiltY,
+                        rotationX = tiltX,
+                        scaleX = scale * (1f + openProgress.value * 0.15f),
+                        scaleY = scale * (1f + openProgress.value * 0.15f),
+                        alpha = reveal.value * (1f - shatter.value),
+                        translationY = (1f - reveal.value) * revealDy,
+                        cameraDistance = density.density * 12f,
+                    )
+                    .pointerInput(book.id) {
+                        detectTapGestures(
+                            onPress = {
+                                pressed = true
+                                tryAwaitRelease()
+                                pressed = false
+                            },
+                            onTap = { opening = true },
+                            onLongPress = { shattering = true },
+                        )
+                    }
+                    .pointerInput(book.id) {
+                        var dragX = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { dragX = 0f },
+                            onHorizontalDrag = { _, delta -> dragX += delta },
+                            onDragEnd = {
+                                // 右滑删除：超过阈值即碎墨，否则回位
+                                if (dragX > 120.dp.toPx()) shattering = true else dragX = 0f
+                            },
+                            onDragCancel = { dragX = 0f },
+                        )
+                    },
+            ) {
+                ShelfCardContent(book = book, modifier = Modifier.fillMaxSize())
 
-        // 碎墨滴层
-        if (shattering) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawInkDroplets(droplets, shatter.value)
+                // 朱砂按下泛色
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(ShelfTokens.textAccent.copy(alpha = pressAlpha)),
+                )
+
+                // 书名爆开的字粒层
+                if (opening) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        titleMotes.forEach { mote ->
+                            val pos = ShelfParticles.titleMoteAt(
+                                mote, openProgress.value, size.width, size.height,
+                            )
+                            drawCircle(
+                                color = ShelfTokens.textPrimary,
+                                radius = mote.size * 3f * (1f - openProgress.value * 0.5f),
+                                center = Offset(pos.x, pos.y),
+                                alpha = (1f - openProgress.value).coerceIn(0f, 1f),
+                            )
+                        }
+                    }
+                }
+
+                // 碎墨滴层
+                if (shattering) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        droplets.forEach { droplet ->
+                            val pos = ShelfParticles.dropletAt(
+                                droplet, shatter.value, size.width, size.height,
+                            )
+                            val radius = droplet.radius * (1f - shatter.value * 0.6f)
+                            drawCircle(
+                                color = if (droplet.ink) ShelfTokens.textPrimary else ShelfTokens.textAccent,
+                                radius = radius,
+                                center = Offset(pos.x, pos.y),
+                                alpha = (1f - shatter.value).coerceIn(0f, 1f),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -177,158 +259,140 @@ fun ShelfBookCard(
 
 @Composable
 private fun ShelfCardContent(book: ShelfBookUi, modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-    Column(
-        modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // 新书朱砂印
-        if (book.isNew) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+    Box(modifier = modifier.padding(horizontal = 10.dp, vertical = 12.dp)) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            // 书名区：竖排书名 + 书名右侧朱砂进度竖线；右缘淡墨水印百分比
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    // 竖排书名（书名即封面，无封面图）
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        verticalTitle(book.title).forEach { ch ->
+                            BasicText(
+                                text = ch,
+                                style = TextStyle(
+                                    color = ShelfTokens.textPrimary,
+                                    fontSize = ShelfTokens.TITLE_SP.sp,
+                                    fontWeight = ShelfTokens.titleWeight,
+                                    fontFamily = ShelfTokens.serifTitle,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = (ShelfTokens.TITLE_SP + 2f).sp,
+                                ),
+                            )
+                        }
+                    }
+                    // 朱砂进度竖线：线长 = 阅读进度比例；余段留云灰轨道
+                    Box(
+                        modifier = Modifier
+                            .width(ShelfTokens.VLINE_WIDTH_DP.dp)
+                            .height(72.dp)
+                            .background(ShelfTokens.colorDivider, RoundedCornerShape(50)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(book.progress.coerceIn(0f, 1f))
+                                .background(ShelfTokens.textAccent, RoundedCornerShape(50)),
+                        )
+                    }
+                }
+
+                // 右缘淡墨水印：大号淡墨百分比，压在书名之后
+                BasicText(
+                    text = book.percentText,
+                    style = TextStyle(
+                        color = ShelfTokens.textPrimary.copy(alpha = 0.06f),
+                        fontSize = 28.sp,
+                        fontWeight = ShelfTokens.titleWeight,
+                        fontFamily = ShelfTokens.serifTitle,
+                    ),
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
+            }
+
+            // 作者 / 章节一行小字（云灰 11sp）
+            BasicText(
+                text = "${book.author} · ${book.chapterText}",
+                style = TextStyle(
+                    color = ShelfTokens.textSecondary,
+                    fontSize = ShelfTokens.AUTHOR_SP.sp,
+                    fontFamily = ShelfTokens.serifBody,
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
+            )
+
+            // 云灰 1px 线
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(ShelfTokens.DIVIDER_HEIGHT_DP.dp)
+                    .background(ShelfTokens.colorDivider),
+            )
+
+            // 底部细线进度：朱砂 = 已读，云灰 = 未读；右端百分比小字
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
-                        .background(LuowenShelf.textAccent, RoundedCornerShape(50)),
-                )
+                        .weight(1f)
+                        .height(ShelfTokens.BOTTOM_LINE_HEIGHT_DP.dp)
+                        .background(ShelfTokens.colorDivider, RoundedCornerShape(50)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(book.progress.coerceIn(0f, 1f))
+                            .background(ShelfTokens.textAccent, RoundedCornerShape(50)),
+                    )
+                }
                 BasicText(
-                    text = "新",
-                    style = androidx.compose.ui.text.TextStyle(
-                        color = LuowenShelf.textAccent,
-                        fontSize = 10.sp,
-                        fontFamily = LuowenShelf.serifBody,
+                    text = book.percentText,
+                    style = TextStyle(
+                        color = ShelfTokens.textTertiary,
+                        fontSize = ShelfTokens.CHAPTER_SP.sp,
+                        fontFamily = ShelfTokens.serifBody,
                     ),
                 )
             }
         }
-
-        // 竖排书名（居中，占卡片主视觉）
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            verticalTitle(book.title).forEach { ch ->
-                BasicText(
-                    text = ch,
-                    style = androidx.compose.ui.text.TextStyle(
-                        color = LuowenShelf.textPrimary,
-                        fontSize = 19.sp,
-                        fontWeight = LuowenShelf.titleWeight,
-                        fontFamily = LuowenShelf.serifTitle,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 24.sp,
-                    ),
-                )
-            }
-        }
-
-        // 作者 + 进度文案
-        BasicText(
-            text = book.author,
-            style = androidx.compose.ui.text.TextStyle(
-                color = LuowenShelf.textSecondary,
-                fontSize = 11.sp,
-                fontFamily = LuowenShelf.serifBody,
-            ),
-        )
-        BasicText(
-            text = book.percentText,
-            style = androidx.compose.ui.text.TextStyle(
-                color = LuowenShelf.textTertiary,
-                fontSize = 10.sp,
-                fontFamily = LuowenShelf.serifBody,
-            ),
-        )
-    }
-
-    // 朱砂进度竖线：贴卡片右缘，高度按进度
-    Box(
-        modifier = Modifier
-            .align(Alignment.CenterEnd)
-            .padding(end = 5.dp)
-            .width(3.dp)
-            .height(72.dp)
-            .background(LuowenShelf.colorDivider, RoundedCornerShape(50)),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(book.progress.coerceIn(0f, 1f))
-                .background(LuowenShelf.textAccent, RoundedCornerShape(50)),
-        )
-    }
     }
 }
 
 /** 宣纸颗粒：种子化细点 + 一枚淡金底纹环，重组不漂移。 */
 private fun Modifier.drawPaperGrain(seed: Int): Modifier = this.drawBehind {
-    var s = seed.toLong() and Long.MAX_VALUE
-    fun next(): Float {
-        s = (s * 6364136223846793005L + 1442695040888963407L) and Long.MAX_VALUE
-        return (s ushr 33).toFloat() / Long.MAX_VALUE.toFloat()
-    }
+    val rng = SeededRng(seed.toLong())
     repeat(36) {
-        val x = next() * size.width
-        val y = next() * size.height
-        val r = 0.5f + next() * 0.8f
+        val x = rng.next() * size.width
+        val y = rng.next() * size.height
+        val radius = 0.5f + rng.next() * 0.8f
         drawCircle(
-            color = LuowenShelf.textPrimary,
-            radius = r,
+            color = ShelfTokens.textPrimary,
+            radius = radius,
             center = Offset(x, y),
             alpha = 0.035f,
         )
     }
     // 淡金底纹环（无封面时的印章式兜底）
     drawCircle(
-        color = LuowenShelf.brandGold,
+        color = ShelfTokens.brandGold,
         radius = size.minDimension * 0.30f,
         center = Offset(size.width / 2f, size.height * 0.42f),
         alpha = 0.10f,
         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f),
     )
-}
-
-private data class Droplet(
-    val dirX: Float,
-    val dirY: Float,
-    val dist: Float,
-    val radius: Float,
-    val ink: Boolean,
-)
-
-private fun seedDroplets(count: Int): List<Droplet> {
-    var seed = 97531L
-    fun next(): Float {
-        seed = (seed * 2862933555777941757L + 3037000493L) and Long.MAX_VALUE
-        return (seed ushr 33).toFloat() / Long.MAX_VALUE.toFloat()
-    }
-    return List(count) {
-        val angle = next() * 2f * kotlin.math.PI.toFloat()
-        Droplet(
-            dirX = kotlin.math.cos(angle.toDouble()).toFloat(),
-            dirY = kotlin.math.sin(angle.toDouble()).toFloat() - 0.25f,
-            dist = 0.18f + next() * 0.32f,
-            radius = 2f + next() * 5f,
-            ink = next() > 0.25f,
-        )
-    }
-}
-
-private fun DrawScope.drawInkDroplets(droplets: List<Droplet>, progress: Float) {
-    droplets.forEach { d ->
-        val cx = size.width / 2f + d.dirX * d.dist * size.width * progress
-        val cy = size.height / 2f + d.dirY * d.dist * size.height * progress
-        val radius = d.radius * (1f - progress * 0.6f)
-        val color = if (d.ink) LuowenShelf.textPrimary else LuowenShelf.textAccent
-        drawCircle(
-            color = color,
-            radius = radius,
-            center = Offset(cx, cy),
-            alpha = (1f - progress).coerceIn(0f, 1f),
-        )
-    }
 }
