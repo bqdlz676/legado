@@ -129,10 +129,11 @@ class SourceManageViewModel(application: Application) : BaseViewModel(applicatio
             .catch { AppLogPut("分组刷新出错", it) }
             .onEach { groups ->
                 _uiState.update { state ->
-                    // 分组被删空后，旧筛选分组若已不存在则回落全部（旧页 isMissingBookSourceGroupFilter 兜底）
-                    val preset = if (state.preset == SourcePreset.GROUP &&
-                        state.groupName != null && state.groupName !in groups
-                    ) SourcePreset.ALL else state.preset
+                    // 分组被删空后，旧筛选分组若已不存在则回落全部
+                    val missingGroup = state.preset == SourcePreset.GROUP &&
+                        state.groupName != null &&
+                        isMissingBookSourceGroupFilter("group:${state.groupName}", groups.toSet())
+                    val preset = if (missingGroup) SourcePreset.ALL else state.preset
                     state.copy(groups = groups, preset = preset, groupName = state.groupName)
                 }
             }
