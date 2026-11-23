@@ -2,6 +2,7 @@ package io.legado.app.ui.map.crossing.engine
 
 import io.legado.app.ui.map.crossing.model.BattleStatus
 import io.legado.app.ui.map.crossing.model.Corps
+import io.legado.app.ui.map.crossing.model.Morale
 import io.legado.app.ui.map.crossing.model.VictoryDef
 import io.legado.app.ui.map.crossing.model.VictoryType
 
@@ -25,7 +26,8 @@ object VictoryChecker {
      * @param captureHoldTurns 据点被目标 side 连续占领的回合数（key = 据点标识）
      * @param pointHolders 据点当前占据方表（key = 据点标识，value = 占据方 sideId）；
      *        仅 DEFEND 分支消费，用于判定目标点是否被敌方占据。
-     * @param alliedSideIds 与胜利条件方结盟的 sideId 集合；盟友占据据点不算失守。
+     * @param alliedSideIds 与胜利条件方结盟的 sideId 集合；DEFEND 中盟友占据据点不算失守，
+     *        ROUT 中盟友不计入敌方 blockers。
      *        两个默认空值仅为兼容测试源集中沿用五参旧形参表的既有用例；生产调用方
      *        （CampaignController）必须显式传入实参，不得依赖默认值。
      */
@@ -106,12 +108,18 @@ object VictoryChecker {
             }
 
             VictoryType.ROUT -> {
-                val enemies = corps.filter { it.sideId != def.side && it.combatReady() }
-                if (enemies.isEmpty()) {
-                    Outcome(BattleStatus.VICTORY, def.side, "敌方所有军队均已溃散")
-                } else if (turn > duration) {
-                    Outcome(BattleStatus.DEFEAT, def.side, "回合耗尽，敌方尚未全溃")
-                } else Ongoing
+                // 溃退口径（规格 §四 rout：敌方所有军队士气 broken）：
+                // 敌军 = 非胜利方、非盟友、仍可作战（存活 / 未投降 / 兵力>0）的军队。
+                // 投降、被歼者不计入溃散；敌军被清空本身不构成 ROUT 胜利，只能拖到回合耗尽判负。
+                val enemies = corps.filter {
+                    it.sideId != def.side && it.sideId !in alliedSideIds && it.combatReady()
+                }
+                val routed = enemies.isNotEmpty() && enemies.all { it.morale == Morale.BROKEN }
+                when {
+                    routed -> Outcome(BattleStatus.VICTORY, def.side, "敌方所有军队士气均已溃散")
+                    turn > duration -> Outcome(BattleStatus.DEFEAT, def.side, "回合耗尽，敌方尚未全溃")
+                    else -> Ongoing
+                }
             }
 
             VictoryType.COMPOUND -> {
