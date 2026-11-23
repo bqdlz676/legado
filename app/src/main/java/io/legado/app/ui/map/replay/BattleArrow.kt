@@ -67,7 +67,7 @@ data class BattleArrow(
         /** 由棋子与其目标点生成箭头；设伏棋子不生成兵锋。 */
         fun fromPiece(piece: ArmyPiece, role: SideRole): BattleArrow? {
             if (piece.intent == Intent.AMBUSH) return null
-            if (!piece.hasTarget()) return null
+            if (!piece.hasTarget) return null
             val target = LatLng(piece.targetLat!!, piece.targetLng!!)
             val origin = LatLng(piece.lat, piece.lng)
             // 包抄弧线由路线途经点决定；模型层先给起终两点，绕山折点由路线数据补齐。

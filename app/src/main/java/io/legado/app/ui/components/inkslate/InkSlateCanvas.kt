@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -66,7 +65,7 @@ fun InkSlateCanvas(
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull() ?: continue
                             val position = change.position
-                            val now = event.uptimeMillis
+                            val now = change.uptimeMillis
                             val latest = currentState.value
 
                             when (event.type) {
@@ -202,7 +201,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStroke(stroke: 
             path.lineTo(b.x, b.y)
             path.lineTo(a.x, b.y)
             path.close()
-            drawPath(path, color, style = Stroke(stroke.width))
+            drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke.width))
         }
 
         InkTool.CIRCLE -> {
@@ -211,7 +210,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStroke(stroke: 
             val cx = (a.x + b.x) / 2f
             val cy = (a.y + b.y) / 2f
             val r = hypot(b.x - a.x, b.y - a.y) / 2f
-            drawCircle(color, radius = r, center = Offset(cx, cy), style = Stroke(stroke.width))
+            drawCircle(color, radius = r, center = Offset(cx, cy), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke.width))
         }
 
         InkTool.BRUSH -> drawBrush(stroke, color)

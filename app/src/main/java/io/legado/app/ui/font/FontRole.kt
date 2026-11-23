@@ -1,5 +1,10 @@
 package io.legado.app.ui.font
 
+/** 编译期常量兜底：enum 构造先于 companion object 初始化，故把被 enum 引用的常量放顶层。 */
+private const val BODY_SUBSET_BUDGET = 200L * 1024
+private const val NUMBER_SUBSET_BUDGET = 20L * 1024
+private const val LABEL_SANS_SIZE = 10
+
 /**
  * U9 字体系统（规格切片-14「字体系统」逐字落地）。
  *
@@ -71,7 +76,7 @@ enum class FontRole(
             "SourceHanSerifSC-Regular.otf",
             "SourceHanSerifSC-Regular.ttf",
         ),
-        maxSubsetBytes = BODY_SUBSET_BUDGET_BYTES,
+        maxSubsetBytes = BODY_SUBSET_BUDGET,
         sizeSp = null,
         specNote = "正文宋体 Noto Serif SC；首屏常用子集 ≤ 200KB；font-display: swap",
     ),
@@ -85,7 +90,7 @@ enum class FontRole(
             "SourceHanSerifSC-SemiBold.otf",
             "SourceHanSerifSC-SemiBold.ttf",
         ),
-        maxSubsetBytes = BODY_SUBSET_BUDGET_BYTES,
+        maxSubsetBytes = BODY_SUBSET_BUDGET,
         sizeSp = null,
         specNote = "标题思源宋体 SemiBold；首屏阻塞；swap 过渡，不允许 FOIT",
     ),
@@ -98,7 +103,7 @@ enum class FontRole(
             "NotoSansSC-Light.ttf",
         ),
         maxSubsetBytes = null,
-        sizeSp = LABEL_SANS_SIZE_SP,
+        sizeSp = LABEL_SANS_SIZE,
         specNote = "注音小字 Noto Sans SC Light 10sp；延迟加载",
     ),
 
@@ -111,7 +116,7 @@ enum class FontRole(
             "Inter-Nums.otf",
             "Inter-Nums.ttf",
         ),
-        maxSubsetBytes = NUMBER_SUBSET_BUDGET_BYTES,
+        maxSubsetBytes = NUMBER_SUBSET_BUDGET,
         sizeSp = null,
         specNote = "数字/年份 Inter Tabular Nums；numbers only 极小子集",
     ),

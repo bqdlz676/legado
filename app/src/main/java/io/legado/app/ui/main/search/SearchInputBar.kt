@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,7 +84,7 @@ fun SearchInputBar(
                         fontFamily = FontFamily.Serif,
                         fontSize = 16.sp,
                     ),
-                    keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions(
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         imeAction = ImeAction.Search,
                     ),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(
