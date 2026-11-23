@@ -33,6 +33,7 @@ class VictoryCheckerTest {
         alive: Boolean = true,
         surrendered: Boolean = false,
         role: FactionRole = FactionRole.OWN,
+        latLng: Geo? = null,
     ) = Corps(
         id = id,
         name = id,
@@ -44,7 +45,7 @@ class VictoryCheckerTest {
         morale = morale,
         intent = Intent.HOLD,
         position = Cell(16, 16),
-        latLng = point,
+        latLng = latLng ?: point,
         target = null,
         supply = 5,
         supplyCutTurns = 0,

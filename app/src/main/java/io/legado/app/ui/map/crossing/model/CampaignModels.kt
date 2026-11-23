@@ -223,4 +223,6 @@ data class BranchSnapshot(
     val firedEventIds: Set<Int>,
     /** 据点连续占领计数：不回滚会让恢复后第一次"易主"判定沿用旧时间线（B7）。默认空表兼容旧调用方。 */
     val captureHold: Map<String, Int> = emptyMap(),
+    /** 据点当前归属（据点 id → 阵营 id）：B7 要求快照回滚全部可变量，否则恢复后胜负面板沿用旧占领方。 */
+    val pointHolders: Map<String, String> = emptyMap(),
 )

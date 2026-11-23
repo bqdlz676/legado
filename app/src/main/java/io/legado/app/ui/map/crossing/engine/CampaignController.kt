@@ -449,7 +449,20 @@ class CampaignController private constructor(
         "${"%.4f".format(point.lng)},${"%.4f".format(point.lat)}"
 
     fun snapshot(): TurnSnapshot {
-        val views = corps.map { it.toView() }
+        // 情报雾（F8）：只有"本方军"或"被任一可见本方军看到"的敌方军才算 observed；
+        // 未观测的敌军不下发实时坐标（reportLat/Lng = null），避免玩家透视全图。
+        val playerSide = definition.victory.side
+        val observers = corps.filter { it.sideId == playerSide && it.combatReady() }
+        val observedIds = HashSet<String>()
+        for (ob in observers) for (e in corps) {
+            if (e.sideId == ob.sideId) continue
+            val d = octile(ob.position, e.position)
+            if (d <= ob.visionRadiusCells && map.visible(ob.position, e.position)) observedIds += e.id
+        }
+        val views = corps.map { c ->
+            val seen = c.sideId == playerSide || c.id in observedIds
+            c.toView(observed = seen, report = if (seen) c.latLng else null)
+        }
         return TurnSnapshot(
             turn = turn,
             elapsedDays = elapsedDays,
@@ -467,6 +480,7 @@ class CampaignController private constructor(
         corps = corps.map { it.copy() },
         firedEventIds = firedEvents.toSet(),
         captureHold = captureHold.toMap(),
+        pointHolders = buildPointHolders(),
     )
 
     /** 恢复分支：时间 / 兵力 / 已触发事件一并回滚；状态重置为进行中。 */
@@ -479,6 +493,7 @@ class CampaignController private constructor(
         firedEvents += branch.firedEventIds
         captureHold.clear()
         captureHold.putAll(branch.captureHold)
+        restorePointHolders(branch.pointHolders)
         status = BattleStatus.ONGOING
         winnerSide = null
         finishReason = ""
@@ -537,7 +552,7 @@ class CampaignController private constructor(
         if (_eventLog.size > LOG_CAPACITY) _eventLog.removeAt(0)
     }
 
-    private fun Corps.toView(): CorpsView = CorpsView(
+    private fun Corps.toView(observed: Boolean = true, report: io.legado.app.ui.map.crossing.model.Geo? = null): CorpsView = CorpsView(
         id = id,
         name = name,
         sideId = sideId,
@@ -554,7 +569,17 @@ class CampaignController private constructor(
         alive = alive,
         surrendered = surrendered,
         route = route.map { projection.toGeo(it) },
+        observed = observed,
+        reportLat = report?.lat,
+        reportLng = report?.lng,
     )
+
+    /** 恢复据点归属：快照里记录了"据点 id → 阵营"，恢复时重算对应军的占领计数并写回。 */
+    private fun restorePointHolders(holders: Map<String, String>) {
+        if (holders.isEmpty()) return
+        captureHold.clear()
+        for ((_, side) in holders) for (c in corps) if (c.sideId == side) captureHold[c.id] = 1
+    }
 
     companion object {
         /** 推演网格边长（格 × 格）；高程图与投影共用同一口径。 */
