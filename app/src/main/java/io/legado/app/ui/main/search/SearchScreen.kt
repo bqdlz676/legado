@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.sp
  * @param onClearHistory 清空历史
  * @param onItemClick 点开一条结果
  * @param onRetry 离线 / 失败态重试
+ * @param onLoadMore 列表滚动到底，请求下一页
+ * @param onRetryLoadMore 分页失败脚注重试下一页
  * @param onBack 返回入口（可选；无返回入口时不渲染箭头）
  */
 @Composable
@@ -65,6 +67,8 @@ fun InkSearchScreen(
     onItemClick: (SearchResultItem) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onLoadMore: () -> Unit = {},
+    onRetryLoadMore: () -> Unit = {},
     onBack: (() -> Unit)? = null,
 ) {
     Box(
@@ -113,7 +117,11 @@ fun InkSearchScreen(
                         results = target.results,
                         query = state.query,
                         blocking = false,
+                        paging = state.paging,
+                        hasMore = state.hasMore,
                         onItemClick = onItemClick,
+                        onLoadMore = onLoadMore,
+                        onRetryLoadMore = onRetryLoadMore,
                     )
 
                     is SearchLoadState.Empty -> SearchFallbackBody(
@@ -233,13 +241,21 @@ private fun ResultBody(
     results: List<SearchResultItem>,
     query: String,
     blocking: Boolean,
+    paging: SearchPagingState,
+    hasMore: Boolean,
     onItemClick: (SearchResultItem) -> Unit,
+    onLoadMore: () -> Unit,
+    onRetryLoadMore: () -> Unit,
 ) {
     SearchResultList(
         results = results,
         query = query,
         blocking = blocking,
+        paging = paging,
+        hasMore = hasMore,
         onItemClick = onItemClick,
+        onLoadMore = onLoadMore,
+        onRetryLoadMore = onRetryLoadMore,
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -262,11 +278,16 @@ private fun FallbackWithCache(
             onAction = onRetry,
         )
         if (cached.isNotEmpty()) {
+            // 缓存列表不可翻页：分页态空闲、收口、不挂到底回调。
             ResultBody(
                 results = cached,
                 query = "",
                 blocking = true,
+                paging = SearchPagingState.Idle,
+                hasMore = false,
                 onItemClick = onItemClick,
+                onLoadMore = {},
+                onRetryLoadMore = {},
             )
         }
     }

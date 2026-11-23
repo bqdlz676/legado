@@ -47,6 +47,9 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
     private var searchID = 0L
     private val commandGate = SearchCommandGate()
 
+    /** 上一次翻页触发时间戳（ms）；用于滚动到底连发的去抖窗口判定，0 = 从未触发。 */
+    private var lastLoadMoreAt = 0L
+
     /**
      * 入口接线：Intent 透传的初始关键词 / 搜索范围在此落位；重复进入（onNewIntent 语义）
      * 只更新范围与初始词，不重建模型。
@@ -110,6 +113,41 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
         if (key.isNotEmpty()) runSearch(key)
     }
 
+    /**
+     * 滚动到底触发下一页。三道守卫任一不满足即直接返回，不发请求：
+     * 1. [SearchUiState.canLoadMore]：有内容、远端还有更多、无在途翻页（同页并发保护）；
+     * 2. [SearchTokens.LOAD_MORE_DEBOUNCE_MS] 去抖窗口：连发只取首次；
+     * 3. 协程体内再次比对闸门 / 网络 / 关键词，离线与空词回落分页错态而不是卡死。
+     */
+    fun loadMore() {
+        val state = _uiState.value
+        if (!state.canLoadMore) return
+        val now = System.currentTimeMillis()
+        if (SearchPagingPolicy.withinDebounce(lastLoadMoreAt, now, SearchTokens.LOAD_MORE_DEBOUNCE_MS)) return
+        lastLoadMoreAt = now
+        dispatch(SearchIntent.LoadMoreStart)
+        execute {
+            val model = searchModel
+            if (model == null || searchKey.isBlank()) {
+                dispatch(SearchIntent.LoadMoreFailure(SearchTokens.ERROR_MESSAGE))
+                return@execute
+            }
+            if (!NetworkUtils.isAvailable()) {
+                dispatch(SearchIntent.LoadMoreFailure(SearchTokens.OFFLINE_MESSAGE))
+                return@execute
+            }
+            // 同 id 复调：SearchModel 内部识别为同词续页，searchPage++ 取下一页。
+            model.search(searchID, searchKey)
+        }
+    }
+
+    /** 分页失败脚注重试；仅分页错态可调，复用 [loadMore] 的守卫并绕过去抖。 */
+    fun retryLoadMore() {
+        if (_uiState.value.paging !is SearchPagingState.LoadMoreError) return
+        lastLoadMoreAt = 0L
+        loadMore()
+    }
+
     fun pause() {
         searchModel?.pause()
     }
@@ -135,6 +173,7 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
             searchModel?.cancelSearch()
             searchID = command
             searchKey = key
+            lastLoadMoreAt = 0L
 
             if (!NetworkUtils.isAvailable()) {
                 // 离线兜底：本地书架照搜，结果作离线缓存展示，不阻断入口。
@@ -153,6 +192,8 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
         override fun getSearchScope(): SearchScope = searchScope
 
         override fun onSearchStart() {
+            // 翻页在途时整页保持现有列表，不切全屏 Loading；仅首屏检索才切整页加载态。
+            if (_uiState.value.paging is SearchPagingState.LoadingMore) return
             dispatch(SearchIntent.Loading)
         }
 
@@ -163,14 +204,24 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
         override fun onSearchSuccess(searchBooks: List<SearchBook>) {
             val remote = searchBooks.map { it.toSearchItem() }
             execute {
-                val local = queryLocal(searchKey)
-                val merged = SearchMerger.merge(local, remote)
-                dispatch(SearchIntent.ResultsReady(merged))
+                if (_uiState.value.paging is SearchPagingState.LoadingMore) {
+                    // 翻页回填：按 id / 同名同作者轻量去重后追加；本地书架前置与排序合并归 D5。
+                    dispatch(SearchIntent.LoadMoreAppend(remote, hasMore = _uiState.value.hasMore))
+                } else {
+                    val local = queryLocal(searchKey)
+                    val merged = SearchMerger.merge(local, remote)
+                    dispatch(SearchIntent.ResultsReady(merged))
+                }
             }
         }
 
         override fun onSearchFinish(isEmpty: Boolean, hasMore: Boolean) {
-            // 分页加载更多尚未接线（见验收报告遗留项）；这里只收口空态。
+            if (_uiState.value.paging is SearchPagingState.LoadingMore) {
+                // 翻页收口：按远端标记回到空闲可翻页，或终态不再请求。
+                dispatch(SearchIntent.LoadMoreFinish(hasMore))
+                return
+            }
+            // 首屏空态收口。
             if (isEmpty && _uiState.value.loadState is SearchLoadState.Loading) {
                 dispatch(SearchIntent.ResultsReady(emptyList()))
             }
@@ -178,7 +229,12 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
 
         override fun onSearchCancel(exception: Throwable?) {
             exception?.let { context.toastOnUi(it.localizedMessage) }
-            dispatch(SearchIntent.Failure(exception?.localizedMessage ?: ""))
+            if (_uiState.value.paging is SearchPagingState.LoadingMore) {
+                // 翻页失败：保留现有列表，脚注给可重试入口，不切整页错态。
+                dispatch(SearchIntent.LoadMoreFailure(exception?.localizedMessage ?: ""))
+            } else {
+                dispatch(SearchIntent.Failure(exception?.localizedMessage ?: ""))
+            }
         }
     }
 

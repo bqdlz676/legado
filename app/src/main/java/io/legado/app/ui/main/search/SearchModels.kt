@@ -79,6 +79,26 @@ sealed interface SearchLoadState {
 }
 
 /**
+ * 列表分页（加载更多）状态：到底触发 / 在途 / 失败可重试 / 收口。
+ *
+ * 与整页 [SearchLoadState] 正交：整页态管首屏，分页态只管列表底部的下一页请求。
+ */
+sealed interface SearchPagingState {
+
+    /** 空闲：可接受下一次到底触发。 */
+    object Idle : SearchPagingState
+
+    /** 下一页在途：并发保护，重复滚动到底不重复请求。 */
+    object LoadingMore : SearchPagingState
+
+    /** 上一页失败：保留现有列表，底部脚注给可重试入口。 */
+    data class LoadMoreError(val message: String) : SearchPagingState
+
+    /** 已收口：远端告知无更多结果，到底不再请求（不许无限刷）。 */
+    object Ended : SearchPagingState
+}
+
+/**
  * 整页 UI 状态（纯数据，归约器产出，Compose 只读）。
  *
  * @param query 输入框当前文本（未 trim 原文；匹配前由 matcher 归一化）
@@ -88,6 +108,8 @@ sealed interface SearchLoadState {
  * @param hot 热门词条
  * @param hotSource 热门词条来源档位（高频 / 历史回流 / 内置精选 / 防御空态），UI 据此区分标题与点色
  * @param lastResults 上一次成功结果；离线 / 失败时作为缓存兜底保留，不丢失
+ * @param hasMore 远端是否还有下一页；false 后到底不再请求
+ * @param paging 加载更多分页态（空闲 / 在途 / 失败可重试 / 收口）
  */
 data class SearchUiState(
     val query: String = "",
@@ -97,6 +119,8 @@ data class SearchUiState(
     val hot: List<String> = emptyList(),
     val hotSource: SearchHotSource = SearchHotSource.EMPTY,
     val lastResults: List<SearchResultItem> = emptyList(),
+    val hasMore: Boolean = true,
+    val paging: SearchPagingState = SearchPagingState.Idle,
 ) {
     /** 当前应展示在列表区的结果：Content 取本次结果，离线 / 失败取缓存，其余为空。 */
     val visibleResults: List<SearchResultItem>
@@ -115,4 +139,27 @@ data class SearchUiState(
             is SearchLoadState.Offline -> true
             else -> false
         }
+
+    /**
+     * 是否允许触发下一页：
+     * 必须有内容展示、远端还有更多、且当前没有在途翻页请求；
+     * 分页失败态（LoadMoreError）允许重试，不在此拦阻。
+     */
+    val canLoadMore: Boolean
+        get() = loadState is SearchLoadState.Content &&
+            hasMore &&
+            paging !is SearchPagingState.LoadingMore
+}
+
+/**
+ * 翻页触发策略（纯 JVM，可单测）：去抖窗口判定，不碰协程 / 网络。
+ */
+internal object SearchPagingPolicy {
+
+    /**
+     * 距上一次触发不足 [debounceMs] 视为连发，抑制本次触发。
+     * [lastAtMillis] 为 0（从未触发）时不做去抖。
+     */
+    fun withinDebounce(lastAtMillis: Long, nowMillis: Long, debounceMs: Long): Boolean =
+        lastAtMillis > 0 && nowMillis - lastAtMillis < debounceMs
 }

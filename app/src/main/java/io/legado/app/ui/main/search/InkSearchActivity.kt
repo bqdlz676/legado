@@ -50,6 +50,8 @@ class InkSearchActivity : ComponentActivity() {
                 onClearHistory = { viewModel.clearHistory() },
                 onItemClick = { openBookInfo(it) },
                 onRetry = { viewModel.retry() },
+                onLoadMore = { viewModel.loadMore() },
+                onRetryLoadMore = { viewModel.retryLoadMore() },
                 onBack = { finish() },
             )
         }

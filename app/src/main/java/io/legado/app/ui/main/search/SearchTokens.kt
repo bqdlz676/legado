@@ -115,6 +115,9 @@ object SearchTokens {
     /** 查询词长度上限：超长词在此截断，避免 LIKE / 高亮切分出现退化输入（兜底边界）。 */
     const val QUERY_MAX_LEN: Int = 50
 
+    /** 加载更多触发去抖窗口（ms）：滚动到底连发只取首次，窗口内重复触发被抑制。 */
+    const val LOAD_MORE_DEBOUNCE_MS: Long = 200L
+
     /** stagger 逐条错开毫秒数（最多错 8 条）。 */
     const val STAGGER_STEP_MS: Int = 45
 
@@ -137,6 +140,12 @@ object SearchTokens {
 
     /** 重试按钮文案。 */
     const val RETRY_LABEL: String = "重试"
+
+    /** 翻页在途脚注文案（底部加载更多）。 */
+    const val LOAD_MORE_HINT: String = "正在加载更多…"
+
+    /** 无更多结果收口脚注文案。 */
+    const val LOAD_MORE_END: String = "没有更多了"
 
     /** 历史分区标题。 */
     const val HISTORY_TITLE: String = "搜索历史"
