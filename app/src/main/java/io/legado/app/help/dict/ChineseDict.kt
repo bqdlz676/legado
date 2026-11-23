@@ -47,7 +47,7 @@ object ChineseDict {
     // ------------------------------------------------------------------
 
     /** 单字条目；字库未收返回 null，不猜义、不编说文。 */
-    fun getChar(ch: Char): CharEntry? = ensureChar()[ch.toString()]
+    fun getChar(ch: Char): CharEntry? = ensureChar()[ch.toString()]?.entry
 
     /** 单字条目（String 入参；长度非 1 返回 null）。 */
     fun getChar(ch: String): CharEntry? =
