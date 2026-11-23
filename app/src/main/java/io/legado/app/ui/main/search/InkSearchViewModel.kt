@@ -128,22 +128,24 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
     private fun runSearch(key: String) {
         val command = commandGate.next()
         execute {
-            commandGate.runIfCurrent(command) {
-                searchModel?.cancelSearch()
-                searchID = command
-                searchKey = key
+            // 闸门比对在协程体内完成：编排体含挂起的本地书架检索 [queryLocal]，
+            // 不能塞进闸门那个非挂起的 `() -> Unit` lambda，否则编译期报
+            // “Suspension functions can only be called within coroutine body”。
+            if (!commandGate.isCurrent(command)) return@execute
+            searchModel?.cancelSearch()
+            searchID = command
+            searchKey = key
 
-                if (!NetworkUtils.isAvailable()) {
-                    // 离线兜底：本地书架照搜，结果作离线缓存展示，不阻断入口。
-                    val local = queryLocal(key)
-                    _uiState.update { it.copy(lastResults = local) }
-                    dispatch(SearchIntent.Offline)
-                    return@runIfCurrent
-                }
-
-                saveSearchKey(key)
-                searchModel?.search(searchID, key)
+            if (!NetworkUtils.isAvailable()) {
+                // 离线兜底：本地书架照搜，结果作离线缓存展示，不阻断入口。
+                val local = queryLocal(key)
+                _uiState.update { it.copy(lastResults = local) }
+                dispatch(SearchIntent.Offline)
+                return@execute
             }
+
+            saveSearchKey(key)
+            searchModel?.search(searchID, key)
         }
     }
 
@@ -229,6 +231,14 @@ internal class SearchCommandGate {
     private val lock = Any()
 
     fun next(): Long = sequence.incrementAndGet()
+
+    /**
+     * 仅比对命令是否仍为当前有效命令、不执行体；供协程体内的挂起编排前做闸门判定。
+     * 与 [runIfCurrent] 共用同一把锁与同一个序号，作废语义一致。
+     */
+    fun isCurrent(command: Long): Boolean = synchronized(lock) {
+        command == sequence.get()
+    }
 
     fun runIfCurrent(command: Long, block: () -> Unit): Boolean = synchronized(lock) {
         if (command != sequence.get()) return false
