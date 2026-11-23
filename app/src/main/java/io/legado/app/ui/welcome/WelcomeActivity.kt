@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import io.legado.app.ui.font.InkFontLoader
 import io.legado.app.ui.main.MainActivity
 
 /**
@@ -28,6 +29,10 @@ open class WelcomeActivity : ComponentActivity() {
             finish()
             return
         }
+        // U9 字体系统挂接点：启动早期预载正文（swap）/ 标题（阻塞）两角色子集。
+        // init 幂等，内部对资产缺失 / 超体积 / 损坏全部兜底回落系统字体，异常不外抛，
+        // 不阻断启动；两枚首屏子集各 ≤ 200KB，解析耗时计入启动→书架 ≤1.8s 红线。
+        runCatching { InkFontLoader.init(this) }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())

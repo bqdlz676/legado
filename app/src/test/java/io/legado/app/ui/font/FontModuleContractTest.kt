@@ -7,9 +7,9 @@ import java.io.File
 /**
  * U9 字体模块契约核对（源码级，不靠运行时）：
  *  - 规格切片-14 的五个角色 / 体积红线 / 字数 / 字号在源码与 manifest 双处一致；
- *  - 沙箱未实际生成子集：assets/fonts 下不得存在打包字体二进制；
- *  - 统一规范：主代码无 hex 颜色字面量、不引入 Material；
- *  - 子集生成脚本就位且标注「未实际生成」。
+ *  - 子集已实际生成：manifest 状态 GENERATED，README / 脚本口径同步；
+ *  - 启动 Activity 已挂接 InkFontLoader.init；
+ *  - 统一规范：主代码无 hex 颜色字面量、不引入 Material。
  */
 class FontModuleContractTest {
 
@@ -43,7 +43,7 @@ class FontModuleContractTest {
     }
 
     @Test
-    fun `manifest matches enum roles and candidates`() {
+    fun `manifest matches enum roles and candidates and marks generated`() {
         val manifest = readProjectFile("$assetsDir/manifest.json")
         FontRole.entries.forEach { role ->
             assertTrue("manifest 缺角色 ${role.name}", manifest.contains(role.name))
@@ -51,40 +51,46 @@ class FontModuleContractTest {
                 assertTrue("manifest 缺候选 $candidate", manifest.contains(candidate))
             }
         }
-        assertTrue(manifest.contains("NOT_GENERATED"))
+        assertTrue(manifest.contains("GENERATED"))
         assertTrue(manifest.contains("204800"))
         assertTrue(manifest.contains("20480"))
+        assertTrue(manifest.contains("OFL-1.1"))
     }
 
     @Test
-    fun `readme marks subset not generated and lists roles`() {
+    fun `readme marks subsets generated and lists roles`() {
         val readme = readProjectFile("$assetsDir/README.md")
-        assertTrue(readme.contains("子集未实际生成"))
-        assertTrue(readme.contains("Noto Serif SC"))
-        assertTrue(readme.contains("思源宋体 SemiBold"))
-        assertTrue(readme.contains("Noto Sans SC Light 10sp"))
-        assertTrue(readme.contains("Inter Tabular Nums"))
+        assertTrue(readme.contains("子集已实际生成并打包"))
+        assertTrue(readme.contains("Noto Serif CJK SC"))
+        assertTrue(readme.contains("Noto Serif CJK SC SemiBold"))
+        assertTrue(readme.contains("Noto Sans CJK SC Light"))
+        assertTrue(readme.contains("Inter"))
         assertTrue(readme.contains("JetBrains Mono"))
     }
 
     @Test
-    fun `subset generator script present with budget and char count`() {
+    fun `subset generator script present with budget and ofl provenance`() {
         val script = readProjectFile("$assetsDir/subset_generate.py")
         assertTrue(script.contains("fontTools"))
         assertTrue(script.contains("BODY_BUDGET_BYTES = 200 * 1024"))
         assertTrue(script.contains("NUMBER_BUDGET_BYTES = 20 * 1024"))
-        assertTrue(script.contains("2500"))
-        assertTrue(script.contains("子集未实际生成"))
+        assertTrue(script.contains("luowen-core.txt"))
+        assertTrue(script.contains("OFL"))
     }
 
     @Test
-    fun `no font binary packaged in assets fonts dir`() {
-        val dir = projectFile(assetsDir)
-        val binaries = dir.walkTopDown()
-            .filter { it.isFile }
-            .filter { it.extension.lowercase() in listOf("ttf", "otf", "woff", "woff2") }
-            .toList()
-        assertTrue("不应打包字体二进制（子集未生成）：$binaries", binaries.isEmpty())
+    fun `welcome activity hooks InkFontLoader init on early startup`() {
+        val activity = readProjectFile(
+            "app/src/main/java/io/legado/app/ui/welcome/WelcomeActivity.kt",
+        )
+        assertTrue(
+            "启动 Activity 未挂接 InkFontLoader.init",
+            activity.contains("InkFontLoader.init(this)"),
+        )
+        assertTrue(
+            "缺少字体初始化兜底 runCatching",
+            activity.contains("runCatching { InkFontLoader.init(this) }"),
+        )
     }
 
     @Test

@@ -1,0 +1,61 @@
+{
+  "schema": "luowen-font-coverage/v1",
+  "mandatoryText": "打开书竖排读点字出气泡命中春秋晋国鲁隐公元年前干支己未甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥年月日时代距今公元前后朔望年号释义出处人名地名落文读其知通搜索书名作者正文任意一句",
+  "jobs": [
+    {
+      "role": "BODY_SERIF",
+      "file": "NotoSerifSC-Regular.otf",
+      "bytes": 149760,
+      "budgetBytes": 204800,
+      "glyphs": 654,
+      "source": "Noto Serif CJK SC Regular (SIL OFL 1.1)",
+      "license": "OFL-1.1",
+      "coveredChars": 653,
+      "missingChars": ""
+    },
+    {
+      "role": "TITLE_SERIF",
+      "file": "NotoSerifSC-SemiBold.otf",
+      "bytes": 151492,
+      "budgetBytes": 204800,
+      "glyphs": 654,
+      "source": "Noto Serif CJK SC SemiBold (SIL OFL 1.1)",
+      "license": "OFL-1.1",
+      "coveredChars": 653,
+      "missingChars": ""
+    },
+    {
+      "role": "LABEL_SANS",
+      "file": "NotoSansSC-Light.otf",
+      "bytes": 106648,
+      "budgetBytes": null,
+      "glyphs": 654,
+      "source": "Noto Sans CJK SC Light (SIL OFL 1.1)",
+      "license": "OFL-1.1",
+      "coveredChars": 653,
+      "missingChars": ""
+    },
+    {
+      "role": "NUMBER_TABULAR",
+      "file": "Inter-TabularNumbers.ttf",
+      "bytes": 2952,
+      "budgetBytes": 20480,
+      "glyphs": 32,
+      "source": "Inter Regular, wght=400 instance (SIL OFL 1.1)",
+      "license": "OFL-1.1",
+      "coveredChars": 17,
+      "missingChars": ""
+    },
+    {
+      "role": "MONO",
+      "file": "JetBrainsMono-Regular.ttf",
+      "bytes": 6592,
+      "budgetBytes": null,
+      "glyphs": 70,
+      "source": "JetBrains Mono Regular, wght=400 instance (SIL OFL 1.1)",
+      "license": "OFL-1.1",
+      "coveredChars": 66,
+      "missingChars": ""
+    }
+  ]
+}
