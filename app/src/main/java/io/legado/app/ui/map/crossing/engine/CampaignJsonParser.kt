@@ -62,7 +62,7 @@ object CampaignJsonParser {
         val diplomacy = parseDiplomacy(obj)
         val armies = parseArmies(obj, warnings)
         val events = parseEvents(obj, warnings)
-        val terrain = parseTerrain(obj)
+        val terrain = parseTerrain(obj, warnings)
 
         if (armies.isEmpty()) warnings += "armies 为空：棋盘上没有可推演的军队"
         if (victory.type == VictoryType.ANNIHILATE && victory.target.isNullOrBlank()) {
@@ -120,7 +120,11 @@ object CampaignJsonParser {
             warnings += "victory 缺失：默认 ANNIHILATE 无目标"
             return VictoryDef(VictoryType.ANNIHILATE, null, null, null, 3, "AND", emptyList())
         }
-        val v = el.asJsonObject
+        return parseVictoryDef(el.asJsonObject, warnings)
+    }
+
+    /** 递归解析 COMPOUND 子条件（规格 L109 AND/OR 组合；嵌套层级不限）。 */
+    private fun parseVictoryDef(v: JsonObject, warnings: MutableList<String>): VictoryDef {
         val type = VictoryType.fromLabel(str(v, "type", "annihilate"))
         val target = strOrNull(v, "target")
         val side = strOrNull(v, "side")
@@ -130,15 +134,9 @@ object CampaignJsonParser {
         val sub = mutableListOf<VictoryDef>()
         v.getAsJsonArray("sub")?.forEach { item ->
             if (item.isJsonObject) {
-                sub += VictoryDef(
-                    type = VictoryType.fromLabel(str(item.asJsonObject, "type", "annihilate")),
-                    target = strOrNull(item.asJsonObject, "target"),
-                    side = strOrNull(item.asJsonObject, "side"),
-                    point = geo(item.asJsonObject, "point"),
-                    holdTurns = int(item.asJsonObject, "holdTurns", 3),
-                    op = "AND",
-                    sub = emptyList(),
-                )
+                sub += parseVictoryDef(item.asJsonObject, warnings)
+            } else {
+                warnings += "victory.sub 存在非对象子条件，已跳过"
             }
         }
         return VictoryDef(type, target, side, point, holdTurns, op, sub)
@@ -239,37 +237,67 @@ object CampaignJsonParser {
         return out
     }
 
-    private fun parseTerrain(obj: JsonObject): TerrainDef {
-        val el = obj.get("terrain") ?: return TerrainDef(procedural = true, emptyList(), emptyList())
-        if (!el.isJsonObject) return TerrainDef(procedural = true, emptyList(), emptyList())
-        val t = el.asJsonObject
-        val ridges = mutableListOf<RidgeDef>()
-        t.getAsJsonArray("ridges")?.forEach { r ->
-            if (r.isJsonObject) {
-                val ro = r.asJsonObject
-                ridges += RidgeDef(
-                    x = dbl(ro, "x", 0.5), y = dbl(ro, "y", 0.5),
-                    height = dbl(ro, "h", 0.5), width = dbl(ro, "w", 0.2),
-                )
+    private fun parseTerrain(obj: JsonObject, warnings: MutableList<String>): TerrainDef {
+        // 兜底铁律：地形块任何畸形（对象错位 / 点列非数组 / 元素非数 / 长度异常）都不得抛穿到 UI，
+        // 残缺部分按空列表回落并记 warning。
+        return try {
+            val el = obj.get("terrain") ?: return TerrainDef(procedural = true, emptyList(), emptyList())
+            if (!el.isJsonObject) return TerrainDef(procedural = true, emptyList(), emptyList())
+            val t = el.asJsonObject
+            val ridges = mutableListOf<RidgeDef>()
+            t.getAsJsonArray("ridges")?.forEach { r ->
+                if (r.isJsonObject) {
+                    val ro = r.asJsonObject
+                    ridges += RidgeDef(
+                        x = dbl(ro, "x", 0.5), y = dbl(ro, "y", 0.5),
+                        height = dbl(ro, "h", 0.5), width = dbl(ro, "w", 0.2),
+                    )
+                }
             }
-        }
-        val rivers = mutableListOf<RiverDef>()
-        t.getAsJsonArray("rivers")?.forEach { rv ->
-            if (!rv.isJsonObject) return@forEach
-            val pts = mutableListOf<Geo>()
-            rv.asJsonObject.getAsJsonArray("pts")?.forEach { p ->
-                val arr = p.asJsonArray
-                val x = arr.getOrNull(0)?.asDouble ?: 0.0
-                val y = arr.getOrNull(1)?.asDouble ?: 0.0
-                pts += Geo(lat = y, lng = x)
+            val rivers = mutableListOf<RiverDef>()
+            t.getAsJsonArray("rivers")?.forEachIndexed { index, rv ->
+                if (!rv.isJsonObject) {
+                    warnings += "terrain.rivers[$index] 不是对象，已跳过"
+                    return@forEachIndexed
+                }
+                val ptsEl = rv.asJsonObject.get("pts")
+                if (ptsEl == null || !ptsEl.isJsonArray) {
+                    warnings += "terrain.rivers[$index].pts 不是数组，已跳过"
+                    return@forEachIndexed
+                }
+                val pts = mutableListOf<Geo>()
+                ptsEl.asJsonArray.forEach { p ->
+                    val geo = guardedPoint(p)
+                    if (geo != null) pts += geo
+                }
+                if (pts.size >= 2) rivers += RiverDef(pts)
+                else warnings += "terrain.rivers[$index] 有效点列不足 2 个，已跳过"
             }
-            if (pts.size >= 2) rivers += RiverDef(pts)
+            TerrainDef(
+                procedural = t.get("procedural")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true,
+                ridges = ridges,
+                rivers = rivers,
+            )
+        } catch (t: Throwable) {
+            warnings += "terrain 块解析异常已兜底：${t.javaClass.simpleName}"
+            TerrainDef(procedural = true, emptyList(), emptyList())
         }
-        return TerrainDef(
-            procedural = t.get("procedural")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true,
-            ridges = ridges,
-            rivers = rivers,
-        )
+    }
+
+    /** 单个河流点列元素类型守卫：非数组 / 非数 / 长度不足返回 null，不抛异常。 */
+    private fun guardedPoint(el: com.google.gson.JsonElement?): Geo? {
+        if (el == null || !el.isJsonArray) return null
+        val arr = el.asJsonArray
+        if (arr.size() < 2) return null
+        return try {
+            // 数字取值走 JsonElement.getAsNumber()（Gson 已声明），Number.toDouble() 转双精度；
+            // 非数 / 非法值抛异常后由外层 try/catch 兜底返回 null，畸形 JSON 不抛到 UI。
+            val x = arr[0].getAsNumber().toDouble()
+            val y = arr[1].getAsNumber().toDouble()
+            if (!x.isFinite() || !y.isFinite()) null else Geo(lat = y, lng = x)
+        } catch (t: Throwable) {
+            null
+        }
     }
 
     // ── 兜底与原始取值工具 ─────────────────────────────────────
@@ -310,7 +338,7 @@ object CampaignJsonParser {
     private fun dbl(obj: JsonObject, key: String, default: Double): Double {
         val el: JsonElement = obj.get(key) ?: return default
         return try {
-            if (el.isJsonPrimitive) el.asDouble else default
+            if (el.isJsonPrimitive) el.getAsNumber().toDouble() else default
         } catch (t: Throwable) {
             default
         }
@@ -323,7 +351,7 @@ object CampaignJsonParser {
         val arr = el.asJsonArray
         if (arr.size() < 2) return null
         return try {
-            Geo(lat = arr[1].asDouble, lng = arr[0].asDouble)
+            Geo(lat = arr[1].getAsNumber().toDouble(), lng = arr[0].getAsNumber().toDouble())
         } catch (t: Throwable) {
             null
         }

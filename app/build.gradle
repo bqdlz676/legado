@@ -22,21 +22,19 @@ static def releaseTime() {
 
 def name = "落文"
 def version = "3." + releaseTime()
-def versionCodeValue = 30000
-// Preserve the published code at this point, then ignore GitHub wrapper merge commits.
-def versionCodeBaseCommit = '9639f027fbc8cfdf57ce136a9e0c98829a235aef'
-def versionCodeAtBase = 37540
-try {
-    def gitCount = providers.exec {
-        commandLine 'git', 'rev-list', "${versionCodeBaseCommit}..HEAD", '--count', '--no-merges'
-        ignoreExitValue = true
-    }.standardOutput.asText.get().trim()
-    if (gitCount) {
-        versionCodeValue = versionCodeAtBase + Integer.parseInt(gitCount)
+// 【versionCode 唯一权威 = 仓库根 .versioncode】CI 与本地读同一个文件，算出的号必然一致。
+// 为什么不再用 git 历史计数：旧算法依赖基线提交 9639f027…，而该提交已不在远端（git fetch 报
+// "not our ref"），本地和 CI 都会落进兜底值 30000，反而低于手机上已装的 37xxx → 覆盖安装必失败。
+def versionCodeFloor = 38000   // 硬地板：合法 versionCode 永远不低于它，否则 INSTALL_FAILED_VERSION_DOWNGRADE
+def versionCodeFile = rootProject.file('.versioncode')
+def versionCodeValue = versionCodeFloor
+if (versionCodeFile.exists()) {
+    def raw = versionCodeFile.text.trim()
+    if (raw ==~ /\d{1,9}/) {
+        versionCodeValue = Math.max(versionCodeFloor, raw as Integer)
     }
-} catch (ignored) {
-    // Keep source archives buildable when Git is unavailable.
 }
+// 发版/出包前统一走 data_scripts/bump-versioncode.sh（+1 并回写），不要手改本文件、不要改 .versioncode 以外的地方。
 def armOnly = project.findProperty("armOnly")?.toBoolean() ?: false
 
 android {

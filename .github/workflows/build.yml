@@ -47,6 +47,16 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x gradlew
 
+      # versionCode 的唯一权威是仓库根 .versioncode（gradle 与本地同读），这里先把它打出来并入 summary，
+      # 低于硬地板 38000 直接 fail —— 否则产出的包在手机上会 INSTALL_FAILED_VERSION_DOWNGRADE 盖不上去。
+      - name: Resolve versionCode (.versioncode single source)
+        run: |
+          VC="$(tr -d '[:space:]' < .versioncode)"
+          echo "versionCode=$VC" | tee -a "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$VC" =~ ^[0-9]+$ ]] || (( VC < 38000 )); then
+            echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
+          fi
+
       - name: Clean (full rebuild, no incremental)
         run: ./gradlew clean --no-daemon --stacktrace
 
