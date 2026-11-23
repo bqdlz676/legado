@@ -71,10 +71,7 @@ class CampaignController private constructor(
     // ── 载入 ──────────────────────────────────────────────────
 
     private fun instantiateCorps() {
-        val allySides = definition.diplomacy
-            .filter { it.relation == Relation.ALLIED && (it.a == ownSideId || it.b == ownSideId) }
-            .map { if (it.a == ownSideId) it.b else it.a }
-            .toSet()
+        val allySides = alliedSidesWith(ownSideId)
         definition.armies.forEachIndexed { index, def ->
             val role = FactionRole.fromSideIds(def.sideId, ownSideId, allySides)
             val rawCell = projection.toCell(def.pos)
@@ -156,6 +153,8 @@ class CampaignController private constructor(
             turn = turn,
             duration = definition.duration,
             captureHoldTurns = captureHold,
+            pointHolders = buildPointHolders(),
+            alliedSideIds = alliedSidesWith(definition.victory.side),
         )
         if (outcome.finished) {
             status = outcome.status
@@ -330,10 +329,35 @@ class CampaignController private constructor(
 
     private fun updateCaptureTracker() {
         val point = definition.victory.point ?: return
-        val key = "${"%.4f".format(point.lng)},${"%.4f".format(point.lat)}"
+        val key = pointKey(point)
         val holder = corps.any { it.sideId == definition.victory.side && it.combatReady() && nearPoint(it.latLng, point) }
         captureHold[key] = if (holder) (captureHold[key] ?: 0) + 1 else 0
     }
+
+    /**
+     * 据点当前占据方表（key = 据点标识，value = 占据方 sideId）。
+     * 口径：仅取顶层胜利条件的目标点；可战军队（存活 / 未投降 / 兵力 > 0）落在抵达半径内即视为占据；
+     * 同点多支军队时己方优先，其次任一可战他方（敌 / 友交由判定层按 [alliedSidesWith] 区分）。
+     * 目标点缺失或半径内无可战军队 → 空表，判定层按「据点未失守」处理。
+     */
+    private fun buildPointHolders(): Map<String, String> {
+        val point = definition.victory.point ?: return emptyMap()
+        val ready = corps.filter { it.combatReady() && nearPoint(it.latLng, point) }
+        val holder = ready.firstOrNull { it.sideId == definition.victory.side } ?: ready.firstOrNull()
+        return holder?.let { mapOf(pointKey(point) to it.sideId) } ?: emptyMap()
+    }
+
+    /** 与 [sideId] 结盟的阵营 id 集合（diplomacy ALLIED 对的另一方）；sideId 为 null 时返回空集。 */
+    private fun alliedSidesWith(sideId: String?): Set<String> {
+        val target = sideId ?: return emptySet()
+        return definition.diplomacy
+            .filter { it.relation == Relation.ALLIED && (it.a == target || it.b == target) }
+            .map { if (it.a == target) it.b else it.a }
+            .toSet()
+    }
+
+    private fun pointKey(point: Geo): String =
+        "${"%.4f".format(point.lng)},${"%.4f".format(point.lat)}"
 
     fun snapshot(): TurnSnapshot {
         val views = corps.map { it.toView() }
