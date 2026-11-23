@@ -1,4 +1,4 @@
-package io.legado.app.core.chronology
+package io.legado.app.help.chrono
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,8 +31,8 @@ class ConfidenceGradeTest {
         val channels = setOf(
             SourceChannel.ARCHAEOLOGY, SourceChannel.ATLAS, SourceChannel.TEXT
         )
-        val c = Confidence.grade(channels, refLayer = false, tier = 1)
-        assertEquals(Confidence.HIGH, c)
+        val c = ContextAnchor.Confidence.grade(channels, refLayer = false, tier = 1)
+        assertEquals(ContextAnchor.Confidence.HIGH, c)
         assertEquals("high", c.wire)
         assertEquals("", c.label)
         assertTrue(c.canDefault)
@@ -41,39 +41,39 @@ class ConfidenceGradeTest {
     @Test
     fun `two of three sources grade medium marked pending check`() {
         val channels = setOf(SourceChannel.ARCHAEOLOGY, SourceChannel.ATLAS)
-        val c = Confidence.grade(channels, refLayer = false, tier = 2)
-        assertEquals(Confidence.MEDIUM, c)
+        val c = ContextAnchor.Confidence.grade(channels, refLayer = false, tier = 2)
+        assertEquals(ContextAnchor.Confidence.MEDIUM, c)
         assertEquals("待校", c.label)
         assertTrue(c.canDefault)
     }
 
     @Test
     fun `one or zero source grades low marked conflicting and cannot default`() {
-        val one = Confidence.grade(setOf(SourceChannel.TEXT), refLayer = false, tier = 3)
-        assertEquals(Confidence.LOW, one)
+        val one = ContextAnchor.Confidence.grade(setOf(SourceChannel.TEXT), refLayer = false, tier = 3)
+        assertEquals(ContextAnchor.Confidence.LOW, one)
         assertEquals("待考·来源冲突", one.label)
         assertFalse(one.canDefault)
 
-        val none = Confidence.grade(emptySet(), refLayer = false, tier = 3)
-        assertEquals(Confidence.LOW, none)
+        val none = ContextAnchor.Confidence.grade(emptySet(), refLayer = false, tier = 3)
+        assertEquals(ContextAnchor.Confidence.LOW, none)
         assertFalse(none.canDefault)
     }
 
     @Test
     fun `reference layer is always low and never defaults`() {
-        val c = Confidence.grade(
+        val c = ContextAnchor.Confidence.grade(
             setOf(SourceChannel.REFERENCE), refLayer = true, tier = 3
         )
-        assertEquals(Confidence.LOW, c)
+        assertEquals(ContextAnchor.Confidence.LOW, c)
         assertFalse(c.canDefault)
     }
 
     @Test
     fun `explicit confidence raw mapping`() {
-        assertEquals(Confidence.HIGH, Confidence.of("high"))
-        assertEquals(Confidence.MEDIUM, Confidence.of("medium"))
-        assertEquals(Confidence.LOW, Confidence.of("low"))
-        assertEquals(Confidence.LOW, Confidence.of(null))
-        assertEquals(Confidence.LOW, Confidence.of("unknown"))
+        assertEquals(ContextAnchor.Confidence.HIGH, ContextAnchor.Confidence.of("high"))
+        assertEquals(ContextAnchor.Confidence.MEDIUM, ContextAnchor.Confidence.of("medium"))
+        assertEquals(ContextAnchor.Confidence.LOW, ContextAnchor.Confidence.of("low"))
+        assertEquals(ContextAnchor.Confidence.LOW, ContextAnchor.Confidence.of(null))
+        assertEquals(ContextAnchor.Confidence.LOW, ContextAnchor.Confidence.of("unknown"))
     }
 }

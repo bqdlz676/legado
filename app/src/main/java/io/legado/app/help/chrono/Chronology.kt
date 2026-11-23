@@ -482,6 +482,34 @@ object Chronology {
         return "$bc 年（${yearGanzhi(year)}）· 距今${yearsAgo(year)}年"
     }
 
+    /**
+     * 按公元年判朝代图层（对齐规格切片 05 的 18 套图层区间）。
+     * 区间互斥；空档（楚汉之际等）就近归入前一政权，不返回 null 空白态。
+     */
+    fun dynastyOf(year: Int): String? = when {
+        year in -1046..-771 -> "西周"
+        year in -770..-476 -> "春秋"
+        year in -475..-221 -> "战国"
+        year in -221..-202 -> "秦"
+        year in -201..8 -> "西汉"
+        year in 9..24 -> "新"
+        year in 25..220 -> "东汉"
+        year in 221..264 -> "三国"
+        year in 265..316 -> "西晋"
+        year in 317..420 -> "东晋/十六国"
+        year in 420..589 -> "南北朝"
+        year in 581..618 -> "隋"
+        year in 618..907 -> "唐"
+        year in 907..960 -> "五代十国"
+        year in 960..1127 -> "北宋/辽"
+        year in 1127..1279 -> "南宋/金/西夏"
+        year in 1271..1368 -> "元"
+        year in 1368..1644 -> "明"
+        year in 1644..1911 -> "清"
+        year >= 1912 -> "近现代"
+        else -> null
+    }
+
     private fun floorMod(a: Long, b: Int): Int {
         val m = a % b
         return if (m < 0) (m + b).toInt() else m.toInt()

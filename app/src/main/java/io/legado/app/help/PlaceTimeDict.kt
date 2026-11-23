@@ -3,6 +3,7 @@ package io.legado.app.help
 import android.content.Context
 import io.legado.app.help.chrono.ChronoPlaces
 import io.legado.app.help.chrono.ContextAnchor
+import io.legado.app.help.chrono.SourceChannel
 import io.legado.app.utils.printOnDebug
 
 /**
@@ -196,6 +197,7 @@ object PlaceTimeDict {
             val idNames = HashMap<String, MutableSet<String>>()
             names.forEach { (n, el) -> el.forEach { idNames.getOrPut(it.id) { mutableSetOf() }.add(n) } }
             val seeds = ents.values.map { e ->
+                val channel = SourceChannel.classify(e.source)
                 ChronoPlaces.PlaceSeed(
                     id = e.id,
                     name = e.name,
@@ -207,6 +209,12 @@ object PlaceTimeDict {
                     confidence = e.confidenceTag,
                     source = e.source ?: "",
                     note = e.note,
+                    lng = e.lng,
+                    lat = e.lat,
+                    era = e.era,
+                    refLayer = channel == SourceChannel.REFERENCE,
+                    channels = setOfNotNull(channel),
+                    declaredConfidence = e.confidence,
                 )
             }
             ChronoPlaces.importRecords(seeds)

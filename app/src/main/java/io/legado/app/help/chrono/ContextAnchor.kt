@@ -11,6 +11,12 @@ package io.legado.app.help.chrono
  *   1 用户点年号气泡 → setYear（用户主动确认，最高）
  *   2 正文识别王公纪年「鲁隐公元年」→ setYear(-722)
  *   3 只有干支/朔望 → setYearRange（最弱，只作兜底）
+ *
+ * 三源交叉置信度（锁定规则）：
+ *  - 3/3 三源一致 → HIGH，默认命中；
+ *  - 2/3 两源一致 → MEDIUM，标「待校」；
+ *  - ≤1/3 单源或来源冲突 → LOW，标「待考·来源冲突」，不进默认命中；
+ *  - 今址参考层（[Candidate.refLayer]）恒 LOW，永不默认命中。
  */
 object ContextAnchor {
 
@@ -24,16 +30,38 @@ object ContextAnchor {
         }
     }
 
-    enum class Confidence {
-        HIGH, MEDIUM, LOW;
-
-        val wire: String get() = when (this) {
-            HIGH -> "high"; MEDIUM -> "medium"; LOW -> "low"
-        }
+    enum class Confidence(
+        val wire: String,
+        /** 展示标签：high 不标；medium 标「待校」；low 标「待考·来源冲突」。 */
+        val label: String,
+        /** 是否允许进默认命中：只有 high / medium 可以；low 一律不进。 */
+        val canDefault: Boolean,
+    ) {
+        HIGH("high", "", true),
+        MEDIUM("medium", "待校", true),
+        LOW("low", "待考·来源冲突", false);
 
         companion object {
-            fun of(raw: String?): Confidence = when (raw?.lowercase()) {
-                "high" -> HIGH; "low" -> LOW; else -> MEDIUM
+            fun of(raw: String?): Confidence = when (raw?.trim()?.lowercase()) {
+                "high" -> HIGH; "medium" -> MEDIUM; else -> LOW
+            }
+
+            /**
+             * 三源交叉打分。
+             * @param channels   该实体汇集到的去重学术渠道（实体行 + 名称快照行）
+             * @param refLayer   是否今址参考层
+             * @param tier       坐标层级 1 实测 / 2 考证 / 3 推定（tier1 遗址点按三源一致处理）
+             */
+            fun grade(channels: Set<SourceChannel>, refLayer: Boolean, tier: Int): Confidence {
+                if (refLayer || SourceChannel.REFERENCE in channels) return LOW
+                val scholarly = channels - SourceChannel.REFERENCE
+                return when {
+                    // tier1 遗址实测点按三源一致处理；其余按学术渠道交叉数：3/3 HIGH，2/3 MEDIUM，≤1/3 LOW
+                    tier == 1 -> HIGH
+                    scholarly.size >= 3 -> HIGH
+                    scholarly.size == 2 -> MEDIUM
+                    else -> LOW
+                }
             }
         }
     }
@@ -52,7 +80,11 @@ object ContextAnchor {
         /** 面/点：place 用，点优先排序；其余类型默认 true 不参与该档 */
         val isPoint: Boolean = true,
         val note: String = "",
-    )
+        /** 今址参考层：永不进默认命中 */
+        val refLayer: Boolean = false,
+    ) {
+        val confidenceLabel: String get() = confidence.label
+    }
 
     /** 当前书 */
     var bookId: String = ""
@@ -118,6 +150,9 @@ object ContextAnchor {
 
     /** 取最佳锚定年份：能定到一年才返回 */
     fun getYear(): Int? = year
+
+    /** 取候选年代区间（弱锚定兜底用） */
+    fun getRange(): IntRange? = range
 
     /** 年份 → 朝代名 */
     fun getDynasty(): String? = eraOf(year ?: range?.first)
@@ -189,27 +224,7 @@ object ContextAnchor {
     /** 按公元年判时代，给地图选图层用 */
     fun eraOf(y: Int?): String? {
         val v = y ?: year ?: range?.first ?: return null
-        return when {
-            v in -770..-477 -> "春秋"
-            v in -476..-222 -> "战国"
-            v in -221..-207 -> "秦"
-            v in -206..8 -> "西汉"
-            v in 9..23 -> "新"
-            v in 24..220 -> "东汉"
-            v in 221..280 -> "三国"
-            v in 281..420 -> "两晋"
-            v in 421..589 -> "南北朝"
-            v in 590..617 -> "隋"
-            v in 618..907 -> "唐"
-            v in 908..959 -> "五代"
-            v in 960..1127 -> "北宋"
-            v in 1128..1279 -> "南宋"
-            v in 1280..1367 -> "元"
-            v in 1368..1644 -> "明"
-            v in 1645..1911 -> "清"
-            v >= 1912 -> "近现代"
-            else -> null
-        }
+        return Chronology.dynastyOf(v)
     }
 
     /** 从一段正文猜年代：先年号，再王公纪年，再干支；都没把握就留空 */
@@ -225,7 +240,7 @@ object ContextAnchor {
     // ---------- §一 全 app 唯一消歧入口 ----------
 
     /**
-     * 人物 / 典故来源由各自模块在预载时注册（避免 chrono 反向依赖 help.relation）；
+     * 人物 / 典故来源由各自模块在预载时注册（避免 anchor 反向依赖 help.relation）；
      * 未注册时这两路候选为空，地名 / 年号两路仍正常工作。
      */
     @Volatile
@@ -238,7 +253,8 @@ object ContextAnchor {
      * 名字 → 候选 → 时空过滤(锚点年) → tier 高优先 → 区间窄优先 → 点优先 → 兜底。
      *
      * - 锚点年为空：不猜，返回全部候选按 tier 排序，全部 `isDefault=false`。
-     * - 低置信度(low)候选照收，但 `isDefault=false`，不进默认命中。
+     * - low 置信度候选照收，但 `isDefault=false`，不进默认命中。
+     * - 今址参考层候选照收，但 `isDefault=false`，排在最后。
      * - 锚点年下无任何候选落在其在位/存在区间时，保留全部候选作兜底（出区间者排序靠后）。
      */
     fun resolve(name: String, year: Int? = getYear()): List<Candidate> {
@@ -261,10 +277,11 @@ object ContextAnchor {
                     start = s.start,
                     end = s.end,
                     aliases = s.aliases,
-                    confidence = Confidence.of(s.confidence),
+                    confidence = s.confidenceTag,
                     source = s.source,
                     isPoint = s.isPoint,
                     note = s.note,
+                    refLayer = s.refLayer,
                 )
             )
         }
@@ -288,21 +305,22 @@ object ContextAnchor {
 
         val sorted = byKey.values.sortedWith(anchorComparator(year))
 
-        // 默认命中：锚定年份下、落在存在区间内的第一条非 low 候选；
-        // 无锚点、区间内无命中、或区间内全 low 时不设默认（不猜）
+        // 默认命中：锚定年份下、落在存在区间内、非参考层、可默认的第一条；
+        // 无锚点、区间内无命中、区间内全 low / 参考层时不设默认（不猜）
         val defaultIdx = if (year == null) -1 else
-            sorted.indexOfFirst { inSpan(it, year) && it.confidence != Confidence.LOW }
+            sorted.indexOfFirst { inSpan(it, year) && !it.refLayer && it.confidence.canDefault }
         return sorted.mapIndexed { i, c -> c.copy(isDefault = i == defaultIdx) }
     }
 
     private fun inSpan(c: Candidate, year: Int): Boolean =
         c.start != null && c.end != null && year in c.start..c.end
 
-    /** 消歧排序：时空命中 → tier 高 → 区间窄 → 点优先 → 置信度高 */
+    /** 消歧排序：时空命中 → 非参考层 → tier 高 → 区间窄 → 点优先 → 置信度高 */
     private fun anchorComparator(year: Int?): Comparator<Candidate> =
         compareBy<Candidate> { c ->
             if (year != null && c.start != null && c.end != null && year in c.start..c.end) 0 else 1
-        }.thenBy { it.tier }
+        }.thenBy { if (it.refLayer) 1 else 0 }
+            .thenBy { it.tier }
             .thenBy { c ->
                 val s = c.start; val e = c.end
                 if (s != null && e != null) e - s else Int.MAX_VALUE
