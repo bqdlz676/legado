@@ -105,7 +105,7 @@ object ChineseDict {
 
     /**
      * 词的拼音：逐字取首音，用于词气泡的注音行。
-     * 多音字按单字表走，人名另有 PersonPinyin 兜。
+     * 多音字按单字表走；人名专用异读表待 D2 补建。
      */
     fun pinyinOfWord(context: Context, word: String): String {
         // 先查词级读音表：长/乐/行/朝 这类多音字在词组里取哪一读，靠整词定，不能逐字取首音

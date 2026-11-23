@@ -19,9 +19,8 @@ import io.legado.app.help.NameResolver
 import io.legado.app.help.PlaceTimeDict
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
-import io.legado.app.help.relation.PersonDup
-import io.legado.app.help.relation.PersonTimeInfo
-import io.legado.app.help.relation.RelationExtractor
+import io.legado.app.help.person.PersonProfile
+import io.legado.app.help.person.graph.PersonGraphExtractor
 import org.json.JSONObject
 import java.net.URLEncoder
 
@@ -156,24 +155,28 @@ class DetailSheet : BottomSheetDialogFragment() {
     private fun renderPerson(root: View, box: LinearLayout, name: String, anchorYear: Int) {
         val ctx = requireContext()
         // 单一总线：只读 ContextAnchor，不再各传一份年份
-        val y = if (anchorYear == Int.MIN_VALUE) ContextAnchor.getYear() else anchorYear
-        val l1 = PersonTimeInfo.of(ctx, name)
-        val prof = io.legado.app.help.relation.PersonProfile.profileOf(name)
-        val conf = PersonTimeInfo.confidenceOf(ctx, name)
+        val year: Int? = if (anchorYear == Int.MIN_VALUE) ContextAnchor.getYear() else anchorYear
+        val prof = PersonProfile.profileOf(name)
+        val allCandidates = PersonProfile.candidatesOf(name)
+        val others = allCandidates.filter { it.personId != prof?.personId }
 
         sub(buildString {
-            if (l1 != null && l1.state.isNotBlank()) append(l1.state)
-            if (l1 != null && l1.identity.isNotBlank()) {
-                if (isNotEmpty()) append("　·　")
-                append(l1.identity)
+            if (prof != null) {
+                if (prof.nationality.isNotBlank()) append(prof.nationality)
+                if (prof.identity.isNotBlank()) {
+                    if (isNotEmpty()) append("　·　")
+                    append(prof.identity)
+                }
             }
             if (isNotEmpty()) append("　·　")
-            append(conf)
+            // 出处标注：D2 冻结字段只带 PersonSource；旧 L1/L2/L3 置信分层未建模，待 D2 补建。
+            append(prof?.source?.label?.takeIf { it.isNotBlank() } ?: "未收录")
         })
 
-        // 注音：古名多生僻字与多音字，先给读法
+        // 注音：D2 冻结 API 不含拼音，走通用字库逐字拼（同 PersonDetailActivity 先例）；
+        // 旧人名专用异读表（郦食其 / 樊於期等）D2 暂无等价入口，待接，不在此硬造。
         val py = runCatching {
-            io.legado.app.help.relation.PersonPinyin.of(ctx, name)
+            ChineseDict.pinyinOfWord(ctx, name)
         }.getOrNull().orEmpty()
         if (py.isNotBlank()) body("读音　$py")
 
@@ -182,13 +185,13 @@ class DetailSheet : BottomSheetDialogFragment() {
         // ① 本段即时信息：这段里他干了什么、和谁同场、当年几岁 —— 阅读优先
         label("本段")
         if (excerpt.isNotBlank()) {
-            val evs = RelationExtractor.sentencesAbout(ctx, excerpt, name, y)
+            val evs = PersonGraphExtractor.sentencesAbout(ctx, excerpt, name, year)
             if (evs.isEmpty()) {
                 body("这一段正文里没有他再次出现的句子。")
             } else {
                 evs.take(3).forEach { body("· $it") }
             }
-            val co = RelationExtractor.coPresent(ctx, excerpt, name, y)
+            val co = PersonGraphExtractor.coPresent(ctx, excerpt, name, year)
             if (co.isNotEmpty()) {
                 body("同场：" + co.take(6).joinToString("、") {
                     it.name + (if (it.label.isNotBlank()) "〔${it.label}〕" else "")
@@ -197,9 +200,8 @@ class DetailSheet : BottomSheetDialogFragment() {
         } else {
             body("未带入正文片段；从正文里点人名即可补上这一段的事迹与同场人物。")
         }
-        if (y != null) {
-            val age = PersonTimeInfo.ageAt(ctx, name, y)
-            body("${Chronology.yearTitle(y)} · ${age.label}")
+        if (year != null) {
+            body("${Chronology.yearTitle(year)} · ${ageLabelOf(prof, year)}")
         } else {
             body("尚未锚定到具体年份，年龄不予推算。读到「隐公元年」这类纪年即可锚定。")
         }
@@ -208,64 +210,56 @@ class DetailSheet : BottomSheetDialogFragment() {
         label("本书")
         body(buildString {
             append("当前章　").append(ContextAnchor.title.ifBlank { "未定位" })
-            if (l1 != null && l1.deed.isNotBlank()) {
-                append("\n关键事迹　").append(l1.deed)
+            prof?.notableEvent?.takeIf { it.isNotBlank() }?.let {
+                append("\n关键事迹　").append(it)
             }
-            append("\n出场索引　")
-            append(
-                if (io.legado.app.help.relation.PersonChapterEvents.has(ctx, name))
-                    io.legado.app.help.relation.PersonChapterEvents.summary(ctx, name)
-                else "尚未整本扫描；扫一遍即可给首次/末次出场。"
-            )
+            // 整本出场持久化表（旧 PersonChapterEvents：首次/末次出场段落）D2 暂无等价能力，待接；
+            // 出场段落现由图谱 Node.appearances / 详情页 extras 通道提供，此处不挂旧持久化表。
+            append("\n出场索引　尚未整本扫描；扫一遍即可给首次/末次出场。")
         })
 
         // ③ 基础档案（查阅读到这里才开始）
         label("档案")
         body(buildString {
-            if (l1 != null) {
-                if (l1.zi.isNotBlank()) append("字 ").append(l1.zi).append("　")
-                if (l1.hao.isNotBlank()) append("号 ").append(l1.hao).append("　")
-                if (l1.fief.isNotBlank()) append("封 ").append(l1.fief)
+            if (prof != null) {
+                prof.courtesyName?.takeIf { it.isNotBlank() }?.let { append("字 ").append(it).append("　") }
+                prof.styleName?.takeIf { it.isNotBlank() }?.let { append("号 ").append(it).append("　") }
+                prof.titles.forEach { append("封 ").append(it).append("　") }
             }
             if (isBlank()) {
-                prof?.alias?.takeIf { it.isNotEmpty() }?.let { append("又称 ").append(it.take(4).joinToString("、")) }
+                prof?.aliases?.takeIf { it.isNotEmpty() }?.let { append("又称 ").append(it.take(4).joinToString("、")) }
             }
             if (isBlank()) append("字号无载")
         })
         body(buildString {
-            if (l1 != null) {
-                if (l1.birth != null || l1.death != null) {
-                    append(if (l1.birth != null) fmt(l1.birth) else "?").append(" — ")
-                    append(if (l1.death != null) fmt(l1.death) else "?")
-                }
-                if (l1.reignStart != null) {
-                    if (isNotEmpty()) append("　")
-                    append("在位 ").append(fmt(l1.reignStart))
-                    if (l1.reignEnd != null) append("–").append(fmt(l1.reignEnd))
-                }
+            val span = PersonProfile.lifeSpan(name)
+            val b = span?.first ?: prof?.birthYear
+            val d = span?.second ?: prof?.deathYear
+            if (b != null || d != null) {
+                append(if (b != null) fmt(b) else "?").append(" — ")
+                append(if (d != null) fmt(d) else "?")
             }
-            if (isBlank() && prof != null) append(io.legado.app.help.relation.PersonProfile.lifeSpan(prof))
+            // 在位起讫（旧 L1 reignStart/reignEnd）D2 档案未建模，待接。
             if (isBlank()) append("生卒无载")
         })
         body(buildString {
-            append(if (l1?.state?.isNotBlank() == true) l1!!.state else "国别无载")
-            append("　·　").append(if (l1?.identity?.isNotBlank() == true) l1!!.identity else "身份无载")
-            if (prof != null && prof.alias.isNotEmpty()) {
-                append("\n其他称呼　").append(prof.alias.take(10).joinToString("、"))
+            append(if (prof?.nationality?.isNotBlank() == true) prof!!.nationality else "国别无载")
+            append("　·　").append(if (prof?.identity?.isNotBlank() == true) prof!!.identity else "身份无载")
+            val calls = prof?.aliases.orEmpty()
+            if (calls.isNotEmpty()) {
+                append("\n其他称呼　").append(calls.take(10).joinToString("、"))
             }
         })
 
-        // ④ 同名候选：不是同一个人，别混成一条
-        val dups = PersonDup.candidates(ctx, name)
-        if (dups.size >= 2) {
-            label("还有 ${dups.size} 个同名")
-            body(dups.take(8).joinToString("\n") { "· ${it.tag()}　${it.confidence}" })
+        // ④ 同名候选：D2 同名分组；不是同一个人，别混成一条
+        if (others.size >= 2) {
+            label("还有 ${others.size} 个同名")
+            body(others.take(8).joinToString("\n") { "· ${dupTag(it)}" })
         }
 
-        // 来源可追溯：L1 人工 / CBDB / CHGIS
+        // 来源可追溯：D2 每条档案必带 PersonSource（CBDB 收录号 / 公版典籍篇卷）
         body(
-            if (l1 != null) "来源　L1 人工档案（生卒、身份、事迹按史书核对）"
-            else if (prof != null) "来源　CBDB（生卒不清标「约」）"
+            if (prof != null) "来源　${prof.source.label}"
             else "来源　未收录：仅按正文出现统计，不作生平结论"
         )
 
@@ -276,6 +270,26 @@ class DetailSheet : BottomSheetDialogFragment() {
                     .putExtra("appearances", "[]")
             )
         }
+    }
+
+    /** 同名候选行标签：朝代 · 身份 · 生卒，口径对齐 PersonProvider 候选展示。 */
+    private fun dupTag(p: PersonProfile): String {
+        val decor = listOfNotNull(p.dynasty, p.identity).filter { it.isNotBlank() }.joinToString("·")
+        val head = if (decor.isBlank()) p.name else "${p.name}（$decor）"
+        val b = p.birthYear; val d = p.deathYear
+        return if (b != null || d != null) {
+            "$head　${b?.let { fmt(it) } ?: "?"}–${d?.let { fmt(it) } ?: "?"}"
+        } else head
+    }
+
+    /** 按 D2 生卒字段推算当年状态；无生年不给岁数，不猜。 */
+    private fun ageLabelOf(p: PersonProfile?, year: Int): String {
+        val b = p?.birthYear
+        val d = p?.deathYear
+        if (b != null && year < b) return "尚未出生（生于${fmt(b)}）"
+        if (d != null && year > d) return "已卒（卒于${fmt(d)}）"
+        if (b != null) return "约 ${year - b} 岁" + if (d == null) "（卒年无载）" else ""
+        return "生卒无载"
     }
 
     // ---------- 年 ----------

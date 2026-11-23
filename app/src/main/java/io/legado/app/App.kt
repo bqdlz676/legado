@@ -113,7 +113,7 @@ class App : Application() {
             // 首触零卡顿：只预热新模块链。chrono 纪年显式预热；bubble 装配内部触达 dict 字表、
             // 重绑人物消歧入口；allusion/place/person 为惰性目录，首查询时加载。
             // 旧扁平根（help.ChineseDict / help.AllusionDict / help.PlaceTimeDict /
-            // help.relation.PersonTimeInfo / help.PlaceGeo）不再启动预热，遗留消费方惰性加载。
+            // help.PlaceGeo）不再启动预热，遗留消费方惰性加载；旧 help.relation 人物扁平栈已拆除。
             // 任何一张表失败都不影响其它表——各自 runCatching，绝不把启动拖成崩溃。
             launch { runCatching { io.legado.app.help.chrono.Chronology.ensureLoaded(appCtx) } }
             // 气泡引擎预热：注入 Context 并触达纪年 / 典故 / 人物 / 地名 / 字 各字典惰性加载，

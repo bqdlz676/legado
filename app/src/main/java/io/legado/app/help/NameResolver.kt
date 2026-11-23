@@ -2,8 +2,8 @@ package io.legado.app.help
 
 import android.content.Context
 import io.legado.app.help.chrono.Chronology
-import io.legado.app.help.relation.PersonPinyin
-import io.legado.app.help.relation.PersonProfile
+import io.legado.app.help.person.PersonDirectory
+import io.legado.app.help.person.PersonProfile
 
 /**
  * 阅读页点击的「人名 / 地名」一级。
@@ -36,7 +36,6 @@ object NameResolver {
 
     fun preload(context: Context) {
         runCatching {
-            PersonProfile.ensureLoaded(context)
             index(context)
             loadLords(context)
         }
@@ -68,7 +67,7 @@ object NameResolver {
                     kind = Kind.PERSON,
                     meta = personMeta(p),
                     detail = personDetail(p, cand),
-                    pinyin = PersonPinyin.of(context, cand)
+                    pinyin = ChineseDict.pinyinOfWord(context, cand)
                 )
             }
         }
@@ -108,7 +107,7 @@ object NameResolver {
                     kind = Kind.PERSON,
                     meta = lord.state + "国君 · " + lord.title,
                     detail = lordDetail(lord),
-                    pinyin = PersonPinyin.of(context, lord.full)
+                    pinyin = ChineseDict.pinyinOfWord(context, lord.full)
                 )
             }
         }
@@ -239,22 +238,22 @@ object NameResolver {
         )
     }
 
-    private fun personMeta(p: PersonProfile.P?): String {
+    private fun personMeta(p: PersonProfile?): String {
         if (p == null) return "古籍人名"
         val parts = ArrayList<String>(2)
-        if (p.state.isNotBlank()) parts.add(p.state)
+        if (p.nationality.isNotBlank()) parts.add(p.nationality)
         if (p.identity.isNotBlank()) parts.add(p.identity)
         return if (parts.isEmpty()) "古籍人名" else parts.joinToString(" · ")
     }
 
-    private fun personDetail(p: PersonProfile.P?, raw: String): String {
+    private fun personDetail(p: PersonProfile?, raw: String): String {
         if (p == null) return "档案未收，仅按古籍词表识别为人名。"
         val sb = StringBuilder()
-        val span = lifeSpan(p.birth, p.death)
+        val span = lifeSpan(p.birthYear, p.deathYear)
         if (span.isNotEmpty()) sb.append(span)
-        if (p.alias.isNotEmpty()) {
+        if (p.aliases.isNotEmpty()) {
             if (sb.isNotEmpty()) sb.append('\n')
-            sb.append("称谓　").append(p.alias.joinToString("、"))
+            sb.append("称谓　").append(p.aliases.joinToString("、"))
         }
         if (sb.isEmpty()) sb.append("生平待考")
         return sb.toString()
@@ -271,14 +270,13 @@ object NameResolver {
         return sb.toString()
     }
 
-    /** 人名首字分桶，长词在前，3 万条只建一次 */
+    /** 人名首字分桶，长词在前，词表只建一次 */
     private fun index(context: Context): Map<Char, List<String>> {
         idx?.let { return it }
         synchronized(this) {
             idx?.let { return it }
-            PersonProfile.ensureLoaded(context)
             val buckets = HashMap<Char, ArrayList<String>>(6000)
-            for (t in PersonProfile.allTerms) {
+            for (t in personTerms(context)) {
                 if (t.length < 2 || t.length > 5) continue
                 buckets.getOrPut(t[0]) { ArrayList(24) }.add(t)
             }
@@ -287,6 +285,38 @@ object NameResolver {
             buckets.forEach { (k, v) -> out[k] = v }
             idx = out
             return out
+        }
+    }
+
+    /**
+     * 人名识别词表：D2 在册人物全部称呼 + assets/person_terms.txt 三万条保底词表。
+     * 档案归属 / 身份 / 生卒一律走 D2 [PersonProfile]；词表只用于「这两到五字像不像人名」的命中判定。
+     */
+    private fun personTerms(context: Context): List<String> {
+        val d2Names = PersonDirectory.allRecords().flatMap { it.allCallNames }
+        return (d2Names + extTerms(context)).distinct()
+    }
+
+    @Volatile
+    private var extTermsCache: List<String>? = null
+
+    /** person_terms.txt：三万条保底人名词表，只作匹配字典，不携带档案字段。 */
+    private fun extTerms(context: Context): List<String> {
+        extTermsCache?.let { return it }
+        synchronized(this) {
+            extTermsCache?.let { return it }
+            val list = ArrayList<String>(30000)
+            runCatching {
+                context.assets.open("person_terms.txt").bufferedReader().use { r ->
+                    while (true) {
+                        val ln = r.readLine() ?: break
+                        val t = ln.trim()
+                        if (t.length in 2..5) list.add(t)
+                    }
+                }
+            }
+            extTermsCache = list
+            return list
         }
     }
 }

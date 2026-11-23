@@ -34,8 +34,6 @@ import io.legado.app.help.ChineseDict
 import io.legado.app.help.AllusionDict
 import io.legado.app.help.EnDict
 import io.legado.app.help.HanConv
-import io.legado.app.help.relation.PersonPinyin
-import io.legado.app.help.relation.PersonProfile
 import io.legado.app.help.HighlightMatcher
 import io.legado.app.help.HighlightRuleMatcher
 import io.legado.app.help.HighlightStyle
@@ -1209,12 +1207,6 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             if (keys.any { name.contains(it) }) return dyn
         }
         return null
-    }
-
-    /** 人名先走专用读音层，普通词回字库逐字拼 */
-    private fun pinyinForWord(word: String): String {
-        PersonProfile.profileOf(word)?.let { return PersonPinyin.of(context, word) }
-        return ChineseDict.pinyinOfWord(context, word)
     }
 
     private data class ChronoHit(val title: String, val detail: String, val year: Int?)

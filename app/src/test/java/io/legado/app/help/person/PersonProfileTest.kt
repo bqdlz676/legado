@@ -159,6 +159,24 @@ class PersonProfileTest {
     }
 
     @Test
+    fun `Sheet 渲染依赖的称谓朝代同名候选字段齐备`() {
+        val libai = PersonProfile.profileOf("李白")!!
+        assertEquals("太白", libai.courtesyName)
+        assertEquals("青莲居士", libai.styleName)
+        assertTrue(libai.aliases.contains("谪仙人"))
+        assertEquals("唐", libai.dynasty)
+
+        val hanxin = PersonProfile.profileOf("韩信")!!
+        assertTrue(hanxin.titles.contains("淮阴侯"))
+
+        // 同名候选行标签（朝代 · 身份 · 生卒）所需字段均可读
+        PersonProfile.candidatesOf("韩信").forEach { c ->
+            assertTrue(c.name.isNotBlank())
+            assertTrue(c.identity.isNotBlank())
+        }
+    }
+
+    @Test
     fun `CBDB 出处标注 Harvard CBDB 收录号`() {
         val source = PersonSource.Cbdb("12345")
         assertEquals("Harvard CBDB #12345", source.label)
