@@ -25,10 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.map.sandbox.DemTerrainLoader
+import io.legado.app.ui.map.sandbox.TerrainElevation
 
 /**
  * 3D 战役回放自绘壳（ui/map/replay 独占，切片-07）。
@@ -39,13 +42,24 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun ReplayScreenHost(
-    director: ReplayDirector = remember { ReplayDirector(SeedReplay.changping) },
+    director: ReplayDirector? = null,
+    elevation: TerrainElevation? = null,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    // 高程来源优先级：外部显式注入 > 外部导演自带 > 加载器取同一 DEM 实例。
+    // 回放域内不二次解码 PNG；解码失败由加载器回落 Flat。显式传导演时不再触发资产解码。
+    val resolvedElevation: TerrainElevation? = elevation
+        ?: director?.elevation
+        ?: remember(context) { DemTerrainLoader.load(context) }
+    val activeDirector = director ?: remember(resolvedElevation) {
+        ReplayDirector(SeedReplay.changping, elevation = resolvedElevation!!)
+    }
+
     var tick by remember { mutableStateOf(0L) }
     var lastFrameNanos by remember { mutableStateOf(0L) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(activeDirector) {
         withFrameNanos { now ->
             lastFrameNanos = now
         }
@@ -53,15 +67,15 @@ fun ReplayScreenHost(
             withFrameNanos { now ->
                 val dtMs = (now - lastFrameNanos).coerceAtLeast(0L) / 1_000_000L
                 lastFrameNanos = now
-                director.update(dtMs)
+                activeDirector.update(dtMs)
                 tick++
             }
         }
     }
 
-    val campaign = director.campaign
+    val campaign = activeDirector.campaign
     val nowMs = System.currentTimeMillis()
-    val birthStage = director.birthStage(nowMs)
+    val birthStage = activeDirector.birthStage(nowMs)
 
     Box(
         modifier = modifier
@@ -69,8 +83,8 @@ fun ReplayScreenHost(
             .pointerInput(Unit) {
                 detectTapGestures {
                     // 播放中点画面任意位置 → 暂停；其余碰屏刷新栏位空闲计时。
-                    if (director.playing) director.pause()
-                    director.interact()
+                    if (activeDirector.playing) activeDirector.pause()
+                    activeDirector.interact()
                 }
             },
     ) {
@@ -81,8 +95,23 @@ fun ReplayScreenHost(
             drawRect(Color(ReplaySurface.silkBase).copy(alpha = shimmer))
         }
 
+        // 地形降级标志：DEM 缺失 / 解码失败回落平面时右上角一行小字提示；不阻断推演。
+        if (activeDirector.terrainDegraded) {
+            BasicText(
+                text = "平面地形",
+                style = TextStyle(
+                    color = Color(ReplayTokens.textTertiary),
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Serif,
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+            )
+        }
+
         // 顶栏：无背景，战役名 16sp / 年代 12sp；3 秒无操作自动淡出。
-        if (director.topBarVisible && birthStage == BirthStage.READY) {
+        if (activeDirector.topBarVisible && birthStage == BirthStage.READY) {
             Row(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -117,15 +146,15 @@ fun ReplayScreenHost(
         }
 
         // 底部战斗仪表盘：回合进度蚕丝金线 + 阶段铜点 + 播放控制。
-        if (!director.theaterMode) {
+        if (!activeDirector.theaterMode) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(16.dp),
             ) {
-                if (director.bottomBarExpanded) {
-                    DashboardRow(director)
+                if (activeDirector.bottomBarExpanded) {
+                    DashboardRow(activeDirector)
                 } else {
                     // 收起态：只剩一条 4dp 高金线，点金线展开。
                     Canvas(
@@ -133,7 +162,7 @@ fun ReplayScreenHost(
                             .fillMaxWidth()
                             .height(ReplayConfig.COLLAPSED_BAR_DP.dp)
                             .pointerInput(Unit) {
-                                detectTapGestures { director.interact() }
+                                detectTapGestures { activeDirector.interact() }
                             },
                     ) {
                         drawLine(
@@ -148,7 +177,7 @@ fun ReplayScreenHost(
         }
 
         // 悬浮信息卡：3 秒自动消失。
-        director.infoCard?.let { card ->
+        activeDirector.infoCard?.let { card ->
             BasicText(
                 text = "${card.title}｜${card.body}",
                 style = TextStyle(

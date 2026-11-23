@@ -1,5 +1,7 @@
 package io.legado.app.ui.map.replay
 
+import io.legado.app.ui.map.sandbox.TerrainElevation
+
 /**
  * 溃散光屑：一片碎光的水平 / 垂直偏移（世界单位），飘散轨迹由渲染层按时间推进。
  */
@@ -22,6 +24,8 @@ data class PieceVisual(
     val routShards: List<Shard>?,
     val residualRing: Boolean,
     val color: Long,
+    /** 棋子基座贴地高度（世界单位）：由注入高程按棋子经纬度采样；平面兜底为 0.0。 */
+    val groundHeight: Double,
 ) {
 
     val isRout: Boolean get() = routShards != null
@@ -38,12 +42,14 @@ data class PieceVisual(
          * @param selected 是否选中（选中：呼吸加快到 400ms，光环两圈慢转）
          * @param routElapsedMs 溃散已持续毫秒；null 表示未溃散。超过 [ReplayConfig.ROUT_DURATION_MS]
          *        后棋子应不再绘制，只留暗红残影圈
+         * @param elevation 注入地形采样器；默认 [TerrainElevation.Flat] 平面兜底，基座高度 0.0
          */
         fun of(
             piece: ArmyPiece,
             role: SideRole?,
             selected: Boolean,
             routElapsedMs: Long? = null,
+            elevation: TerrainElevation = TerrainElevation.Flat,
         ): PieceVisual {
             val color = when (role) {
                 SideRole.OWN -> ReplayTokens.ownColor()
@@ -103,6 +109,7 @@ data class PieceVisual(
                 routShards = routShards,
                 residualRing = residualRing,
                 color = color,
+                groundHeight = ReplayGround.heightAt(elevation, piece.lat, piece.lng),
             )
         }
 

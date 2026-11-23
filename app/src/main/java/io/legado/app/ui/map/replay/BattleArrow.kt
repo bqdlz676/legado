@@ -1,5 +1,6 @@
 package io.legado.app.ui.map.replay
 
+import io.legado.app.ui.map.sandbox.TerrainElevation
 import kotlin.math.min
 
 /**
@@ -20,7 +21,7 @@ enum class ArrowStyle {
  * 一条行军箭头（纯 JVM）。
  *
  * 切片-07：箭身根部细锋部粗，内部 2-3 粒金色光粒子沿箭头方向流动；箭头贴地走，
- * 上坡抬头下坡低头。路径点为地形表面坐标，贴地高度由地形采样在渲染层叠加。
+ * 上坡抬头下坡低头。路径点为地形表面坐标，逐节点贴地高度见 [ground]，由注入高程采样。
  */
 data class BattleArrow(
     val id: String,
@@ -29,6 +30,8 @@ data class BattleArrow(
     val intent: Intent,
     val points: List<LatLng>,
     val flowParticles: Int,
+    /** 箭身各节点贴地高度（世界单位）；与 [points] 一一对应，上坡抬头下坡低头按此取高。 */
+    val ground: List<GroundPoint> = emptyList(),
 ) {
 
     val style: ArrowStyle get() = styleFor(intent)
@@ -64,14 +67,22 @@ data class BattleArrow(
                 ((arrowId.hashCode() and 0x7FFFFFFF) % (span + 1))
         }
 
-        /** 由棋子与其目标点生成箭头；设伏棋子不生成兵锋。 */
-        fun fromPiece(piece: ArmyPiece, role: SideRole): BattleArrow? {
+        /**
+         * 由棋子与其目标点生成箭头；设伏棋子不生成兵锋。
+         * @param elevation 注入地形采样器；默认 Flat 平面兜底，箭身节点高度 0.0
+         */
+        fun fromPiece(
+            piece: ArmyPiece,
+            role: SideRole,
+            elevation: TerrainElevation = TerrainElevation.Flat,
+        ): BattleArrow? {
             if (piece.intent == Intent.AMBUSH) return null
             if (!piece.hasTarget) return null
             val target = LatLng(piece.targetLat!!, piece.targetLng!!)
             val origin = LatLng(piece.lat, piece.lng)
             // 包抄弧线由路线途经点决定；模型层先给起终两点，绕山折点由路线数据补齐。
             val points = listOf(origin, target)
+            val ground = points.map { ReplayGround.sample(elevation, it.lat, it.lng) }
             return BattleArrow(
                 id = "${piece.id}-arrow",
                 armyId = piece.id,
@@ -79,6 +90,7 @@ data class BattleArrow(
                 intent = piece.intent,
                 points = points,
                 flowParticles = particleCount(piece.id),
+                ground = ground,
             )
         }
     }

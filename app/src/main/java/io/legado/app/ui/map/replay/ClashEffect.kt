@@ -20,11 +20,13 @@ data class Spark(val index: Int, val offsetX: Double, val offsetY: Double)
  * 单场交战效果（纯 JVM，时间由注入时钟打点，单测可直接推进毫秒断言）。
  *
  * @param startedAtMs 效果启动时刻（导演层时钟毫秒）
+ * @param groundHeight 落点贴地高度（世界单位）；由导演层按交战中点采样，平面兜底 0.0
  */
 class ClashEffect(
     val id: String,
     val point: LatLng,
     val startedAtMs: Long,
+    val groundHeight: Double = 0.0,
 ) {
 
     fun stage(nowMs: Long): ClashStage {
@@ -83,6 +85,8 @@ class EncounterRing(
     val id: String,
     val point: LatLng,
     val startedAtMs: Long,
+    /** 光环落点贴地高度（世界单位）；平面兜底 0.0。 */
+    val groundHeight: Double = 0.0,
 ) {
 
     fun active(nowMs: Long): Boolean =

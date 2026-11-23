@@ -1,5 +1,7 @@
 package io.legado.app.ui.map.replay
 
+import io.legado.app.ui.map.sandbox.TerrainElevation
+
 /**
  * 出生编排阶段（切片-07 第一帧加载：地形出生）。
  *
@@ -44,12 +46,23 @@ data class ReplayInfoCard(
 class ReplayDirector(
     val campaign: Campaign,
     private val clock: () -> Long = { System.currentTimeMillis() },
+    /**
+     * 地形高度采样器；由壳层注入沙盘同一个 [TerrainElevation] 实例（DEM 解码失败时
+     * 注入 [TerrainElevation.Flat]）。回放域内不二次解码 DEM 资产，只取接口高度。
+     */
+    val elevation: TerrainElevation = TerrainElevation.Flat,
 ) {
 
     private val bornAtMs: Long = clock()
 
     /** 当前棋子状态（事件派发后就地复制替换）。 */
     private var armies: List<ArmyPiece> = campaign.armies
+
+    /**
+     * 地形是否降级为平面（Flat 兜底或 DEM 栅格退化）。
+     * 仅供壳层显示一行可见标志；降级不阻断时钟推进 / 事件派发 / 交战检测。
+     */
+    val terrainDegraded: Boolean get() = ReplayGround.isDegraded(elevation)
 
     private val appliedEvents = mutableSetOf<String>()
     private val routStartMs = mutableMapOf<String, Long>()
@@ -258,7 +271,14 @@ class ReplayDirector(
                     // 沿边触发：上一帧不相邻、这一帧才贴近才开战；同一场交战未结束前不重复生成。
                     if (!adjacentClashPairs.contains(pairKey) && !hasActiveClash(now)) {
                         val mid = LatLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2)
-                        clashes.add(ClashEffect("clash-${a.id}-${b.id}", mid, now))
+                        clashes.add(
+                            ClashEffect(
+                                id = "clash-${a.id}-${b.id}",
+                                point = mid,
+                                startedAtMs = now,
+                                groundHeight = ReplayGround.heightAt(elevation, mid.lat, mid.lng),
+                            ),
+                        )
                     }
                 }
             }
@@ -273,7 +293,14 @@ class ReplayDirector(
                 if (a.role != b.role && a.meets(b, clashThresholdKm)) {
                     val mid = a.points.last()
                     if (encounters.none { it.active(now) && it.point.distanceKm(mid) <= clashThresholdKm }) {
-                        encounters.add(EncounterRing("enc-${a.armyId}-${b.armyId}", mid, now))
+                        encounters.add(
+                            EncounterRing(
+                                id = "enc-${a.armyId}-${b.armyId}",
+                                point = mid,
+                                startedAtMs = now,
+                                groundHeight = ReplayGround.heightAt(elevation, mid.lat, mid.lng),
+                            ),
+                        )
                     }
                 }
             }
@@ -296,7 +323,7 @@ class ReplayDirector(
 
     private fun roleOf(piece: ArmyPiece): SideRole? = campaign.sideOf(piece)?.role
 
-    /** 棋子视觉状态列表；溃散棋子按已持续毫秒决定碎片 / 残影圈。 */
+    /** 棋子视觉状态列表；溃散棋子按已持续毫秒决定碎片 / 残影圈；基座高度按注入高程贴地采样。 */
     fun visuals(): List<PieceVisual> = armies.map { piece ->
         val routElapsed = routStartMs[piece.id]?.let { clock() - it }
         PieceVisual.of(
@@ -304,13 +331,21 @@ class ReplayDirector(
             role = roleOf(piece),
             selected = piece.id == selectedPieceId,
             routElapsedMs = routElapsed,
+            elevation = elevation,
         )
     }
 
-    /** 行军箭头列表；设伏棋子不出兵锋。 */
+    /** 行军箭头列表；设伏棋子不出兵锋；箭身节点按注入高程贴地采样。 */
     fun arrows(): List<BattleArrow> = armies.mapNotNull { piece ->
-        BattleArrow.fromPiece(piece, roleOf(piece) ?: SideRole.OWN)
+        BattleArrow.fromPiece(piece, roleOf(piece) ?: SideRole.OWN, elevation)
     }
+
+    /** 势力 / 战线多边形列表；无多边形数据时为空，渲染 pass 跳过。 */
+    fun frontSectors(): List<ReplayFrontSector> = campaign.sectors
+
+    /** 多边形逐顶点贴地采样结果（多边形 → 地表点序列），供渲染 pass 拼贴起伏色块。 */
+    fun sectorSurface(): List<Pair<ReplayFrontSector, List<GroundPoint>>> =
+        campaign.sectors.map { it to it.sampleSurface(elevation) }
 
     companion object {
         /** 交战相邻阈值：敌我棋子相距 10 公里内判定相邻（地形视野内的近身距离）。 */

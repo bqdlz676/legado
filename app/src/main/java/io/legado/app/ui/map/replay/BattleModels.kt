@@ -136,6 +136,8 @@ data class Campaign(
     val phases: List<BattlePhase>,
     val events: List<BattleEvent>,
     val dailyLi: Int,
+    /** 势力 / 战线多边形；资产暂无该字段时为空列表，渲染 pass 跳过（贴地采样见 [ReplayFrontSector]）。 */
+    val sectors: List<ReplayFrontSector> = emptyList(),
 ) {
 
     fun sideOf(army: ArmyPiece): BattleSide? = sides.firstOrNull { it.id == army.sideId }
