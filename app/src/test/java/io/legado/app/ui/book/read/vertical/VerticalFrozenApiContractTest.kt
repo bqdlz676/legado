@@ -35,7 +35,7 @@ class VerticalFrozenApiContractTest {
         val layout = method(engine, "layout", String::class.java, Integer.TYPE, Integer.TYPE)
         assertEquals(VerticalPage::class.java, layout.returnType)
 
-        val hitTest = method(engine, "hitTest", Float.TYPE, Float.TYPE)
+        val hitTest = method(engine, "hitTest", java.lang.Float.TYPE, java.lang.Float.TYPE)
         assertEquals(CharHit::class.java, hitTest.returnType)
 
         val invalidate = method(engine, "invalidateCache")
@@ -48,7 +48,7 @@ class VerticalFrozenApiContractTest {
             VerticalPage::class.java,
             List::class.java,
             Integer.TYPE,
-            Float.TYPE,
+            java.lang.Float.TYPE,
         )
         assertNotNull(ctor)
         assertFields(VerticalPage::class.java, "columns", "pageIndex", "progress")
@@ -59,8 +59,8 @@ class VerticalFrozenApiContractTest {
         val ctor = constructor(
             Column::class.java,
             List::class.java,
-            Float.TYPE,
-            Float.TYPE,
+            java.lang.Float.TYPE,
+            java.lang.Float.TYPE,
         )
         assertNotNull(ctor)
         assertFields(Column::class.java, "cells", "left", "top")
@@ -72,10 +72,10 @@ class VerticalFrozenApiContractTest {
             CharCell::class.java,
             Character.TYPE,
             Integer.TYPE,
-            Float.TYPE,
-            Float.TYPE,
-            Float.TYPE,
-            Float.TYPE,
+            java.lang.Float.TYPE,
+            java.lang.Float.TYPE,
+            java.lang.Float.TYPE,
+            java.lang.Float.TYPE,
         )
         assertNotNull(ctor)
         assertFields(CharCell::class.java, "char", "offset", "x", "y", "width", "height")
