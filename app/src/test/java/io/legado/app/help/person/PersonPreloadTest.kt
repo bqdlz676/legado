@@ -45,6 +45,7 @@ class PersonPreloadTest {
         assertNotNull("预载后应可查晋文公", jinwen)
         assertEquals("晋文公", jinwen!!.name)
         assertEquals(ConfidenceTier.L1, jinwen.tier)
+        assertNull("手校 high 行不应带待校标", jinwen.reviewTag)
         assertEquals(Pair(-636, -628), PersonProfile.reignOf("晋文公"))
         assertTrue("出处不能为空", jinwen.source.label.isNotBlank())
 

@@ -97,10 +97,13 @@ object PersonAssets {
             val (reignStart, reignEnd) = reignFromFeat(feat)
                 ?: (supp?.reignStart to supp?.reignEnd)
 
+            // 来源桶：手校核心 / 王公纪年归 L1（设计规格 §2.1）；其余按三源置信 + 生卒兜底分层。
+            // reviewTag 是独立的三源展示轴：medium 王公纪年虽入 L1 桶，仍挂「待校」标注。
             val tier = when {
                 sourceText.contains("手校") || sourceText.contains("王公纪年") -> ConfidenceTier.L1
                 else -> ConfidenceTier.fromConfidence(confidence, birth != null || death != null)
             }
+            val reviewTag = ConfidenceTier.reviewTag(confidence)
 
             out += PersonProfile(
                 personId = p[0].trim().ifBlank { "core:$name" },
@@ -120,6 +123,7 @@ object PersonAssets {
                 source = PersonSource.Classic(sourceText.ifBlank { "assets/person_core.txt" }),
                 tier = tier,
                 proofread = proofread,
+                reviewTag = reviewTag,
                 reignStart = reignStart,
                 reignEnd = reignEnd,
             )

@@ -89,6 +89,9 @@ internal object PersonDirectory {
     /** 档案分层；查无此人为 null。 */
     fun tierOf(raw: String): ConfidenceTier? = profileOf(raw)?.tier
 
+    /** 档案三源展示标注（「待校」/「待考·来源冲突」）；不标或查无此人为 null。 */
+    fun reviewTagOf(raw: String): String? = profileOf(raw)?.reviewTag
+
     /** 各分层在册档案条数（自检 / bench 表大小断言用）。 */
     fun countByTier(tier: ConfidenceTier): Int = all.count { it.tier == tier }
 

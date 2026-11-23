@@ -1,6 +1,7 @@
 package io.legado.app.help.person
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -72,13 +73,24 @@ class PersonBackfillTest {
     @Test
     fun `confidence 到分层映射口径`() {
         assertEquals(ConfidenceTier.L1, ConfidenceTier.fromConfidence("high", false))
-        assertEquals(ConfidenceTier.L1, ConfidenceTier.fromConfidence("medium", false))
+        assertEquals(ConfidenceTier.L2, ConfidenceTier.fromConfidence("medium", false))
         assertEquals(ConfidenceTier.L3, ConfidenceTier.fromConfidence("low", true))
         assertEquals(ConfidenceTier.L2, ConfidenceTier.fromConfidence(null, true))
         assertEquals(ConfidenceTier.L3, ConfidenceTier.fromConfidence(null, false))
         assertEquals(ConfidenceTier.L2, ConfidenceTier.fromAssetMark("L2"))
         assertEquals(ConfidenceTier.L3, ConfidenceTier.fromAssetMark("L3"))
         assertEquals(ConfidenceTier.L3, ConfidenceTier.fromAssetMark(null))
+    }
+
+    @Test
+    fun `三源展示标签口径 high 不标 medium 待校 low 待考`() {
+        assertNull(ConfidenceTier.reviewTag("high"))
+        assertEquals("待校", ConfidenceTier.reviewTag("medium"))
+        assertEquals("待考·来源冲突", ConfidenceTier.reviewTag("low"))
+        assertNull(ConfidenceTier.reviewTag(null))
+        // medium 落 L2 仍可默认命中；low 落 L3 不进默认命中
+        assertTrue(ConfidenceTier.fromConfidence("medium", false).canDefault)
+        assertFalse(ConfidenceTier.fromConfidence("low", false).canDefault)
     }
 
     @Test
@@ -109,13 +121,40 @@ class PersonBackfillTest {
     }
 
     @Test
+    fun `medium 待校档案落 L2 仍可默认命中并挂待校标签`() {
+        val medium = PersonProfile(
+            personId = "tier:demo-medium", name = "待校客", nationality = "唐",
+            identity = "两源一致待校核", biography = "x", notableEvent = "x",
+            source = PersonSource.Cbdb("tier-medium"),
+            birthYear = 700, deathYear = 750,
+            tier = ConfidenceTier.fromConfidence("medium", true),
+            reviewTag = ConfidenceTier.reviewTag("medium"),
+        )
+        PersonDirectory.register(listOf(medium))
+
+        val hit = PersonProfile.profileOf("待校客")
+        assertNotNull(hit)
+        assertEquals(ConfidenceTier.L2, hit!!.tier)
+        assertTrue("medium 落 L2 仍可默认命中", hit.tier.canDefault)
+        assertEquals("待校", hit.reviewTag)
+        assertEquals("待校", PersonProfile.reviewTagOf("待校客"))
+    }
+
+    @Test
     fun `真实 core 资产全量 L1 且条数达标`() {
         val records = PersonAssets.parseCore(readAsset("person_core.txt"))
         assertTrue("core 档案应 ≥200 条，实际 ${records.size}", records.size >= 200)
         records.forEach { p ->
             assertEquals("${p.name} 应为 L1", ConfidenceTier.L1, p.tier)
             assertTrue("${p.name} 出处为空", p.source.label.isNotBlank())
+            assertTrue(
+                "${p.name} 标签非法",
+                p.reviewTag == null || p.reviewTag == "待校" || p.reviewTag == "待考·来源冲突"
+            )
         }
+        // 王公纪年 medium 行挂「待校」标注；手校 high 行不标；core 资产无 low 孤证行
+        assertTrue("core 资产应含 medium 待校行", records.any { it.reviewTag == "待校" })
+        assertTrue("core 资产不应出现待考·来源冲突标", records.none { it.reviewTag == "待考·来源冲突" })
     }
 
     // ---------- 3. 同名分组持久化 ----------

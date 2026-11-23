@@ -32,6 +32,8 @@ package io.legado.app.help.person
  * @param tier          L1/L2/L3 置信分层；L3 孤证只进候选池，不默认命中
  * @param proofread     是否已人工校核（confidence 与 proofread 分开：一个管数据可靠性，一个管校没校过）
  * @param pinyin        人名专用异读拼音（整词读音，如 郦食其 → lì yì jī）；无专用读音为 null
+ * @param reviewTag     三源交叉展示标注（总纲 L82）：null 不标；「待校」= 2/3 两源一致；
+ *                      「待考·来源冲突」= ≤1/3。只影响展示，不改变能否默认命中
  */
 data class PersonProfile(
     val personId: String,
@@ -55,6 +57,7 @@ data class PersonProfile(
     val tier: ConfidenceTier = ConfidenceTier.L3,
     val proofread: Boolean = false,
     val pinyin: String? = null,
+    val reviewTag: String? = null,
 ) {
 
     /** 该人物的全部称呼（本名 + 字 + 号 + 封号 + 别称），供别名归并索引与候选展示。 */
@@ -102,6 +105,9 @@ data class PersonProfile(
 
         /** 置信分层（L1/L2/L3）；查无此人为 null。 */
         fun tierOf(name: String): ConfidenceTier? = PersonDirectory.tierOf(name)
+
+        /** 三源交叉展示标注（「待校」/「待考·来源冲突」）；不标或查无此人为 null。 */
+        fun reviewTagOf(name: String): String? = PersonDirectory.reviewTagOf(name)
 
         /** 人名专用异读拼音；档案无专用读音时回落 [PersonPinyin] 整词表，再无命中返回 null。 */
         fun pinyinOf(name: String): String? = PersonDirectory.pinyinOf(name)
