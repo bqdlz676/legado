@@ -1,0 +1,81 @@
+AppLogDialogLiveUpdateTest > saved logs invalidate the visible dialog snapshot
+AutoTaskEditActivitySourceTest > copy and paste keep task identity and leave pasted values unsaved
+AutoTaskEditActivitySourceTest > full editor routes supported code fields and keeps result state
+AutoTaskEditActivitySourceTest > login url uses the same multiline code input as login ui
+AutoTaskEditActivitySourceTest > unsaved edits prompt only after a task has been bound
+AutoTaskImportContractTest > automatic task import is routed from files and links
+AutoTaskImportContractTest > automatic task import keeps the dialog title readable
+AutoTaskImportContractTest > automatic task share passphrase routes import and export
+AutoTaskPersistenceContractTest > automatic task search preserves hidden selections
+AutoTaskPersistenceContractTest > batch cron update changes only cron and refreshes scheduling once
+AutoTaskPersistenceContractTest > batch selection actions update only selected state and refresh scheduling once
+AutoTaskPersistenceContractTest > clearing automatic task log keeps its last run time
+AutoTaskPersistenceContractTest > database and dao keep ordered non-destructive task storage
+BackupDefaultPathContractTest > default backup path is selectable and used directly
+BookSourceEditLayoutTest > activity refreshes summary and keeps every source option mapping
+BookSourceEditLayoutTest > edit adapters replay current safety state after holder reuse
+BookSourceEditLayoutTest > options use a compact card with one accessible header
+BookSourceEditLayoutTest > ported panel stays independent from legadoT theme stack
+BookSourceEditLayoutTest > source and auto task editors share main field tab navigation
+BookSourceEditLayoutTest > source editor keeps the caret visible after selection and layout changes
+BookSourceEditLayoutTest > type and six existing switches start inside collapsed content
+BookSourcePartHasJsTest > adapter refreshes js badge without leaving hidden spacing
+BookSourcePartHasJsTest > database view exposes js source state
+BookSourcePartHasJsTest > schema history preserves js source projection
+BookSourcePartHasJsTest > source name is constrained through an initially gone js badge
+BookSourceViewModelGroupContractTest > group deletion delegates to exact group update
+BundlePayloadContractTest > migrated recycler payloads use platform Bundle
+CookieBackupCompatibilityTest > cookieBackupIsEncryptedAndRestoresThroughCookieStore
+CoverConfigRefreshContractTest > default cover preference refreshes cover model and bookshelf
+CrossingBenchTest > 单次 A 星寻路在预算内
+DialogViewLifecycleContractTest > dialog data loaders are cancelled with their views
+FileManagePopupActionMigrationTest > file deletion uses the shared vertical popup action menu
+FileManagePopupActionMigrationTest > parent directory remains excluded from the deletion menu
+HomeFastScrollerContractTest > discovery keeps independent fast scroller while bookshelf is single-path compose
+ImportBookPathMigrationTest > automatic restore is opt in and device local
+Issue1008MenuContractTest > sourceIconsAndRssOverflowFollowReportedMenuContract
+Issue1044ReplaceMenuContractTest > replace rule menu puts manual replacement before help with its icon
+JsSourceEditRedirectTest > early redirect preserves activity result forwarding
+JsSourceEditRedirectTest > every successful source save notifies the result caller
+JsSourceEditRedirectTest > js source detection happens before form initialization
+JsSourceWebApiContractTest > HTTP server rethrows cancellation before generic errors
+JsSourceWebApiContractTest > token protection defaults on and restarts active services
+LanBackupTransferTest > settings flow validates then backs up before restore
+LiveUpdateNotificationTest > download notification keeps one id and meets promotion contract
+LoginEntryRoutingTest > auto task management login is first and routes by task id
+LoginEntryRoutingTest > login entry points use unified login capability
+ManagePopupActionMigrationTest > dialog action icons use the shared toolbar tint
+ManagePopupActionMigrationTest > dialog menu actions provide icons for the vertical menu
+ManagePopupActionMigrationTest > dialog overflow menus use the shared vertical bridge
+ManagePopupActionMigrationTest > five management adapters use the shared vertical menu
+ManagePopupActionMigrationTest > management menu actions keep their current callbacks and side effects
+ManagePopupActionMigrationTest > management menu labels keep their previous order
+McpServiceContractTest > transport authenticates before installing protected MCP route
+PredictiveBackTest > activities intercept back before finish may defer closing
+PredictiveBackTest > replace editor handles cursor only result after discarded code edit
+ReadRecordAuthorLayoutTest > read record last time follows the tallest reading time field
+ReadRecordAuthorLayoutTest > read record row reserves an optional author line before reading time
+ReleaseWorkflowTest > release checkout fetches full history for version code
+ReplaceRuleDaoGroupFilterContractTest > replace rule group filter matches complete normalized members
+ReplaceRuleViewModelGroupContractTest > batch moves allocate orders outside existing bounds
+ReplaceRuleViewModelGroupContractTest > group deletion delegates to exact group update
+ReplaceRuleViewModelGroupContractTest > selection group actions copy rules and update only group members
+RuntimeMediaStabilityTest > horizontalTextCoverHonorsReportedLayoutContract
+SelectActionBarPopupActionMigrationTest > selection menus retain their item order
+SelectionIntervalGuardTest > selection interval returns before reading empty bounds
+SourceImmersiveBackgroundTest > debugHelpBackgroundBelongsToScrollablePanel
+SourceImmersiveBackgroundTest > sourceDebugHelpPanelsHideLogsAndMatchTitleBarTransparency
+SourceImmersiveBackgroundTest > sourceEditorsMatchTitleBarTransparency
+SourcePopupActionMigrationTest > dynamic source menu entries keep their visibility and labels
+SourcePopupActionMigrationTest > source menu callbacks and delete side effects are preserved
+SourcePopupActionMigrationTest > source menu labels keep their previous order
+SourcePopupActionMigrationTest > source related row menus use the shared vertical builder
+> Task :app:testAppDebugUnitTest
+TerrainCostTest > 雨天候拖慢行军
+ThemeFontScalePickerTest > font scale picker keeps the effective configured or system value
+UpdateDialogDownloadContractTest > beta update exposes browser fallback in toolbar
+UpdateDialogDownloadContractTest > beta update uses the system download flow
+UpdateDialogLifecycleTest > formal update dialog exposes the backup cdn separately from github
+UpdateDialogLifecycleTest > formal update hides only the primary toolbar download action
+UpdateDialogLifecycleTest > update callbacks skip dialogs after fragment state is saved
+UpdateDialogLifecycleTest > update dialog uses the system download action for beta and formal updates
