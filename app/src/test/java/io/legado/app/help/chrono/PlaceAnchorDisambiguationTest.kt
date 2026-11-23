@@ -34,7 +34,7 @@ class PlaceAnchorDisambiguationTest {
         assertFalse(hit.refLayer)
         assertTrue(hit.confidenceTag.canDefault)
 
-        val modern = res.others.firstOrNull { it.id == "P-JINCHENG" }
+        val modern = res.others.firstOrNull { it.id == "P057" }
         assertNotNull(modern)
         assertTrue(modern!!.refLayer)
         assertEquals(ContextAnchor.Confidence.LOW, modern.confidenceTag)
@@ -53,7 +53,7 @@ class PlaceAnchorDisambiguationTest {
         assertFalse(hit.refLayer)
         assertNull(res.others.firstOrNull { it.id == hit.id })
 
-        val modern = res.candidates.firstOrNull { it.id == "P-JINCHENG" }
+        val modern = res.candidates.firstOrNull { it.id == "P057" }
         assertNotNull(modern)
         assertTrue(modern!!.refLayer)
     }
@@ -64,7 +64,7 @@ class PlaceAnchorDisambiguationTest {
         assertTrue(res.anchored)
         // 前722 现代晋城尚未建置，区间内无命中 → 不设默认
         assertNull(res.hit)
-        val modern = res.candidates.firstOrNull { it.id == "P-JINCHENG" }
+        val modern = res.candidates.firstOrNull { it.id == "P057" }
         assertNotNull(modern)
         assertTrue(modern!!.refLayer)
     }

@@ -21,12 +21,16 @@ object AllusionDict {
     /** 种子条目 + 外部注册条目的合并视图。 */
     private var records: List<AllusionEntry>
 
+    /** 内置种子条目原样保留：种子条目必须读音 / 出处齐备，外部注册条目允许读音暂缺。 */
+    private val seedList: List<AllusionEntry>
+
     /** 词形 → 条目 精确索引；整词匹配，不做子串扫描。 */
     private var byWord: Map<String, AllusionEntry>
 
     init {
         val seed = AllusionSeed.entries.map { validate(it, fromSeed = true) }
         checkDuplicates(seed, existing = emptyList())
+        seedList = seed
         records = seed
         byWord = seed.associateBy { it.word }
     }
@@ -63,6 +67,9 @@ object AllusionDict {
 
     /** 供单测 / bench 读取的全部条目（含种子与外部注册）。 */
     internal fun allRecords(): List<AllusionEntry> = records
+
+    /** 仅内置种子条目：读音 / 出处齐备性断言只针对种子，外部注册条目允许缺读音。 */
+    internal fun seedRecords(): List<AllusionEntry> = seedList
 
     /** 条目总数，供 bench 与规模断言使用。 */
     internal fun count(): Int = records.size

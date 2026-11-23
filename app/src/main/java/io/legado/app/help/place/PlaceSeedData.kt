@@ -22,21 +22,6 @@ internal object PlaceSeedData {
             PlaceEntity(
                 placeId = "P001",
                 kind = PlaceKind.POINT,
-                canonicalName = "临淄",
-                fromYear = -859, toYear = -221,
-                tier = PlaceTier.T1_SITE,
-                channels = setOf(PlaceChannel.ARCHAEOLOGY),
-                source = PlaceSource.Archaeology("临淄齐国故城遗址"),
-                adminLevel = "国都", superior = "齐",
-                lng = 118.31, lat = 36.81,
-                note = "齐国都，今山东淄博临淄区",
-                aliases = listOf("齐", "齐国", "营丘"),
-            )
-        )
-        add(
-            PlaceEntity(
-                placeId = "P002",
-                kind = PlaceKind.POINT,
                 canonicalName = "曲阜",
                 fromYear = -1043, toYear = -256,
                 tier = PlaceTier.T1_SITE,
@@ -50,17 +35,32 @@ internal object PlaceSeedData {
         )
         add(
             PlaceEntity(
-                placeId = "P010",
+                placeId = "P002",
                 kind = PlaceKind.POINT,
-                canonicalName = "郑韩故城",
-                fromYear = -769, toYear = -230,
+                canonicalName = "临淄",
+                fromYear = -859, toYear = -221,
                 tier = PlaceTier.T1_SITE,
                 channels = setOf(PlaceChannel.ARCHAEOLOGY),
-                source = PlaceSource.Archaeology("郑韩故城遗址"),
-                adminLevel = "国都",
-                lng = 113.74, lat = 34.39,
+                source = PlaceSource.Archaeology("临淄齐国故城遗址"),
+                adminLevel = "国都", superior = "齐",
+                lng = 118.31, lat = 36.81,
+                note = "齐国都，今山东淄博临淄区",
+                aliases = listOf("齐", "齐国", "营丘"),
+            )
+        )
+        add(
+            PlaceEntity(
+                placeId = "P008",
+                kind = PlaceKind.POINT,
+                canonicalName = "新郑",
+                fromYear = -806, toYear = -375,
+                tier = PlaceTier.T2_ATLAS,
+                channels = setOf(PlaceChannel.ATLAS, PlaceChannel.TEXT),
+                source = PlaceSource.TanAtlas("谭图·先秦卷·郑图"),
+                adminLevel = "国都", superior = "郑",
+                lng = 113.74, lat = 34.40,
                 note = "春秋郑都、战国韩都，今河南新郑",
-                aliases = listOf("郑", "新郑", "韩", "郑韩"),
+                aliases = listOf("郑", "郑国", "新郑", "郑韩故城"),
             )
         )
         add(
@@ -128,17 +128,17 @@ internal object PlaceSeedData {
         )
         add(
             PlaceEntity(
-                placeId = "P020",
+                placeId = "P042",
                 kind = PlaceKind.POINT,
                 canonicalName = "洛邑",
-                fromYear = -770, toYear = 220,
-                tier = PlaceTier.T2_ATLAS,
-                channels = setOf(PlaceChannel.ATLAS, PlaceChannel.TEXT),
-                source = PlaceSource.TanAtlas("谭图·先秦卷·周图"),
-                adminLevel = "国都",
+                fromYear = -1036, toYear = 1911,
+                tier = PlaceTier.T1_SITE,
+                channels = setOf(PlaceChannel.ARCHAEOLOGY, PlaceChannel.ATLAS, PlaceChannel.TEXT),
+                source = PlaceSource.Archaeology("东周王城遗址"),
+                adminLevel = "国都", superior = "周",
                 lng = 112.45, lat = 34.62,
-                note = "东周王城，今河南洛阳",
-                aliases = listOf("周", "东周", "洛阳", "成周", "雒阳"),
+                note = "成周洛邑，东周王城，今河南洛阳",
+                aliases = listOf("洛邑", "周", "东周", "洛阳", "成周", "雒阳", "河南"),
             )
         )
         add(
@@ -345,17 +345,17 @@ internal object PlaceSeedData {
 
         add(
             PlaceEntity(
-                placeId = "P-JINCHENG",
+                placeId = "P057",
                 kind = PlaceKind.POINT,
                 canonicalName = "晋城",
-                fromYear = 1983, toYear = 2026,
+                fromYear = 1912, toYear = 2024,
                 tier = PlaceTier.T2_ATLAS,
                 channels = setOf(PlaceChannel.REFERENCE),
                 source = PlaceSource.ModernReference("今山西晋城市"),
                 adminLevel = "现代市",
                 lng = 112.85, lat = 35.49,
-                note = "现代同名异地，仅作今址对照，独立成层",
-                aliases = listOf("晋"),
+                note = "现代同名异地，仅作今址对照，独立成层；晋都遗址在翼城/侯马，非此城",
+                aliases = listOf("晋", "晋城"),
                 refLayer = true,
             )
         )
@@ -363,8 +363,8 @@ internal object PlaceSeedData {
 
     /** `place_name` 表：随年代改名的名称快照。 */
     fun nameRows(): List<PlaceNameRow> = listOf(
-        PlaceNameRow("成周", "P020", -770, -256, "东周", PlaceSource.TanAtlas("谭图·先秦卷·周图")),
-        PlaceNameRow("雒阳", "P020", 25, 220, "东汉", PlaceSource.TanAtlas("谭图·东汉卷·司隶图")),
+        PlaceNameRow("成周", "P042", -770, -256, "东周", PlaceSource.TanAtlas("谭图·先秦卷·周图")),
+        PlaceNameRow("雒阳", "P042", 25, 220, "东汉", PlaceSource.TanAtlas("谭图·东汉卷·司隶图")),
         PlaceNameRow("西京", "P011", -202, 8, "西汉", PlaceSource.Archaeology("汉长安城遗址")),
     )
 }

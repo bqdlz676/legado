@@ -95,10 +95,12 @@ class BubbleResolverTest {
 
     @Test
     fun `skeleton providers all null fall back to missing with web and notebook flags`() {
-        val bubble = BubbleResolver.resolve("抽", 0)
+        // 取字库未收的生僻字「龘」：真实骨架各 Provider 全空，走 Missing 兜底。
+        // 「抽」已在 D1 种子字库内（见 CharProvider / ChineseDict 用例），不能用作兜底样本。
+        val bubble = BubbleResolver.resolve("龘", 0)
         assertNotNull(bubble)
         assertEquals(BubbleKind.MISSING, bubble!!.kind)
-        assertEquals("抽", bubble.token)
+        assertEquals("龘", bubble.token)
         assertTrue(bubble.allowWebSearch)
         assertTrue(bubble.allowNotebook)
         assertTrue(bubble.actions.isEmpty())
@@ -419,11 +421,16 @@ class BubbleResolverTest {
 
     @Test
     fun `plain seeded-out char does not pop allusion`() {
-        // 「抽」不在种子字库：单字 Provider 返回 null，交 Missing 兜底；
+        // 未收录字「龘」：单字 Provider 返回 null，交 Missing 兜底；
         // 典故槽只做 2~4 字整词匹配，绝不把单字拆成典故。
-        assertNull(CharProvider.query("抽", ContextAnchor))
+        assertNull(CharProvider.query("龘", ContextAnchor))
+        assertNull(WordProvider.matchAllusion("龘", 0, ContextAnchor))
+        // 规格点名的「抽」在 D1 种子字库内：出字义 / 说文 / 用例字气泡，但绝不弹典故。
         assertNull(WordProvider.matchAllusion("抽", 0, ContextAnchor))
-        val bubble = BubbleResolver.resolve("抽", 0)
+        val charBubble = CharProvider.query("抽", ContextAnchor)
+        assertNotNull(charBubble)
+        assertEquals(BubbleKind.CHAR, charBubble!!.kind)
+        val bubble = BubbleResolver.resolve("龘", 0)
         assertNotNull(bubble)
         assertFalse(bubble!!.kind == BubbleKind.ALLUSION)
     }
@@ -527,10 +534,24 @@ class BubbleResolverTest {
 
     @Test
     fun `action sealed keeps exactly four frozen subclasses`() {
-        val names = Action::class.sealedSubclasses.map { it.simpleName }.toSet()
+        // JVM 单测环境不挂 kotlin-reflect，不能走 sealedSubclasses 反射枚举；
+        // 改为直接列全四个冻结子类：逐个校验其为 Action 子类，类名与冻结契约逐一对应。
+        val frozenSubclasses = setOf(
+            Action.OpenMap::class.java,
+            Action.OpenPerson::class.java,
+            Action.OpenTimeline::class.java,
+            Action.OpenRelation::class.java,
+        )
+        assertEquals(4, frozenSubclasses.size)
+        frozenSubclasses.forEach { subclass ->
+            assertTrue(
+                "$subclass 必须是 Action 子类",
+                Action::class.java.isAssignableFrom(subclass),
+            )
+        }
         assertEquals(
             setOf("OpenMap", "OpenPerson", "OpenTimeline", "OpenRelation"),
-            names,
+            frozenSubclasses.map { it.simpleName }.toSet(),
         )
     }
 

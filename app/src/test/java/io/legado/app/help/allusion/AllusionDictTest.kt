@@ -112,7 +112,9 @@ class AllusionDictTest {
 
     @Test
     fun `种子规模不少于五十条 且每条出处版本齐备`() {
-        val all = AllusionDict.allRecords()
+        // 读音 / 出处齐备性只针对内置种子；外部注册条目按契约允许读音暂缺，
+        // 故本断言遍历 seedRecords，不混入同进程内已注册的外部样例。
+        val all = AllusionDict.seedRecords()
         assertTrue("种子规模应 ≥ 50，实际 ${all.size}", all.size >= 50)
         all.forEach { entry ->
             assertTrue("${entry.word} 词长越界", entry.word.length in 2..4)

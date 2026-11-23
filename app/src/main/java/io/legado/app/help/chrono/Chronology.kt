@@ -503,7 +503,7 @@ object Chronology {
 
     /** 显示用：公元前/公元 + 干支 + 距今。 */
     fun yearLabel(year: Int): String {
-        val bc = if (year <= 0) "公元前${1 - year}" else "公元${year}"
+        val bc = if (year <= 0) "公元前${-year}" else "公元${year}"
         return "$bc 年（${yearGanzhi(year)}）· 距今${yearsAgo(year)}年"
     }
 

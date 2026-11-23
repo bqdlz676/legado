@@ -99,8 +99,8 @@ internal object BubbleSupport {
         return null
     }
 
-    /** 公元年 → 展示用年标：负数为公元前（天文纪年 -722 = 前722），非负为公元年。 */
-    fun yearText(y: Int): String = if (y <= 0) "前${1 - y}" else "公元$y"
+    /** 公元年 → 展示用年标：负数为公元前（内部 -722 即前 722），非负为公元年。 */
+    fun yearText(y: Int): String = if (y <= 0) "前${-y}" else "公元$y"
 
     /** 生卒年对 → 展示串；任一年无载如实标注，不补约数。 */
     fun lifeSpanText(birth: Int?, death: Int?): String {

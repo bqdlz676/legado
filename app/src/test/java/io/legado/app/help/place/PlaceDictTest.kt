@@ -60,7 +60,8 @@ class PlaceDictTest {
     @Test
     fun `图层按单年与区间命中 含负数纪年`() {
         assertTrue(PlaceLayers.at(-722).any { it.era == "春秋" })
-        assertTrue(PlaceLayers.at(-453).any { it.era == "春秋" })
+        // 春秋图层区间 -770~-476（切片-05 表格）；-453 已入战国，故取春秋中段 -600 验单年命中。
+        assertTrue(PlaceLayers.at(-600).any { it.era == "春秋" })
         assertTrue(PlaceLayers.at(750).any { it.era == "唐" })
         assertTrue(PlaceLayers.overlaps(-722..-453).any { it.era == "春秋" })
         assertTrue(PlaceLayers.at(1950).isEmpty())
@@ -77,7 +78,7 @@ class PlaceDictTest {
         assertTrue("春秋晋国新田应在候选中", ids.contains("P045"))
         assertTrue("晋国实体应在候选中", ids.contains("P-JIN"))
         assertFalse("北魏唐宋晋州不应落在春秋锚点内", ids.contains("P-JINZHOU"))
-        assertFalse("现代晋城不应落在春秋锚点内", ids.contains("P-JINCHENG"))
+        assertFalse("现代晋城不应落在春秋锚点内", ids.contains("P057"))
 
         val hit = PlaceDict.defaultOf(candidates)
         assertTrue("年代锚点内应有可默认命中的春秋晋候选", hit != null)
@@ -100,7 +101,7 @@ class PlaceDictTest {
         assertTrue(ids.contains("P045"))
         assertTrue(ids.contains("P-JIN"))
         assertTrue(ids.contains("P-JINZHOU"))
-        assertTrue(ids.contains("P-JINCHENG"))
+        assertTrue(ids.contains("P057"))
     }
 
     // ---------- 今址参考层 ----------
@@ -110,13 +111,13 @@ class PlaceDictTest {
         val candidates = PlaceDict.find("晋城")
         assertEquals(1, candidates.size)
         val jincheng = candidates.first()
-        assertEquals("P-JINCHENG", jincheng.placeId)
+        assertEquals("P057", jincheng.placeId)
         assertTrue(jincheng.refLayer)
         assertEquals(PlaceConfidence.LOW, jincheng.confidence)
         assertFalse(jincheng.canDefault)
         assertNull(PlaceDict.defaultOf(candidates))
 
-        val geo = PlaceGeo.of("P-JINCHENG")
+        val geo = PlaceGeo.of("P057")
         assertTrue(geo != null && geo.refLayer)
         assertFalse("今址参考层不落到古地图点位", geo!!.canPlotPoint)
     }
@@ -195,8 +196,8 @@ class PlaceDictTest {
     fun `place_name 快照按名归并到实体并带年代与出处`() {
         val zhou = PlaceDict.find("成周").firstOrNull()
         val luoyang = PlaceDict.find("雒阳").firstOrNull()
-        assertEquals("P020", zhou?.placeId)
-        assertEquals("P020", luoyang?.placeId)
+        assertEquals("P042", zhou?.placeId)
+        assertEquals("P042", luoyang?.placeId)
         assertEquals("东汉", luoyang?.era)
         assertTrue(zhou!!.fromYear <= -770)
         assertTrue(luoyang!!.source.label.isNotBlank())

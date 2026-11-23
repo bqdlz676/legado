@@ -177,7 +177,7 @@ object ContextAnchor {
     }
 
     private fun fmtYearText(y: Int): String =
-        if (y <= 0) "公元前${1 - y}" else "公元$y"
+        if (y <= 0) "公元前${-y}" else "公元$y"
 
     /** 是否已锚定年代。 */
     fun hasAnchor(): Boolean = year != null || range != null

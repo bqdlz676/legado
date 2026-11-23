@@ -153,7 +153,8 @@ internal object PlaceDirectory {
         val era = snapshot?.dynasty ?: PlaceLayers.overlaps(from..to).firstOrNull()?.era
         return PlaceEntry(
             placeId = e.placeId,
-            name = matchedName,
+            // 展示名一律取实体正名；matchedName 只用于命中名称快照，不得把查询别名泄漏成正名。
+            name = e.canonicalName,
             fromYear = from,
             toYear = to,
             tier = e.tier,
