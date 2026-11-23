@@ -187,6 +187,7 @@ class PersonProfileWiringTest {
         val bubble = PersonProvider.query("接线全孤证", ContextAnchor)
         assertNotNull(bubble)
         // 全为孤证时回退孤证池，不返回空气泡；另一位仍进候选。
-        assertEquals(1, bubble.candidates.size)
+        // 注释说明：assertNotNull 是普通调用不触发 Kotlin 智能转换，这里必须用 !! 才能访问成员（否则 compileAppDebugUnitTestKotlin 直接报可空接收者）。
+        assertEquals(1, bubble!!.candidates.size)
     }
 }
