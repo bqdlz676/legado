@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 落文 · 书源管理域重写新增文案；旧 XML 菜单 / 布局拆除后，本文件只保留 Compose 页引用的字符串。 -->
+<resources>
+    <string name="book_source_manage_title">书源管理</string>
+    <string name="source_filter_all">全部</string>
+    <string name="source_empty_filter">没有匹配的书源</string>
+    <string name="source_empty_all">还没有书源，点击下方按钮添加</string>
+    <string name="source_more">更多</string>
+    <string name="source_add_group_title">加入分组</string>
+    <string name="source_remove_group_title">移出分组</string>
+    <string name="source_group_name_hint">分组名称</string>
+    <string name="source_online_import_hint">书源地址（http/https）</string>
+    <string name="source_check_keyword_hint">搜索关键词</string>
+    <string name="source_export_title">导出完成</string>
+    <string name="source_share_passphrase">口令分享</string>
+    <string name="source_copy_path">复制路径</string>
+    <string name="sure_rename">重命名</string>
+    <string name="js_lib">jsLib</string>
+    <string name="source_edit_title">书源编辑</string>
+    <string name="source_field_full_edit">全屏编辑</string>
+    <string name="source_exit_confirm">退出前未保存修改</string>
+    <string name="source_field_error">字段有误，请检查后再保存</string>
+    <string name="source_debug_title">书源调试</string>
+    <string name="debug_help_search">调试搜索&gt;&gt;输入关键字，如：</string>
+    <string name="debug_help_mine">我的</string>
+    <string name="debug_help_system">系统</string>
+    <string name="debug_help_explore">调试发现&gt;&gt;输入发现URL，如：</string>
+    <string name="debug_help_info">调试详情页&gt;&gt;输入详情页URL，如：</string>
+    <string name="debug_help_toc">调试目录页&gt;&gt;输入目录页URL，如：</string>
+    <string name="debug_help_content">调试正文页&gt;&gt;输入正文页URL，如：</string>
+    <string name="debug_placeholder_info">https://m.qidian.com/book/1015609210</string>
+    <string name="debug_placeholder_toc">++https://www.zhaishuyuan.com/read/30394</string>
+    <string name="debug_placeholder_content">--https://www.zhaishuyuan.com/chapter/30394/20940996</string>
+    <string name="debug_empty_log">暂无调试日志，输入关键字或选择上方示例开始调试</string>
+    <string name="debug_pick_explore">选择发现</string>
+    <string name="source_js_tutorial">js教程</string>
+    <string name="source_regex_tutorial">正则教程</string>
+    <string name="source_selection_count">已选 %1$d 项</string>
+    <string name="source_copied">已复制</string>
+    <string name="source_passphrase_unsuitable">该地址不适合口令分享</string>
+    <string name="source_passphrase_copied">口令已复制</string>
+    <string name="source_check_select_first">请先勾选要校验的书源</string>
+    <string name="source_check_busy">书源调试通道占用中，请稍后重试</string>
+    <string name="source_check_start_failed">无法启动书源检验</string>
+</resources>

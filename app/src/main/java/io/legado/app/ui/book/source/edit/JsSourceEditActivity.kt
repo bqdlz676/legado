@@ -3,35 +3,40 @@ package io.legado.app.ui.book.source.edit
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import androidx.activity.compose.setContent
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStateAtLeast
 import io.legado.app.R
-import io.legado.app.base.BaseActivity
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSource
-import io.legado.app.databinding.ActivityJsSourceEditBinding
 import io.legado.app.model.jsSource.JsSourceUpsert
 import io.legado.app.ui.book.source.debug.BookSourceDebugActivity
 import io.legado.app.ui.code.CodeEditActivity
+import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkLoadingDots
 import io.legado.app.ui.login.SourceLoginActivity
 import io.legado.app.utils.StartActivityContract
 import io.legado.app.utils.toastOnUi
-import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class JsSourceEditActivity : BaseActivity<ActivityJsSourceEditBinding>(imageBg = false) {
+/**
+ * 落文 · JS 书源编辑宿主（Compose 重写；类名保留）。
+ *
+ * 本页自身不驻留表单：编辑器 / 调试 / 登录均跳转既有外部 Activity；阶段机 [JsSourceEditFlow]
+ * 原样保留（执行层逻辑），宿主只负责恢复阶段、契约回传与保存结果。
+ */
+class JsSourceEditActivity : FragmentActivity() {
 
     companion object {
         private const val STATE_OPENED_SOURCE_URL = "openedSourceUrl"
         private const val STATE_PENDING_TEXT = "pendingText"
         private const val STATE_STAGE = "stage"
     }
-
-    override val binding by viewBinding(ActivityJsSourceEditBinding::inflate)
 
     private var openedSourceUrl: String? = null
     private var pendingText: String? = null
@@ -72,19 +77,28 @@ class JsSourceEditActivity : BaseActivity<ActivityJsSourceEditBinding>(imageBg =
         pendingText?.let(::openEditor) ?: super.finish()
     }
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         openedSourceUrl = savedInstanceState?.getString(STATE_OPENED_SOURCE_URL)
             ?: intent.getStringExtra("sourceUrl")
         pendingText = savedInstanceState?.getString(STATE_PENDING_TEXT)
         stage = savedInstanceState?.getString(STATE_STAGE)
-            ?.let { savedStage ->
-                runCatching { JsSourceEditStage.valueOf(savedStage) }.getOrNull()
-            }
+            ?.let { saved -> runCatching { JsSourceEditStage.valueOf(saved) }.getOrNull() }
             ?: JsSourceEditStage.READY
+
+        setContent {
+            androidx.compose.foundation.layout.Box(
+                androidx.compose.ui.Modifier
+                    .fillMaxSize()
+                    .background(ComponentTokens.bgPage),
+                contentAlignment = androidx.compose.ui.Alignment.Center,
+            ) { InkLoadingDots() }
+        }
+
         lifecycleScope.launch {
             val text = pendingText ?: withContext(Dispatchers.IO) {
                 openedSourceUrl?.let { appDb.bookSourceDao.getBookSource(it)?.mainJs }
-                ?: assets.open("js_source_template.js").bufferedReader().use { it.readText() }
+                    ?: assets.open("js_source_template.js").bufferedReader().use { it.readText() }
             }
             pendingText = text
             when (stage.restoreAction()) {
@@ -137,9 +151,7 @@ class JsSourceEditActivity : BaseActivity<ActivityJsSourceEditBinding>(imageBg =
             lifecycle.withStateAtLeast(Lifecycle.State.RESUMED) {
                 if (stage != JsSourceEditStage.DEBUG_READY) return@withStateAtLeast
                 stage = JsSourceEditStage.DEBUG_OPEN
-                debugResult.launch {
-                    putExtra("key", sourceUrl)
-                }
+                debugResult.launch { putExtra("key", sourceUrl) }
             }
         }
     }
@@ -187,14 +199,10 @@ class JsSourceEditActivity : BaseActivity<ActivityJsSourceEditBinding>(imageBg =
                 openedSourceUrl = source.bookSourceUrl
                 stage = stage.afterSuccessfulSave()
                 pendingText = source.mainJs ?: text
-                if (showSuccessToast) {
-                    toastOnUi(R.string.success)
-                }
+                if (showSuccessToast) toastOnUi(R.string.success)
                 setResult(Activity.RESULT_OK, Intent().putExtra("origin", source.bookSourceUrl))
                 onSuccess?.invoke(source)
-                if (finishAfterSave) {
-                    super.finish()
-                }
+                if (finishAfterSave) super.finish()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -204,5 +212,4 @@ class JsSourceEditActivity : BaseActivity<ActivityJsSourceEditBinding>(imageBg =
             }
         }
     }
-
 }
