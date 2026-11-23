@@ -276,10 +276,10 @@ private fun ChronoGlassPanel(
                         val now = change.uptimeMillis
                         if (lastDragTime != 0L) {
                             val dt = (now - lastDragTime).coerceAtLeast(1L)
-                            releaseVelocity = delta.y / dt
+                            releaseVelocity = delta / dt
                         }
                         lastDragTime = now
-                        onDrag(delta.y)
+                        onDrag(delta)
                     },
                     onDragEnd = { onRelease(releaseVelocity) },
                     onDragCancel = { onRelease(0f) },
