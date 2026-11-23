@@ -54,17 +54,15 @@ object MoraleSystem {
         return TurnEffect(fatigueAdded, moraleDropped, disbanded, supplyCutAccelerated)
     }
 
-    companion object {
-        /** 疲劳上限（0..5）。 */
-        const val FATIGUE_MAX: Double = 5.0
+    /** 疲劳上限（0..5）。 */
+    const val FATIGUE_MAX: Double = 5.0
 
-        /** 疲劳超过该值 → 士气降一级。 */
-        const val FATIGUE_MORALE_DROP: Double = 4.0
+    /** 疲劳超过该值 → 士气降一级。 */
+    const val FATIGUE_MORALE_DROP: Double = 4.0
 
-        /** 断粮超过该连续回合数 → 疲劳加速。 */
-        const val SUPPLY_CUT_TURNS: Int = 3
+    /** 断粮超过该连续回合数 → 疲劳加速。 */
+    const val SUPPLY_CUT_TURNS: Int = 3
 
-        /** 断粮每回合追加疲劳。 */
-        const val SUPPLY_CUT_FATIGUE_ADD: Double = 0.5
-    }
+    /** 断粮每回合追加疲劳。 */
+    const val SUPPLY_CUT_FATIGUE_ADD: Double = 0.5
 }

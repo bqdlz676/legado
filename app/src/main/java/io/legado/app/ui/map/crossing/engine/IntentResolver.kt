@@ -143,26 +143,24 @@ object IntentResolver {
         return max(dc, dr) + min(dc, dr)
     }
 
-    companion object {
-        /** 相邻判定半径（格）。 */
-        const val ADJACENT_CELLS: Int = 1
+    /** 相邻判定半径（格）。 */
+    const val ADJACENT_CELLS: Int = 1
 
-        /** 设伏：敌军进入该距离（格）内才触发。 */
-        const val AMBUSH_ENEMY_RANGE: Int = 5
+    /** 设伏：敌军进入该距离（格）内才触发。 */
+    const val AMBUSH_ENEMY_RANGE: Int = 5
 
-        /** 断粮超过该连续回合数 → 撤退。 */
-        const val SUPPLY_CUT_TURNS: Int = 3
+    /** 断粮超过该连续回合数 → 撤退。 */
+    const val SUPPLY_CUT_TURNS: Int = 3
 
-        /** 制高点据守：敌军该距离（格）内依托防御。 */
-        const val HOLD_HIGH_GROUND_RANGE: Int = 3
+    /** 制高点据守：敌军该距离（格）内依托防御。 */
+    const val HOLD_HIGH_GROUND_RANGE: Int = 3
 
-        /** 兵力优势倍数：达到该倍数主动进军。 */
-        const val STRENGTH_SUPERIORITY: Double = 3.0
+    /** 兵力优势倍数：达到该倍数主动进军。 */
+    const val STRENGTH_SUPERIORITY: Double = 3.0
 
-        /** 抢占关隘：敌军超过该距离（格）才考虑夺隘。 */
-        const val SEIZE_ENEMY_RANGE: Int = 5
+    /** 抢占关隘：敌军超过该距离（格）才考虑夺隘。 */
+    const val SEIZE_ENEMY_RANGE: Int = 5
 
-        /** 被包围所需受压方向数。 */
-        const val SURROUND_DIRS: Int = 3
-    }
+    /** 被包围所需受压方向数。 */
+    const val SURROUND_DIRS: Int = 3
 }

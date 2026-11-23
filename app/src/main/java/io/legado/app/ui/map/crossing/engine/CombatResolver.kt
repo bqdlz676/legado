@@ -47,14 +47,12 @@ object CombatResolver {
         )
     }
 
-    companion object {
-        /** 伏击方伤害倍率（§三：伏击中伏击方优先判定、伤害 +2x）。 */
-        const val AMBUSH_MULTIPLIER: Double = 2.0
+    /** 伏击方伤害倍率（§三：伏击中伏击方优先判定、伤害 +2x）。 */
+    const val AMBUSH_MULTIPLIER: Double = 2.0
 
-        /** 制高点防御倍率（§三：一方在制高点 → 防御 +1.5x）。 */
-        const val HIGH_GROUND_MULTIPLIER: Double = 1.5
+    /** 制高点防御倍率（§三：一方在制高点 → 防御 +1.5x）。 */
+    const val HIGH_GROUND_MULTIPLIER: Double = 1.5
 
-        /** 单场遭遇基础损耗率（占双方兵力均值的比例）。 */
-        const val CASUALTY_RATE: Double = 0.4
-    }
+    /** 单场遭遇基础损耗率（占双方兵力均值的比例）。 */
+    const val CASUALTY_RATE: Double = 0.4
 }
