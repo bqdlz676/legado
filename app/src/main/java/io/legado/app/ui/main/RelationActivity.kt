@@ -14,9 +14,9 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
+import io.legado.app.help.ChineseDict
 import io.legado.app.help.coroutine.Coroutine
-import io.legado.app.help.relation.PersonPinyin
-import io.legado.app.help.relation.PersonProfile
+import io.legado.app.help.person.PersonProfile
 import io.legado.app.help.relation.RelationExtractor
 import io.legado.app.model.ReadBook
 import io.legado.app.utils.printOnDebug
@@ -97,7 +97,7 @@ class RelationActivity : AppCompatActivity() {
             return
         }
         Coroutine.async {
-            PersonProfile.ensureLoaded(this@RelationActivity)
+            // D2 人物目录是纯 JVM 内存索引，无 Context 预热；旧 relation 档案的资产加载不再调用
             val text0 = readLocalText(book.bookUrl)
             val text = if (scopeAll || text0.isNullOrBlank()) text0
             else chapterTextOf(book, text0)
@@ -115,14 +115,20 @@ class RelationActivity : AppCompatActivity() {
             val key = cacheKey(book.bookUrl, scopeAll, text)
             val cached = readGraphCache(key)
             if (cached != null) {
-                lastGraph = graphFromJson(cached, book.name)
-                pendingJson = cached
+                // 缓存里只有抽取快照，节点档案仍按 D2 现目录富化一遍；
+                // 渲染用富化后重序列化的 JSON，避免落盘旧缓存把旧档案字段带回页面
+                val restored = enrichGraph(graphFromJson(cached, book.name))
+                lastGraph = restored
+                val json = toJson(restored)
+                pendingJson = json
                 onUi {
-                    if (pageReady) render(webView, cached)
+                    if (pageReady) render(webView, json)
                 }
                 return@async
             }
-            val graph = RelationExtractor.extract(this@RelationActivity, listOf(book.name to text), book.name)
+            val extracted = RelationExtractor.extract(this@RelationActivity, listOf(book.name to text), book.name)
+            // 抽取只负责人名 / 共现；阵营、身份、生卒、称谓以 D2 档案为准覆盖富化
+            val graph = enrichGraph(extracted)
             lastGraph = graph
             if (graph.nodes.isEmpty()) {
                 onUi {
@@ -170,12 +176,47 @@ class RelationActivity : AppCompatActivity() {
                 o.put("text", a.text)
                 arr.put(o)
             }
+            // 同名消歧：把 D2 主键一并带到详情页，详情页按主键精确定位同名者
+            val personId = PersonProfile.profileOf(name)?.personId
             val intent = Intent(this@RelationActivity, PersonDetailActivity::class.java)
                 .putExtra("name", name)
                 .putExtra("appearances", arr.toString())
+            personId?.let { intent.putExtra("personId", it) }
             startActivity(intent)
         }
     }
+
+    /** 用 D2 档案批量富化图谱节点；抽取器产出的共现次数与出场段落原样保留。 */
+    private fun enrichGraph(graph: RelationExtractor.Graph): RelationExtractor.Graph =
+        graph.copy(nodes = graph.nodes.map { enrichNode(it) })
+
+    private fun enrichNode(node: RelationExtractor.Node): RelationExtractor.Node {
+        val d2 = PersonProfile.profileOf(node.name) ?: return node
+        val calls = buildList {
+            d2.courtesyName?.let { add("字 $it") }
+            d2.styleName?.let { add("号 $it") }
+            addAll(d2.titles)
+            addAll(d2.aliases)
+        }.filter { it.isNotBlank() }.distinct()
+        val span = formatLifeSpan(d2.birthYear, d2.deathYear)
+        return node.copy(
+            faction = d2.nationality.takeIf { it.isNotBlank() && it != "?" } ?: node.faction,
+            identity = d2.identity.takeIf { it.isNotBlank() } ?: node.identity,
+            lifeSpan = if (span != "生卒无载") span else node.lifeSpan,
+            aliases = calls.ifEmpty { node.aliases },
+        )
+    }
+
+    /** 生卒年格式化：公元前用「前 N」，生卒双全都算岁数；无载标「?」。 */
+    private fun formatLifeSpan(birth: Int?, death: Int?): String {
+        if (birth == null && death == null) return "生卒无载"
+        val b = fmtYear(birth)
+        val d = fmtYear(death)
+        return if (birth != null && death != null) "$b — $d（${death - birth}岁）" else "$b — $d"
+    }
+
+    private fun fmtYear(y: Int?): String =
+        y?.let { if (it <= 0) "前${1 - it}" else "$it" } ?: "?"
 
     private fun onUi(block: () -> Unit) {
         runOnUiThread(block)
@@ -324,7 +365,8 @@ class RelationActivity : AppCompatActivity() {
             val al = JSONArray()
             n.aliases.forEach { al.put(it) }
             o.put("aliases", al)
-            o.put("pinyin", PersonPinyin.of(this@RelationActivity, n.name))
+            // 注音走通用字库词级 / 字级读音；D2 冻结 API 不含拼音，旧 PersonPinyin 随扁平栈断开
+            o.put("pinyin", ChineseDict.pinyinOfWord(this@RelationActivity, n.name))
             val ap = JSONArray()
             n.appearances.take(2).forEach { a ->
                 val ao = JSONObject()
