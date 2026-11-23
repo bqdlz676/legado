@@ -97,7 +97,7 @@ class FontRegistryTest {
 
     @Test
     fun `oversize body subset is rejected and falls back`() {
-        val oversize = ByteArray(FontRole.BODY_SUBSET_BUDGET_BYTES + 1)
+        val oversize = ByteArray((FontRole.BODY_SUBSET_BUDGET_BYTES + 1).toInt())
         val source = FakeSource(mapOf("$DIR/NotoSerifSC-Regular.ttf" to oversize))
         val loader = FakeLoader()
 
@@ -120,7 +120,7 @@ class FontRegistryTest {
         assertTrue(ok is FontLoadResult.Loaded)
 
         FontRegistry.resetForTest()
-        val tooBig = ByteArray(FontRole.NUMBER_SUBSET_BUDGET_BYTES + 1)
+        val tooBig = ByteArray((FontRole.NUMBER_SUBSET_BUDGET_BYTES + 1).toInt())
         val bigSource = FakeSource(mapOf("$DIR/Inter-Nums.ttf" to tooBig))
         val rejected = FontRegistry.resolve(FontRole.NUMBER_TABULAR, bigSource, loader)
         assertTrue(rejected is FontLoadResult.RejectedOversize)
@@ -140,8 +140,14 @@ class FontRegistryTest {
 
     @Test
     fun `unreadable asset size is treated as load failure`() {
-        val source = object : FakeSource(mapOf("$DIR/JetBrainsMono-Regular.ttf" to ByteArray(8_000))) {
+        val files = mapOf("$DIR/JetBrainsMono-Regular.ttf" to ByteArray(8_000))
+        val source = object : FontAssetSource {
+            override fun listAssets(dir: String): List<String> =
+                files.keys.map { it.substringAfterLast('/') }
+
             override fun assetSize(assetPath: String): Long? = null
+
+            override fun openAsset(assetPath: String): ByteArray? = files[assetPath]
         }
         val loader = FakeLoader()
 

@@ -14,8 +14,9 @@ class SearchMatcherTest {
         title: String = "",
         author: String = "",
         snippet: String = "",
+        field: SearchField = SearchField.BOOK_TITLE,
         id: String = title + author + snippet,
-    ) = SearchResultItem(id = id, title = title, author = author, snippet = snippet)
+    ) = SearchResultItem(id = id, title = title, author = author, snippet = snippet, field = field)
 
     @Test
     fun `normalize trims and collapses internal whitespace`() {

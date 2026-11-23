@@ -11,7 +11,7 @@ import org.junit.Test
 class SearchBenchTest {
 
     @Test
-    fun `模型层各阶段 p95 在预算内（含空态 / 无网兜底路径）`() {
+    fun `模型层各阶段 p95 在预算内（含空态或无网兜底路径）`() {
         val report = SearchBenchmark.run()
         println(report.summary())
         assertTrue(
