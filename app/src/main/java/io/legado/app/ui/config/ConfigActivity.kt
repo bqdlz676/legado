@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.DialogFragment
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,6 +91,11 @@ class ConfigActivity : AppCompatActivity() {
         setContent {
             val tag = intent.getStringExtra("configTag") ?: ConfigTag.OTHER_CONFIG
 
+            // 设置页搜索词：骨架搜索条输入后经 LocalSettingSearchQuery 下发到各分区 SettingList 过滤；
+            // 切换分区时清空，避免上一页的残留词把新页面列表滤空。
+            var searchQuery by remember { mutableStateOf("") }
+            LaunchedEffect(tag) { searchQuery = "" }
+
             val titleRes = when (tag) {
                 ConfigTag.THEME_CONFIG -> R.string.theme_setting
                 ConfigTag.BACKUP_CONFIG -> R.string.backup_restore
@@ -99,7 +105,13 @@ class ConfigActivity : AppCompatActivity() {
                 else -> R.string.other_setting
             }
 
-            SettingScaffold(title = getString(titleRes), onBack = { finish() }) {
+            SettingScaffold(
+                title = getString(titleRes),
+                onBack = { finish() },
+                showSearch = true,
+                searchQuery = searchQuery,
+                onSearchQueryChange = { searchQuery = it },
+            ) {
                 when (tag) {
                     ConfigTag.THEME_CONFIG -> ThemeSection(actions)
                     ConfigTag.BACKUP_CONFIG -> BackupSection(actions)

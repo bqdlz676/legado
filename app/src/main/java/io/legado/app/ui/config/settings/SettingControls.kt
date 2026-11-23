@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +37,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -51,12 +55,21 @@ import io.legado.app.ui.components.ComponentTokens
  * 颜色只取 [ComponentTokens]，12 token 之外不造色值。
  */
 
-/** 页面骨架：纸白底 + 自绘顶栏（返回 + 宋体标题）+ 内容槽。 */
+/**
+ * 设置页当前搜索词：骨架把宿主侧输入框的词向下发给 [SettingList]；
+ * 缺省空串 = 未搜索，列表零过滤。非设置页（皮肤分配等）不传即不启用。
+ */
+val LocalSettingSearchQuery = compositionLocalOf { "" }
+
+/** 页面骨架：纸白底 + 自绘顶栏（返回 + 宋体标题）+ 可选自绘搜索条 + 内容槽。 */
 @Composable
 fun SettingScaffold(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    showSearch: Boolean = false,
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     Column(
@@ -84,7 +97,108 @@ fun SettingScaffold(
                 ),
             )
         }
-        Box(modifier = Modifier.fillMaxSize()) { content() }
+        if (showSearch) {
+            InkSearchField(
+                query = searchQuery,
+                onQueryChange = onSearchQueryChange,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        CompositionLocalProvider(LocalSettingSearchQuery provides searchQuery) {
+            Box(modifier = Modifier.fillMaxSize()) { content() }
+        }
+    }
+}
+
+/**
+ * 设置页搜索入口：foundation 原语自绘，不用 Material TextField / SearchBar。
+ * 颜色只取 [ComponentTokens]；放大镜与清除叉为 Canvas 矢量绘制，无硬编码色值、无渐变。
+ * 容器高 44dp（≥48dp 点击目标的条目行另算），暖灰面圆角槽，左右 20dp 页边距。
+ */
+@Composable
+fun InkSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    hint: String = "搜索设置",
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .height(44.dp)
+            .clip(RoundedCornerShape(ComponentTokens.buttonRadius))
+            .background(ComponentTokens.bgSurface)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Canvas(Modifier.size(18.dp, 18.dp)) {
+            val stroke = ComponentTokens.textSecondary
+            val ringRadius = size.minDimension * 0.30f
+            drawCircle(
+                color = stroke,
+                radius = ringRadius,
+                center = Offset(size.width * 0.38f, size.height * 0.38f),
+                style = Stroke(width = 1.6.dp.toPx()),
+            )
+            drawLine(
+                color = stroke,
+                start = Offset(size.width * 0.60f, size.height * 0.60f),
+                end = Offset(size.width * 0.80f, size.height * 0.80f),
+                strokeWidth = 1.6.dp.toPx(),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = TextStyle(
+                color = ComponentTokens.textPrimary,
+                fontSize = 15.sp,
+                fontFamily = FontFamily.Serif,
+            ),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                if (query.isEmpty()) {
+                    BasicText(
+                        hint,
+                        TextStyle(
+                            color = ComponentTokens.textTertiary,
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.SansSerif,
+                        ),
+                    )
+                }
+                inner()
+            },
+        )
+        if (query.isNotEmpty()) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(50))
+                    .pointerInput(Unit) { detectTapGestures { onQueryChange("") } },
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(Modifier.size(14.dp, 14.dp)) {
+                    val stroke = ComponentTokens.textTertiary
+                    drawLine(
+                        color = stroke,
+                        start = Offset(size.width * 0.25f, size.height * 0.25f),
+                        end = Offset(size.width * 0.75f, size.height * 0.75f),
+                        strokeWidth = 1.4.dp.toPx(),
+                    )
+                    drawLine(
+                        color = stroke,
+                        start = Offset(size.width * 0.75f, size.height * 0.25f),
+                        end = Offset(size.width * 0.25f, size.height * 0.75f),
+                        strokeWidth = 1.4.dp.toPx(),
+                    )
+                }
+            }
+        }
     }
 }
 

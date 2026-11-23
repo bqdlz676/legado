@@ -23,6 +23,8 @@ data class SwitchRow(
     val summary: String? = null,
     val def: Boolean = false,
     val enabled: Boolean = true,
+    /** 搜索别名：标题 / 说明之外的英文词、旧偏好名等，供设置页搜索兜底命中；缺省为空。 */
+    val keywords: List<String> = emptyList(),
     /** 开关变化后的副作用（服务启停 / 主题刷新等）；落盘由渲染层统一完成。 */
     val onChange: ((Boolean) -> Unit)? = null,
 ) : SettingRow
@@ -34,6 +36,8 @@ data class ValueRow(
     val key: String? = null,
     val enabled: Boolean = true,
     val danger: Boolean = false,
+    /** 搜索别名：见 [SwitchRow.keywords]。 */
+    val keywords: List<String> = emptyList(),
     val onClick: () -> Unit,
 ) : SettingRow
 
@@ -45,6 +49,8 @@ data class ListRow(
     val entries: List<String>,
     val values: List<String>,
     val def: String,
+    /** 搜索别名：见 [SwitchRow.keywords]。 */
+    val keywords: List<String> = emptyList(),
     val onChange: (String) -> Unit,
 ) : SettingRow
 
@@ -54,6 +60,8 @@ data class ColorSwatchRow(
     val title: String,
     val summary: String,
     val color: Int,
+    /** 搜索别名：见 [SwitchRow.keywords]。 */
+    val keywords: List<String> = emptyList(),
     val onOpen: (String) -> Unit,
 ) : SettingRow
 

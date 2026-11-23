@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import io.legado.app.ui.config.configPreferenceMatches
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefBoolean
 import io.legado.app.utils.putPrefString
@@ -28,16 +29,23 @@ import io.legado.app.utils.putPrefString
 @Composable
 fun SettingList(groups: List<SettingGroup>, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    if (groups.isEmpty()) {
+    val query = LocalSettingSearchQuery.current
+    val searching = query.isNotBlank()
+    // 空 query 时零过滤：原分组、原顺序、原可见性全部保留；非空才按行裁剪，整组无命中则隐藏。
+    val visibleGroups = if (!searching) groups else groups.mapNotNull { group ->
+        val rows = group.rows.filter { it.matchesSettingQuery(query) }
+        if (rows.isEmpty()) null else group.copy(rows = rows)
+    }
+    if (visibleGroups.isEmpty()) {
         Column(modifier = modifier) {
             SettingRowShell(onClick = null, enabled = false) {
-                RowTitleBlock("暂无设置项", null)
+                RowTitleBlock(if (searching) "未找到匹配的设置项" else "暂无设置项", null)
             }
         }
         return
     }
     LazyColumn(modifier = modifier) {
-        groups.forEach { group ->
+        visibleGroups.forEach { group ->
             if (!group.title.isNullOrBlank()) {
                 item(key = "header-${group.title}") { GroupHeader(group.title) }
             }
@@ -119,4 +127,16 @@ private fun ListRowItem(row: ListRow) {
         },
         onDismiss = { sheetVisible = false },
     )
+}
+
+/**
+ * 单行搜索命中：标题 / 说明 / 关键词任一子串包含，大小写不敏感。
+ * 匹配口径完全委托顶层 [configPreferenceMatches]，渲染层不另写一套大小写 / 空白规则。
+ */
+private fun SettingRow.matchesSettingQuery(query: String): Boolean = when (this) {
+    is GroupHeader -> configPreferenceMatches(query, title, null, emptyList())
+    is SwitchRow -> configPreferenceMatches(query, title, summary, keywords)
+    is ValueRow -> configPreferenceMatches(query, title, summary, keywords)
+    is ListRow -> configPreferenceMatches(query, title, summary, keywords)
+    is ColorSwatchRow -> configPreferenceMatches(query, title, summary, keywords)
 }
