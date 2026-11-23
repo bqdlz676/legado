@@ -1,6 +1,7 @@
 package io.legado.app.ui.main
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.w3c.dom.Document
@@ -11,48 +12,14 @@ import javax.xml.parsers.DocumentBuilderFactory
 class HomeFastScrollerContractTest {
 
     @Test
-    fun `folder bookshelf and discovery use independent fast scrollers`() {
-        assertFastScrollerLayout(
-            layout = "fragment_bookshelf2.xml",
-            recyclerId = "rv_bookshelf",
-            constraintTarget = "refresh_layout",
-        )
+    fun `discovery keeps independent fast scroller while bookshelf is single-path compose`() {
         assertFastScrollerLayout(
             layout = "fragment_explore.xml",
             recyclerId = "rv_find",
             constraintTarget = "rv_find",
         )
 
-        val bookshelf = projectFile(
-            "src/main/java/io/legado/app/ui/main/bookshelf/style2/BookshelfFragment2.kt",
-        ).readText()
-        assertInOrder(
-            bookshelf.sourceSection(
-                "private fun initRecyclerView() {",
-                "private fun upFastScrollerBar() {",
-            ),
-            "fastScroller.attachRecyclerView(binding.rvBookshelf)",
-            "upFastScrollerBar()",
-        )
-        assertFastScrollerToggle(
-            bookshelf.sourceSection(
-                "private fun upFastScrollerBar() {",
-                "override fun upGroup(data: List<BookGroup>)",
-            ),
-            "AppConfig.showBookshelfFastScroller",
-            "binding.rvBookshelf",
-        )
-        assertInOrder(
-            bookshelf.sourceSection(
-                "observeEvent<String>(EventBus.BOOKSHELF_REFRESH) {",
-                "override fun onDestroyView() {",
-            ),
-            "booksAdapter.notifyDataSetChanged()",
-            "upFastScrollerBar()",
-        )
-        assertDetachBeforeSuper(
-            bookshelf.sourceSection("override fun onDestroyView() {", "\n}"),
-        )
+        assertBookshelfSinglePathContract()
 
         val explore = projectFile(
             "src/main/java/io/legado/app/ui/main/explore/ExploreFragment.kt",
@@ -101,6 +68,54 @@ class HomeFastScrollerContractTest {
             "@string/show_discovery_fast_scroller",
             discoverySwitch.androidAttribute("title"),
         )
+    }
+
+    /**
+     * 书架已改为单路 Compose（InkShelfFragment → BookshelfScreen），旧 style1/style2
+     * 双路 RecyclerView + FastScroller 已拆除。这里做正向（新入口存在且接线）+
+     * 负向（旧双路类名 / 绑定 / 滚动条不残留）契约；探索侧 FastScroller 断言保持不变。
+     */
+    private fun assertBookshelfSinglePathContract() {
+        val shelfFragment = projectFile(
+            "src/main/java/io/legado/app/ui/main/bookshelf/InkShelfFragment.kt",
+        ).readText()
+        val shelfScreen = projectFile(
+            "src/main/java/io/legado/app/ui/main/bookshelf/BookshelfScreen.kt",
+        ).readText()
+        val mainActivity = projectFile(
+            "src/main/java/io/legado/app/ui/main/MainActivity.kt",
+        ).readText()
+
+        // 正向：新单路入口存在，宿主 Fragment 把画面交给 Compose Screen，主界面按单路反射实例化。
+        assertTrue(shelfFragment.contains("ComposeView"))
+        assertTrue(shelfFragment.contains("BookshelfScreen("))
+        assertTrue(shelfScreen.contains("fun BookshelfScreen("))
+        assertTrue(mainActivity.contains("InkShelfFragment"))
+
+        // 负向：新书架源码不得残留旧双路 FastScroller / RecyclerView 绑定 / 旧分路类名与旧布局名。
+        listOf(shelfFragment, shelfScreen).forEach { source ->
+            assertTrue("Residual FastScroller in shelf source", !source.contains("FastScroller"))
+            assertTrue("Residual rvBookshelf binding in shelf source", !source.contains("rvBookshelf"))
+            assertTrue("Residual style1 split in shelf source", !source.contains("style1"))
+            assertTrue("Residual style2 split in shelf source", !source.contains("style2"))
+            assertTrue("Residual old adapter in shelf source", !source.contains("BaseBooksAdapter"))
+            assertTrue("Residual old fragment in shelf source", !source.contains("BookshelfFragment2"))
+            assertTrue(
+                "Residual old base fragment in shelf source",
+                !source.contains("BaseBookshelfFragment"),
+            )
+            assertTrue(
+                "Residual old shelf layout in shelf source",
+                !source.contains("fragment_bookshelf2"),
+            )
+        }
+
+        // 负向：旧双路 Fragment 源文件已不在源码树（两种工程目录口径都查）。
+        val legacyFragment = listOf(
+            File("src/main/java/io/legado/app/ui/main/bookshelf/style2/BookshelfFragment2.kt"),
+            File("app/src/main/java/io/legado/app/ui/main/bookshelf/style2/BookshelfFragment2.kt"),
+        )
+        assertFalse("Legacy BookshelfFragment2.kt must be removed", legacyFragment.any { it.isFile })
     }
 
     private fun assertFastScrollerLayout(
