@@ -89,4 +89,22 @@ object GlobeConfig {
     const val GLOW_GREEN: Int = 165
     const val GLOW_BLUE: Int = 74
     const val GLOW_ALPHA: Float = 0.3f
+
+    // ---- 战役回放（切片 18）----
+    const val ARC_LIFT_UNITS: Double = 1.5      // 悬浮高圆弧凸起 1.5 单位，贴球不被遮挡
+    const val POWER_SHELL_RADIUS: Float = 100.2f // 势力多边形贴球壳，略高于地表
+    const val NEEDLE_HEIGHT: Float = 4.0f        // 城池光针穿出高度（球心→地标法线方向）
+    const val NEEDLE_TOP_DOT_RADIUS: Float = 0.9f
+    const val POWER_GRID_STEPS: Int = 128        // 势力采样 128×128 球面网格
+    const val ARC_SAMPLES_PER_SEGMENT: Int = 24  // 每段大圆高圆弧细分
+    const val PARTICLES_PER_ROUTE: Int = 12      // 每条路线流动金色粒子数
+    const val ARC_WIDTH: Float = 0.55f
+    const val ARROW_HEAD_SIZE: Float = 1.6f
+
+    /** 日行里数三档（切片 18：30 / 50 / 80 里）；1 里 = 0.5 km。 */
+    const val DAILY_LI_SLOW: Int = 30
+    const val DAILY_LI_MARCH: Int = 50
+    const val DAILY_LI_FAST: Int = 80
+    const val KM_PER_LI: Double = 0.5
+    const val EARTH_RADIUS_KM: Double = 6371.0
 }

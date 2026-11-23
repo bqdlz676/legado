@@ -9,6 +9,7 @@ import io.legado.app.ui.globe.core.input.InertiaRotator
 import io.legado.app.ui.globe.core.math.Vec3
 import io.legado.app.ui.globe.core.mesh.LodLevel
 import io.legado.app.ui.globe.core.mesh.LodSelector
+import io.legado.app.ui.globe.core.replay.ReplayState
 import kotlin.math.max
 import kotlin.math.min
 
@@ -27,6 +28,9 @@ class GlobeScene(
     val rotator: InertiaRotator = InertiaRotator()
     val lod: LodSelector = LodSelector()
     val starField: StarField = StarField()
+
+    /** 战役回放状态（切片 18：路线 / 势力 / 光针 / 时间轴阶段）。 */
+    val replay: ReplayState = ReplayState()
 
     var cameraDistance: Float = initialDistance
         private set
@@ -52,6 +56,7 @@ class GlobeScene(
      */
     fun update(dt: Double, utcMillis: Long) {
         rotator.update(dt)
+        replay.update(dt)
 
         // 云层独立自转：地球自转角速度 ×0.9
         cloudRotationDeg += GlobeConfig.AUTO_ROTATE_DEG_PER_SEC * GlobeConfig.CLOUD_SPEED_FACTOR * dt

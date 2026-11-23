@@ -39,6 +39,28 @@ object SeedAtlas {
         GlobePlace("纽约", 40.71, -74.01, PlaceTier.NORMAL, "北美"),
         GlobePlace("墨西哥城", 19.43, -99.13, PlaceTier.CAPITAL, "中美"),
         GlobePlace("库斯科", -13.53, -71.97, PlaceTier.NORMAL, "南美"),
+        // —— 切片 18 国外战役途经点（标签并入同一张 atlas）——
+        GlobePlace("卡塔赫纳", 37.60, -0.98, PlaceTier.NORMAL, "伊比利亚"),
+        GlobePlace("南高卢", 43.30, 3.20, PlaceTier.NORMAL, "高卢"),
+        GlobePlace("阿尔卑斯隘口", 45.07, 7.69, PlaceTier.NORMAL, "阿尔卑斯"),
+        GlobePlace("佩拉", 40.75, 22.52, PlaceTier.NORMAL, "马其顿"),
+        GlobePlace("以弗所", 37.94, 27.34, PlaceTier.NORMAL, "小亚细亚"),
+        GlobePlace("大马士革", 33.51, 36.30, PlaceTier.NORMAL, "黎凡特"),
+        GlobePlace("孟菲斯", 29.85, 31.25, PlaceTier.NORMAL, "埃及"),
+        GlobePlace("巴比伦", 32.54, 44.42, PlaceTier.NORMAL, "两河流域"),
+        GlobePlace("印度河", 31.40, 73.10, PlaceTier.NORMAL, "南亚"),
+        GlobePlace("安条克", 36.20, 36.16, PlaceTier.NORMAL, "叙利亚"),
+        GlobePlace("耶路撒冷", 31.78, 35.22, PlaceTier.NORMAL, "迦南"),
+        GlobePlace("哈拉和林", 47.19, 102.82, PlaceTier.NORMAL, "漠北"),
+        GlobePlace("伏尔加河畔", 48.70, 44.50, PlaceTier.NORMAL, "南俄"),
+        GlobePlace("基辅", 50.45, 30.52, PlaceTier.NORMAL, "东欧"),
+        GlobePlace("克拉科夫", 50.06, 19.94, PlaceTier.NORMAL, "波兰"),
+        GlobePlace("奥斯陆峡湾", 59.91, 10.75, PlaceTier.NORMAL, "北欧"),
+        GlobePlace("丹麦海峡", 55.68, 12.57, PlaceTier.NORMAL, "北海"),
+        GlobePlace("约克", 53.96, -1.08, PlaceTier.NORMAL, "不列颠"),
+        GlobePlace("塞维利亚", 37.39, -5.99, PlaceTier.NORMAL, "安达卢西亚"),
+        GlobePlace("特内里费", 28.46, -16.25, PlaceTier.NORMAL, "加那利"),
+        GlobePlace("圣萨尔瓦多", 24.05, -74.45, PlaceTier.NORMAL, "加勒比"),
     )
 
     /** 一般地名浮出的距离比阈值（相机距离 / 半径）。 */

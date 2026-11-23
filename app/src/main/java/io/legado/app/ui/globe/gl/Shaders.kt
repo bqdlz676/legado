@@ -251,4 +251,55 @@ object Shaders {
             gl_FragColor = vec4(c.rgb, c.a * vOpacity);
         }
     """
+
+    // ---------- 战役回放：彩色 ribbon / 势力色块（切片 18）----------
+    const val REPLAY_COLOR_VERT = """
+        attribute vec3 aPos;
+        attribute vec4 aColor;
+        uniform mat4 uProj;
+        uniform mat4 uView;
+        uniform mat4 uModel;
+        varying vec4 vColor;
+        void main() {
+            vColor = aColor;
+            gl_Position = uProj * uView * uModel * vec4(aPos, 1.0);
+        }
+    """
+
+    const val REPLAY_COLOR_FRAG = """
+        precision mediump float;
+        varying vec4 vColor;
+        void main() {
+            gl_FragColor = vColor;
+        }
+    """
+
+    // ---------- 战役回放：流动粒子 / 顶部金点（点精灵）----------
+    const val REPLAY_POINT_VERT = """
+        attribute vec3 aPos;
+        attribute float aSize;
+        attribute vec4 aColor;
+        uniform mat4 uProj;
+        uniform mat4 uView;
+        uniform mat4 uModel;
+        varying vec4 vColor;
+        void main() {
+            vColor = aColor;
+            vec4 world = uModel * vec4(aPos, 1.0);
+            gl_Position = uProj * uView * world;
+            gl_PointSize = aSize;
+        }
+    """
+
+    const val REPLAY_POINT_FRAG = """
+        precision mediump float;
+        varying vec4 vColor;
+        void main() {
+            vec2 c = gl_PointCoord - 0.5;
+            float d = length(c);
+            if (d > 0.5) discard;
+            float alpha = smoothstep(0.5, 0.1, d);
+            gl_FragColor = vec4(vColor.rgb, vColor.a * alpha);
+        }
+    """
 }

@@ -59,6 +59,7 @@ class GlobeRenderer(
     private var starVbo = 0
     private var starCount = 0
     private var atlas: AtlasLabels? = null
+    private val replayPass = ReplayPass()
 
     private var viewportW = 1
     private var viewportH = 1
@@ -84,6 +85,7 @@ class GlobeRenderer(
         progStar = ShaderProgram.build(Shaders.STAR_VERT, Shaders.STAR_FRAG)
         progSun = ShaderProgram.build(Shaders.SUN_VERT, Shaders.SUN_FRAG)
         progLabel = ShaderProgram.build(Shaders.LABEL_VERT, Shaders.LABEL_FRAG)
+        replayPass.onSurfaceCreated()
 
         texDay = TextureFactory.uploadTexture(TextureFactory.dayTexture())
         texNight = TextureFactory.uploadTexture(TextureFactory.nightTexture())
@@ -126,6 +128,7 @@ class GlobeRenderer(
         drawClouds(model)
         drawSurface(model, eye)
         drawAtmosphereInner(model, eye)
+        replayPass.draw(proj, view, model, scene)
         drawLabels(model)
 
         if (!readyFired) {
@@ -143,6 +146,7 @@ class GlobeRenderer(
         atlas?.release()
         progSurface?.release(); progAtmos?.release(); progAtmosGlow?.release()
         progCloud?.release(); progStar?.release(); progSun?.release(); progLabel?.release()
+        replayPass.release()
     }
 
     // ---------- 相机 / 模型 ----------
