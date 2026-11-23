@@ -539,7 +539,8 @@ class CampaignController private constructor(
             val seen = isFriendlySide(playerSide, c.sideId) || c.id in observedIds
             // B9：已观测给实时坐标；未观测给上次已知报告（从未目睹为 null，F8 口径不变）；
             // 模糊半径经 [reportRadiusCells] 出口供壳层 / 单测取用（CorpsView 扩字段待总控批准）。
-            val report = if (seen) c.latLng else latestReport(playerSide, c.id)
+            // 为什么加 ?.let：victory.side 可空，latestReport 只收非空 sideId（否则 String? → String 编译红）。
+            val report = if (seen) c.latLng else playerSide?.let { latestReport(it, c.id) }
             c.toView(observed = seen, report = report)
         }
         return TurnSnapshot(
@@ -629,16 +630,18 @@ class CampaignController private constructor(
     // 收口约定：遭遇（[resolveEncounters]）、支援 / 溃逃意图裁决（[resolveIntent]）、
     // 侧翼路径（[planRoute]）、情报（[updateIntelligence]）的敌我划分一律走这两处；
     // 阵营级友敌划分走 [isFriendlySide]。禁止在其它分支再按 sideId 相异自行判敌（B3）。
-    private fun enemiesOf(corps: Corps): List<Corps> =
+    // 为什么改：形参原名 corps 与成员 corps 同名，实体过滤被写成对单个 Corps 调 .filter（编译红）。
+    // 适用条件：入参是被审视的那支部队自身，全集一律取成员 corps。
+    private fun enemiesOf(self: Corps): List<Corps> =
         corps.filter {
-            it.id != corps.id && it.sideId != corps.sideId &&
-                it.sideId !in alliedSidesWith(corps.sideId) && it.combatReady()
+            it.id != self.id && it.sideId != self.sideId &&
+                it.sideId !in alliedSidesWith(self.sideId) && it.combatReady()
         }
 
-    private fun alliesOf(corps: Corps): List<Corps> =
+    private fun alliesOf(self: Corps): List<Corps> =
         corps.filter {
-            it.id != corps.id &&
-                (it.sideId == corps.sideId || it.sideId in alliedSidesWith(corps.sideId)) &&
+            it.id != self.id &&
+                (it.sideId == self.sideId || it.sideId in alliedSidesWith(self.sideId)) &&
                 it.combatReady()
         }
 
@@ -671,11 +674,11 @@ class CampaignController private constructor(
 
     /**
      * 阵营级友方判定（B3 收口）：同阵营或外交 ALLIED 盟约方；任一侧 sideId 为空时一律非友。
-     * 谓词实现收口到 [VictoryChecker.isFriendlySide]，与 DEFEND 据点失守判定同源，
-     * 避免判定层 / 控制器各写一套 sideId 比较导致口径漂移；盟友集合仍由 [alliedSidesWith] 推导。
+     * 情报快照的侦察跳过条件 / 可见性标记与 [alliesOf] 阵营口径同源，避免两套口径漂移。
      */
     private fun isFriendlySide(side: String?, otherSide: String?): Boolean =
-        VictoryChecker.isFriendlySide(side, otherSide, alliedSidesWith(side))
+        side != null && otherSide != null &&
+            (side == otherSide || otherSide in alliedSidesWith(side))
 
     private fun dailyMaxCells(corps: Corps): Int {
         val kind = map.kindAt(corps.position)
