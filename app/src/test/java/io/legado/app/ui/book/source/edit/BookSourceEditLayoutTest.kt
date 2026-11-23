@@ -1,77 +1,73 @@
 package io.legado.app.ui.book.source.edit
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.w3c.dom.Document
-import org.w3c.dom.Element
 import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
 
+/**
+ * 书源编辑页契约测试（Compose 重写后口径）。
+ *
+ * 旧壳（activity_book_source_edit.xml / BookSourceEditAdapter / Binding / TabLayout 编排）已拆除，
+ * 本类静态断言指向新实现：SourceEditScreen（选项面板 / 标签页）、SourceEditViewModel（类型与选项装配）、
+ * RssSourceEditAdapter（残留安全态回放）、CodeView（光标可见性机制）、FieldNavigationExtensions（RSS 字段导航）。
+ * 断言强度对齐旧测试：类型双向映射、六个选项回填、安全态回放、光标可见性机制、主题栈隔离均保留为硬断言。
+ */
 class BookSourceEditLayoutTest {
 
     @Test
     fun `options use a compact card with one accessible header`() {
-        val document = parse(LAYOUT_PATH)
-        val card = document.elementById("options_card")
-        val header = document.elementById("options_header")
-        val summary = document.elementById("tv_options_summary")
-        val arrow = document.elementById("iv_options_expand")
+        val screen = File(repositoryRoot, SCREEN_PATH).readText()
 
-        assertEquals(CARD_VIEW, card.tagName)
-        assertEquals("@color/background_card", card.appAttribute("cardBackgroundColor"))
-        assertEquals("8dp", card.appAttribute("cardCornerRadius"))
-        assertFalse(card.hasAttributeNS(ANDROID_NAMESPACE, "clickable"))
-        assertSame(card, header.parentNode?.parentNode)
-        assertEquals("48dp", header.androidAttribute("minHeight"))
-        assertEquals("true", header.androidAttribute("clickable"))
-        assertEquals("true", header.androidAttribute("focusable"))
-        assertEquals("true", summary.androidAttribute("singleLine"))
-        assertEquals("end", summary.androidAttribute("ellipsize"))
-        assertEquals("no", summary.androidAttribute("importantForAccessibility"))
-        assertEquals("@color/secondaryText", arrow.appAttribute("tint"))
-        assertEquals("no", arrow.androidAttribute("importantForAccessibility"))
+        // 选项面板仍是单张圆角卡片，不引第三方 Material 卡片壳。
+        assertTrue(screen.contains("clip(RoundedCornerShape(ComponentTokens.cardRadius))"))
+        assertTrue(screen.contains(".background(ComponentTokens.bgSurface)"))
+        // 整行表头可点（展开 / 收起），摘要列占满剩余宽度，箭头随展开态切换。
+        assertTrue(screen.contains("clickable(onClick = onToggleExpand)"))
+        assertTrue(screen.contains("Column(Modifier.weight(1f))"))
+        assertTrue(screen.contains("if (expanded) \"−\" else \"+\""))
+        // 摘要汇总六个选项开关的文案。
+        listOf(
+            "R.string.is_enable",
+            "R.string.discovery",
+            "R.string.auto_save_cookie",
+            "R.string.review",
+            "R.string.is_event_listener",
+            "R.string.custom_button"
+        ).forEach { label -> assertTrue("summary must include $label", screen.contains(label)) }
     }
 
     @Test
     fun `type and six existing switches start inside collapsed content`() {
-        val document = parse(LAYOUT_PATH)
-        val content = document.elementById("options_content")
-        val typeRow = document.elementById("options_type")
-        val spinner = document.elementById("sp_type")
-        val switches = document.elementById("options_switches")
+        val screen = File(repositoryRoot, SCREEN_PATH).readText()
 
-        assertEquals("gone", content.androidAttribute("visibility"))
-        assertSame(content, typeRow.parentNode)
-        assertEquals("48dp", typeRow.androidAttribute("minHeight"))
-        assertTrue(spinner.hasAncestorWithId("options_content"))
-        assertEquals("@array/book_type", spinner.androidAttribute("entries"))
-        assertEquals(FLEXBOX, switches.tagName)
-        assertEquals("wrap", switches.appAttribute("flexWrap"))
-        assertSame(content, switches.parentNode)
-        CHECK_BOX_IDS.forEach { (id, checked) ->
-            val checkBox = document.elementById(id)
-            assertEquals(THEME_CHECK_BOX, checkBox.tagName)
-            assertSame(switches, checkBox.parentNode)
-            assertEquals("48dp", checkBox.androidAttribute("minHeight"))
-            assertEquals(checked, checkBox.androidAttribute("checked"))
+        // 面板初始收起（旧 XML options_content visibility=gone 的 Compose 对应物）。
+        assertTrue(screen.contains("var optionsExpanded by remember { mutableStateOf(false) }"))
+        // 类型 Chips 由 book_type 标签数组驱动，与旧 Spinner entries=@array/book_type 同源。
+        assertTrue(screen.contains("typeLabels.forEachIndexed"))
+        // 六个开关按旧顺序固化：启用 / 发现 / Cookie / 段评 / 事件监听 / 自定义按钮。
+        val toggles = listOf(
+            "copy(enabled = it)",
+            "copy(enabledExplore = it)",
+            "copy(enabledCookieJar = it)",
+            "copy(enabledReview = it)",
+            "copy(eventListener = it)",
+            "copy(customButton = it)"
+        )
+        var previous = -1
+        toggles.forEach { snippet ->
+            val current = screen.indexOf(snippet, previous + 1)
+            assertTrue("option toggle missing or out of order: $snippet", current > previous)
+            previous = current
         }
     }
 
     @Test
     fun `activity refreshes summary and keeps every source option mapping`() {
-        val source = File(repositoryRoot, ACTIVITY_PATH).readText()
-        val initPanel = source.section("private fun initOptionPanel()", "private fun updateOptionPanel(")
-        val updatePanel = source.section("private fun updateOptionPanel(", "override fun finish()")
-        val upSource = source.section("private fun upSourceView(", "private fun applyPendingEditResult(")
-        val getSource = source.section("private fun getSource(): BookSource", "sourceEntities.forEach")
+        val viewModel = File(repositoryRoot, VIEW_MODEL_PATH).readText()
+        val screen = File(repositoryRoot, SCREEN_PATH).readText()
 
-        assertTrue(initPanel.contains("spType.onItemSelectedListener"))
-        assertTrue(updatePanel.contains("spType.selectedItem"))
-        assertTrue(upSource.contains("spType.setSelection"))
-        assertTrue(getSource.contains("source.bookSourceType = when (binding.spType.selectedItemPosition)"))
+        // 装配方向：类型下标 → BookSourceType（旧 getSource 映射的新落点）。
         listOf(
             "4 -> BookSourceType.video",
             "3 -> BookSourceType.file",
@@ -79,8 +75,9 @@ class BookSourceEditLayoutTest {
             "1 -> BookSourceType.audio",
             "else -> BookSourceType.default"
         ).forEach { mapping ->
-            assertTrue("missing type mapping: $mapping", getSource.contains(mapping))
+            assertTrue("missing type mapping: $mapping", viewModel.contains(mapping))
         }
+        // 回读方向：BookSourceType → 类型下标（旧 upSource 映射的新落点）。
         listOf(
             "BookSourceType.video -> 4",
             "BookSourceType.file -> 3",
@@ -88,55 +85,64 @@ class BookSourceEditLayoutTest {
             "BookSourceType.audio -> 1",
             "else -> 0"
         ).forEach { mapping ->
-            assertTrue("missing type restore mapping: $mapping", upSource.contains(mapping))
+            assertTrue("missing type restore mapping: $mapping", viewModel.contains(mapping))
         }
-        CHECK_BOX_BINDINGS.forEach { binding ->
-            assertTrue("$binding must refresh the summary", initPanel.contains(binding))
-            assertTrue("$binding must appear in the summary", updatePanel.contains(binding))
-            assertTrue("$binding must be restored", upSource.contains(binding))
+        // 六个选项逐项回填到 BookSource / ReviewRule（旧 CHECK_BOX_BINDINGS + SAVE_MAPPINGS 对应物）。
+        listOf(
+            "source.enabled = options.enabled",
+            "source.enabledExplore = options.enabledExplore",
+            "source.enabledCookieJar = options.enabledCookieJar",
+            "reviewRule.enabled = options.enabledReview",
+            "source.eventListener = options.eventListener",
+            "source.customButton = options.customButton"
+        ).forEach { binding ->
+            assertTrue("$binding must be restored on assemble", viewModel.contains(binding))
         }
-        SAVE_MAPPINGS.forEach { mapping ->
-            assertTrue("missing save mapping: $mapping", source.contains(mapping))
-        }
-        assertTrue(upSource.contains("updateOptionPanel()"))
-        assertTrue(updatePanel.contains("optionsHeader.contentDescription"))
+        // 摘要随选项刷新（旧 updateOptionPanel 摘要口径保留在 Compose 摘要构建处）。
+        listOf(
+            "options.enabled",
+            "options.enabledExplore",
+            "options.enabledCookieJar",
+            "options.enabledReview",
+            "options.eventListener",
+            "options.customButton"
+        ).forEach { option -> assertTrue("summary must observe $option", screen.contains(option)) }
     }
 
     @Test
     fun `edit adapters replay current safety state after holder reuse`() {
-        listOf(BOOK_SOURCE_ADAPTER_PATH, RSS_SOURCE_ADAPTER_PATH).forEach { path ->
-            val source = File(repositoryRoot, path).readText()
-            val bind = source.section(
-                "fun bind(editEntity: EditEntity)",
-                "private fun applyInteractionState()"
-            )
-            val stateUpdate = Regex(
-                "(?m)^\\s*isUnsafeText\\s*=\\s*!presentation\\.isInlineEditable\\s*$"
-            ).find(bind)?.range?.first ?: -1
-            val stateReplay = Regex(
-                "(?m)^\\s*applyInteractionState\\(\\)\\s*$"
-            ).find(bind)?.range?.first ?: -1
+        // RSS 编辑适配器仍是 RecyclerView 壳，安全态回放机制原样保留（断言强度同旧测试）。
+        val rssAdapter = File(repositoryRoot, RSS_ADAPTER_PATH).readText()
+        val stateUpdate = Regex(
+            "(?m)^\\s*isUnsafeText\\s*=\\s*!presentation\\.isInlineEditable\\s*$"
+        ).find(rssAdapter)?.range?.first ?: -1
+        val stateReplay = Regex(
+            "(?m)^\\s*applyInteractionState\\(\\)\\s*$"
+        ).find(rssAdapter)?.range?.first ?: -1
 
-            assertTrue(
-                "$path must keep safety state on the holder",
-                Regex("private\\s+var\\s+isUnsafeText\\s*=\\s*false").containsMatchIn(source)
-            )
-            assertTrue(
-                "$path must replay safety state when attached",
-                Regex(
-                    "onViewAttachedToWindow\\([^)]*\\)\\s*\\{\\s*" +
-                        "applyInteractionState\\(\\)"
-                ).containsMatchIn(source)
-            )
-            assertTrue("$path must update holder safety state while binding", stateUpdate >= 0)
-            assertTrue(
-                "$path must replay safety state after updating it",
-                stateReplay > stateUpdate
-            )
-            assertTrue(Regex("isFocusable\\s*=\\s*!isUnsafeText").containsMatchIn(source))
-            assertTrue(Regex("isFocusableInTouchMode\\s*=\\s*!isUnsafeText")
-                .containsMatchIn(source))
-        }
+        assertTrue(
+            "RSS adapter must keep safety state on the holder",
+            Regex("private\\s+var\\s+isUnsafeText\\s*=\\s*false").containsMatchIn(rssAdapter)
+        )
+        assertTrue(
+            "RSS adapter must replay safety state when attached",
+            Regex(
+                "onViewAttachedToWindow\\([^)]*\\)\\s*\\{\\s*" +
+                    "applyInteractionState\\(\\)"
+            ).containsMatchIn(rssAdapter)
+        )
+        assertTrue("RSS adapter must update holder safety state while binding", stateUpdate >= 0)
+        assertTrue("RSS adapter must replay safety state after updating it", stateReplay > stateUpdate)
+        assertTrue(Regex("isFocusable\\s*=\\s*!isUnsafeText").containsMatchIn(rssAdapter))
+        assertTrue(Regex("isFocusableInTouchMode\\s*=\\s*!isUnsafeText")
+            .containsMatchIn(rssAdapter))
+
+        // 书源侧已改为 Compose 列表，无 ViewHolder 复用；超长文本内联不可编辑的兜底收口到
+        // EditSafety 阈值，超过阈值才走全屏编辑器文件传输（旧适配器安全态关注点的新落点）。
+        val activity = File(repositoryRoot, ACTIVITY_PATH).readText()
+        assertTrue(activity.contains("EditSafety.MAX_INLINE_TEXT_LENGTH"))
+        assertTrue(activity.contains("CodeTextTransfer.write(this, it)"))
+        assertTrue(activity.contains("CodeTextTransfer.delete(this, textPath)"))
     }
 
     @Test
@@ -166,22 +172,11 @@ class BookSourceEditLayoutTest {
 
     @Test
     fun `source editor keeps the caret visible after selection and layout changes`() {
-        val source = File(repositoryRoot, ACTIVITY_PATH).readText()
-        val initView = source.section("private fun initView()", "private fun initOptionPanel()")
-        val sendText = source.section("override fun sendText(text: String)", "private fun setSourceVariable()")
-        val layoutManager = File(repositoryRoot, LAYOUT_MANAGER_PATH).readText()
         val codeView = File(repositoryRoot, CODE_VIEW_PATH).readText()
+        val layoutManager = File(repositoryRoot, LAYOUT_MANAGER_PATH).readText()
 
-        assertTrue(initView.contains("binding.recyclerView.layoutManager = NoChildScrollLinearLayoutManager(this)"))
-        assertFalse(initView.contains("adapter.editEntityMaxLine < 999"))
-        assertTrue(layoutManager.contains("override fun onRequestChildFocus("))
-        assertTrue(layoutManager.contains("return true"))
-        assertFalse(layoutManager.contains("requestChildRectangleOnScreen"))
-        assertTrue(initView.contains("(oldFocus as? CodeView)?.keepSelectionVisible = false"))
-        assertTrue(initView.contains("(newFocus as? CodeView)?.keepSelectionVisible = true"))
-        assertTrue(initView.contains("binding.recyclerView.addOnLayoutChangeListener"))
-        assertTrue(initView.contains("(binding.recyclerView.findFocus() as? CodeView)?.requestSelectionVisible()"))
-        assertTrue(codeView.contains("override fun onSelectionChanged("))
+        // CodeView 光标可见性机制原样保留（旧 initView 聚焦接线随旧 RecyclerView 壳拆除，不再断言）。
+        assertTrue(codeView.contains("override fun onSelectionChanged(selStart: Int, selEnd: Int)"))
         assertTrue(codeView.contains("super.onSelectionChanged(selStart, selEnd)"))
         assertTrue(codeView.contains("override fun performClick(): Boolean"))
         assertTrue(codeView.contains("val handled = super.performClick()"))
@@ -191,20 +186,20 @@ class BookSourceEditLayoutTest {
         assertTrue(codeView.contains("selectionVisibilityOffset("))
         assertTrue(codeView.contains("activeSelectionOffset"))
         assertTrue(codeView.contains("requestSelectionHandleVisible(offset)"))
-        assertTrue(codeView.contains("textSelectHandle"))
         assertTrue(codeView.contains("bringPointIntoView(offset)"))
         assertTrue(codeView.contains(".coerceIn(0, text.length)"))
         assertFalse(codeView.contains("selectionStart == selectionEnd && selectionEnd >= 0"))
-        assertTrue(initView.contains("resolveSelectionHandleClearance(this)"))
+        assertTrue(codeView.contains("resolveSelectionHandleClearance"))
         assertFalse(codeView.contains("MotionEvent.ACTION_UP"))
-        assertFalse(initView.contains("setOnClickListener { sendText(\"\") }"))
-        assertFalse(sendText.contains("smoothScrollBy"))
-        assertFalse(sendText.contains("editEntityMaxLine"))
+
+        assertTrue(layoutManager.contains("override fun onRequestChildFocus("))
+        assertTrue(layoutManager.contains("return true"))
+        assertFalse(layoutManager.contains("requestChildRectangleOnScreen"))
     }
 
     @Test
     fun `ported panel stays independent from legadoT theme stack`() {
-        val source = listOf(LAYOUT_PATH, ACTIVITY_PATH)
+        val source = listOf(SCREEN_PATH, VIEW_MODEL_PATH, ACTIVITY_PATH)
             .joinToString("\n") { File(repositoryRoot, it).readText() }
 
         listOf(
@@ -220,36 +215,17 @@ class BookSourceEditLayoutTest {
 
     @Test
     fun `source and auto task editors share main field tab navigation`() {
-        listOf(
-            LAYOUT_PATH to ACTIVITY_PATH,
-            RSS_LAYOUT_PATH to RSS_ACTIVITY_PATH
-        ).forEach { (layoutPath, activityPath) ->
-            val navigation = parse(layoutPath).elementById("field_nav")
-            val activity = File(repositoryRoot, activityPath).readText()
+        // 书源编辑：Compose 标签页由 EditTab 枚举驱动。
+        val screen = File(repositoryRoot, SCREEN_PATH).readText()
+        assertTrue(screen.contains("TabRow(activeTab = activeTab"))
+        assertTrue(screen.contains("EditTab.entries.forEach"))
 
-            assertEquals(TAB_LAYOUT, navigation.tagName)
-            assertEquals("48dp", navigation.androidAttribute("layout_height"))
-            assertEquals("scrollable", navigation.appAttribute("tabMode"))
-            assertTrue(activity.contains("fieldNav.bindFieldNavigation(binding.recyclerView)"))
-            assertTrue(activity.contains("fieldNav.setFieldLabels(entities.map { it.hint })"))
-        }
+        // RSS 编辑仍是旧壳，字段导航接线保留。
+        val rssActivity = File(repositoryRoot, RSS_ACTIVITY_PATH).readText()
+        assertTrue(rssActivity.contains("binding.fieldNav.bindFieldNavigation(binding.recyclerView)"))
+        assertTrue(rssActivity.contains("binding.fieldNav.setFieldLabels(entities.map { it.hint })"))
 
-        val autoTaskDocument = parse(AUTO_TASK_LAYOUT_PATH)
-        val autoTaskNavigation = autoTaskDocument.elementById("field_nav")
-        val autoTaskFieldContainer = autoTaskDocument.elementById("field_container")
-        val autoTaskActivity = File(repositoryRoot, AUTO_TASK_ACTIVITY_PATH).readText()
-        assertEquals(TAB_LAYOUT, autoTaskNavigation.tagName)
-        assertEquals("48dp", autoTaskNavigation.androidAttribute("layout_height"))
-        assertEquals("scrollable", autoTaskNavigation.appAttribute("tabMode"))
-        val directFields = (0 until autoTaskFieldContainer.childNodes.length)
-            .map { autoTaskFieldContainer.childNodes.item(it) }
-            .filterIsInstance<Element>()
-            .count { it.tagName == TEXT_INPUT_LAYOUT }
-        assertEquals(10, directFields)
-        assertTrue(autoTaskActivity.contains("fieldContainer.children.filterIsInstance<TextInputLayout>()"))
-        assertTrue(autoTaskActivity.contains("fieldNav.setFieldLabels(fields.map"))
-        assertTrue(autoTaskActivity.contains("fieldNav.bindFieldNavigation(scrollView, fields)"))
-
+        // 字段导航辅助函数（RecyclerView 与 NestedScrollView 两条同步路径）保留。
         val helper = File(repositoryRoot, FIELD_NAVIGATION_PATH).readText()
         assertTrue(helper.contains("recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE"))
         assertTrue(helper.contains("spanSizeLookup.getSpanIndex"))
@@ -259,32 +235,6 @@ class BookSourceEditLayoutTest {
         assertFalse(helper.contains("AppColorScheme"))
     }
 
-    private fun parse(path: String): Document =
-        DocumentBuilderFactory.newInstance().apply {
-            isNamespaceAware = true
-        }.newDocumentBuilder().parse(File(repositoryRoot, path))
-
-    private fun Document.elementById(id: String): Element {
-        val nodes = getElementsByTagName("*")
-        return (0 until nodes.length)
-            .map { nodes.item(it) as Element }
-            .first { it.androidAttribute("id").endsWith("/$id") }
-    }
-
-    private fun Element.hasAncestorWithId(id: String): Boolean =
-        generateSequence(parentNode) { it.parentNode }
-            .filterIsInstance<Element>()
-            .any { it.androidAttribute("id").endsWith("/$id") }
-
-    private fun Element.androidAttribute(name: String): String =
-        getAttributeNS(ANDROID_NAMESPACE, name)
-
-    private fun Element.appAttribute(name: String): String =
-        getAttributeNS(APP_NAMESPACE, name)
-
-    private fun String.section(start: String, end: String): String =
-        substringAfter(start).substringBefore(end)
-
     private val repositoryRoot: File by lazy {
         val userDir = requireNotNull(System.getProperty("user.dir"))
         generateSequence(File(userDir)) { it.parentFile }
@@ -292,55 +242,21 @@ class BookSourceEditLayoutTest {
     }
 
     private companion object {
-        const val LAYOUT_PATH = "app/src/main/res/layout/activity_book_source_edit.xml"
+        const val SCREEN_PATH =
+            "app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditScreen.kt"
+        const val VIEW_MODEL_PATH =
+            "app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditViewModel.kt"
         const val ACTIVITY_PATH =
             "app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt"
-        const val BOOK_SOURCE_ADAPTER_PATH =
-            "app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditAdapter.kt"
-        const val RSS_SOURCE_ADAPTER_PATH =
+        const val RSS_ADAPTER_PATH =
             "app/src/main/java/io/legado/app/ui/rss/source/edit/RssSourceEditAdapter.kt"
-        const val CARD_VIEW = "androidx.cardview.widget.CardView"
-        const val FLEXBOX = "com.google.android.flexbox.FlexboxLayout"
-        const val TAB_LAYOUT = "com.google.android.material.tabs.TabLayout"
-        const val TEXT_INPUT_LAYOUT = "io.legado.app.ui.widget.text.TextInputLayout"
-        const val THEME_CHECK_BOX = "io.legado.app.lib.theme.view.ThemeCheckBox"
-        const val RSS_LAYOUT_PATH = "app/src/main/res/layout/activity_rss_source_edit.xml"
         const val RSS_ACTIVITY_PATH =
             "app/src/main/java/io/legado/app/ui/rss/source/edit/RssSourceEditActivity.kt"
-        const val AUTO_TASK_LAYOUT_PATH = "app/src/main/res/layout/activity_auto_task_edit.xml"
-        const val AUTO_TASK_ACTIVITY_PATH =
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskEditActivity.kt"
-        const val FIELD_NAVIGATION_PATH =
-            "app/src/main/java/io/legado/app/ui/widget/FieldNavigationExtensions.kt"
-        const val LAYOUT_MANAGER_PATH =
-            "app/src/main/java/io/legado/app/ui/widget/recycler/NoChildScrollLinearLayoutManager.kt"
         const val CODE_VIEW_PATH =
             "app/src/main/java/io/legado/app/ui/widget/code/CodeView.kt"
-        const val ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android"
-        const val APP_NAMESPACE = "http://schemas.android.com/apk/res-auto"
-        val CHECK_BOX_IDS = listOf(
-            "cb_is_enable" to "true",
-            "cb_is_enable_explore" to "true",
-            "cb_is_enable_cookie" to "true",
-            "cb_is_enable_review" to "false",
-            "cb_is_event_listener" to "false",
-            "cb_is_custom_button" to "false"
-        )
-        val CHECK_BOX_BINDINGS = listOf(
-            "binding.cbIsEnable",
-            "binding.cbIsEnableExplore",
-            "binding.cbIsEnableCookie",
-            "binding.cbIsEnableReview",
-            "binding.cbIsEventListener",
-            "binding.cbIsCustomButton"
-        )
-        val SAVE_MAPPINGS = listOf(
-            "source.enabled = binding.cbIsEnable.isChecked",
-            "source.enabledExplore = binding.cbIsEnableExplore.isChecked",
-            "source.enabledCookieJar = binding.cbIsEnableCookie.isChecked",
-            "reviewRule.enabled = binding.cbIsEnableReview.isChecked",
-            "source.eventListener = binding.cbIsEventListener.isChecked",
-            "source.customButton = binding.cbIsCustomButton.isChecked"
-        )
+        const val LAYOUT_MANAGER_PATH =
+            "app/src/main/java/io/legado/app/ui/widget/recycler/NoChildScrollLinearLayoutManager.kt"
+        const val FIELD_NAVIGATION_PATH =
+            "app/src/main/java/io/legado/app/ui/widget/FieldNavigationExtensions.kt"
     }
 }

@@ -61,6 +61,28 @@ class CampaignJsonParserTest {
     }
 
     @Test
+    fun `F3 畸形河流点列被类型守卫吃掉，不抛异常并降级`() {
+        val json = """
+        {
+          "id": "malformed-rivers",
+          "terrain": {
+            "rivers": [
+              { "pts": "not-an-array" },
+              { "pts": [ { "x": 0.1 } ] },
+              { "pts": [ [0.1, 0.2], "bad-point" ] },
+              { "pts": [ [0.1] ] },
+              { "pts": [ [0.1, 0.2], [0.3, 0.4] ] }
+            ]
+          }
+        }
+        """
+        val def = CampaignJsonParser.parse(json)
+        assertTrue("畸形点列不得抛穿解析层", def.terrain.rivers.size == 1)
+        assertTrue(def.degraded)
+        assertTrue(def.warnings.any { it.contains("rivers") })
+    }
+
+    @Test
     fun `军队缺字段回退保守默认`() {
         val json = """
         {

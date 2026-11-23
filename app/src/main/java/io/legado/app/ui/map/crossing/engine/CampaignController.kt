@@ -510,7 +510,8 @@ class CampaignController private constructor(
         corps.filter { it.id != this.id && it.sideId == this.sideId && it.combatReady() }
 
     private fun dailyMaxCells(corps: Corps): Int {
-        val speed = TerrainCost.marchSpeed(corps.type, corps.fatigue, definition.weather?.condition)
+        val kind = map.kindAt(corps.position)
+        val speed = TerrainCost.marchSpeed(corps.type, corps.fatigue, definition.weather?.condition, kind)
         return (BASE_DAILY_CELLS * speed).roundToInt().coerceAtLeast(1)
     }
 

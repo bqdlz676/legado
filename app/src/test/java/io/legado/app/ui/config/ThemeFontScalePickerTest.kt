@@ -9,13 +9,13 @@ class ThemeFontScalePickerTest {
 
     @Test
     fun `font scale picker keeps the effective configured or system value`() {
-        val source = readProjectFile("src/main/java/io/legado/app/ui/config/ThemeConfigFragment.kt")
-            .substringAfter("PreferKey.fontScale -> NumberPickerDialog")
-            .substringBefore("PreferKey.bgImage ->")
+        val source = readProjectFile("app/src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt")
+            .substringAfter("PreferKey.fontScale")
+            .substringBefore("PreferKey.cover_config")
 
-        assertTrue(source.contains("AppContextWrapper.getFontScale(requireContext()) * 10"))
-        assertTrue(source.contains(".roundToInt()"))
-        assertTrue(source.contains(".coerceIn(8, 16)"))
+        // 已配置值优先；档位边界保持 8..16；不得在弹窗上写死初始 10。
+        assertTrue(source.contains("context.getPrefInt(PreferKey.fontScale, 0)"))
+        assertTrue(source.contains("NumberTarget(R.string.font_scale, 8, 16, scale)"))
         assertFalse(source.contains(".setValue(10)"))
     }
 

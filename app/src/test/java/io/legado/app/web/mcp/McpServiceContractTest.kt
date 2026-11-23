@@ -48,9 +48,21 @@ class McpServiceContractTest {
         assertTrue(manifest.contains("foregroundServiceType=\"specialUse\""))
         assertTrue(manifest.contains("PROPERTY_SPECIAL_USE_FGS_SUBTYPE"))
 
-        val settings = projectFile("app/src/main/java/io/legado/app/ui/config/OtherConfigFragment.kt")
-        assertTrue(settings.contains("previousToken != token"))
-        assertTrue(settings.contains("McpService.restart(requireContext())"))
+        // 旧 OtherConfigFragment + pref_config_other.xml 已随设置页 Compose 重写拆除（commit 93e1946）；
+        // 令牌 / 开关落在 OtherSection 持久化，服务端 tokenProvider 每次请求直读 AppConfig，
+        // 不再需要旧 fragment 的“改令牌即 stop/start 服务”重启旁路；McpService.restart 保留给手动 / 瓦片重启。
+        val section = projectFile("app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt")
+        assertTrue(section.contains("SwitchRow(PreferKey.jsSourceApiTokenRequired,"))
+        assertTrue(section.contains("putPrefString(PreferKey.jsSourceApiToken, v)"))
+        assertTrue(section.contains("R.string.js_source_api_token_title"))
+        assertTrue(section.contains("R.string.js_source_api_token_summary"))
+        assertTrue(service.contains("tokenProvider = { AppConfig.jsSourceApiToken }"))
+        assertTrue(service.contains("fun restart(context: Context)"))
+
+        val strings = projectFile("app/src/main/res/values/strings.xml")
+        assertTrue(strings.contains("<string name=\"js_source_api_token_title\">"))
+        assertTrue(strings.contains("<string name=\"js_source_api_token_summary\">"))
+        assertTrue(strings.contains("<string name=\"js_source_api_token_required_title\">"))
 
         val network = projectFile(
             "app/src/main/java/io/legado/app/receiver/NetworkChangedListener.kt"

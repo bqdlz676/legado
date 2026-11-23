@@ -178,12 +178,17 @@ class RuntimeMediaStabilityTest {
         assertTrue(source.contains("val renderWidth = width"))
         assertTrue(source.contains("val renderHeight = height"))
         assertTrue(source.contains("currentJob?.cancel()"))
-        val configSource = File("src/main/java/io/legado/app/ui/config/CoverConfigFragment.kt")
-            .takeIf { it.isFile }
-            ?: File("app/src/main/java/io/legado/app/ui/config/CoverConfigFragment.kt")
-        assertTrue(configSource.readText().contains("postEvent(EventBus.BOOKSHELF_REFRESH, \"\")"))
-        val fontConfigSource = configSource.resolveSibling("CoverFontConfigFragment.kt").readText()
-        assertTrue(fontConfigSource.contains("PreferKey.coverTitleAdaptive"))
+        // 旧 CoverConfigFragment / CoverFontConfigFragment 已随设置页 Compose 重写拆除（commit 93e1946）；
+        // 默认封面选择回写 CoverSection 并重算封面模型；书名自适应开关归 CoverFontSection。
+        // 旧 EventBus.BOOKSHELF_REFRESH 广播口径已拆除，书架侧由 onResume 重载封面接管。
+        val coverSection = File(
+            "src/main/java/io/legado/app/ui/config/sections/CoverSection.kt"
+        ).takeIf { it.isFile }
+            ?: File("app/src/main/java/io/legado/app/ui/config/sections/CoverSection.kt")
+        assertTrue(coverSection.readText().contains("PreferKey.useDefaultCover"))
+        assertTrue(coverSection.readText().contains("BookCover.upDefaultCover()"))
+        val fontSection = coverSection.resolveSibling("CoverFontSection.kt")
+        assertTrue(fontSection.readText().contains("PreferKey.coverTitleAdaptive"))
     }
 
     @Test

@@ -34,27 +34,24 @@ class JsSourceWebApiContractTest {
         val appConfig = readProjectFile(
             "app/src/main/java/io/legado/app/help/config/AppConfig.kt"
         )
-        val preferences = readProjectFile("app/src/main/res/xml/pref_config_other.xml")
-        val settings = readProjectFile(
-            "app/src/main/java/io/legado/app/ui/config/OtherConfigFragment.kt"
+        // 旧 pref_config_other.xml + OtherConfigFragment 已随设置页 Compose 重写拆除（commit 93e1946）；
+        // 缺省 true 口径落在 AppConfig 取值默认值与 OtherSection 开关 def=true。
+        val section = readProjectFile(
+            "app/src/main/java/io/legado/app/ui/config/sections/OtherSection.kt"
         )
-        val protectionPreference = preferences
-            .substringBefore("android:key=\"jsSourceApiToken\"")
-            .substringAfterLast("<io.legado.app.lib.prefs.SwitchPreference")
-        val protectionChange = settings
-            .substringAfter("PreferKey.jsSourceApiTokenRequired ->")
-            .substringBefore("PreferKey.defaultBookTreeUri ->")
 
         assertTrue(
             appConfig.contains(
                 "getPrefBoolean(PreferKey.jsSourceApiTokenRequired, true)"
             )
         )
-        assertTrue(protectionPreference.contains("android:defaultValue=\"true\""))
-        assertTrue(protectionPreference.contains("android:key=\"jsSourceApiTokenRequired\""))
-        assertTrue(protectionChange.contains("WebService.stop(requireContext())"))
-        assertTrue(protectionChange.contains("WebService.start(requireContext())"))
-        assertTrue(protectionChange.contains("McpService.restart(requireContext())"))
+        assertTrue(section.contains("SwitchRow(PreferKey.jsSourceApiTokenRequired,"))
+        assertTrue(section.contains("def = true"))
+        // 服务端按请求直读 AppConfig 令牌开关，不再需要旧 fragment 的 stop/start 重启旁路；
+        // McpService.restart 保留给手动 / 瓦片重启。
+        val mcpService = readProjectFile("app/src/main/java/io/legado/app/service/McpService.kt")
+        assertTrue(mcpService.contains("tokenRequiredProvider = { AppConfig.jsSourceApiTokenRequired }"))
+        assertTrue(mcpService.contains("fun restart(context: Context)"))
     }
 
     @Test
@@ -239,8 +236,10 @@ class JsSourceWebApiContractTest {
         assertDebugSocketFailureReleasesOwner(bookDebugWebSocket)
         assertDebugSocketFailureReleasesOwner(rssDebugWebSocket)
 
+        // 书源调试 Model 已迁入 SourceDebugViewModel（旧 BookSourceDebugModel.kt 拆除，commit 76e7db3）；
+        // 错误回调契约由 error: ((Throwable) -> Unit)? 改为 onError: (Throwable) -> Unit = {}。
         val bookDebugModel = readProjectFile(
-            "app/src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugModel.kt"
+            "app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugViewModel.kt"
         )
         val rssDebugModel = readProjectFile(
             "app/src/main/java/io/legado/app/ui/rss/source/debug/RssSourceDebugModel.kt"
@@ -249,9 +248,9 @@ class JsSourceWebApiContractTest {
         assertTrue(rssDebugModel.contains("state == -1 || state == 1000"))
         assertTrue(bookDebugModel.contains("Debug.cancelDebug(this)"))
         assertTrue(rssDebugModel.contains("Debug.cancelDebug(this)"))
-        assertTrue(bookDebugModel.contains("error: ((Throwable) -> Unit)?"))
+        assertTrue(bookDebugModel.contains("onError: (Throwable) -> Unit = {}"))
         assertTrue(rssDebugModel.contains("error: ((Throwable) -> Unit)?"))
-        assertTrue(bookDebugModel.contains("error?.invoke(it)"))
+        assertTrue(bookDebugModel.contains("onError(it)"))
         assertTrue(rssDebugModel.contains("error?.invoke(it)"))
 
         val bookDebugActivity = readProjectFile(
@@ -260,7 +259,9 @@ class JsSourceWebApiContractTest {
         val rssDebugActivity = readProjectFile(
             "app/src/main/java/io/legado/app/ui/rss/source/debug/RssSourceDebugActivity.kt"
         )
-        assertTrue(bookDebugActivity.contains("error.localizedMessage ?: \"调试失败\""))
+        // 书源调试错误文案收口在 VM 状态流（uiState.error），Activity 只 toast 透传。
+        assertTrue(bookDebugModel.contains("it.localizedMessage ?: \"调试失败\""))
+        assertTrue(bookDebugActivity.contains("error.localizedMessage"))
         assertTrue(rssDebugActivity.contains("error.localizedMessage ?: \"调试失败\""))
 
         val debugModel = readProjectFile("app/src/main/java/io/legado/app/model/Debug.kt")

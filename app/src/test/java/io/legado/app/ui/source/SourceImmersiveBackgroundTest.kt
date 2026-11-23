@@ -16,16 +16,23 @@ class SourceImmersiveBackgroundTest {
         assertTrue(titleBar.contains("if (AppConfig.isEInkMode)"))
         assertTrue(titleBar.contains("else if (!opaque && context.transparentNavBar)"))
 
-        listOf(
-            "src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt",
-            "src/main/java/io/legado/app/ui/rss/source/edit/RssSourceEditActivity.kt",
-        ).forEach { path ->
-            val source = projectFile(path).readText()
-            assertTrue(source.contains("transparentNavBar && !AppConfig.isEInkMode"))
-            assertTrue(source.contains("listOf(binding.tabLayout, binding.fieldNav)"))
-            assertTrue(source.contains("if (transparentBar) Color.TRANSPARENT else backgroundColor"))
-            assertTrue(source.contains("if (transparentBar) tabs.elevation = 0f"))
-        }
+        // RSS 编辑仍是旧 ViewBinding 壳：标题栏 / 字段导航条按透明状态栏口径取色。
+        val rssEdit = projectFile(
+            "src/main/java/io/legado/app/ui/rss/source/edit/RssSourceEditActivity.kt"
+        ).readText()
+        assertTrue(rssEdit.contains("transparentNavBar && !AppConfig.isEInkMode"))
+        assertTrue(rssEdit.contains("listOf(binding.tabLayout, binding.fieldNav)"))
+        assertTrue(rssEdit.contains("if (transparentBar) Color.TRANSPARENT else backgroundColor"))
+        assertTrue(rssEdit.contains("if (transparentBar) tabs.elevation = 0f"))
+
+        // 书源编辑已 Compose 化（旧 ActivityBookSourceEditBinding 拆除，commit 93e1946）：
+        // 标题栏 / 页面底色走组件 token，不再有 ViewBinding 导航条透明 hook。
+        val bookScreen = projectFile(
+            "src/main/java/io/legado/app/ui/book/source/edit/SourceEditScreen.kt"
+        ).readText()
+        assertTrue(bookScreen.contains(".background(ComponentTokens.bgPage)"))
+        assertFalse(bookScreen.contains("binding.tabLayout"))
+        assertFalse(bookScreen.contains("binding.fieldNav"))
     }
 
     @Test
@@ -87,41 +94,51 @@ class SourceImmersiveBackgroundTest {
 
     @Test
     fun sourceDebugHelpPanelsHideLogsAndMatchTitleBarTransparency() {
-        listOf(
-            "src/main/java/io/legado/app/ui/book/source/debug/BookSourceDebugActivity.kt",
-            "src/main/java/io/legado/app/ui/rss/source/debug/RssSourceDebugActivity.kt",
-        ).forEach { path ->
-            val source = projectFile(path).readText()
-            assertTrue(source.contains("transparentNavBar && !AppConfig.isEInkMode"))
-            assertTrue(source.contains("Color.TRANSPARENT else backgroundColor"))
-            assertTrue(source.contains("binding.recyclerView.visibility = View.GONE"))
-            assertTrue(source.contains("binding.recyclerView.visibility = View.VISIBLE"))
-            assertTrue(source.contains("loading = true"))
-            assertTrue(source.contains("loading = false"))
-            assertTrue(
-                Regex("private fun startSearch\\(key: String\\) \\{\\s*openOrCloseHelp\\(false\\)")
-                    .containsMatchIn(source)
+        // RSS 调试仍是旧壳：帮助面板展开时隐藏日志列表，loading 与透明状态栏口径保留。
+        val rssDebug = projectFile(
+            "src/main/java/io/legado/app/ui/rss/source/debug/RssSourceDebugActivity.kt"
+        ).readText()
+        assertTrue(rssDebug.contains("transparentNavBar && !AppConfig.isEInkMode"))
+        assertTrue(rssDebug.contains("Color.TRANSPARENT else backgroundColor"))
+        assertTrue(rssDebug.contains("binding.recyclerView.visibility = View.GONE"))
+        assertTrue(rssDebug.contains("binding.recyclerView.visibility = View.VISIBLE"))
+        assertTrue(rssDebug.contains("loading = true"))
+        assertTrue(rssDebug.contains("loading = false"))
+        assertTrue(
+            Regex("private fun startSearch\\(key: String\\) \\{\\s*openOrCloseHelp\\(false\\)")
+                .containsMatchIn(rssDebug)
+        )
+        assertTrue(
+            rssDebug.contains(
+                "if (open || !loading) binding.rotateLoading.gone() " +
+                    "else binding.rotateLoading.visible()"
             )
-            assertTrue(
-                source.contains(
-                    "if (open || !loading) binding.rotateLoading.gone() " +
-                        "else binding.rotateLoading.visible()"
-                )
-            )
-        }
+        )
+
+        // 书源调试已 Compose 化：帮助面板 / 日志空态 / 加载态由单向状态流驱动，
+        // 面板与日志列表互斥渲染，底色走组件 token。
+        val bookDebug = projectFile(
+            "src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt"
+        ).readText()
+        assertTrue(bookDebug.contains("state.helpOpen -> HelpPanel(state = state, actions = actions)"))
+        assertTrue(bookDebug.contains("state.logs.isEmpty() && !state.loading"))
+        assertTrue(bookDebug.contains("itemsIndexed(state.logs)"))
+        assertTrue(bookDebug.contains("if (state.loading)"))
+        assertTrue(bookDebug.contains(".background(ComponentTokens.bgSurface)"))
     }
 
     @Test
     fun debugHelpBackgroundBelongsToScrollablePanel() {
-        listOf("activity_source_debug.xml", "activity_rss_source_debug.xml").forEach { layout ->
-            val help = viewById(layout, "help")
-            assertEquals("@color/background", help.getAttribute("android:background"))
-            val content = (0 until help.childNodes.length)
-                .map { help.childNodes.item(it) }
-                .filterIsInstance<Element>()
-                .single()
-            assertFalse(content.hasAttribute("android:background"))
-        }
+        // activity_source_debug.xml 随书源调试 Compose 化删除（commit 76e7db3）；
+        // 仅保留 RSS 调试旧布局的滚动面板背景断言。
+        val layout = "activity_rss_source_debug.xml"
+        val help = viewById(layout, "help")
+        assertEquals("@color/background", help.getAttribute("android:background"))
+        val content = (0 until help.childNodes.length)
+            .map { help.childNodes.item(it) }
+            .filterIsInstance<Element>()
+            .single()
+        assertFalse(content.hasAttribute("android:background"))
     }
 
     private fun viewById(layout: String, id: String): Element {

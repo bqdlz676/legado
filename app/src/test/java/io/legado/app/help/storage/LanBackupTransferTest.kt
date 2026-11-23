@@ -118,15 +118,21 @@ class LanBackupTransferTest {
 
     @Test
     fun `settings flow validates then backs up before restore`() {
-        val fragment = projectSource(
-            "src/main/java/io/legado/app/ui/config/BackupConfigFragment.kt"
+        // 旧 BackupConfigFragment 已拆除（commit 93e1946）；接收编排迁至 ConfigViewModel.lanReceive，
+        // 二维码 / 接收入口回吐见 BackupSection。旧 fragment 的 onStop 会话关闭口径随生命周期壳拆除，
+        // 会话生命周期收口在 LanBackupTransfer 自身（见本类其余用例）。
+        val viewModel = projectSource(
+            "src/main/java/io/legado/app/ui/config/ConfigViewModel.kt"
         )
-        val flow = fragment.substringAfter("private fun receiveLanBackup")
-            .substringBefore("private fun backupIgnore")
+        val section = projectSource(
+            "src/main/java/io/legado/app/ui/config/sections/BackupSection.kt"
+        )
+        val flow = viewModel.substringAfter("fun lanReceive(")
+            .substringBefore("private fun deviceName()")
         val receiveIndex = flow.indexOf("LanBackupTransfer.receive")
-        val backupIndex = flow.indexOf("Backup.backupBeforeLanRestoreLocked")
-        val spaceIndex = flow.indexOf("LanBackupTransfer.requireRestoreSpace")
-        val restoreIndex = flow.indexOf("Restore.restoreOrThrow")
+        val backupIndex = flow.indexOf("backupBeforeLanRestoreLocked")
+        val spaceIndex = flow.indexOf("requireRestoreSpace")
+        val restoreIndex = flow.indexOf("restoreOrThrow")
         assertTrue(receiveIndex >= 0)
         assertTrue(backupIndex >= 0)
         assertTrue(spaceIndex >= 0)
@@ -134,10 +140,10 @@ class LanBackupTransferTest {
         assertTrue(receiveIndex < backupIndex)
         assertTrue(backupIndex < spaceIndex)
         assertTrue(spaceIndex < restoreIndex)
-        assertTrue(flow.contains("receivedFile?.parentFile?.deleteRecursively()"))
-        assertTrue(flow.contains("withContext(IO)"))
-        assertTrue(fragment.contains("lanBackupSession?.close()"))
-        assertTrue(fragment.contains("override fun onStop()"))
+        assertTrue(flow.contains("received.file.parentFile?.deleteRecursively()"))
+        assertTrue(flow.contains("withContext(Dispatchers.IO)"))
+        assertTrue(section.contains("vm.lanPrepare()"))
+        assertTrue(section.contains("vm.lanReceive(qr)"))
 
         val backup = projectSource(
             "src/main/java/io/legado/app/help/storage/Backup.kt"

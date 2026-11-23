@@ -5,14 +5,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
+/**
+ * 替换规则分组过滤契约（Compose 重写后）。
+ * SQL 完整规范化成员匹配仍在 ReplaceRuleDao 的 REPLACE_RULE_GROUP_FILTER 常量内；
+ * `group:` 前缀解析与 flowGroupSearch 接线从旧 ReplaceRuleActivity 迁至 ReplaceRuleListViewModel，
+ * 分组 Chip 回填查询归 ReplaceRuleScreen。
+ */
 class ReplaceRuleDaoGroupFilterContractTest {
 
     private val daoSource by lazy {
         normalizedSource("src/main/java/io/legado/app/data/dao/ReplaceRuleDao.kt")
     }
 
-    private val activitySource by lazy {
-        normalizedSource("src/main/java/io/legado/app/ui/replace/ReplaceRuleActivity.kt")
+    private val viewModelSource by lazy {
+        normalizedSource("src/main/java/io/legado/app/ui/replace/ReplaceRuleListViewModel.kt")
+    }
+
+    private val screenSource by lazy {
+        normalizedSource("src/main/java/io/legado/app/ui/replace/ReplaceRuleScreen.kt")
     }
 
     private val groupQuery by lazy {
@@ -55,14 +65,12 @@ class ReplaceRuleDaoGroupFilterContractTest {
         )
         assertFalse(groupFilter.contains(" like ", ignoreCase = true))
 
-        assertTrue(
-            activitySource.contains("val groupName = searchKey.substringAfter(\"group:\")")
-        )
-        assertTrue(activitySource.contains("replaceRuleDao.flowGroupSearch(groupName)"))
-        assertFalse(activitySource.contains("flowGroupSearch(\"%"))
-        assertTrue(
-            activitySource.contains("searchView.setQuery(\"group:\${item.title}\", true)")
-        )
+        // 前缀解析 / DAO 调用归 ViewModel；Chip 点击构造 `group:` 查询串归 Screen。
+        assertTrue(viewModelSource.contains("query.substringAfter(\"group:\")"))
+        assertTrue(viewModelSource.contains("flowGroupSearch("))
+        assertFalse(viewModelSource.contains("flowGroupSearch(\"%"))
+        assertTrue(screenSource.contains("ReplaceFilter.Group(group)"))
+        assertTrue(viewModelSource.contains("\"group:\${filter.name}\""))
     }
 
     private fun queryBefore(functionMarker: String): String {

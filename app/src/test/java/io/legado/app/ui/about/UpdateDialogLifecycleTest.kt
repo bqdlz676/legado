@@ -14,7 +14,8 @@ class UpdateDialogLifecycleTest {
         ).readText()
 
         assertGuardBeforeDialog(shared, "isAdded && !childFragmentManager.isStateSaved")
-        for (path in listOf("ui/about/AboutFragment.kt", "ui/main/my/MyFragment.kt")) {
+        // 旧 AboutFragment 随 Compose 重写拆除，关于页入口归 AboutActivity；MyFragment 路由保留。
+        for (path in listOf("ui/about/AboutActivity.kt", "ui/main/my/MyFragment.kt")) {
             val caller = projectFile("src/main/java/io/legado/app/$path").readText()
             assertTrue(caller.contains("\"check_update\" -> checkAppUpdate()"))
             assertTrue(caller.contains("\"check_beta_update\" -> checkAppUpdate(beta = true)"))
@@ -38,17 +39,18 @@ class UpdateDialogLifecycleTest {
         val source = projectFile(
             "src/main/java/io/legado/app/ui/about/UpdateDialog.kt"
         ).readText()
+        val downloadClosure = source.substringAfter("onDownload = {")
+            .substringBefore("onDownloadBackup")
+        val browserClosure = source.substringAfter("onOpenBrowser = {")
+            .substringBefore("onIgnore")
 
         assertTrue(source.contains("putBoolean(\"isBeta\", updateInfo.isBeta)"))
-        assertTrue(source.contains("binding.betaActions.isVisible = true"))
-        assertTrue(source.contains("setLayout(0.9f, 0.8f)"))
-        assertTrue(source.contains("binding.btnBetaUpdate.setText(R.string.beta_update_now)"))
-        assertTrue(source.contains("startDownload(arguments?.getString(\"url\"))"))
-        assertFalse(
-            source.substringAfter("binding.btnBetaUpdate.setOnClickListener")
-                .substringBefore("if (!isBetaUpdate)")
-                .contains("openUrl")
-        )
+        // 正式 / 测试版顶部下载动作都走系统下载流 Download.start；浏览器打开仅归属 onOpenBrowser。
+        assertTrue(downloadClosure.contains("startDownload(args?.getString(\"url\")"))
+        assertTrue(source.contains("Download.start(requireContext(), url, name, isAppUpdate = true)"))
+        assertTrue(source.contains("R.string.beta_update_now"))
+        assertFalse(downloadClosure.contains("openUrl"))
+        assertTrue(browserClosure.contains("openUrl"))
     }
 
     @Test
@@ -57,10 +59,20 @@ class UpdateDialogLifecycleTest {
             "src/main/java/io/legado/app/ui/about/UpdateDialog.kt"
         ).readText()
 
-        assertTrue(source.contains("binding.toolBar.menu.findItem(R.id.menu_download).isVisible = false"))
-        assertTrue(source.contains("R.id.menu_download_backup).isVisible"))
-        assertTrue(source.contains("R.id.menu_download_mirror).isVisible"))
-        assertTrue(source.contains("R.id.menu_download_alternate_mirror).isVisible"))
+        // 旧工具栏菜单显隐口径随 Compose 壳拆除：正式版额外的备份 / 镜像 / 备用镜像行与忽略版本
+        // 均由 `if (!isBeta)` 条件渲染；测试版顶部只保留取消 + 立即更新。
+        assertTrue(source.contains("if (isBeta) {"))
+        val firstNonBeta = source.indexOf("if (!isBeta)")
+        val ignoreGuard = source.indexOf("if (!isBeta)", firstNonBeta + 1)
+        assertTrue(firstNonBeta >= 0)
+        assertTrue(ignoreGuard > firstNonBeta)
+        val mirrorRow = source.substring(firstNonBeta, ignoreGuard)
+        assertTrue(mirrorRow.contains("onDownloadBackup"))
+        assertTrue(mirrorRow.contains("onDownloadMirror"))
+        assertTrue(mirrorRow.contains("onDownloadAlternate"))
+        val ignoreBlock = source.substring(ignoreGuard)
+        assertTrue(ignoreBlock.contains("R.string.ignore_this_version"))
+        assertFalse(source.contains("binding.toolBar.menu"))
     }
 
     @Test
@@ -69,35 +81,21 @@ class UpdateDialogLifecycleTest {
             "src/main/java/io/legado/app/ui/about/UpdateDialog.kt"
         ).readText()
 
+        // 备份 CDN / 镜像 / 备用镜像三路 URL 仍由 arguments 透传，分别接到独立下载闭包。
         assertTrue(source.contains("putString(\"mirrorUrl\", updateInfo.mirrorDownloadUrl)"))
         assertTrue(
             source.contains(
                 "putString(\"alternateMirrorUrl\", updateInfo.alternateMirrorDownloadUrl)"
             )
         )
-        assertTrue(source.contains("R.id.menu_download_mirror).isVisible"))
-        assertTrue(
-            source.contains(
-                "R.id.menu_download_mirror -> startDownload(arguments?.getString(\"mirrorUrl\"))"
-            )
-        )
-        assertTrue(source.contains("R.id.menu_download_alternate_mirror).isVisible"))
-        assertTrue(
-            source.contains(
-                "R.id.menu_download_alternate_mirror ->"
-            ) && source.contains("startDownload(arguments?.getString(\"alternateMirrorUrl\"))")
-        )
-        assertTrue(source.contains("R.id.menu_download_backup -> startDownload"))
-        assertTrue(
-            projectFile("src/main/res/menu/app_update.xml")
-                .readText()
-                .contains("android:id=\"@+id/menu_download_mirror\"")
-        )
-        assertTrue(
-            projectFile("src/main/res/menu/app_update.xml")
-                .readText()
-                .contains("android:id=\"@+id/menu_download_alternate_mirror\"")
-        )
+        assertTrue(source.contains("putString(\"backupUrl\", updateInfo.backupDownloadUrl)"))
+        assertTrue(source.contains("onDownloadBackup = { startDownload(args?.getString(\"backupUrl\")"))
+        assertTrue(source.contains("onDownloadMirror = { startDownload(args?.getString(\"mirrorUrl\")"))
+        assertTrue(source.contains("onDownloadAlternate = { startDownload(args?.getString(\"alternateMirrorUrl\")"))
+        // 旧 app_update.xml 菜单项随壳拆除；镜像三路在 Compose 行内各自独立成按钮。
+        assertFalse(source.contains("menu_download_mirror"))
+        assertFalse(source.contains("menu_download_alternate_mirror"))
+        assertFalse(source.contains("menu_download_backup"))
     }
 
     @Test

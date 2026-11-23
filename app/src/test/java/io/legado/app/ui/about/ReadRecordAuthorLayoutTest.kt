@@ -1,38 +1,44 @@
 package io.legado.app.ui.about
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
 
 class ReadRecordAuthorLayoutTest {
 
+    private val activitySource: String by lazy {
+        readProjectFile("app/src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt")
+    }
+
     @Test
     fun `read record row reserves an optional author line before reading time`() {
-        val layout = File("app/src/main/res/layout/item_read_record.xml")
-            .takeIf(File::isFile)
-            ?: File("src/main/res/layout/item_read_record.xml")
-        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder()
-            .parse(layout)
-        val textViews = document.getElementsByTagName("TextView")
-        val author = (0 until textViews.length)
-            .map { textViews.item(it).attributes.getNamedItem("android:id")?.nodeValue }
-            .firstOrNull { it == "@+id/tv_author" }
-        assertEquals("@+id/tv_author", author)
+        val rowStart = activitySource.indexOf("private fun RecordRow(")
+        assertTrue("RecordRow composable missing", rowStart >= 0)
+        val row = activitySource.substring(rowStart)
 
-        val source = layout.readText()
-        assertTrue(source.contains("app:layout_constraintTop_toBottomOf=\"@id/tv_author\""))
+        val authorIndex = row.indexOf("context.getString(R.string.author_show, author)")
+        val timeRowIndex = row.indexOf("formatDuring(record.readTime")
+        assertTrue("author line missing in row", authorIndex >= 0)
+        assertTrue("reading time block missing in row", timeRowIndex >= 0)
+        assertTrue("author line must precede reading time", authorIndex < timeRowIndex)
     }
 
     @Test
     fun `read record last time follows the tallest reading time field`() {
-        val layout = File("app/src/main/res/layout/item_read_record.xml")
-            .takeIf(File::isFile)
-            ?: File("src/main/res/layout/item_read_record.xml")
-        val source = layout.readText()
-        assertTrue(source.contains("android:id=\"@+id/reading_time_bottom\""))
-        assertTrue(source.contains("app:constraint_referenced_ids=\"tv_reading_time_tag,tv_reading_time\""))
-        assertTrue(source.contains("app:layout_constraintTop_toBottomOf=\"@id/reading_time_bottom\""))
+        val rowStart = activitySource.indexOf("private fun RecordRow(")
+        val row = activitySource.substring(rowStart)
+
+        val readTimeIndex = row.indexOf("formatDuring(record.readTime")
+        val lastReadIndex = row.indexOf("dateFormat.format(record.lastRead)")
+        assertTrue("reading time field missing", readTimeIndex >= 0)
+        assertTrue("last read field missing", lastReadIndex >= 0)
+        assertTrue("last read must follow reading time", readTimeIndex < lastReadIndex)
+    }
+
+    private fun readProjectFile(pathInApp: String): String {
+        return sequenceOf(File(pathInApp), File("app/$pathInApp"))
+            .firstOrNull(File::isFile)
+            ?.readText()
+            .orEmpty()
     }
 }

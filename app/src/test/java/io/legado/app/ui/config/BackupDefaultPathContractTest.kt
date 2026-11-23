@@ -1,6 +1,5 @@
 package io.legado.app.ui.config
 
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -9,38 +8,25 @@ class BackupDefaultPathContractTest {
 
     @Test
     fun `default backup path is selectable and used directly`() {
-        val source = source("app/src/main/java/io/legado/app/ui/config/BackupConfigFragment.kt")
-        val selector = source.substringAfter("private fun showBackupPathSelector()")
-            .substringBefore("private fun lanBackupTransfer()")
-        assertTrue(selector.contains("getString(R.string.default_path)"))
-        assertFalse(selector.contains("defaultBackupPathSummary()"))
-        val defaultSummary = source.substringAfter("private fun defaultBackupPathSummary()")
-            .substringBefore("private fun updateAutoBackupSummary()")
-        assertTrue(defaultSummary.contains("getString(R.string.default_path)"))
-        assertTrue(defaultSummary.contains("requireContext().externalFiles.absolutePath"))
-        assertTrue(selector.contains("getString(R.string.select_folder)"))
-        assertTrue(selector.contains("0 -> AppConfig.backupPath = null"))
-        assertTrue(selector.contains("1 -> selectBackupPath.launch()"))
+        val section = source("app/src/main/java/io/legado/app/ui/config/sections/BackupSection.kt")
+        val viewModel = source("app/src/main/java/io/legado/app/ui/config/ConfigViewModel.kt")
+        val appConfig = source("app/src/main/java/io/legado/app/help/config/AppConfig.kt")
+        val backup = source("app/src/main/java/io/legado/app/help/storage/Backup.kt")
 
-        val click = source.substringAfter("override fun onPreferenceTreeClick")
-            .substringBefore("private fun showBackupPathSelector()")
-        assertTrue(click.contains("PreferKey.backupPath -> showBackupPathSelector()"))
+        // 路径行仍可直接选目录；选中后回写 PreferKey.backupPath。
+        assertTrue(section.contains("PreferKey.backupPath"))
+        assertTrue(section.contains("actions.pickFolder"))
 
-        val summary = source.substringAfter("private fun upPreferenceSummary")
-            .substringBefore("override fun onPreferenceTreeClick")
-        assertTrue(
-            summary.contains(
-                "value?.takeIf { it.isNotBlank() } ?: defaultBackupPathSummary()"
-            )
-        )
+        // 空路径回落默认目录：AppConfig  setter 把 null / 空串清掉偏好，备份层接受可空路径。
+        val setter = appConfig.substringAfter("var backupPath: String?")
+            .substringBefore("var defaultBookTreeUri")
+        assertTrue(setter.contains("value.isNullOrEmpty()"))
+        assertTrue(setter.contains("appCtx.removePref(PreferKey.backupPath)"))
 
-        val backup = source.substringAfter("fun backup()")
-            .substringBefore("private fun backupUsePermission")
-        assertTrue(backup.contains("if (backupPath.isNullOrEmpty())"))
-        assertTrue(backup.contains("backup(null, uploadWebDav)"))
-        assertTrue(source.contains("private fun backup(backupPath: String?, uploadWebDav: Boolean)"))
-        assertTrue(backup.contains("manualBackupUploadWebDav = index == 1"))
-        assertTrue(backup.contains("Backup.backupLocked(requireContext(), backupPath, uploadWebDav)"))
+        // VM 把（可空）路径原样透传给锁定备份入口，不强制非空。
+        assertTrue(viewModel.contains("suspend fun backup(backupPath: String?, uploadWebDav: Boolean)"))
+        assertTrue(viewModel.contains("Backup.backupLocked(appCtx, backupPath, uploadWebDav)"))
+        assertTrue(backup.contains("suspend fun backupLocked(context: Context, path: String?"))
     }
 
     private fun source(relativePath: String): String {

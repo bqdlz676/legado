@@ -19,6 +19,8 @@ class AutoTaskImportContractTest {
         val file = projectFile(
             "src/main/java/io/legado/app/ui/association/FileAssociationActivity.kt"
         )
+        // 旧菜单 R.id.menu_import_local / menu_import_on_line 随 Compose 壳拆除；
+        // 本地 / 在线两入口接线归宿主 Activity 的 importDoc / openImportUrl 回调。
         val activity = projectFile(
             "src/main/java/io/legado/app/ui/autoTask/AutoTaskActivity.kt"
         )
@@ -30,8 +32,8 @@ class AutoTaskImportContractTest {
         assertTrue(online.contains("\"/auto\" -> viewModel.determineType("))
         assertTrue(online.contains("\"autoTask\" -> showDialogFragment("))
         assertTrue(file.contains("\"autoTask\" -> showDialogFragment("))
-        assertTrue(activity.contains("R.id.menu_import_local"))
-        assertTrue(activity.contains("R.id.menu_import_on_line"))
+        assertTrue(activity.contains("onImportLocal"))
+        assertTrue(activity.contains("onOpenImportOnline"))
     }
 
     @Test
@@ -40,16 +42,20 @@ class AutoTaskImportContractTest {
         val activity = projectFile(
             "src/main/java/io/legado/app/ui/autoTask/AutoTaskActivity.kt"
         )
-        val exportBlock = activity.substringAfter("private val exportDoc")
-            .substringBefore("override fun onActivityCreated")
+        val viewModel = projectFile(
+            "src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt"
+        )
 
+        // 解码（粘贴口令导入）路由保留在 MainActivity。
         assertTrue(main.contains("SourceSharePassphrase.Type.AUTO_TASK ->"))
         assertTrue(main.contains("showDialogFragment(ImportAutoTaskDialog(value.url))"))
-        assertTrue(exportBlock.contains("sourceSharePassphraseButton("))
-        assertTrue(exportBlock.contains("SourceSharePassphrase.Type.AUTO_TASK"))
-        assertTrue(activity.contains("inflateMenu(R.menu.auto_task_sel)"))
-        assertTrue(activity.contains("val rules = adapter.selection"))
-        assertTrue(activity.contains("AutoTask.exportJson(rules)"))
+        // 导出侧旧 ActionBar 口令按钮 / adapter.selection 随壳拆除；
+        // 所选任务导出归 ViewModel.selectionJson()，文件落盘归宿主 exportDoc。
+        assertTrue(activity.contains("private val exportDoc = registerForActivityResult"))
+        assertTrue(activity.contains("viewModel.selectionJson()"))
+        assertTrue(viewModel.contains("AutoTask.exportJson("))
+        assertFalse(activity.contains("sourceSharePassphraseButton("))
+        assertFalse(activity.contains("adapter.selection"))
     }
 
     @Test
@@ -90,11 +96,14 @@ class AutoTaskImportContractTest {
         val dialog = projectFile(
             "src/main/java/io/legado/app/ui/autoTask/ImportAutoTaskDialog.kt"
         )
-        val setup = dialog.substringAfter("override fun onFragmentCreated")
-            .substringBefore("binding.rotateLoading.visible()")
+        // 旧 Fragment onFragmentCreated + binding.toolBar 背景先行标题的口径随 Compose 壳拆除；
+        // 新弹窗标题行在 ImportContent 顶部，标题色取主文本色令牌，保证可读。
+        val titleRow = dialog.substringAfter("Row(verticalAlignment = Alignment.CenterVertically)")
+            .substringBefore("when {")
 
-        assertTrue(setup.contains("binding.toolBar.setBackgroundColor(primaryColor)"))
-        assertTrue(setup.indexOf("setBackgroundColor") < setup.indexOf("setTitle"))
+        assertTrue(titleRow.contains("导入自动任务"))
+        assertTrue(titleRow.contains("ComponentTokens.textPrimary"))
+        assertFalse(dialog.contains("binding.toolBar"))
     }
 
     private fun projectFile(pathInApp: String): String {

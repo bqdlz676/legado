@@ -61,12 +61,15 @@ class HomeFastScrollerContractTest {
             ),
         )
 
-        val preferences = parseProjectXml("src/main/res/xml/pref_config_other.xml")
-        val discoverySwitch = preferences.findElementByAndroidKey("showDiscoveryFastScroller")
-        assertEquals("false", discoverySwitch.androidAttribute("defaultValue"))
-        assertEquals(
-            "@string/show_discovery_fast_scroller",
-            discoverySwitch.androidAttribute("title"),
+        // 偏好开关已随设置页 Compose 化收口到 OtherSection（旧 pref_config_other.xml 已拆除）：
+        // 同一偏好键、默认 false、标题文案不变。
+        val otherSection = projectFile(
+            "src/main/java/io/legado/app/ui/config/sections/OtherSection.kt",
+        ).readText()
+        assertTrue(
+            otherSection.contains(
+                "SwitchRow(PreferKey.showDiscoveryFastScroller, stringRes(R.string.show_discovery_fast_scroller), def = false)",
+            ),
         )
     }
 
@@ -211,14 +214,6 @@ class HomeFastScrollerContractTest {
             .asSequence()
             .map { nodes.item(it) as Element }
             .single { it.androidAttribute("id") == "@+id/$id" }
-    }
-
-    private fun Document.findElementByAndroidKey(key: String): Element {
-        val nodes = getElementsByTagName("*")
-        return (0 until nodes.length)
-            .asSequence()
-            .map { nodes.item(it) as Element }
-            .single { it.androidAttribute("key") == key }
     }
 
     private fun Element.androidAttribute(name: String): String =

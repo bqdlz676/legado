@@ -1,26 +1,34 @@
 package io.legado.app.data.entities
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
+/**
+ * hasJs 投影契约测试。
+ *
+ * 数据层（BookSourcePart 视图 / Room 迁移 / schema）原样保留；旧 BookSourceAdapter 增量刷新与
+ * item_book_source.xml 角标布局随 RecyclerView 壳拆除，角标改由 SourceManageRow 按 state.hasJs
+ * 条件拼装，本类断言指向 Compose 行实现。
+ */
 class BookSourcePartHasJsTest {
 
     private val partSource = projectFile(
         "src/main/java/io/legado/app/data/entities/BookSourcePart.kt"
     ).readText()
     private val normalizedPartSource = partSource.replace(Regex("\\s+"), " ")
-    private val adapterSource = projectFile(
-        "src/main/java/io/legado/app/ui/book/source/manage/BookSourceAdapter.kt"
-    ).readText()
     private val databaseSource = projectFile(
         "src/main/java/io/legado/app/data/AppDatabase.kt"
     ).readText()
-    private val itemLayout = projectFile("src/main/res/layout/item_book_source.xml").readText()
     private val schemaSource = projectFile(
         "schemas/io.legado.app.data.AppDatabase/93.json"
+    ).readText()
+    private val rowSource = projectFile(
+        "src/main/java/io/legado/app/ui/book/source/manage/SourceManageRow.kt"
+    ).readText()
+    private val stringsSource = projectFile(
+        "src/main/res/values/strings.xml"
     ).readText()
 
     @Test
@@ -55,27 +63,22 @@ class BookSourcePartHasJsTest {
 
     @Test
     fun `adapter refreshes js badge without leaving hidden spacing`() {
-        assertTrue(adapterSource.contains("oldItem.hasJs == newItem.hasJs"))
-        assertTrue(adapterSource.contains("payload.putBoolean(\"upJs\", true)"))
-        assertEquals(
-            2,
-            Regex(Regex.escape("tvJsBadge.gone(!item.hasJs)"))
-                .findAll(adapterSource)
-                .count()
-        )
+        // Compose 行按 hasJs 条件把 JS 角标追加进 badges 列表；无角标时不预留占位槽位。
+        assertTrue(rowSource.contains("if (source.hasJs) badges += \"JS\""))
+        assertTrue(rowSource.contains("val badges = mutableListOf<String>()"))
+        // 名称列占满剩余权重，角标只在有内容时随 badges 渲染（旧 gone() 隐藏间距关注点的新落点）。
+        assertTrue(rowSource.contains("modifier = Modifier.weight(1f)"))
+        assertFalse(rowSource.contains("tvJsBadge"))
     }
 
     @Test
     fun `source name is constrained through an initially gone js badge`() {
-        assertTrue(
-            itemLayout.contains("<io.legado.app.ui.widget.text.AccentTextView")
-        )
-        assertTrue(itemLayout.contains("android:id=\"@+id/tv_js_badge\""))
-        val badgeLayout = itemLayout.substringAfter("android:id=\"@+id/tv_js_badge\"")
-            .substringBefore("<io.legado.app.lib.theme.view.ThemeSwitch")
-        assertTrue(badgeLayout.contains("android:visibility=\"gone\""))
-        assertTrue(itemLayout.contains("app:layout_constraintRight_toLeftOf=\"@id/tv_js_badge\""))
-        assertTrue(itemLayout.contains("android:text=\"@string/js_source_badge\""))
+        // 角标文案资源保留；行内条件拼装即旧“初始 gone、有 JS 才显示”的 Compose 等价物。
+        assertTrue(stringsSource.contains("<string name=\"js_source_badge\">JS</string>"))
+        val badgeAppend = rowSource.indexOf("if (source.hasJs) badges += \"JS\"")
+        assertTrue("js badge must be gated by hasJs", badgeAppend >= 0)
+        // 名称列权重在前、角标列表在后，名称不被固定角标宽度挤压。
+        assertTrue(rowSource.indexOf("weight(1f)") in 0..<badgeAppend)
     }
 
     private fun projectFile(pathInApp: String): File {

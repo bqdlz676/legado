@@ -57,6 +57,36 @@ class SelectActionBarPopupActionMigrationTest {
         expectedMenuIds.forEach { (path, expected) ->
             assertEquals(path, expected, readMenuItemIds(path))
         }
+
+        // book_source_sel.xml / dict_rule_sel.xml 已随旧 Adapter 拆除：
+        // 书源批量动作落点为 SourceManageSheets.SelectionActionsSheet，词典规则落点为 DictRuleScreen 选择条。
+        val sourceSheet = readProjectFile(SOURCE_SHEETS)
+        listOf(
+            "vm.enableSelection()",
+            "vm.disableSelection()",
+            "vm.enableSelectExplore()",
+            "vm.disableSelectExplore()",
+            "vm.openSheet(ManageSheet.AddToGroup(selection))",
+            "vm.openSheet(ManageSheet.RemoveFromGroup(selection))",
+            "vm.topSource(selection)",
+            "vm.bottomSource(selection)",
+            "actions.onExport(selection)",
+            "actions.onShare(selection)",
+            "vm.selectCheckedInterval()"
+        ).forEach { expected ->
+            assertTrue("selection sheet missing $expected", sourceSheet.contains(expected))
+        }
+
+        val dictScreen = readProjectFile(DICT_SCREEN)
+        listOf(
+            "InkButton(\"启用\", onEnable",
+            "InkButton(\"停用\", onDisable",
+            "InkButton(\"分享\", onShare",
+            "InkButton(\"导出\", onExport",
+            "InkButton(\"删除\", onDelete"
+        ).forEach { expected ->
+            assertTrue("dict selection bar missing $expected", dictScreen.contains(expected))
+        }
     }
 
     @Test
@@ -104,6 +134,8 @@ class SelectActionBarPopupActionMigrationTest {
         const val SELECT_ACTION_BAR = "src/main/java/io/legado/app/ui/widget/SelectActionBar.kt"
         const val POPUP_ACTION = "src/main/java/io/legado/app/ui/widget/PopupAction.kt"
         const val VIEW_EXTENSIONS = "src/main/java/io/legado/app/utils/ViewExtensions.kt"
+        const val SOURCE_SHEETS = "src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt"
+        const val DICT_SCREEN = "src/main/java/io/legado/app/ui/dict/rule/DictRuleScreen.kt"
 
         val expectedMenuIds = mapOf(
             "import_book_sel.xml" to listOf("@+id/menu_del_selection"),
@@ -122,27 +154,7 @@ class SelectActionBarPopupActionMigrationTest {
                 "@+id/menu_update_toc",
                 "@+id/menu_create_book_update_tasks"
             ),
-            "book_source_sel.xml" to listOf(
-                "@+id/menu_enable_selection",
-                "@+id/menu_disable_selection",
-                "@+id/menu_add_group",
-                "@+id/menu_remove_group",
-                "@+id/menu_enable_explore",
-                "@+id/menu_disable_explore",
-                "@+id/menu_top_sel",
-                "@+id/menu_bottom_sel",
-                "@+id/menu_export_selection",
-                "@+id/menu_share_source",
-                "@+id/menu_check_source",
-                "@+id/menu_check_selected_interval"
-            ),
             "txt_toc_rule_sel.xml" to listOf(
-                "@+id/menu_enable_selection",
-                "@+id/menu_disable_selection",
-                "@+id/menu_export_selection",
-                "@+id/menu_share_source"
-            ),
-            "dict_rule_sel.xml" to listOf(
                 "@+id/menu_enable_selection",
                 "@+id/menu_disable_selection",
                 "@+id/menu_export_selection",

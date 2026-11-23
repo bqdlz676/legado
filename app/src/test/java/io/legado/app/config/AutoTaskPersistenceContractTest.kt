@@ -18,8 +18,9 @@ class AutoTaskPersistenceContractTest {
         val database = file("app/src/main/java/io/legado/app/data/AppDatabase.kt").readText()
         val dao = file("app/src/main/java/io/legado/app/data/dao/AutoTaskRuleDao.kt").readText()
         val autoTask = file("app/src/main/java/io/legado/app/model/AutoTask.kt").readText()
-        val activity = file(
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskActivity.kt"
+        // 列表订阅旧由 AutoTaskActivity 持有；Compose 重写后归 AutoTaskListViewModel。
+        val listViewModel = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt"
         ).readText()
         val databaseVersion = Regex("""version = (\d+)""")
             .find(database)
@@ -49,18 +50,20 @@ class AutoTaskPersistenceContractTest {
             autoTask.substringAfter("fun get(").substringBefore("fun upsert("),
             "appDb.autoTaskRuleDao.getById"
         )
-        assertTrue(activity.indexOf("AutoTask.all()") < activity.indexOf("flowAll()"))
+        // 列表流订阅点随 Compose 壳迁至 ViewModel：必须直订 DAO 的 flowAll()。
+        assertTrue(listViewModel.contains("appDb.autoTaskRuleDao.flowAll()"))
     }
 
     @Test
     fun `batch cron update changes only cron and refreshes scheduling once`() {
         val dao = file("app/src/main/java/io/legado/app/data/dao/AutoTaskRuleDao.kt").readText()
         val autoTask = file("app/src/main/java/io/legado/app/model/AutoTask.kt").readText()
-        val activity = file(
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskActivity.kt"
+        // 旧 AutoTaskAdapter 随 Compose 重写拆除；选择集归 ViewModel，批量定时入口归 Screen。
+        val listViewModel = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt"
         ).readText()
-        val adapter = file(
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskAdapter.kt"
+        val screen = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt"
         ).readText()
         val update = autoTask.substringAfter("fun updateCron(").substringBefore("fun updateRunState(")
         val cronQuery = Regex("""@Query\("([^"]+)"\)\s+fun updateCron""")
@@ -73,20 +76,26 @@ class AutoTaskPersistenceContractTest {
         assertTrue(update.contains("ids.chunked(900).sumOf"))
         assertTrue(update.contains("if (changed > 0) AutoTaskScheduler.refresh(context)"))
         assertFalse(update.contains("autoTaskRuleDao.update("))
-        assertTrue(activity.contains("CronSchedule.parse(cron)"))
-        assertTrue(activity.contains("AutoTask.updateCron(ids, cron"))
-        assertTrue(adapter.contains("private val selectedIds = linkedSetOf<String>()"))
-        assertTrue(adapter.contains("DragSelectTouchHelper.AdvanceCallback<String>"))
+        assertTrue(listViewModel.contains("CronSchedule.parse(cron)"))
+        assertTrue(listViewModel.contains("AutoTask.updateCron(selectedIds(), cron, context)"))
+        // 选择集仍是有序字符串集合；旧 Adapter 的 linkedSetOf / DragSelectTouchHelper 已随壳拆除。
+        assertTrue(listViewModel.contains("private fun selectedIds(): List<String>"))
+        assertTrue(screen.contains("onOpenBatchCron"))
+        assertTrue(screen.contains("onBatchCron"))
+        assertFalse(listViewModel.contains("DragSelectTouchHelper"))
     }
 
     @Test
     fun `batch selection actions update only selected state and refresh scheduling once`() {
         val dao = file("app/src/main/java/io/legado/app/data/dao/AutoTaskRuleDao.kt").readText()
         val autoTask = file("app/src/main/java/io/legado/app/model/AutoTask.kt").readText()
-        val activity = file(
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskActivity.kt"
+        // 旧 auto_task_sel.xml 菜单随 Compose 重写拆除；批量动作归 ViewModel + SelectionBar。
+        val listViewModel = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt"
         ).readText()
-        val menu = file("app/src/main/res/menu/auto_task_sel.xml").readText()
+        val screen = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt"
+        ).readText()
         val update = autoTask.substringAfter("fun updateEnabled(").substringBefore("fun updateCron(")
         val enabledQuery = Regex("""@Query\("([^"]+)"\)\s+fun updateEnabled""")
             .find(dao)
@@ -101,59 +110,70 @@ class AutoTaskPersistenceContractTest {
         assertTrue(update.contains("ids.chunked(900).sumOf"))
         assertTrue(update.contains("if (changed > 0) AutoTaskScheduler.refresh(context)"))
         assertFalse(update.contains("autoTaskRuleDao.update("))
-        assertTrue(activity.contains("setMainActionText(R.string.delete)"))
-        assertTrue(activity.contains("AutoTask.updateEnabled(ids, enabled"))
-        assertTrue(activity.contains("AutoTask.delete(ids"))
-        assertTrue(menu.contains("menu_batch_cron"))
-        assertTrue(menu.contains("menu_enable_selection"))
-        assertTrue(menu.contains("menu_disable_selection"))
+        assertTrue(listViewModel.contains("AutoTask.updateEnabled(selectedIds(), true, context)"))
+        assertTrue(listViewModel.contains("AutoTask.updateEnabled(selectedIds(), false, context)"))
+        assertTrue(listViewModel.contains("AutoTask.delete(ids, context)"))
+        // SelectionBar 接线：启用 / 停用 / 批量定时 / 删除四个批量动作仍在。
+        assertTrue(screen.contains("onEnableSelection"))
+        assertTrue(screen.contains("onDisableSelection"))
+        assertTrue(screen.contains("onOpenBatchCron"))
+        assertTrue(screen.contains("onDeleteSelection"))
+        assertFalse(listViewModel.contains("menu_batch_cron"))
+        assertFalse(listViewModel.contains("menu_enable_selection"))
+        assertFalse(listViewModel.contains("menu_disable_selection"))
     }
 
     @Test
     fun `clearing automatic task log keeps its last run time`() {
         val dao = file("app/src/main/java/io/legado/app/data/dao/AutoTaskRuleDao.kt").readText()
         val autoTask = file("app/src/main/java/io/legado/app/model/AutoTask.kt").readText()
-        val activity = file(
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskActivity.kt"
+        // 日志弹窗旧由 Activity showLog 承载；Compose 重写后归 Screen LogSheet + ViewModel.clearLog。
+        val screen = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt"
+        ).readText()
+        val listViewModel = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt"
         ).readText()
         val clearQuery = dao.substringBefore("fun clearRunLog").substringAfterLast("@Query")
         val clearModel = autoTask.substringAfter("fun clearRunLog(")
             .substringBefore("fun updateRunState(")
-        val showLog = activity.substringAfter("override fun showLog(")
-            .substringBefore("override fun delete(")
+        val logSheet = screen.substringAfter("private fun LogSheet(")
 
         assertTrue(clearQuery.contains("SET lastResult = NULL"))
         assertTrue(clearQuery.contains("lastError = NULL"))
         assertTrue(clearQuery.contains("lastLog = NULL"))
         assertFalse(clearQuery.contains("lastRunAt"))
         assertTrue(clearModel.contains("autoTaskRuleDao.clearRunLog(id)"))
-        assertTrue(showLog.contains("task.lastLog ?: task.lastError ?: task.lastResult"))
-        assertTrue(showLog.contains("neutralButton(R.string.clear)"))
-        assertTrue(showLog.contains("AutoTask.clearRunLog(task.id)"))
-        assertFalse(showLog.contains("task.lastRunAt"))
+        assertTrue(logSheet.contains("task.lastLog ?: task.lastError ?: task.lastResult"))
+        assertTrue(logSheet.contains("onClear"))
+        assertTrue(listViewModel.contains("AutoTask.clearRunLog(id)"))
+        assertFalse(logSheet.contains("lastRunAt"))
     }
 
     @Test
     fun `automatic task search preserves hidden selections`() {
-        val layout = file("app/src/main/res/layout/activity_auto_task.xml").readText()
-        val activity = file(
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskActivity.kt"
+        // 旧 activity_auto_task.xml / AutoTaskAdapter 随 Compose 重写拆除；
+        // 搜索过滤归 ViewModel.visibleRules()，选择集回收归 ViewModel.observeRules()，空态归 Screen。
+        val listViewModel = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskListViewModel.kt"
         ).readText()
-        val adapter = file(
-            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskAdapter.kt"
+        val screen = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskScreen.kt"
         ).readText()
-        val listChanged = adapter.substringAfter("override fun onCurrentListChanged()")
-            .substringBefore("fun retainExistingSelections")
+        val models = file(
+            "app/src/main/java/io/legado/app/ui/autoTask/AutoTaskModels.kt"
+        ).readText()
+        val observeBlock = listViewModel.substringAfter("private fun observeRules()")
+            .substringBefore("fun retry()")
 
-        assertTrue(layout.contains("app:contentLayout=\"@layout/view_search\""))
-        assertTrue(activity.contains("private var allRules = emptyList<AutoTaskRule>()"))
-        assertTrue(activity.contains("it.name.contains(query, ignoreCase = true)"))
-        assertTrue(activity.contains("binding.tvEmpty.isVisible = filtered.isEmpty()"))
-        assertTrue(activity.indexOf("adapter.retainExistingSelections(rules)") <
-                activity.indexOf("updateTaskList()", activity.indexOf("collectLatest")))
-        assertTrue(adapter.contains("get() = selection.size"))
-        assertTrue(adapter.contains("selectedIds.retainAll(tasks.mapTo(hashSetOf()) { it.id })"))
-        assertFalse(listChanged.contains("retainAll"))
+        assertTrue(screen.contains("SearchBox("))
+        assertTrue(listViewModel.contains("it.name.contains(query, ignoreCase = true)"))
+        assertTrue(screen.contains("visibleRules.isEmpty()"))
+        // 选择集随数据流回收：仅保留当前仍存在的任务 id（旧 retainAll 口径）。
+        assertTrue(observeBlock.contains("state.selection.intersect(retained)"))
+        assertTrue(models.contains("val selection: Set<String>"))
+        assertTrue(models.contains("val selectionCount: Int get() = selection.size"))
+        assertFalse(observeBlock.contains("retainAll"))
     }
 
     @Test

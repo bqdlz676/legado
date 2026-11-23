@@ -65,13 +65,18 @@ class CookieBackupCompatibilityTest {
 
     @Test
     fun cookieBackupIsEncryptedAndRestoresThroughCookieStore() {
+        // 旧 BackupConfigFragment 已随设置页 Compose 重写拆除（commit 93e1946）；
+        // 备份 / WebDAV 恢复编排落在 ConfigViewModel，清单回吐落在 BackupSection。
         val backup = projectFile("src/main/java/io/legado/app/help/storage/Backup.kt").readText()
         val restore = projectFile("src/main/java/io/legado/app/help/storage/Restore.kt").readText()
         val cookieStore = projectFile(
             "src/main/java/io/legado/app/help/http/CookieStore.kt"
         ).readText()
-        val backupFragment = projectFile(
-            "src/main/java/io/legado/app/ui/config/BackupConfigFragment.kt"
+        val configViewModel = projectFile(
+            "src/main/java/io/legado/app/ui/config/ConfigViewModel.kt"
+        ).readText()
+        val backupSection = projectFile(
+            "src/main/java/io/legado/app/ui/config/sections/BackupSection.kt"
         ).readText()
         val mainViewModel = projectFile(
             "src/main/java/io/legado/app/ui/main/MainViewModel.kt"
@@ -81,15 +86,19 @@ class CookieBackupCompatibilityTest {
         ).readText()
         assertTrue(backup.contains("private suspend fun backup("))
         assertTrue(restore.contains("private suspend fun restore("))
-        assertTrue(backupFragment.contains("fun backup("))
-        assertTrue(backupFragment.contains("private fun restoreWebDav(name: String)"))
-        assertTrue(mainViewModel.contains("fun restoreWebDav("))
+        // VM 入口：本地 / WebDAV 备份与 WebDAV 恢复仍走同一帮助类。
+        assertTrue(configViewModel.contains("suspend fun backup(backupPath: String?, uploadWebDav: Boolean)"))
+        assertTrue(configViewModel.contains("Backup.backupLocked(appCtx, backupPath, uploadWebDav)"))
+        assertTrue(configViewModel.contains("suspend fun restoreWebDav(name: String)"))
+        assertTrue(configViewModel.contains("AppWebDav.restoreWebDav(name)"))
+        // Compose 分区：备份双路按钮与恢复清单选择回写 VM。
+        assertTrue(backupSection.contains("vm.backup(AppConfig.backupPath, false)"))
+        assertTrue(backupSection.contains("vm.backup(AppConfig.backupPath, true)"))
+        assertTrue(backupSection.contains("vm.restoreWebDav(name)"))
         val backupFunction = backup.substringAfter("private suspend fun backup(")
             .substringBefore("private suspend fun writeListToJson")
         val restoreFunction = restore.substringAfter("private suspend fun restore(")
             .substringBefore("private inline fun <reified T> fileToListT")
-        val restoreEntry = backupFragment.substringAfter("fun restore()")
-            .substringBefore("private suspend fun showRestoreDialog")
         val autoRestore = mainViewModel.substringAfter("fun restoreWebDav(")
             .substringBefore("private fun deleteNotShelfBook")
         val contentIsEnabled = config.substringAfter("internal fun contentIsEnabled(")
@@ -125,11 +134,8 @@ class CookieBackupCompatibilityTest {
             saveCookie.indexOf("appDb.cookieDao.insert") <
                 saveCookie.indexOf("CacheManager.putMemory")
         )
-        assertTrue(restoreEntry.contains("cancelButton()"))
-        assertTrue(backupFragment.contains("Backup.backupLocked(requireContext(), backupPath, uploadWebDav)"))
-        assertTrue(backupFragment.contains("restoreWebDav(names[index])"))
-        assertTrue(backupFragment.contains("AppWebDav.restoreWebDav(name)"))
-        assertTrue(backupFragment.contains("context.selector("))
+        // 恢复清单选择项回写 VM（旧 fragment 的 cancelButton / context.selector 对话框口径已拆除）。
+        assertTrue(backupSection.contains("restoreNames = names"))
         assertTrue(autoRestore.contains("}.onSuccess {"))
         assertTrue(
             autoRestore.contains(

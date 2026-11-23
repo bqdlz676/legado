@@ -21,16 +21,16 @@ class AppLogDialogLiveUpdateTest {
                 .count(),
         )
         assertTrue(eventBus.contains("const val APP_LOG_UPDATED = \"appLogUpdated\""))
-        assertTrue(dialog.contains("observeEvent<Boolean>(EventBus.APP_LOG_UPDATED)"))
-        val observer = dialog.substringAfter("observeEvent<Boolean>(EventBus.APP_LOG_UPDATED)")
+        assertTrue(dialog.contains("eventObservable<Boolean>(EventBus.APP_LOG_UPDATED)"))
+        val observer = dialog.substringAfter("eventObservable<Boolean>(EventBus.APP_LOG_UPDATED)")
             .substringBefore("}")
-        assertTrue(observer.contains("adapter.setItems(AppLog.logs)"))
+        assertTrue(observer.contains("logs = AppLog.logs"))
     }
 
     @Test
     fun `clearing logs requires confirmation and clears HTTP records too`() {
-        val clearAction = dialog.substringAfter("R.id.menu_clear")
-            .substringBefore("return true")
+        val clearAction = dialog.substringAfter("private fun confirmClear()")
+            .substringBefore("private fun exportLogs")
 
         assertTrue(clearAction.contains("alert(R.string.clear, R.string.clear_log_confirm)"))
         assertTrue(clearAction.contains("AppLog.clear()"))

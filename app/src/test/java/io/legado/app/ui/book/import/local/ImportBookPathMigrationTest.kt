@@ -58,7 +58,11 @@ class ImportBookPathMigrationTest {
         val backupConfig = readProjectFile(
             "src/main/java/io/legado/app/help/storage/BackupConfig.kt"
         )
-        val preferences = readProjectFile("src/main/res/xml/pref_config_backup.xml")
+        // 旧 pref_config_backup.xml 随设置页 Compose 重写拆除；开关行归 BackupSection 的 SwitchRow，
+        // 末位实参 def=false 即“默认关闭、需用户主动开启”的 opt-in 口径。
+        val preferences = readProjectFile(
+            "src/main/java/io/legado/app/ui/config/sections/BackupSection.kt"
+        )
 
         assertTrue(preferKey.contains("const val webDavBookAutoRestore"))
         assertTrue(
@@ -67,8 +71,11 @@ class ImportBookPathMigrationTest {
             )
         )
         assertTrue(backupConfig.contains("PreferKey.webDavBookAutoRestore"))
-        assertTrue(preferences.contains("android:key=\"webDavBookAutoRestore\""))
-        assertTrue(preferences.contains("android:defaultValue=\"false\""))
+        assertTrue(
+            preferences.contains(
+                "SwitchRow(PreferKey.webDavBookAutoRestore, stringRes(R.string.webdav_book_auto_restore_t), stringRes(R.string.webdav_book_auto_restore_s), false)"
+            )
+        )
     }
 
     @Test

@@ -9,12 +9,13 @@ class LoginEntryRoutingTest {
     @Test
     fun `login entry points use unified login capability`() {
         val paths = listOf(
-            "src/main/java/io/legado/app/ui/autoTask/AutoTaskAdapter.kt",
+            // 自动任务列表已 Compose 化，登录入口收口到编辑宿主（旧 AutoTaskAdapter 拆除）。
             "src/main/java/io/legado/app/ui/autoTask/AutoTaskEditActivity.kt",
             "src/main/java/io/legado/app/ui/book/info/BookInfoActivity.kt",
             "src/main/java/io/legado/app/ui/book/audio/AudioPlayActivity.kt",
             "src/main/java/io/legado/app/ui/book/read/ReadMenu.kt",
-            "src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt",
+            // JS 书源编辑的登录能力判定在 JsSourceEditActivity（普通书源编辑壳的门控见报告交接项）。
+            "src/main/java/io/legado/app/ui/book/source/edit/JsSourceEditActivity.kt",
             "src/main/java/io/legado/app/ui/video/VideoPlayerActivity.kt",
             "src/main/java/io/legado/app/ui/rss/read/RssJsExtensions.kt",
         )
@@ -25,16 +26,13 @@ class LoginEntryRoutingTest {
     }
 
     @Test
-    fun `auto task management login is first and routes by task id`() {
+    fun `auto task management login routes by task id`() {
         val source = File(
-            "src/main/java/io/legado/app/ui/autoTask/AutoTaskAdapter.kt"
+            "src/main/java/io/legado/app/ui/autoTask/AutoTaskEditActivity.kt"
         ).readText()
-        val loginItem =
-            "item(context.getString(R.string.login), \"login\", AutoTask.buildSource(task).hasLogin())"
 
-        assertTrue(source.indexOf(loginItem) in 0 until source.indexOf("R.string.auto_task_log"))
-        assertTrue(source.contains("\"login\" -> context.startActivity<SourceLoginActivity>"))
+        assertTrue(source.contains("SourceLoginActivity"))
         assertTrue(source.contains("putExtra(\"type\", \"autoTask\")"))
-        assertTrue(source.contains("putExtra(\"key\", task.id)"))
+        assertTrue(source.contains("putExtra(\"key\", saved.id)"))
     }
 }

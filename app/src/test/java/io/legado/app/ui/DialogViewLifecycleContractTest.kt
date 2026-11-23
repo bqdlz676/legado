@@ -13,11 +13,12 @@ class DialogViewLifecycleContractTest {
 
     @Test
     fun `dialog data loaders are cancelled with their views`() {
+        // 封面规则弹窗已 Compose 化：初始规则在 composition 内同步 remember 读取，
+        // 不启动脱离视图生命周期的协程；旧 Fragment 的 viewLifecycleOwner.lifecycleScope 口径不再适用。
         val cover = source("config/CoverRuleConfigDialog.kt")
-            .section("private fun initData()", "\n    }")
 
-        assertTrue(cover.contains("viewLifecycleOwner.lifecycleScope.launch"))
-        assertFalse(cover.contains("\n        lifecycleScope.launch"))
+        assertTrue(cover.contains("remember { runCatching { BookCover.getCoverRule() } }"))
+        assertFalse(cover.contains("lifecycleScope.launch"))
     }
 
     @Test

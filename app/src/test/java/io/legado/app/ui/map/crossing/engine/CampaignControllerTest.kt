@@ -128,6 +128,38 @@ class CampaignControllerTest {
         assertEquals(turn, controller.turn)
     }
 
+    @Test
+    fun `F2 外交盟友不进入伤害结算，并肩多回合兵力不互耗`() {
+        val controller = CampaignController.load(ALLIED_JSON, null)
+        val ally = controller.corps.first { it.id == "b1" }
+        val allyBefore = ally.strength
+        repeat(5) { controller.step() }
+        assertEquals("盟友不应被己方阵营攻击", allyBefore, ally.strength, 1e-6)
+    }
+
+    @Test
+    fun `F6 分支存档回滚据点占领计数，不沿用旧时间线`() {
+        val controller = CampaignController.load(CAPTURE_JSON, null)
+        controller.step()
+        val branch = controller.saveBranch()
+        val holdAtBranch = branch.captureHold.toMap()
+        repeat(3) { controller.step() }
+
+        controller.restoreBranch(branch)
+        val restored = controller.saveBranch()
+        assertEquals(holdAtBranch, restored.captureHold)
+        assertEquals(branch.pointHolders, restored.pointHolders)
+    }
+
+    @Test
+    fun `F8 视野外敌军不上报实时坐标，从未观测 report 为 null`() {
+        val controller = CampaignController.load(FOG_JSON, null)
+        controller.step()
+        val enemyView = controller.snapshot().corps.first { it.id == "b1" }
+        assertFalse("视野外敌军不应被标记观测", enemyView.observed)
+        assertTrue("从未观测的敌军不给实时坐标", enemyView.reportLat == null && enemyView.reportLng == null)
+    }
+
     private companion object {
         const val TRIGGER_JSON: String = """
 {
@@ -145,6 +177,55 @@ class CampaignControllerTest {
   "events": [
     { "trigger": { "turn": 1 }, "action": "moraleChange", "target": "a1",
       "value": "broken", "reason": "测试点燃" }
+  ]
+}
+"""
+
+        const val ALLIED_JSON: String = """
+{
+  "id": "allied-test",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 10,
+  "victory": { "type": "annihilate", "target": "c1", "side": "a" },
+  "sides": [ { "id": "a" }, { "id": "b" }, { "id": "c" } ],
+  "diplomacy": [ { "a": "a", "b": "b", "relation": "allied" } ],
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.01, 0.01],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.02, 0.02],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "c1", "name": "丙", "side": "c", "initialPos": [0.40, 0.40],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        const val CAPTURE_JSON: String = """
+{
+  "id": "capture-test",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 10,
+  "victory": { "type": "capture", "side": "a", "point": [0.01, 0.01], "holdTurns": 3 },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.01, 0.01],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.30, 0.30],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        const val FOG_JSON: String = """
+{
+  "id": "fog-test",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 10,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.0, 0.0],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.40, 0.40],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" }
   ]
 }
 """

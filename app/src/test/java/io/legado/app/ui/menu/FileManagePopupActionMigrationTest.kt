@@ -5,41 +5,42 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
+/**
+ * 本机文件管理删除契约测试。
+ *
+ * 旧 FileManageActivity 长按 + 纵向弹窗菜单已拆除；新实现为 Compose 行长按 → 父目录守卫 →
+ * requestDelete → 确认对话框 → executeDelete。删除副作用与父目录排除关注点保留，断言指向新落点。
+ */
 class FileManagePopupActionMigrationTest {
 
     @Test
     fun `file deletion uses the shared vertical popup action menu`() {
-        val source = readProjectFile(FILE_MANAGE)
+        val screen = readProjectFile(FILE_SCREEN)
+        val viewModel = readProjectFile(FILE_VIEW_MODEL)
 
-        assertFalse(source.contains("import android.widget.PopupMenu"))
-        assertFalse(source.contains("PopupMenu(context, view)"))
-        assertContains(source, "popupActionMenu(context)")
-        assertContains(source, "item(context.getString(R.string.delete), \"delete\")")
-        assertContains(source, "danger(\"delete\")")
-        assertContains(source, "\"delete\" -> viewModel.delFile(file)")
+        assertFalse(screen.contains("PopupMenu(context, view)"))
+        assertFalse(screen.contains("import android.widget.PopupMenu"))
+        assertTrue(screen.contains("onRequestDelete(file)"))
+        assertTrue(viewModel.contains("fun requestDelete(file: File)"))
+        assertTrue(viewModel.contains("fun executeDelete(file: File)"))
+        assertTrue(viewModel.contains("file.deleteRecursively()"))
+        assertTrue(viewModel.contains("upFiles(lastDir)"))
     }
 
     @Test
     fun `parent directory remains excluded from the deletion menu`() {
-        val source = readProjectFile(FILE_MANAGE)
-        val longClick = source.indexOf("binding.root.setOnLongClickListener")
-        val guard = source.indexOf("if (item == viewModel.lastDir)", longClick + 1)
-        val guardReturn = source.indexOf("return@setOnLongClickListener true", guard + 1)
-        val menu = source.indexOf("showFileMenu(view, item)", guard + 1)
+        val screen = readProjectFile(FILE_SCREEN)
+        val parentGuard = screen.indexOf("val isParent = file ==")
+        val longClick = screen.indexOf("onLongClick = { if (!isParent) onRequestDelete(file) }")
 
-        assertTrue("file rows should define a long-click listener", longClick >= 0)
-        assertTrue("parent directory guard should remain before the menu call", guard >= 0)
-        assertTrue("parent directory guard should consume the long click", guardReturn in (guard + 1)..<menu)
-        assertTrue("file menu should only be shown after the parent directory guard", menu > guard)
+        assertTrue("file rows should compute the parent directory flag", parentGuard >= 0)
+        assertTrue("parent directory guard should remain before the long-click delete", longClick > parentGuard)
+        assertTrue("parent directory should be excluded from the delete request", screen.contains("if (!isParent) onRequestDelete(file)"))
     }
 
     @Test
     fun `legacy file deletion menu resource is removed`() {
         assertFalse(projectFileExists("src/main/res/menu/file_long_click.xml"))
-    }
-
-    private fun assertContains(source: String, expected: String) {
-        assertTrue("FileManageActivity.kt should contain $expected", source.contains(expected))
     }
 
     private fun readProjectFile(pathInApp: String): String =
@@ -53,6 +54,7 @@ class FileManagePopupActionMigrationTest {
             .firstOrNull(File::isFile)
 
     private companion object {
-        const val FILE_MANAGE = "src/main/java/io/legado/app/ui/file/FileManageActivity.kt"
+        const val FILE_SCREEN = "src/main/java/io/legado/app/ui/file/FileManageScreen.kt"
+        const val FILE_VIEW_MODEL = "src/main/java/io/legado/app/ui/file/FileManageViewModel.kt"
     }
 }
