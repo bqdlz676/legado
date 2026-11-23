@@ -14,7 +14,11 @@ class ThemeFontScalePickerTest {
         // 改成"从该分区起始行到下一分区之前"，断言内容不变、覆盖强度不降。
         val full = readProjectFile("src/main/java/io/legado/app/ui/config/sections/ThemeSection.kt")
         val from = full.indexOf("ValueRow(stringRes(R.string.font_scale)").let { if (it >= 0) it else 0 }
-        val to = full.indexOf("PreferKey.cover_config", from).let { if (it > from) it else full.length }
+        // 验收 R1：原用 "PreferKey.cover_config" 是死锚点（源码 L81 实际是 R.string.cover_config，
+        // PreferKey 常量在全 main 源码零命中）→ indexOf 恒 -1 → 退化成切到文件末尾，宽于预期。
+        // 换成真实锚点后，切片严格止于下一个 ValueRow，越界泄漏面消失。
+        val to = full.indexOf("ValueRow(stringRes(R.string.cover_config)", from)
+            .let { if (it > from) it else full.length }
         val source = full.substring(from, to)
 
         // 已配置值优先；档位边界保持 8..16；不得在弹窗上写死初始 10。
