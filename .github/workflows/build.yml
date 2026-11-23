@@ -72,6 +72,18 @@ jobs:
       - name: List APK outputs
         run: find app/build/outputs/apk -name "*.apk" -type f
 
+      # 实证断言：直接从产出的 APK 二进制里读 versionCode，与 .versioncode 比对。
+      # 为什么：光看 gradle 读文件不算验证，只有包里的号对上，才证明"能覆盖安装"这条路真的通了。
+      - name: Assert APK versionCode matches .versioncode
+        run: |
+          VC="$(tr -d '[:space:]' < .versioncode)"
+          AAPT="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+          for apk in $(find app/build/outputs/apk -name "*.apk" -type f); do
+            GOT="$("$AAPT" dump badging "$apk" 2>/dev/null | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)"
+            echo "$apk -> versionCode=$GOT (期望 $VC)"
+            [ "$GOT" = "$VC" ] || { echo "::error::$apk versionCode=$GOT 与 .versioncode=$VC 不一致"; exit 1; }
+          done
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
