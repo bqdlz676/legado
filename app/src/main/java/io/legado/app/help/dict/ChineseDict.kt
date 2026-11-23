@@ -203,4 +203,18 @@ object ChineseDict {
             wordIndex = null
         }
     }
+
+    // ------------------------------------------------------------------
+    // 测试/bench 专用钩子：枚举字头 + 估算种子体积。
+    // 与 [resetForBench] 同性质：生产代码不调用；不改动对外冻结 API 签名。
+    // ------------------------------------------------------------------
+
+    /** 枚举全部字头条目，供完整性 / 字段齐备校验。 */
+    internal fun seededEntries(): List<CharEntry> =
+        ensureChar().values.map { it.entry }
+
+    /** 种子文本 UTF-8 估算字节数，供字典体积红线（≤15MB）断言。 */
+    internal fun seedByteSize(): Long =
+        (DictSeedData.CHAR_TSV.toByteArray(Charsets.UTF_8).size +
+            DictSeedData.WORD_TSV.toByteArray(Charsets.UTF_8).size).toLong()
 }

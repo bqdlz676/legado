@@ -243,4 +243,88 @@ class ChineseDictTest {
         )
         assertTrue("说文出处须标明公版版本", entry.source.contains("公版"))
     }
+
+    // ---------- 灵魂闭环链路用字 ----------
+
+    @Test
+    fun `soul loop anchor chars are all seeded with full fields`() {
+        // 切片-02 §5 / 总纲灵魂闭环：点「晋」命中春秋晋国；「鲁隐公元年」出纪年。
+        val loop = listOf("晋", "鲁", "隐", "公", "元", "年", "己", "未", "春", "秋")
+        for (ch in loop) {
+            val entry = ChineseDict.getChar(ch)
+            assertNotNull("灵魂闭环用字 $ch 必须在种子内", entry)
+            requireNotNull(entry)
+            assertTrue("$ch 拼音不得为空", !entry.pinyin.isNullOrBlank())
+            assertTrue("$ch 义项不得为空", entry.senses.isNotEmpty())
+            assertTrue("$ch 出处不得为空", entry.source.isNotBlank())
+        }
+    }
+
+    // ---------- 《左传·隐公元年》全文用字覆盖 ----------
+
+    @Test
+    fun `yin gong yuan nian passage characters all seeded`() {
+        // 公版经传原文（assets/books/春秋左传.txt 隐公元年经传），
+        // 逐字校验字头齐备；未收字不得走 Missing 兜底。
+        val passage = """
+            惠公元妃孟子。孟子卒，继室以声子，生隐公。宋武公生仲子。仲子生而有文在其手，曰为鲁夫人，故仲子归于我。生桓公而惠公薨，是以隐公立而奉之。
+            元年春王正月。三月，公及邾仪父盟于蔑。夏五月，郑伯克段于鄢。
+            秋七月，天王使宰咺来归惠公仲子之赗。九月，及宋人盟于宿。冬十有二月，祭伯来。公子益师卒。
+            元年春，王周正月。不书即位，摄也。
+            三月，公及邾仪父盟于蔑，邾子克也。未王命，故不书爵。曰仪父，贵之也。公摄位而欲求好于邾，故为蔑之盟。
+            夏四月，费伯帅师城郎。不书，非公命也。
+            初，郑武公娶于申，曰武姜，生庄公及共叔段。庄公寤生，惊姜氏，故名曰寤生，遂恶之。爱共叔段，欲立之。亟请于武公，公弗许。及庄公即位，为之请制。公曰，制，岩邑也，虢叔死焉。佗邑唯命。请京，使居之，谓之京城大叔。祭仲曰，都，城过百雉，国之害也。先王之制，大都，不过参国之一，中，五之一，小，九之一。今京不度，非制也，君将不堪。公曰，姜氏欲之，焉辟害。对曰，姜氏何厌之有。不如早为之所，无使滋蔓。蔓，难图也。蔓草犹不可除，况君之宠弟乎。公曰，多行不义，必自毙，子姑待之。
+            既而大叔命西鄙北鄙贰于己。公子吕曰，国不堪贰，君将若之何。欲与大叔，臣请事之。若弗与，则请除之，无生民心。公曰，无庸，将自及。
+            大叔又收贰以为己邑，至于廪延。子封曰，可矣，厚将得众。公曰，不义不暱，厚将崩。
+            大叔完聚，缮甲兵，具卒乘，将袭郑，夫人将启之。公闻其期，曰，可矣。命子封帅车二百乘以伐京。京叛大叔段，段入于鄢，公伐诸鄢。五月辛丑，大叔出奔共。
+            书曰，郑伯克段于鄢。段不弟，故不言弟。如二君，故曰克。称郑伯，讥失教也，谓之郑志。不言出奔，难之也。
+            遂寘姜氏于城颍，而誓之曰，不及黄泉，无相见也。既而悔之。
+            颍考叔为颍谷封人，闻之，有献于公，公赐之食，食舍肉。公问之，对曰，小人有母，皆尝小人之食矣，未尝君之羹，请以遗之。公曰，尔有母遗，繄我独无。颍考叔曰，敢问何谓也。公语之故，且告之悔。对曰，君何患焉。若阙地及泉，隧而相见，其谁曰不然。公从之。公入而赋，大隧之中，其乐也融融。姜出而赋，大隧之外，其乐也泄泄。遂为母子如初。
+            君子曰，颍考叔，纯孝也，爱其母，施及庄公。诗曰，孝子不匮，永锡尔类。其是之谓乎。秋七月，天王使宰咺来归惠公仲子之赗。缓，且子氏未薨，故名。天子七月而葬，同轨毕至。诸侯五月，同盟至。大夫三月，同位至。士逾月，外姻至。
+            赠死不及尸，吊生不及哀，豫凶事，非礼也。
+            八月，纪人伐夷。夷不告，故不书。
+            有蜚。不为灾，亦不书。
+            惠公之季年，败宋师于黄。公立而求成焉。九月，及宋人盟于宿，始通也。
+            冬十月庚申，改葬惠公。公弗临，故不书。惠公之薨也，有宋师，太子少，葬故有阙，是以改葬。卫侯来会葬，不见公，亦不书。郑共叔之乱，公孙滑出奔卫。卫人为之伐郑，取廪延。郑人以王师虢师伐卫南鄙。请师于邾。邾子使私于公子豫，豫请往，公弗许，遂行。及邾人郑人盟于翼。不书，非公命也。
+            新作南门。不书，亦非公命也。
+            十二月，祭伯来，非王命也。
+            众父卒。公不与小敛，故不书日。
+        """.trimIndent()
+
+        val missing = passage.asSequence()
+            .filter { it.isHan() }
+            .distinct()
+            .filter { ChineseDict.getChar(it) == null }
+            .map { it.toString() }
+            .toList()
+        assertTrue("《隐公元年》未收字头：$missing", missing.isEmpty())
+    }
+
+    // ---------- 种子字段齐备性全量扫描 ----------
+
+    @Test
+    fun `every seeded entry carries pinyin senses source and valid strokes`() {
+        val entries = ChineseDict.seededEntries()
+        assertTrue("字头种子应有数百条，实际 ${entries.size}", entries.size >= 300)
+        for (entry in entries) {
+            assertTrue("${entry.char} 拼音不得为空", !entry.pinyin.isNullOrBlank())
+            assertTrue("${entry.char} 义项不得为空", entry.senses.isNotEmpty())
+            assertTrue("${entry.char} 出处不得为空", entry.source.isNotBlank())
+            entry.strokes?.let { assertTrue("${entry.char} 笔画须为非负整数", it >= 0) }
+
+            val shuowen = ChineseDict.getShuowen(entry.char)
+            if (shuowen != null) {
+                assertTrue(
+                    "${entry.char} 带说文则出处须标明大徐本公版",
+                    entry.source.contains("说文解字")
+                )
+            }
+            for (example in ChineseDict.getUsage(entry.char)) {
+                assertTrue("${entry.char} 用例须带《出处》：$example", example.startsWith("《"))
+            }
+        }
+    }
+
+    private fun Char.isHan(): Boolean =
+        code in 0x4E00..0x9FFF || code in 0x3400..0x4DBF
 }

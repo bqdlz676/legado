@@ -109,4 +109,17 @@ class ChineseDictBenchTest {
             perCallMs < WARM_BUDGET_MS
         )
     }
+
+    @Test
+    fun `seed dictionary total size under 15mb red line`() {
+        // 性能红线（总纲 §性能红线：字典 ≤15MB）。
+        // 口径：内置种子 TSV 的 UTF-8 字节数（内存文本口径，偏保守上界）；
+        // 打包为资产后经去重/压缩体积只会更小。真机包内体积仍需上架前复测。
+        val bytes = ChineseDict.seedByteSize()
+        val limitBytes = 15L * 1024 * 1024
+        assertTrue(
+            "字典种子 ${bytes}B 须 ≤ 15MB（$limitBytes B）",
+            bytes < limitBytes
+        )
+    }
 }
