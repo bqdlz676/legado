@@ -198,8 +198,11 @@ class BookshelfReadProgressTest {
             style1.findElementById("@+id/shelf_header").getAttribute("layout"),
         )
         val viewPager = style1.findElementById("@+id/view_pager_bookshelf")
-        assertEquals("0dp", viewPager.androidAttribute("layout_height"))
-        assertEquals("1", viewPager.androidAttribute("layout_weight"))
+        // 内容承载层（ViewPager 与书架金粉氛围层的共同父容器）占据 header 以下剩余高度；
+        // LinearLayout 的 weight 只作用于直接子级，故断言落在该承载容器上。
+        val contentHost = viewPager.parentNode as Element
+        assertEquals("0dp", contentHost.androidAttribute("layout_height"))
+        assertEquals("1", contentHost.androidAttribute("layout_weight"))
 
         val style2 = parseProjectXml("src/main/res/layout/fragment_bookshelf2.xml")
         assertEquals(

@@ -53,7 +53,12 @@ class ComponentPaletteTest {
             ComponentPalette.MASK_EASING,
         ).forEach { easing ->
             assertEquals(4, easing.size)
-            easing.forEach { assertTrue(it in 0f..1f || it < 0f) }
+            // cubic-bezier(x1, y1, x2, y2)：x1/x2 必须落在 [0,1]；
+            // y1/y2 允许 overshoot（>1，气泡回弹 1.56）或 undershoot（<0），不夹回 [0,1]。
+            assertTrue(easing[0] in 0f..1f)
+            assertTrue(easing[2] in 0f..1f)
+            assertTrue(easing[1].isFinite())
+            assertTrue(easing[3].isFinite())
         }
     }
 

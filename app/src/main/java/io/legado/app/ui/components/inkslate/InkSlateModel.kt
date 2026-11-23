@@ -136,7 +136,7 @@ data class AnnotationMeta(
     val bgImageRef: String? = null,
 ) {
     /** 导出附注：《左传·隐公元年》第 3 页批注 */
-    fun footnote(): String = "《$chapterTitle》$pageLabel 批注"
+    fun footnote(): String = "《$chapterTitle》${pageLabel}批注"
 }
 
 /** 压感模拟：根据落笔速度换算压感。慢速 → 压感高（笔触粗），快速 → 压感低（笔触细）。 */

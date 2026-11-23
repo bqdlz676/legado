@@ -47,10 +47,13 @@ class CandidateCycle(
         return current
     }
 
-    /** 直接定位到指定候选；越界先收敛；空列表返回 null。 */
+    /**
+     * 直接定位到指定候选；越界先夹紧到最近的合法端点（弹列表点选不做环形回绕，
+     * 回绕只属于 [next] 的循环切换）；空列表返回 null。
+     */
     fun selectAt(target: Int): BubbleCandidate? {
         if (candidates.isEmpty()) return null
-        index = normalize(target)
+        index = target.coerceIn(0, size - 1)
         return current
     }
 

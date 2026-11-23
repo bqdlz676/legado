@@ -41,6 +41,7 @@ class SearchBenchTest {
         assertTrue(offline.cached.isEmpty())
 
         state = SearchReducer.reduce(state, SearchIntent.Retry)
-        assertTrue(state.loadState is SearchLoadState.Loading)
+        // 空查询重试按契约回落空闲态（与 SearchReducerTest 一致），不崩、安全空结果。
+        assertTrue(state.loadState is SearchLoadState.Idle)
     }
 }

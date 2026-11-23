@@ -108,11 +108,13 @@ class SplashChoreography(
             repeat(LuowenSplash.INK_SPLAT) { add(newInk(InkKind.SPLAT, rnd)) }
         }
         gold = buildList(LuowenSplash.GOLD_COUNT) {
-            val p = GoldParticle()
-            p.size = 1.4f + rnd.nextFloat() * 2.2f
-            p.drift = 6f + rnd.nextFloat() * 14f
-            p.seedPhase = rnd.nextFloat() * 6.2831f
-            add(p)
+            repeat(LuowenSplash.GOLD_COUNT) {
+                val p = GoldParticle()
+                p.size = 1.4f + rnd.nextFloat() * 2.2f
+                p.drift = 6f + rnd.nextFloat() * 14f
+                p.seedPhase = rnd.nextFloat() * 6.2831f
+                add(p)
+            }
         }
         // 远山：三段起伏的山脊折线，固定伪随机种子，单测可复现
         ridge = buildList(15) {
@@ -180,8 +182,8 @@ class SplashChoreography(
         for (p in ink) {
             when {
                 elapsedMs < LuowenSplash.DROP_END_MS -> p.alpha = 0f
-                elapsedMs < LuowenSplash.BURST_END_MS -> {
-                    // 炸裂：径向飞出，半径随 easeOutCubic 到上限
+                elapsedMs <= LuowenSplash.BURST_END_MS -> {
+                    // 炸裂：径向飞出，半径随 easeOutCubic 到上限（端点 700ms 仍属炸裂段）
                     val r = radiusPx * p.burstRadius * easeOutCubic(burstP)
                     p.x = cx + cos(p.angle.toDouble()).toFloat() * r
                     p.y = cy + sin(p.angle.toDouble()).toFloat() * r * 0.82f
@@ -279,7 +281,8 @@ class SplashChoreography(
             t >= LuowenSplash.TOTAL_MS -> Phase.DONE
             t >= LuowenSplash.FADE_IN_MS -> Phase.FADE
             t >= LuowenSplash.SLOGAN_IN_MS -> Phase.SLOGAN
-            t >= LuowenSplash.SWEEP_START_MS -> Phase.SWEEP
+            // 1200–1600 远山为主导段；1600 山脊成形后暖金线扫过转主导（扫线 1400 起与山段重叠）。
+            t >= LuowenSplash.HILL_END_MS -> Phase.SWEEP
             t >= 1200L -> Phase.HILL
             t >= LuowenSplash.GOLD_BURST_END_MS - 200L -> Phase.GOLD_BURST
             t >= LuowenSplash.SUCK_START_MS -> Phase.GATHER

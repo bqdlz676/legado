@@ -73,10 +73,15 @@ class SearchContractTest {
     @Test
     fun `no MaterialTheme import anywhere`() {
         sourceFiles.forEach { file ->
-            assertFalse(
-                "$file 引用了 MaterialTheme",
-                read(file).contains("MaterialTheme"),
-            )
+            // 契约禁止的是 MaterialTheme 的 import 与实际调用（MaterialTheme.xxx）；
+            // 注释里说明“不引 MaterialTheme”的文字不算违规。
+            val text = read(file)
+            val leaks = text.lines().any { line ->
+                val trimmed = line.trim()
+                (trimmed.startsWith("import ") && trimmed.contains("MaterialTheme")) ||
+                    line.contains("MaterialTheme.")
+            }
+            assertFalse("$file 引用了 MaterialTheme", leaks)
         }
     }
 

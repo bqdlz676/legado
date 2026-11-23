@@ -38,7 +38,8 @@ class HalfSheetAnchorsTest {
         assertTrue(HalfSheetAnchors.shouldDismiss(0.10f, 0f))
         assertTrue(HalfSheetAnchors.shouldDismiss(0.30f, 800f))
         assertFalse(HalfSheetAnchors.shouldDismiss(0.50f, 100f))
-        assertFalse(HalfSheetAnchors.shouldDismiss(0.05f, 0f))
+        // 中段高度 + 慢速松手：未过低阈值，回弹到 60% 锚点。
+        assertFalse(HalfSheetAnchors.shouldDismiss(0.40f, 120f))
     }
 
     @Test

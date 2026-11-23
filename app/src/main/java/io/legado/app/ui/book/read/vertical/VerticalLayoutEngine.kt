@@ -69,16 +69,20 @@ class VerticalLayoutEngine(
         val sameContent = text == lastText && title == lastTitle && pages.isNotEmpty()
         val reuseCache = sameContent && specKey == lastSpecKey
 
-        val paginator = VerticalPaginator(layoutSpec, metrics, cache)
-        val result = paginator.layout(text, title, reuseCache = reuseCache)
-
-        pages = result.pages
-        paragraphs = result.paragraphs
-        totalCells = result.totalCells
+        if (reuseCache) {
+            // 热路径：同文同规格，分页快照与段落表整体复用，跳过测量与几何重建（重排 ×3）。
+            lastLayoutReusedCache = true
+        } else {
+            val paginator = VerticalPaginator(layoutSpec, metrics, cache)
+            val result = paginator.layout(text, title, reuseCache = false)
+            pages = result.pages
+            paragraphs = result.paragraphs
+            totalCells = result.totalCells
+            lastLayoutReusedCache = result.reusedFromCache
+        }
         lastText = text
         lastTitle = title
         lastSpecKey = specKey
-        lastLayoutReusedCache = result.reusedFromCache
 
         currentIndex = if (sameContent) {
             currentIndex.coerceIn(0, pages.lastIndex.coerceAtLeast(0))

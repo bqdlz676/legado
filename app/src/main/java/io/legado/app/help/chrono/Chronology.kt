@@ -433,7 +433,8 @@ object Chronology {
     /** 一年的完整标签：干支 + 公元前/后 + 距今。 */
     fun yearTitle(year: Int): String {
         val gz = yearGanzhi(year)
-        val d = if (year <= 0) "前${1 - year}" else "公元$year"
+        // 内部纪年公元前记为 -n（如前722 存 -722），展示年数取 -year，勿再减 1。
+        val d = if (year <= 0) "前${-year}" else "公元$year"
         return "${d}年（$gz）· 距今约${yearsAgo(year)}年"
     }
 

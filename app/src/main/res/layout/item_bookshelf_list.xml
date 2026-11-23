@@ -167,14 +167,19 @@
         tools:text="60%" />
 
     <!-- 底部细线进度：朱砂已读 / 云灰未读 -->
-    <io.legado.app.ui.widget.InkThinProgress
+    <com.google.android.material.progressindicator.LinearProgressIndicator
         android:id="@+id/pb_read_progress"
         android:layout_width="0dp"
-        android:layout_height="3dp"
+        android:layout_height="4dp"
         android:layout_marginBottom="2dp"
+        android:visibility="gone"
+        app:indicatorColor="@color/accent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent" />
+        app:layout_constraintRight_toRightOf="parent"
+        app:trackThickness="2dp"
+        tools:progress="60"
+        tools:visibility="visible" />
 
     <!-- 封面：默认不显示，书名就是封面 -->
     <io.legado.app.ui.widget.image.CoverImageView

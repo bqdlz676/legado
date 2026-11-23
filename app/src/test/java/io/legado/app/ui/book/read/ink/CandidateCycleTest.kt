@@ -52,9 +52,10 @@ class CandidateCycleTest {
 
     @Test
     fun `单候选始终停在 0`() {
-        val cycle = CandidateCycle(listOf(cand("抽", "抽")))
+        val only = cand("抽", "抽")
+        val cycle = CandidateCycle(listOf(only))
         assertEquals(0, cycle.index)
-        assertEquals(candidates[0], cycle.next())
+        assertEquals(only, cycle.next())
         assertEquals(0, cycle.index)
     }
 
