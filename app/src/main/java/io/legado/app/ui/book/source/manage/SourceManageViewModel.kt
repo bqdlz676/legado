@@ -1,6 +1,7 @@
 package io.legado.app.ui.book.source.manage
 
 import android.app.Application
+import androidx.lifecycle.viewModelScope
 import io.legado.app.base.BaseViewModel
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSourcePart

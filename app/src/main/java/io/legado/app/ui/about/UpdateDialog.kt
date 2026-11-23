@@ -121,7 +121,7 @@ private fun UpdateContent(
 ) {
     val context = LocalContext.current
     if (updateBody == null) {
-        toastOnUi("没有数据")
+        context.toastOnUi("没有数据")
         return
     }
     val metadata = remember(size, createdAt) {

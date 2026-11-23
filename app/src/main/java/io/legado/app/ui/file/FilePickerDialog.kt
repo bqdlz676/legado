@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,7 +94,7 @@ class FilePickerDialog : DialogFragment() {
         viewModel.initData(arguments)
         return ComposeView(requireContext()).apply {
             setContent {
-                val state = viewModel.uiState.collectAsStateValue()
+                val state = viewModel.uiState.collectAsState().value
                 var showCreateFolder by remember { mutableStateOf(false) }
                 val title = arguments?.getString("title") ?: if (viewModel.isSelectDir) {
                     getString(io.legado.app.R.string.folder_chooser)
@@ -138,10 +139,6 @@ class FilePickerDialog : DialogFragment() {
     }
 
     private fun stateSelectFile(): File? = viewModel.uiState.value.selectFile
-
-    @Composable
-    private fun collectAsStateValue() =
-        androidx.compose.runtime.collectAsState(viewModel.uiState).value
 
     @Composable
     private fun PickerContent(

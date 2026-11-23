@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.edit
 import io.legado.app.utils.showDialogFragment
 import androidx.lifecycle.lifecycleScope
 import io.legado.app.R
@@ -82,7 +83,7 @@ internal fun formatDuring(mss: Long, useDays: Boolean = false, showSeconds: Bool
 class ReadRecordActivity : AppCompatActivity() {
 
     private var searchKey by mutableStateOf("")
-    private var sortMode by mutableStateOf(LocalConfig.getInt("readRecordSort"))
+    private var sortMode by mutableStateOf(LocalConfig.getInt("readRecordSort", 0))
     private var records by mutableStateOf<List<ReadRecordShow>>(emptyList())
     private var allRecords by mutableStateOf<List<ReadRecordShow>>(emptyList())
     private var booksByIdentity by mutableStateOf<Map<Pair<String, String>, Book>>(emptyMap())
@@ -96,7 +97,7 @@ class ReadRecordActivity : AppCompatActivity() {
                     searchKey = searchKey,
                     onSearch = { searchKey = it; loadRecords(it) },
                     sortMode = sortMode,
-                    onSortMode = { sortMode = it; LocalConfig.putInt("readRecordSort", it); loadRecords() },
+                    onSortMode = { sortMode = it; LocalConfig.edit { putInt("readRecordSort", it) }; loadRecords() },
                     records = records,
                     allRecords = allRecords,
                     booksByIdentity = booksByIdentity,

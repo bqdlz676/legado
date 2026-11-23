@@ -60,9 +60,9 @@ class ImportAutoTaskViewModel(app: Application) : BaseViewModel(app) {
                 if (checked) _uiState.value.tasks.getOrNull(index) else null
             }.map(::validateImportedTask)
             AutoTask.importRules(selected, context)
-        }.onError {
-            _uiState.update { it.copy(error = "ImportError:${it.localizedMessage}") }
-            AppLog.put("ImportError:${it.localizedMessage}", it)
+        }.onError { error ->
+            _uiState.update { it.copy(error = "ImportError:${error.localizedMessage}") }
+            AppLog.put("ImportError:${error.localizedMessage}", error)
         }.onSuccess { finally() }
     }
 

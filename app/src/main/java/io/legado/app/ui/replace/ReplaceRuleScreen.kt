@@ -207,8 +207,8 @@ fun ReplaceRuleScreen(
                     ),
                 )
             }
-        }
-    })
+        })
+    }
 }
 
 private enum class BatchGroup { ADD, REMOVE }

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import io.legado.app.data.entities.AutoTaskRule
 import io.legado.app.model.AutoTask
 import io.legado.app.model.AutoTaskRunner

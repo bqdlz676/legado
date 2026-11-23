@@ -165,7 +165,7 @@ fun AutoTaskScreen(
     }
 
     state.helpText?.let { md ->
-        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助") {
+        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助", content = {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 androidx.compose.foundation.text.BasicText(
                     md,
@@ -177,7 +177,7 @@ fun AutoTaskScreen(
                     ),
                 )
             }
-        }
+        })
     }
 }
 
@@ -346,8 +346,9 @@ private fun SelectionBar(
     onDisable: () -> Unit,
     onOpenBatchCron: () -> Unit,
     onExport: () -> Unit,
+    onDismiss: () -> Unit = {},
 ) {
-    Dialog {
+    Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             androidx.compose.foundation.text.BasicText(
                 "已选 $count / $total",
@@ -397,7 +398,7 @@ private fun ConfirmDialog(
 @Composable
 private fun LogSheet(task: AutoTaskUi, onClear: () -> Unit, onDismiss: () -> Unit) {
     val message = task.lastLog ?: task.lastError ?: task.lastResult
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = task.name) {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = task.name, content = {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             androidx.compose.foundation.text.BasicText(
                 message ?: "暂无运行日志",
@@ -412,7 +413,7 @@ private fun LogSheet(task: AutoTaskUi, onClear: () -> Unit, onDismiss: () -> Uni
                 InkButton("清除日志", onClear, variant = InkButtonVariant.GHOST)
             }
         }
-    }
+    })
 }
 
 @Composable

@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,7 +76,7 @@ class ImportAutoTaskDialog() : DialogFragment() {
         }
         return ComposeView(requireContext()).apply {
             setContent {
-                val state = viewModel.uiState.collectAsStateValue()
+                val state = viewModel.uiState.collectAsState().value
                 var jsonTarget by remember { mutableStateOf<AutoTaskRule?>(null) }
                 ImportContent(
                     state = state,
@@ -94,7 +95,7 @@ class ImportAutoTaskDialog() : DialogFragment() {
                     },
                 )
                 jsonTarget?.let { task ->
-                    InkHalfSheet(visible = true, onDismiss = { jsonTarget = null }, title = task.name) {
+                    InkHalfSheet(visible = true, onDismiss = { jsonTarget = null }, title = task.name, content = {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             androidx.compose.foundation.text.BasicText(
                                 GSON.toJson(task),
@@ -106,15 +107,11 @@ class ImportAutoTaskDialog() : DialogFragment() {
                                 ),
                             )
                         }
-                    }
+                    })
                 }
             }
         }
     }
-
-    @Composable
-    private fun collectAsStateValue() =
-        androidx.compose.runtime.collectAsState(viewModel.uiState).value
 
     @Composable
     private fun ImportContent(

@@ -55,8 +55,8 @@ class SourceDebugViewModel(application: Application) : BaseViewModel(application
                     },
                 )
             }
-        }.onError {
-            _uiState.update { it.copy(error = it.localizedMessage ?: "调试失败") }
+        }.onError { error ->
+            _uiState.update { it.copy(error = error.localizedMessage ?: "调试失败") }
         }
     }
 

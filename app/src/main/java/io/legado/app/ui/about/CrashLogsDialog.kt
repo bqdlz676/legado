@@ -32,6 +32,7 @@ import io.legado.app.data.appDb
 import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.rememberInkGesture
 import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.FileDoc
@@ -132,11 +133,9 @@ private fun CrashLogContent(
         }
         LazyColumn(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(files) { doc ->
+                val gesture = rememberInkGesture(enabled = true, onClick = { onOpen(doc) })
                 androidx.compose.foundation.layout.Box(
-                    Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                        .then(Modifier).let { m ->
-                            androidx.compose.foundation.clickable(m) { onOpen(doc) }
-                        },
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp).then(gesture.gestureModifier),
                 ) {
                     androidx.compose.foundation.text.BasicText(
                         text = doc.name,

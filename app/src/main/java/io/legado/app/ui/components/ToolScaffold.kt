@@ -110,7 +110,7 @@ fun ToolActionButton(action: ToolAction, modifier: Modifier = Modifier) {
     val gesture = rememberInkGesture(enabled = action.enabled, onClick = action.onClick)
     Box(
         modifier = modifier
-            .heightIn(minHeight = 48.dp)
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(ComponentTokens.buttonRadius))
             .then(gesture.gestureModifier)
             .padding(horizontal = 12.dp),
@@ -300,7 +300,7 @@ fun ToolRow(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(minHeight = 48.dp)
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(ComponentTokens.cardRadius))
             .background(
                 if (selected) ComponentTokens.colorGlow else ComponentTokens.bgSurface,

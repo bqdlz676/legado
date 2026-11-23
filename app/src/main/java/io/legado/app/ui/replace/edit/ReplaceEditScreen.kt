@@ -178,7 +178,7 @@ fun ReplaceEditScreen(
     }
 
     state.helpText?.let { md ->
-        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助") {
+        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助", content = {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 androidx.compose.foundation.text.BasicText(
                     md,
@@ -190,7 +190,7 @@ fun ReplaceEditScreen(
                     ),
                 )
             }
-        }
+        })
     }
 }
 

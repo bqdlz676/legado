@@ -31,6 +31,7 @@ import io.legado.app.help.http.HttpLogStore
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.rememberInkGesture
 import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.LogUtils
@@ -125,9 +126,11 @@ private fun AppLogContent(
         }
         LazyColumn(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(logs) { item ->
-                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                val gesture = rememberInkGesture(enabled = true, onClick = { onOpen(item) })
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp).then(gesture.gestureModifier),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.clickableRow { onOpen(item) }) {
+                ) {
                     androidx.compose.foundation.text.BasicText(
                         text = LogUtils.logTimeFormat.format(Date(item.first)),
                         style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textTertiary, fontSize = 12.sp12()),
@@ -141,11 +144,6 @@ private fun AppLogContent(
         }
     }
 }
-
-private fun Modifier.clickableRow(onClick: () -> Unit): Modifier =
-    this.then(Modifier).let { m ->
-        androidx.compose.foundation.clickable(m) { onClick() }
-    }
 
 private fun Int.sp18() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
 private fun Int.sp14() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)

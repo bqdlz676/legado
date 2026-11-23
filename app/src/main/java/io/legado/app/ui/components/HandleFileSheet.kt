@@ -45,7 +45,7 @@ fun HandleFileSheet(
     onConfirmDir: (String) -> Unit,
     onConfirmImg: (String) -> Unit,
 ) {
-    InkHalfSheet(visible = true, onDismiss = onCancel, title = title) {
+    InkHalfSheet(visible = true, onDismiss = onCancel, title = title, content = {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(actions) { item ->
@@ -75,7 +75,7 @@ fun HandleFileSheet(
                 InkButton("取消", onCancel, variant = InkButtonVariant.GHOST)
             }
         }
-    }
+    })
 
     if (showManualDir) {
         ManualInputDialog(

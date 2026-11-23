@@ -1648,6 +1648,7 @@ class ReadBookActivity : BaseReadBookActivity(),
                 replaceActivity.launch(
                     ReplaceEditActivity.startIntent(
                         this,
+                        id = -1L,
                         pattern = text,
                         scope = scopes.joinToString(";")
                     )

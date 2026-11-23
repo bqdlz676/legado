@@ -20,7 +20,7 @@ enum class EditTab(val titleRes: Int) {
     REVIEW(io.legado.app.R.string.source_tab_review);
 
     companion object {
-        val entries = entries.toList()
+        val entries: List<EditTab> = values().toList()
     }
 }
 

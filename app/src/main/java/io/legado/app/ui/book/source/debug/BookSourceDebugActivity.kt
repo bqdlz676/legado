@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentActivity
 import io.legado.app.R
@@ -49,7 +50,7 @@ class BookSourceDebugActivity : FragmentActivity(), SourceDebugActions {
         )
     }
 
-    override fun onScan() = qrResult.launch()
+    override fun onScan() = qrResult.launch(null)
 
     override fun onViewSrc(kind: DebugSrcKind) {
         val state = vm.uiState.value

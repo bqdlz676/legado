@@ -423,7 +423,7 @@ private fun OverflowSheet(
     actions: SourceEditActions,
     onDismiss: () -> Unit,
 ) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_edit_title)) {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_edit_title), content = {
         Column {
             SheetAction(stringResource(R.string.edit_content), onClick = { onDismiss(); actions.onFullscreenEdit(EditTab.BASE, currentFocusedField(state)) })
             SheetAction(stringResource(R.string.debug_source), onClick = { onDismiss(); actions.onDebug() })
@@ -449,7 +449,7 @@ private fun OverflowSheet(
             SheetAction(stringResource(R.string.source_js_tutorial), onClick = { onDismiss(); actions.onShowDoc("jsHelp") })
             SheetAction(stringResource(R.string.source_regex_tutorial), onClick = { onDismiss(); actions.onShowDoc("regexHelp") })
         }
-    }
+    })
 }
 
 /** 全屏编辑未聚焦字段时的回退：取基本页首字段（旧页无焦点时 toast 提示）。 */

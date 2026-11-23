@@ -2,6 +2,7 @@ package io.legado.app.ui.book.source.edit
 
 import android.content.Intent
 import android.os.Bundle
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -204,7 +205,7 @@ class BookSourceEditActivity : FragmentActivity(), SourceEditActions, VariableDi
 
     override fun onPaste() = vm.pasteSource { }
 
-    override fun onQr() = qrCodeResult.launch()
+    override fun onQr() = qrCodeResult.launch(null)
 
     override fun onShareText() = share(vm.toJson(vm.assemble()))
 
