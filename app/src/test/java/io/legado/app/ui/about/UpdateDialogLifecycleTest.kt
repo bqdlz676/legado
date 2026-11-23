@@ -9,16 +9,10 @@ class UpdateDialogLifecycleTest {
 
     @Test
     fun `update callbacks skip dialogs after fragment state is saved`() {
-        val main = functionBody(
-            "src/main/java/io/legado/app/ui/main/MainActivity.kt",
-            "private suspend fun upVersion()",
-            "private suspend fun setLocalPassword()"
-        )
         val shared = projectFile(
             "src/main/java/io/legado/app/ui/about/CheckAppUpdate.kt"
         ).readText()
 
-        assertGuardBeforeDialog(main, "supportFragmentManager.isStateSaved")
         assertGuardBeforeDialog(shared, "isAdded && !childFragmentManager.isStateSaved")
         for (path in listOf("ui/about/AboutFragment.kt", "ui/main/my/MyFragment.kt")) {
             val caller = projectFile("src/main/java/io/legado/app/$path").readText()
@@ -120,10 +114,6 @@ class UpdateDialogLifecycleTest {
 
     private fun assertGuardBeforeDialog(source: String, guard: String) {
         assertTrue(source.indexOf(guard) in 0 until source.indexOf("UpdateDialog(it)"))
-    }
-
-    private fun functionBody(path: String, start: String, end: String): String {
-        return projectFile(path).readText().substringAfter(start).substringBefore(end)
     }
 
     private fun projectFile(pathInApp: String): File {

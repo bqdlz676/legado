@@ -70,8 +70,8 @@ class CookieBackupCompatibilityTest {
         val cookieStore = projectFile(
             "src/main/java/io/legado/app/help/http/CookieStore.kt"
         ).readText()
-        val mainActivity = projectFile(
-            "src/main/java/io/legado/app/ui/main/MainActivity.kt"
+        val backupFragment = projectFile(
+            "src/main/java/io/legado/app/ui/config/BackupConfigFragment.kt"
         ).readText()
         val mainViewModel = projectFile(
             "src/main/java/io/legado/app/ui/main/MainViewModel.kt"
@@ -81,14 +81,15 @@ class CookieBackupCompatibilityTest {
         ).readText()
         assertTrue(backup.contains("private suspend fun backup("))
         assertTrue(restore.contains("private suspend fun restore("))
-        assertTrue(mainActivity.contains("private fun backupSync()"))
+        assertTrue(backupFragment.contains("fun backup("))
+        assertTrue(backupFragment.contains("private fun restoreWebDav(name: String)"))
         assertTrue(mainViewModel.contains("fun restoreWebDav("))
         val backupFunction = backup.substringAfter("private suspend fun backup(")
             .substringBefore("private suspend fun writeListToJson")
         val restoreFunction = restore.substringAfter("private suspend fun restore(")
             .substringBefore("private inline fun <reified T> fileToListT")
-        val backupSync = mainActivity.substringAfter("private fun backupSync()")
-            .substringBefore("override fun onSaveInstanceState")
+        val restoreEntry = backupFragment.substringAfter("fun restore()")
+            .substringBefore("private suspend fun showRestoreDialog")
         val autoRestore = mainViewModel.substringAfter("fun restoreWebDav(")
             .substringBefore("private fun deleteNotShelfBook")
         val contentIsEnabled = config.substringAfter("internal fun contentIsEnabled(")
@@ -124,14 +125,11 @@ class CookieBackupCompatibilityTest {
             saveCookie.indexOf("appDb.cookieDao.insert") <
                 saveCookie.indexOf("CacheManager.putMemory")
         )
-        assertTrue(backupSync.contains("cancelButton {"))
-        assertTrue(backupSync.contains("LocalConfig.lastBackup = maxOf("))
-        assertTrue(
-            backupSync.contains(
-                "viewModel.restoreWebDav("
-            )
-        )
-        assertTrue(backupSync.contains("lastBackupFile.lastModify,"))
+        assertTrue(restoreEntry.contains("cancelButton()"))
+        assertTrue(backupFragment.contains("Backup.backupLocked(requireContext(), backupPath, uploadWebDav)"))
+        assertTrue(backupFragment.contains("restoreWebDav(names[index])"))
+        assertTrue(backupFragment.contains("AppWebDav.restoreWebDav(name)"))
+        assertTrue(backupFragment.contains("context.selector("))
         assertTrue(autoRestore.contains("}.onSuccess {"))
         assertTrue(
             autoRestore.contains(

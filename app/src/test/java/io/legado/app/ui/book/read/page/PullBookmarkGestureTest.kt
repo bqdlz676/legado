@@ -54,7 +54,7 @@ class PullBookmarkGestureTest {
         val upBg = readView.substringAfter("fun upBg()")
             .substringBefore("fun upBgAlpha()")
 
-        assertTrue(upBg.contains("setBackgroundColor(ReadBookConfig.bgMeanColor)"))
+        assertTrue(upBg.contains("setBackground(InkPaperDrawable(ReadBookConfig.bgMeanColor))"))
     }
 
     @Test

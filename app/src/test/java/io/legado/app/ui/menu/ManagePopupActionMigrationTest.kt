@@ -89,7 +89,7 @@ class ManagePopupActionMigrationTest {
 
         listOf(
             "if (view is Toolbar) view.installMd3OverflowMenu()",
-            "?: findViewById(R.id.titleBar)",
+            "?: (findViewById<View>(R.id.titleBar) as? TitleBar)",
             "?.installActivityOverflowMenu()",
             "showIcons = showOpenMenuIcon",
             "onPrepareOptionsMenu(toolbarMenu)",
