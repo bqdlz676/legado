@@ -74,6 +74,8 @@ class PlaceMapActivity : AppCompatActivity() {
         val tvEmpty = findViewById<TextView>(R.id.tv_empty)
         val web = findViewById<WebView>(R.id.web)
 
+        val lat: Double
+        val lng: Double
         when {
             hit == null -> {
                 // 两表均未收录：走 Missing 兜底，不崩、不空白态之外的假点位
@@ -82,7 +84,7 @@ class PlaceMapActivity : AppCompatActivity() {
                 return
             }
 
-            geo?.lat == null || geo.lng == null -> {
+            geo == null || geo.lat == null || geo.lng == null -> {
                 // Tier3 文献推定只到县，D3 铁律不给点位坐标；沙盘/二维图都只能标点，
                 // 这里把色块说明如实展示出来，不把「大概在某县」伪装成百米精度的点。
                 tvEmpty.text = geo?.regionLabel?.takeIf { it.isNotBlank() }
@@ -92,11 +94,13 @@ class PlaceMapActivity : AppCompatActivity() {
                 web.visibility = View.GONE
                 return
             }
-        }
 
-        // 上面 when 已挡掉 geo 为空 / 坐标为空的分支，此处非空由分支兜底保证
-        val lat = geo.lat!!
-        val lng = geo.lng!!
+            // 上面两支已挡掉 geo 为空 / 坐标为空，落到这里经分支兜底后均为非空
+            else -> {
+                lat = geo.lat
+                lng = geo.lng
+            }
+        }
 
         // 周边参照点：从 D3 全量在册条目里取有坐标、距离最近的若干，排除自身；
         // 旧栈的 PlaceGeo.nearby 已随扁平 txt 栈废弃，近邻改在冻结 API `all()` 之上计算。
@@ -122,9 +126,10 @@ class PlaceMapActivity : AppCompatActivity() {
                 })
             }
 
-        // 今址 / 沿革说明：实体沿革注 → 色块推定说明 → 出处标注，逐级兜底
+        // 今址 / 沿革说明：实体沿革注 → 色块推定说明 → 出处标注，逐级兜底；
+        // regionLabel 本身可空，必须走安全调用再交给 takeIf。
         val modern = hit.note.takeIf { it.isNotBlank() }
-            ?: geo.regionLabel.takeIf { it.isNotBlank() }
+            ?: geo.regionLabel?.takeIf { it.isNotBlank() }
             ?: hit.source.label
 
         // 点面铁律：只有可落点位的 Tier1/Tier2 点实体给高倍缩放；面 / 色块压到低倍
