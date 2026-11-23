@@ -92,8 +92,10 @@ fun InkBubble(
     val density = LocalDensity.current
 
     BoxWithConstraints(modifier = modifier) {
-        val viewW = maxWidthPx
-        val viewH = maxHeightPx
+        // BoxWithConstraintsScope 只暴露 maxWidth/maxHeight（Dp）；定位锚点与 BubblePlacer 全按 px 口径，
+        // 故经 density 转 px。旧版臆造的 maxWidthPx/maxHeightPx 在此作用域不存在，会编译失败。
+        val viewW = with(density) { maxWidth.toPx() }
+        val viewH = with(density) { maxHeight.toPx() }
         var bubbleSize by remember { mutableStateOf(IntSize.Zero) }
 
         val gapPx = with(density) { InkTokens.BUBBLE_GAP.toPx() }
