@@ -321,7 +321,7 @@ class CampaignController private constructor(
     // ── 情报 / 意图 / 移动 / 遭遇 ─────────────────────────────
 
     private fun updateIntelligence(corps: Corps) {
-        val enemies = corps.filterEnemies()
+        val enemies = enemiesOf(corps)
         val known = HashMap<String, Geo>()
         for (enemy in enemies) {
             val distCells = octile(corps.position, enemy.position)
@@ -337,8 +337,8 @@ class CampaignController private constructor(
         if (override != null) {
             return IntentResolver.Decision(override, corps.target?.let { projection.toCell(it) }, "手动覆盖意图")
         }
-        val allies = corps.filterAllies()
-        val enemies = corps.filterEnemies()
+        val allies = alliesOf(corps)
+        val enemies = enemiesOf(corps)
         return IntentResolver.resolve(
             corps = corps,
             allies = allies,
@@ -352,7 +352,7 @@ class CampaignController private constructor(
     private fun planRoute(corps: Corps, intent: Intent, target: io.legado.app.ui.map.crossing.model.Cell?): List<io.legado.app.ui.map.crossing.model.Cell> {
         if (target == null) return emptyList()
         return when (intent) {
-            Intent.FLANK -> pathfinder.flankPath(corps.position, target, corps.type, corps.filterEnemies().map { it.position })
+            Intent.FLANK -> pathfinder.flankPath(corps.position, target, corps.type, enemiesOf(corps).map { it.position })
             Intent.AMBUSH, Intent.HOLD -> emptyList()
             else -> pathfinder.find(corps.position, target, corps.type)
         }
@@ -379,7 +379,7 @@ class CampaignController private constructor(
     }
 
     private fun resolveEncounters(corps: Corps) {
-        val enemies = corps.filterEnemies().filter { octile(corps.position, it.position) <= ENCOUNTER_RANGE }
+        val enemies = enemiesOf(corps).filter { octile(corps.position, it.position) <= ENCOUNTER_RANGE }
         val target = enemies.minByOrNull { octile(corps.position, it.position) } ?: return
 
         val ambushed = corps.intent == Intent.AMBUSH && !corps.exposed
@@ -449,18 +449,19 @@ class CampaignController private constructor(
         "${"%.4f".format(point.lng)},${"%.4f".format(point.lat)}"
 
     fun snapshot(): TurnSnapshot {
-        // 情报雾（F8）：只有"本方军"或"被任一可见本方军看到"的敌方军才算 observed；
+        // 情报雾（F8）：只有"本方军 / 盟友"或"被任一可见本方军看到"的敌方军才算 observed；
         // 未观测的敌军不下发实时坐标（reportLat/Lng = null），避免玩家透视全图。
+        // 友敌划分统一走 [isFriendlySide]（B3 收口）：盟友不进敌方侦察集，也不误标为未观测敌军。
         val playerSide = definition.victory.side
         val observers = corps.filter { it.sideId == playerSide && it.combatReady() }
         val observedIds = HashSet<String>()
         for (ob in observers) for (e in corps) {
-            if (e.sideId == ob.sideId) continue
+            if (isFriendlySide(ob.sideId, e.sideId)) continue
             val d = octile(ob.position, e.position)
             if (d <= ob.visionRadiusCells && map.visible(ob.position, e.position)) observedIds += e.id
         }
         val views = corps.map { c ->
-            val seen = c.sideId == playerSide || c.id in observedIds
+            val seen = isFriendlySide(playerSide, c.sideId) || c.id in observedIds
             c.toView(observed = seen, report = if (seen) c.latLng else null)
         }
         return TurnSnapshot(
@@ -523,18 +524,35 @@ class CampaignController private constructor(
 
     // 敌我判定必须叠加外交盟约：ALLIED 关系的另一阵营既不进敌方集合，也计入盟友集合。
     // 只按 sideId 相异判敌会让外交盟友在遭遇战中互耗（F2 回归根因）。
-    private fun Corps.filterEnemies(): List<Corps> =
+    // 收口约定：遭遇（[resolveEncounters]）、支援 / 溃逃意图裁决（[resolveIntent]）、
+    // 侧翼路径（[planRoute]）、情报（[updateIntelligence]）的敌我划分一律走这两处；
+    // 阵营级友敌划分走 [isFriendlySide]。禁止在其它分支再按 sideId 相异自行判敌（B3）。
+    private fun enemiesOf(corps: Corps): List<Corps> =
         corps.filter {
-            it.id != this.id && it.sideId != this.sideId &&
-                it.sideId !in alliedSidesWith(this.sideId) && it.combatReady()
+            it.id != corps.id && it.sideId != corps.sideId &&
+                it.sideId !in alliedSidesWith(corps.sideId) && it.combatReady()
         }
 
-    private fun Corps.filterAllies(): List<Corps> =
+    private fun alliesOf(corps: Corps): List<Corps> =
         corps.filter {
-            it.id != this.id &&
-                (it.sideId == this.sideId || it.sideId in alliedSidesWith(this.sideId)) &&
+            it.id != corps.id &&
+                (it.sideId == corps.sideId || it.sideId in alliedSidesWith(corps.sideId)) &&
                 it.combatReady()
         }
+
+    /** 测试口径出口：同包单测直接断言敌 / 友集合划分；生产代码一律走私有 [enemiesOf] / [alliesOf]。 */
+    internal fun filterEnemiesOf(corps: Corps): List<Corps> = enemiesOf(corps)
+
+    /** 测试口径出口：同包单测直接断言敌 / 友集合划分；生产代码一律走私有 [enemiesOf] / [alliesOf]。 */
+    internal fun filterAlliesOf(corps: Corps): List<Corps> = alliesOf(corps)
+
+    /**
+     * 阵营级友方判定（B3 收口）：同阵营或外交 ALLIED 盟约方；任一侧 sideId 为空时一律非友。
+     * 情报快照的侦察跳过条件 / 可见性标记与 [alliesOf] 阵营口径同源，避免两套口径漂移。
+     */
+    private fun isFriendlySide(side: String?, otherSide: String?): Boolean =
+        side != null && otherSide != null &&
+            (side == otherSide || otherSide in alliedSidesWith(side))
 
     private fun dailyMaxCells(corps: Corps): Int {
         val kind = map.kindAt(corps.position)
