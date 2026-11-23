@@ -18,7 +18,7 @@ class ReplayBenchTest {
     @Before
     fun setUp() {
         now = 0L
-        director = ReplayDirector(SeedReplay.changping) { now }
+        director = ReplayDirector(SeedReplay.changping, clock = { now })
     }
 
     private inline fun bench(
@@ -39,7 +39,7 @@ class ReplayBenchTest {
     @Test
     fun `bench director build under 4ms`() {
         val buildAvg = bench("directorBuild") {
-            ReplayDirector(SeedReplay.changping) { now }
+            ReplayDirector(SeedReplay.changping, clock = { now })
         }
         assertTrue("导演构建超 4ms: $buildAvg", buildAvg < 4.0)
     }
