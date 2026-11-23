@@ -49,6 +49,33 @@ class ChineseDictTest {
     }
 
     @Test
+    fun `seeded ordinary char chou resolves via char path not missing fallback`() {
+        // 切片-02 §5 验收：点「抽」这类普通字，只出字义 + 说文 + 用例，不误弹典故。
+        val entry = ChineseDict.getChar('抽')
+        assertNotNull("「抽」必须在种子字库内，不得走 Missing 兜底", entry)
+        requireNotNull(entry)
+        assertEquals("抽", entry.char)
+        assertEquals("扌", entry.radical)
+        assertEquals(8, entry.strokes!!)
+        assertTrue("义项至少一条", entry.senses.isNotEmpty())
+        assertTrue("出处标注不得为空", entry.source.isNotBlank())
+
+        val shuowen = ChineseDict.getShuowen('抽')
+        assertNotNull("「抽」应有大徐本说文", shuowen)
+        assertTrue(shuowen!!.startsWith("引也"))
+
+        val usage = ChineseDict.getUsage('抽')
+        assertTrue("「抽」应有公版典籍用例", usage.isNotEmpty())
+        assertTrue(
+            "用例须出自《孟子·离娄下》",
+            usage.first().startsWith("《孟子·离娄下》")
+        )
+
+        // 单字位置不产生多字词 / 典故命中。
+        assertNull("单字「抽」不应命中多字词", ChineseDict.wordAt("抽", 0))
+    }
+
+    @Test
     fun `getChar string overload rejects multi char`() {
         assertNotNull(ChineseDict.getChar("天"))
         assertNull("多字串不作为单字查询", ChineseDict.getChar("天下"))
