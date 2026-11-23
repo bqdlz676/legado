@@ -1,58 +1,60 @@
 package io.legado.app.ui.about
 
 import android.content.Context
-import android.graphics.Color
 import android.os.Bundle
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
-import android.text.style.RelativeSizeSpan
-import android.view.Menu
-import android.view.MenuItem
-import android.view.ViewGroup
 import android.widget.ImageView
-import androidx.appcompat.widget.SearchView
-import androidx.core.view.isVisible
+import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import io.legado.app.utils.showDialogFragment
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.load.resource.bitmap.CenterCrop
-import com.bumptech.glide.load.resource.bitmap.RoundedCorners
-import com.bumptech.glide.request.RequestOptions
 import io.legado.app.R
 import io.legado.app.constant.PreferKey
-import io.legado.app.base.BaseActivity
-import io.legado.app.base.adapter.ItemViewHolder
-import io.legado.app.base.adapter.RecyclerAdapter
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
-import io.legado.app.data.entities.ReadRecordShow
 import io.legado.app.data.entities.ReadRecordAuthors
-import io.legado.app.databinding.ActivityReadRecordBinding
-import io.legado.app.databinding.ItemReadRecordDisplayBinding
+import io.legado.app.data.entities.ReadRecordShow
+import io.legado.app.help.book.ReadRecordCoverCache
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.LocalConfig
-import io.legado.app.help.book.ReadRecordCoverCache
 import io.legado.app.help.glide.ImageLoader
-import io.legado.app.help.glide.OkHttpModelLoader
 import io.legado.app.lib.dialogs.alert
-import io.legado.app.lib.theme.primaryTextColor
-import io.legado.app.lib.theme.accentColor
-import io.legado.app.lib.theme.backgroundColor
+import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.main.search.InkSearchActivity
-import io.legado.app.utils.applyNavigationBarPadding
-import io.legado.app.utils.applyTint
 import io.legado.app.utils.cnCompare
-import io.legado.app.utils.ColorUtils
-import io.legado.app.utils.dpToPx
-import io.legado.app.utils.getCompatDrawable
-import io.legado.app.utils.getInt
 import io.legado.app.utils.getPrefString
-import io.legado.app.utils.putInt
 import io.legado.app.utils.startActivityForBook
-import io.legado.app.utils.showDialogFragment
-import androidx.core.os.bundleOf
-import io.legado.app.utils.viewbindingdelegate.viewBinding
-import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -71,364 +73,312 @@ internal fun formatDuring(mss: Long, useDays: Boolean = false, showSeconds: Bool
     return "$d$h$m$s".ifBlank { if (showSeconds) "0秒" else "0分钟" }
 }
 
-class ReadRecordActivity : BaseActivity<ActivityReadRecordBinding>() {
+/**
+ * 阅读记录页（新写 Compose 宿主，类名保留供 My 页 startActivity）。
+ *
+ * 数据仍走 readRecordDao / bookDao；列表、搜索、排序、布局与时长开关逐条对照旧实现。
+ * 旧内部 RecordAdapter 已移除；封面复用 ImageLoader 加载。
+ */
+class ReadRecordActivity : AppCompatActivity() {
 
-    private val adapter by lazy { RecordAdapter(this) }
-    private var dataJob: Job? = null
-    private var booksByIdentity: Map<Pair<String, String>, Book> = emptyMap()
-    private var sortMode
-        get() = LocalConfig.getInt("readRecordSort")
-        set(value) {
-            LocalConfig.putInt("readRecordSort", value)
-        }
-    private val searchView: SearchView by lazy {
-        binding.titleBar.findViewById(R.id.search_view)
-    }
+    private var searchKey by mutableStateOf("")
+    private var sortMode by mutableStateOf(LocalConfig.getInt("readRecordSort"))
+    private var records by mutableStateOf<List<ReadRecordShow>>(emptyList())
+    private var allRecords by mutableStateOf<List<ReadRecordShow>>(emptyList())
+    private var booksByIdentity by mutableStateOf<Map<Pair<String, String>, Book>>(emptyMap())
 
-    override val binding by viewBinding(ActivityReadRecordBinding::inflate)
-
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        initView()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(ComposeView(this).apply {
+            setContent {
+                RecordScreen(
+                    activity = this@ReadRecordActivity,
+                    searchKey = searchKey,
+                    onSearch = { searchKey = it; loadRecords(it) },
+                    sortMode = sortMode,
+                    onSortMode = { sortMode = it; LocalConfig.putInt("readRecordSort", it); loadRecords() },
+                    records = records,
+                    allRecords = allRecords,
+                    booksByIdentity = booksByIdentity,
+                    onOpen = ::openBook,
+                    onEdit = ::openEdit,
+                    onDelete = ::confirmDelete,
+                    onClearAll = ::clearRecords,
+                )
+            }
+        })
+        loadRecords()
     }
 
     override fun onResume() {
         super.onResume()
-        initData()
+        loadRecords()
     }
 
-    override fun onCompatCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.book_read_record, menu)
-        return super.onCompatCreateOptionsMenu(menu)
-    }
+    internal fun onRecordMetadataSaved() = loadRecords()
 
-    override fun onMenuOpened(featureId: Int, menu: Menu): Boolean {
-        menu.findItem(R.id.menu_enable_record)?.isChecked = AppConfig.enableReadRecord
-        menu.findItem(R.id.menu_simple_layout)?.isChecked = AppConfig.readRecordSimpleLayout
-        menu.findItem(R.id.menu_use_days)?.isChecked = AppConfig.readRecordUseDays
-        menu.findItem(R.id.menu_show_seconds)?.isChecked = AppConfig.readRecordShowSeconds
-        menu.findItem(R.id.menu_fixed_card)?.isChecked = AppConfig.readRecordFixedCard
-        when (sortMode) {
-            1 -> menu.findItem(R.id.menu_sort_read_long)?.isChecked = true
-            2 -> menu.findItem(R.id.menu_sort_read_time)?.isChecked = true
-            else -> menu.findItem(R.id.menu_sort_name)?.isChecked = true
+    private fun loadRecords(key: String? = searchKey) {
+        lifecycleScope.launch {
+            val (all, sorted, books) = withContext(Dispatchers.IO) {
+                val shelf = appDb.bookDao.all.associateBy { it.name to it.author }
+                val allShow = appDb.readRecordDao.allShow
+                val filtered = if (key.isNullOrBlank()) allShow else appDb.readRecordDao.search(key)
+                val sortedList = when (sortMode) {
+                    1 -> filtered.sortedByDescending { it.readTime }
+                    2 -> filtered.sortedByDescending { it.lastRead }
+                    else -> filtered.sortedWith { o1, o2 ->
+                        o1.bookName.cnCompare(o2.bookName).takeIf { it != 0 }
+                            ?: o1.displayAuthor.cnCompare(o2.displayAuthor)
+                    }
+                }
+                Triple(allShow, sortedList, shelf)
+            }
+            allRecords = all
+            records = sorted
+            booksByIdentity = books
         }
-        return super.onMenuOpened(featureId, menu)
     }
 
-    override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.menu_sort_name -> {
-                sortMode = 0
-                item.isChecked = true
-                initData()
+    private fun openBook(item: ReadRecordShow) {
+        lifecycleScope.launch {
+            val book = withContext(Dispatchers.IO) {
+                appDb.bookDao.findByName(item.bookName)
+                    .filter { it.author == item.author }
+                    .maxByOrNull { it.durChapterTime }
             }
-
-            R.id.menu_sort_read_long -> {
-                sortMode = 1
-                item.isChecked = true
-                initData()
-            }
-
-            R.id.menu_sort_read_time -> {
-                sortMode = 2
-                item.isChecked = true
-                initData()
-            }
-
-            R.id.menu_enable_record -> {
-                AppConfig.enableReadRecord = !item.isChecked
-            }
-
-            R.id.menu_simple_layout -> {
-                AppConfig.readRecordSimpleLayout = !AppConfig.readRecordSimpleLayout
-                if (AppConfig.readRecordFixedCard) initData() else recreate()
-            }
-
-            R.id.menu_use_days -> {
-                AppConfig.readRecordUseDays = !AppConfig.readRecordUseDays
-                initData()
-            }
-
-            R.id.menu_show_seconds -> {
-                AppConfig.readRecordShowSeconds = !AppConfig.readRecordShowSeconds
-                initData()
-            }
-
-            R.id.menu_fixed_card -> {
-                AppConfig.readRecordFixedCard = !AppConfig.readRecordFixedCard
-                recreate()
-            }
-
-            R.id.menu_clear_record -> clearRecords()
+            if (book == null) InkSearchActivity.start(this@ReadRecordActivity, item.bookName)
+            else startActivityForBook(book)
         }
-        return super.onCompatOptionsItemSelected(item)
     }
 
-    private fun initView() {
-        val background = backgroundColor
-        binding.enhancedSummary.root.setCardBackgroundColor(
-            if (ColorUtils.isColorLight(background)) background
-            else ColorUtils.blendColors(background, Color.WHITE, 0.08f),
-        )
-        initSearchView()
-        binding.tvBookName.setText(R.string.all_read_time)
-        binding.tvRemove.setOnClickListener {
-            clearRecords()
-        }
-        if (!AppConfig.readRecordFixedCard && !AppConfig.readRecordSimpleLayout) {
-            (binding.enhancedSummary.root.parent as ViewGroup).removeView(binding.enhancedSummary.root)
-            adapter.addHeaderView { binding.enhancedSummary }
-        }
-        binding.recyclerView.adapter = adapter
-        binding.recyclerView.applyNavigationBarPadding()
-    }
-
-    private fun initSearchView() {
-        searchView.applyTint(primaryTextColor)
-        searchView.isSubmitButtonEnabled = true
-        searchView.queryHint = getString(R.string.search)
-        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String): Boolean {
-                searchView.clearFocus()
-                return false
-            }
-
-            override fun onQueryTextChange(newText: String?): Boolean {
-                initData(newText)
-                return false
+    private fun openEdit(item: ReadRecordShow) {
+        showDialogFragment(ReadRecordEditDialog().apply {
+            arguments = android.os.Bundle().apply {
+                putString("bookName", item.bookName)
+                putString("author", item.author)
             }
         })
     }
 
-    private fun initData(searchKey: String? = searchView.query?.toString()) {
-        dataJob?.cancel()
-        dataJob = lifecycleScope.launch {
-            val (allRecords, readRecords, books) = withContext(IO) {
-                val bookshelf = appDb.bookDao.all.sortedBy { it.durChapterTime }
-                    .associateBy { it.name to it.author }
-                val all = appDb.readRecordDao.allShow
-                val filtered = if (searchKey.isNullOrBlank()) all
-                    else appDb.readRecordDao.search(searchKey)
-                val sorted = filtered.let { records ->
-                    when (sortMode) {
-                        1 -> records.sortedByDescending { it.readTime }
-                        2 -> records.sortedByDescending { it.lastRead }
-                        else -> records.sortedWith { o1, o2 ->
-                            o1.bookName.cnCompare(o2.bookName).takeIf { it != 0 }
-                                ?: o1.displayAuthor.cnCompare(o2.displayAuthor)
-                        }
-                    }
-                }
-                Triple(all, sorted, bookshelf)
-            }
-            booksByIdentity = books
-            val simple = AppConfig.readRecordSimpleLayout
-            binding.compactSummary.isVisible = simple
-            binding.enhancedSummary.root.isVisible = !simple
-            binding.tvReadingTime.text = formatDuring(
-                allRecords.sumOf { it.readTime }, AppConfig.readRecordUseDays, AppConfig.readRecordShowSeconds,
-            )
-            binding.tvEmpty.isVisible = readRecords.isEmpty()
-            bindSummary(allRecords)
-            adapter.setItems(readRecords)
-        }
-    }
-
-    internal fun onRecordMetadataSaved() = initData()
-
-    private fun bindSummary(records: List<ReadRecordShow>) {
-        val count = records.size.toString()
-        val label = getString(R.string.read_record_book_count, records.size)
-        binding.enhancedSummary.tvBookCount.text = SpannableString(label).apply {
-            val start = label.indexOf(count)
-            if (start >= 0) {
-                setSpan(ForegroundColorSpan(accentColor), start, start + count.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                setSpan(RelativeSizeSpan(1.4f), start, start + count.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-        }
-        binding.enhancedSummary.tvTotalDuration.text = getString(
-            R.string.read_record_total_duration,
-            formatDuring(records.sumOf { it.readTime }, AppConfig.readRecordUseDays, AppConfig.readRecordShowSeconds),
-        )
-        val top = records.sortedByDescending { it.readTime }.take(3)
-        with(binding.enhancedSummary) {
-            listOf(coverFirst, coverSecond, coverThird).forEachIndexed { index, image ->
-                val record = top.getOrNull(index)
-                image.isVisible = record != null
-                if (record != null && !AppConfig.readRecordSimpleLayout) loadCover(image, record)
-            }
-        }
-    }
-
-    private fun loadCover(image: ImageView, record: ReadRecordShow) {
-        val placeholder = getCompatDrawable(R.drawable.read_record_cover_placeholder)
-        val fallback = getPrefString(if (AppConfig.isNightTheme) PreferKey.readRecordCoverDark else PreferKey.readRecordCover)
-        val fallbackRequest = ImageLoader.load(this, fallback)
-            .error(placeholder)
-            .transform(CenterCrop(), RoundedCorners(4.dpToPx()))
-        val book = booksByIdentity[record.bookName to record.author]
-        val cover = book?.getDisplayCover()?.takeIf { it.isNotBlank() } ?: record.coverUrl
-        var options = RequestOptions().set(
-            OkHttpModelLoader.loadOnlyWifiOption, AppConfig.loadCoverOnlyWifi,
-        )
-        book?.getCoverSourceOrigin()?.let {
-            options = options.set(OkHttpModelLoader.sourceOriginOption, it)
-        }
-        image.contentDescription = record.bookName
-        ImageLoader.load(this, cover)
-            .apply(options)
-            .placeholder(placeholder)
-            .error(ImageLoader.load(this, record.coverUrl)
-                .apply(options)
-                .error(fallbackRequest)
-                .transform(CenterCrop(), RoundedCorners(4.dpToPx())))
-            .transform(CenterCrop(), RoundedCorners(4.dpToPx()))
-            .into(image)
-    }
-
-    private fun clearRecords() {
-        alert(R.string.delete, R.string.sure_del) {
+    private fun confirmDelete(item: ReadRecordShow) {
+        alert(R.string.delete) {
+            val author = item.displayAuthor.ifBlank { getString(R.string.read_record_no_author) }
+            setMessage(getString(R.string.sure_del_any, "${item.bookName} · $author"))
             yesButton {
                 lifecycleScope.launch {
-                    withContext(IO) {
-                        appDb.readRecordDao.clear()
+                    withContext(Dispatchers.IO) {
+                        appDb.readRecordDao.deleteByBook(item.bookName, item.author)
                         ReadRecordCoverCache.prune()
                     }
-                    initData()
+                    loadRecords()
+                }
+            }
+            noButton()
+            if (item.hasCombinedAuthors && ReadRecordAuthors.decode(item.author).size > 1) {
+                neutralButton(R.string.read_record_remove_author) { removeAuthor(item) }
+            }
+        }
+    }
+
+    private fun removeAuthor(item: ReadRecordShow) {
+        val authors = ReadRecordAuthors.decode(item.author).toList()
+        alert(R.string.read_record_remove_author) {
+            items(authors) { _, index ->
+                val removed = authors[index]
+                alert(R.string.read_record_remove_author) {
+                    setMessage(getString(R.string.read_record_remove_author_confirm, removed))
+                    yesButton {
+                        lifecycleScope.launch {
+                            withContext(Dispatchers.IO) {
+                                appDb.readRecordDao.removeLegacyAuthor(item.bookName, item.author, removed)
+                                ReadRecordCoverCache.prune()
+                            }
+                            loadRecords()
+                        }
+                    }
+                    noButton()
                 }
             }
             noButton()
         }
     }
 
-    inner class RecordAdapter(context: Context) :
-        RecyclerAdapter<ReadRecordShow, ItemReadRecordDisplayBinding>(context) {
-
-        private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-
-        override fun getViewBinding(parent: ViewGroup): ItemReadRecordDisplayBinding {
-            return ItemReadRecordDisplayBinding.inflate(inflater, parent, false)
-        }
-
-        override fun convert(
-            holder: ItemViewHolder,
-            binding: ItemReadRecordDisplayBinding,
-            item: ReadRecordShow,
-            payloads: MutableList<Any>,
-        ) {
-            val author = if (item.hasCombinedAuthors) {
-                getString(R.string.read_record_legacy_authors, item.displayAuthor)
-            } else {
-                item.displayAuthor.ifBlank { getString(R.string.read_record_no_author) }
-            }
-            binding.compact.root.isVisible = AppConfig.readRecordSimpleLayout
-            binding.enhanced.root.isVisible = !AppConfig.readRecordSimpleLayout
-            binding.compact.apply {
-                tvBookName.text = item.bookName
-                tvAuthor.isVisible = true
-                tvAuthor.text = context.getString(R.string.author_show, author)
-                tvReadingTime.text = formatDuring(item.readTime, AppConfig.readRecordUseDays, AppConfig.readRecordShowSeconds)
-                if (item.lastRead > 0) {
-                    tvLastReadTime.text = dateFormat.format(item.lastRead)
-                } else {
-                    tvLastReadTime.text = ""
-                }
-            }
-            if (!AppConfig.readRecordSimpleLayout) {
-                binding.enhanced.apply {
-                    tvBookName.text = item.bookName
-                    tvAuthor.text = author
-                    tvChapter.text = booksByIdentity[item.bookName to item.author]?.durChapterTitle
-                        ?.takeIf { it.isNotBlank() }
-                        ?: item.lastChapterTitle?.takeIf { it.isNotBlank() }
-                        ?: getString(R.string.read_record_no_chapter)
-                    tvReadingTime.text = formatDuring(item.readTime, AppConfig.readRecordUseDays, AppConfig.readRecordShowSeconds)
-                    tvLastReadTime.text = if (item.lastRead > 0) dateFormat.format(item.lastRead) else ""
-                    loadCover(ivCover, item)
-                }
-            }
-        }
-
-        override fun registerListener(holder: ItemViewHolder, binding: ItemReadRecordDisplayBinding) {
-            binding.apply {
-                root.setOnLongClickListener {
-                    val item = getItemByLayoutPosition(holder.layoutPosition) ?: return@setOnLongClickListener false
-                    showDialogFragment(ReadRecordEditDialog().apply {
-                        arguments = bundleOf("bookName" to item.bookName, "author" to item.author)
-                    })
-                    true
-                }
-                root.setOnClickListener {
-                    val item = getItemByLayoutPosition(holder.layoutPosition) ?: return@setOnClickListener
-                    lifecycleScope.launch {
-                        val book = withContext(IO) {
-                            appDb.bookDao.findByName(item.bookName)
-                                .filter { it.author == item.author }
-                                .maxByOrNull { it.durChapterTime }
-                        }
-                        if (book == null) {
-                            InkSearchActivity.start(this@ReadRecordActivity, item.bookName)
-                        } else {
-                            startActivityForBook(book)
-                        }
+    private fun clearRecords() {
+        alert(R.string.delete, R.string.sure_del) {
+            yesButton {
+                lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        appDb.readRecordDao.clear()
+                        ReadRecordCoverCache.prune()
                     }
-                }
-                compact.tvRemove.setOnClickListener {
-                    getItemByLayoutPosition(holder.layoutPosition)?.let { item ->
-                        sureDelAlert(item)
-                    }
-                }
-                enhanced.ivRemove.setOnClickListener {
-                    getItemByLayoutPosition(holder.layoutPosition)?.let { item ->
-                        sureDelAlert(item)
-                    }
+                    loadRecords()
                 }
             }
+            noButton()
         }
-
-        private fun sureDelAlert(item: ReadRecordShow) {
-            alert(R.string.delete) {
-                val author = item.displayAuthor.ifBlank { getString(R.string.read_record_no_author) }
-                setMessage(getString(R.string.sure_del_any, "${item.bookName} · $author"))
-                yesButton {
-                    lifecycleScope.launch {
-                        withContext(IO) {
-                            appDb.readRecordDao.deleteByBook(item.bookName, item.author)
-                            ReadRecordCoverCache.prune()
-                        }
-                        initData()
-                    }
-                }
-                noButton()
-                if (item.hasCombinedAuthors && ReadRecordAuthors.decode(item.author).size > 1) {
-                    neutralButton(R.string.read_record_remove_author) { removeAuthorAlert(item) }
-                }
-            }
-        }
-
-        private fun removeAuthorAlert(item: ReadRecordShow) {
-            val authors = ReadRecordAuthors.decode(item.author).toList()
-            alert(R.string.read_record_remove_author) {
-                items(authors) { _, index ->
-                    val removedAuthor = authors[index]
-                    alert(R.string.read_record_remove_author) {
-                        setMessage(getString(R.string.read_record_remove_author_confirm, removedAuthor))
-                        yesButton {
-                            lifecycleScope.launch {
-                                withContext(IO) {
-                                    appDb.readRecordDao.removeLegacyAuthor(item.bookName, item.author, removedAuthor)
-                                    ReadRecordCoverCache.prune()
-                                }
-                                initData()
-                            }
-                        }
-                        noButton()
-                    }
-                }
-                noButton()
-            }
-        }
-
     }
-
 }
+
+@Composable
+private fun RecordScreen(
+    activity: ReadRecordActivity,
+    searchKey: String,
+    onSearch: (String) -> Unit,
+    sortMode: Int,
+    onSortMode: (Int) -> Unit,
+    records: List<ReadRecordShow>,
+    allRecords: List<ReadRecordShow>,
+    booksByIdentity: Map<Pair<String, String>, Book>,
+    onOpen: (ReadRecordShow) -> Unit,
+    onEdit: (ReadRecordShow) -> Unit,
+    onDelete: (ReadRecordShow) -> Unit,
+    onClearAll: () -> Unit,
+) {
+    val context = LocalContext.current
+    val useDays = AppConfig.readRecordUseDays
+    val showSeconds = AppConfig.readRecordShowSeconds
+    val simple = AppConfig.readRecordSimpleLayout
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val totalDuration = formatDuring(allRecords.sumOf { it.readTime }, useDays, showSeconds)
+
+    Column(Modifier.fillMaxSize().background(ComponentTokens.bgPage)) {
+        // 顶栏：返回 + 标题 + 搜索
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            InkButton(context.getString(R.string.back), variant = InkButtonVariant.GHOST) { activity.finish() }
+            Spacer(Modifier.width(8.dp))
+            BasicTextField(
+                value = searchKey,
+                onValueChange = onSearch,
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                textStyle = TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
+                decorationBox = { inner ->
+                    Box(Modifier.padding(8.dp)) {
+                        if (searchKey.isEmpty()) {
+                            androidx.compose.foundation.text.BasicText(
+                                text = context.getString(R.string.search),
+                                style = TextStyle(color = ComponentTokens.textTertiary, fontSize = 14.sp14()),
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+        }
+
+        // 汇总卡
+        Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+            androidx.compose.foundation.text.BasicText(
+                text = context.getString(R.string.read_record_book_count, allRecords.size),
+                style = TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
+            )
+            androidx.compose.foundation.text.BasicText(
+                text = context.getString(R.string.read_record_total_duration, totalDuration),
+                style = TextStyle(color = ComponentTokens.textSecondary, fontSize = 13.sp13()),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                SortChip(context.getString(R.string.sort_by_name), sortMode == 0) { onSortMode(0) }
+                SortChip(context.getString(R.string.reading_time_sort), sortMode == 1) { onSortMode(1) }
+                SortChip(context.getString(R.string.last_read_time_sort), sortMode == 2) { onSortMode(2) }
+                InkButton(context.getString(R.string.delete), variant = InkButtonVariant.GHOST, onClick = onClearAll)
+            }
+        }
+
+        LazyColumn(Modifier.padding(top = 12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+            items(records) { item ->
+                RecordRow(
+                    record = item,
+                    simple = simple,
+                    useDays = useDays,
+                    showSeconds = showSeconds,
+                    chapter = booksByIdentity[item.bookName to item.author]?.durChapterTitle,
+                    dateFormat = dateFormat,
+                    onOpen = { onOpen(item) },
+                    onEdit = { onEdit(item) },
+                    onDelete = { onDelete(item) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SortChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    InkButton(label, variant = if (selected) InkButtonVariant.PRIMARY else InkButtonVariant.GHOST, onClick = onClick)
+}
+
+@Composable
+private fun RecordRow(
+    record: ReadRecordShow,
+    simple: Boolean,
+    useDays: Boolean,
+    showSeconds: Boolean,
+    chapter: String?,
+    dateFormat: SimpleDateFormat,
+    onOpen: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val context = LocalContext.current
+    val author = if (record.hasCombinedAuthors) {
+        context.getString(R.string.read_record_legacy_authors, record.displayAuthor)
+    } else {
+        record.displayAuthor.ifBlank { context.getString(R.string.read_record_no_author) }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp).clickable { onOpen() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (!simple) {
+            CoverThumb(record.coverUrl)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            androidx.compose.foundation.text.BasicText(
+                text = record.bookName,
+                style = TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
+            )
+            androidx.compose.foundation.text.BasicText(
+                text = context.getString(R.string.author_show, author),
+                style = TextStyle(color = ComponentTokens.textSecondary, fontSize = 13.sp13()),
+            )
+            if (!simple) {
+                androidx.compose.foundation.text.BasicText(
+                    text = chapter?.takeIf { it.isNotBlank() } ?: record.lastChapterTitle
+                        ?: context.getString(R.string.read_record_no_chapter),
+                    style = TextStyle(color = ComponentTokens.textTertiary, fontSize = 12.sp12()),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                androidx.compose.foundation.text.BasicText(
+                    text = formatDuring(record.readTime, useDays, showSeconds),
+                    style = TextStyle(color = ComponentTokens.textAccent, fontSize = 12.sp12()),
+                )
+                if (record.lastRead > 0) {
+                    androidx.compose.foundation.text.BasicText(
+                        text = dateFormat.format(record.lastRead),
+                        style = TextStyle(color = ComponentTokens.textTertiary, fontSize = 12.sp12()),
+                    )
+                }
+            }
+        }
+        InkButton(context.getString(R.string.delete), variant = InkButtonVariant.GHOST, onClick = onDelete)
+    }
+}
+
+@Composable
+private fun CoverThumb(coverUrl: String?) {
+    val context = LocalContext.current
+    AndroidView(
+        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),
+        factory = { ImageView(it) },
+        update = { image ->
+            ImageLoader.load(context, coverUrl).into(image)
+        },
+    )
+}
+
+private fun Int.sp15() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp14() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp13() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp12() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)

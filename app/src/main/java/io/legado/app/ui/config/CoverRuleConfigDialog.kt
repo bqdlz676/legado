@@ -1,68 +1,107 @@
 package io.legado.app.ui.config
 
 import android.os.Bundle
-import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.lifecycle.lifecycleScope
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.fragment.app.DialogFragment
 import io.legado.app.R
-import io.legado.app.base.BaseDialogFragment
-import io.legado.app.databinding.DialogCoverRuleConfigBinding
-import io.legado.app.lib.theme.primaryColor
 import io.legado.app.model.BookCover
-import io.legado.app.utils.GSON
-import io.legado.app.utils.setLayout
+import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.InkButtonVariant
+import io.legado.app.ui.config.settings.InkSwitch
 import io.legado.app.utils.toastOnUi
-import io.legado.app.utils.viewbindingdelegate.viewBinding
-import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import splitties.views.onClick
 
-class CoverRuleConfigDialog : BaseDialogFragment(R.layout.dialog_cover_rule_config) {
+/**
+ * 封面规则配置弹窗（新写 Compose 宿主，保留类名供封面分区调用）。
+ *
+ * 规则读写复用 [BookCover.getCoverRule] / [BookCover.saveCoverRule] / [BookCover.delCoverRule]。
+ */
+class CoverRuleConfigDialog : DialogFragment() {
 
-    val binding by viewBinding(DialogCoverRuleConfigBinding::bind)
-
-    override fun onStart() {
-        super.onStart()
-        setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View = ComposeView(requireContext()).apply {
+        setContent { CoverRuleDialog(onDismiss = { dismissAllowingStateLoss() }) }
     }
 
-    override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        binding.toolBar.setBackgroundColor(primaryColor)
-        initData()
-        binding.tvCancel.onClick {
-            dismissAllowingStateLoss()
-        }
-        binding.tvOk.onClick {
-            val enable = binding.cbEnable.isChecked
-            val searchUrl = binding.editSearchUrl.text?.toString()
-            val coverRule = binding.editCoverUrlRule.text?.toString()
-            if (searchUrl.isNullOrBlank() || coverRule.isNullOrBlank()) {
-                toastOnUi("搜索url和cover规则不能为空")
-            } else {
-                BookCover.CoverRule(enable, searchUrl, coverRule).let { config ->
-                    BookCover.saveCoverRule(config)
+    @Composable
+    private fun CoverRuleDialog(onDismiss: () -> Unit) {
+        val context = LocalContext.current
+        val initial = remember { runCatching { BookCover.getCoverRule() }.getOrNull() }
+        var enable by remember { mutableStateOf(initial?.enable ?: true) }
+        var searchUrl by remember { mutableStateOf(initial?.searchUrl.orEmpty()) }
+        var coverRule by remember { mutableStateOf(initial?.coverRule.orEmpty()) }
+
+        Column(
+            Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.foundation.text.BasicText(
+                    text = stringRes(R.string.enable),
+                    modifier = Modifier.weight(1f),
+                    style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
+                )
+                InkSwitch(checked = enable, enabled = true) { enable = it }
+            }
+            FormField(stringRes(R.string.r_search_url), searchUrl) { searchUrl = it }
+            FormField(stringRes(R.string.rule_cover_url), coverRule) { coverRule = it }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                InkButton(stringRes(R.string.btn_default_s), variant = InkButtonVariant.GHOST, modifier = Modifier.weight(1f)) {
+                    BookCover.delCoverRule()
+                    onDismiss()
                 }
-                dismissAllowingStateLoss()
+                InkButton(stringRes(R.string.cancel), variant = InkButtonVariant.SECONDARY, modifier = Modifier.weight(1f), onClick = onDismiss)
+                InkButton(stringRes(R.string.ok), modifier = Modifier.weight(1f)) {
+                    if (searchUrl.isBlank() || coverRule.isBlank()) {
+                        context.toastOnUi("搜索url和cover规则不能为空")
+                    } else {
+                        BookCover.saveCoverRule(BookCover.CoverRule(enable, searchUrl, coverRule))
+                        onDismiss()
+                    }
+                }
             }
-        }
-        binding.tvFooterLeft.onClick {
-            BookCover.delCoverRule()
-            dismissAllowingStateLoss()
         }
     }
 
-    private fun initData() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val rule = withContext(IO) {
-                BookCover.getCoverRule()
-            }
-            Log.e("coverRule", GSON.toJson(rule))
-            binding.cbEnable.isChecked = rule.enable
-            binding.editSearchUrl.setText(rule.searchUrl)
-            binding.editCoverUrlRule.setText(rule.coverRule)
+    @Composable
+    private fun FormField(label: String, value: String, onChange: (String) -> Unit) {
+        Column {
+            androidx.compose.foundation.text.BasicText(
+                text = label,
+                style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textSecondary, fontSize = 13.sp13()),
+            )
+            BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
+            )
         }
     }
 
+    @Composable
+    private fun stringRes(id: Int): String = androidx.compose.ui.res.stringResource(id)
+    private fun Int.sp15() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+    private fun Int.sp13() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
 }

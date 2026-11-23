@@ -1,151 +1,139 @@
 package io.legado.app.ui.config
 
+import android.content.Intent
 import android.os.Bundle
-import android.view.Menu
+import android.net.Uri
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.appcompat.widget.SearchView
-import androidx.fragment.app.Fragment
-import androidx.preference.Preference
-import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.PreferenceGroup
-import io.legado.app.ui.main.my.MyFragment.MyPreferenceFragment
+import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.DialogFragment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import io.legado.app.R
-import io.legado.app.base.VMBaseActivity
-import io.legado.app.constant.EventBus
-import io.legado.app.databinding.ActivityConfigBinding
-import io.legado.app.lib.dialogs.selector
-import io.legado.app.utils.observeEvent
+import io.legado.app.ui.config.sections.BackupSection
+import io.legado.app.ui.config.sections.CoverFontSection
+import io.legado.app.ui.config.sections.CoverSection
+import io.legado.app.ui.config.sections.OtherSection
+import io.legado.app.ui.config.sections.ThemeSection
+import io.legado.app.ui.config.sections.WelcomeSection
+import io.legado.app.ui.config.settings.ListPickSheet
+import io.legado.app.ui.config.settings.SectionActions
+import io.legado.app.ui.config.settings.SettingScaffold
+import io.legado.app.ui.file.HandleFileContract
+import io.legado.app.ui.qrcode.QrCodeResult
+import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.toastOnUi
-import io.legado.app.utils.viewbindingdelegate.viewBinding
 
-class ConfigActivity : VMBaseActivity<ActivityConfigBinding, ConfigViewModel>() {
+/**
+ * 设置壳（新写 Compose 宿主，不再承载 Fragment / Binding / Preference 树）。
+ *
+ * 按 extra `configTag` 路由到对应分区 Composable；文件 / 图片 / 二维码选择契约在本 Activity
+ * 注册，分区只通过 [SectionActions] 发动作。旧版的偏好搜索索引随 Preference 树一并移除。
+ */
+class ConfigActivity : AppCompatActivity() {
 
-    override val binding by viewBinding(ActivityConfigBinding::inflate)
-    override val viewModel by viewModels<ConfigViewModel>()
+    private val viewModel by viewModels<ConfigViewModel>()
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        when (val configTag = intent.getStringExtra("configTag")) {
-            ConfigTag.MY_MORE -> replaceFragment<MyPreferenceFragment>(configTag)
-            ConfigTag.OTHER_CONFIG -> replaceFragment<OtherConfigFragment>(configTag)
-            ConfigTag.THEME_CONFIG -> replaceFragment<ThemeConfigFragment>(configTag)
-            ConfigTag.BACKUP_CONFIG -> replaceFragment<BackupConfigFragment>(configTag)
-            ConfigTag.COVER_CONFIG -> replaceFragment<CoverConfigFragment>(configTag)
-            ConfigTag.COVER_FONT_CONFIG -> replaceFragment<CoverFontConfigFragment>(configTag)
-            ConfigTag.WELCOME_CONFIG -> replaceFragment<WelcomeConfigFragment>(configTag)
-            else -> finish()
-        }
+    /** 启动图标选择弹层状态（跨动作回调与 Compose 状态桥接）。 */
+    private var iconPickerState by mutableStateOf<IconPickerState?>(null)
+
+    private var folderResult: ((String?) -> Unit)? = null
+    private var imageResult: ((Uri?) -> Unit)? = null
+    private var fileResult: ((Uri?) -> Unit)? = null
+    private var qrResult: ((String?) -> Unit)? = null
+
+    private val folderContract = registerForActivityResult(HandleFileContract()) { result ->
+        folderResult?.invoke(result.uri?.toString())
+    }
+    private val imageContract = registerForActivityResult(HandleFileContract()) { result ->
+        imageResult?.invoke(result.uri)
+    }
+    private val fileContract = registerForActivityResult(HandleFileContract()) { result ->
+        fileResult?.invoke(result.uri)
+    }
+    private val qrContract = registerForActivityResult(QrCodeResult()) { qr ->
+        qrResult?.invoke(qr)
     }
 
-    override fun setTitle(resId: Int) {
-        super.setTitle(resId)
-        binding.titleBar.setTitle(resId)
-    }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-    override fun onCompatCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.search_view, menu)
-        (menu.findItem(R.id.menu_search).actionView as SearchView).apply {
-            queryHint = getString(R.string.search)
-            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-                override fun onQueryTextSubmit(query: String?): Boolean {
-                    showPreferenceSearchResults(query.orEmpty(), this@apply)
-                    return true
+        val actions = SectionActions(
+            vm = viewModel,
+            pickFolder = { cb -> folderResult = cb; folderContract.launch { mode = HandleFileContract.DIR_SYS } },
+            pickImage = { cb -> imageResult = cb; imageContract.launch { mode = HandleFileContract.IMAGE } },
+            pickFile = { extensions, cb ->
+                fileResult = cb
+                fileContract.launch {
+                    mode = HandleFileContract.FILE
+                    allowExtensions = extensions ?: arrayOf("zip")
                 }
+            },
+            openIntent = { startActivity(it) },
+            openConfig = { tag ->
+                startActivity(Intent(this, ConfigActivity::class.java).putExtra("configTag", tag))
+            },
+            showIconPicker = { entries, values, current, onPick ->
+                iconPickerState = IconPickerState(entries, values, current, onPick)
+            },
+            showDialog = { clazz -> showConfigDialog(clazz) },
+            showVideoSettings = {
+                showDialogFragment(io.legado.app.ui.video.config.SettingsDialog(this))
+            },
+            toast = { toastOnUi(it) },
+            scanQr = { cb -> qrResult = cb; qrContract.launch(null) },
+        )
 
-                override fun onQueryTextChange(newText: String?): Boolean = false
-            })
-        }
-        return super.onCompatCreateOptionsMenu(menu)
-    }
+        setContent {
+            val tag = intent.getStringExtra("configTag") ?: ConfigTag.OTHER_CONFIG
 
-    inline fun <reified T : Fragment> replaceFragment(configTag: String) {
-        intent.putExtra("configTag", configTag)
-        @Suppress("DEPRECATION")
-        val configFragment = supportFragmentManager.findFragmentByTag(configTag)
-            ?: T::class.java.newInstance()
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.configFrameLayout, configFragment, configTag)
-            .commit()
-    }
-
-    override fun observeLiveBus() {
-        super.observeLiveBus()
-        observeEvent<String>(EventBus.RECREATE) {
-            recreate()
-        }
-    }
-
-    private fun showPreferenceSearchResults(query: String, searchView: SearchView) {
-        val normalizedQuery = query.trim()
-        if (normalizedQuery.isEmpty()) return
-        val fragment = supportFragmentManager.findFragmentById(R.id.configFrameLayout)
-            as? PreferenceFragmentCompat ?: return
-        val results = findPreferenceSearchResults(fragment.preferenceScreen, normalizedQuery)
-        if (results.isEmpty()) {
-            toastOnUi(R.string.config_search_empty)
-            return
-        }
-        selector(R.string.search, results) { _, result, _ ->
-            searchView.setQuery("", false)
-            searchView.clearFocus()
-            searchView.isIconified = true
-            fragment.scrollToPreference(result.preference)
-        }
-    }
-
-    private fun findPreferenceSearchResults(
-        group: PreferenceGroup,
-        query: String,
-        categories: List<CharSequence> = emptyList(),
-    ): List<PreferenceSearchResult> {
-        val results = mutableListOf<PreferenceSearchResult>()
-        repeat(group.preferenceCount) { index ->
-            val preference = group.getPreference(index)
-            if (!preference.isVisible) return@repeat
-            if (preference is PreferenceGroup) {
-                val childCategories = preference.title
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { categories + it }
-                    ?: categories
-                results += findPreferenceSearchResults(preference, query, childCategories)
-                return@repeat
+            val titleRes = when (tag) {
+                ConfigTag.THEME_CONFIG -> R.string.theme_setting
+                ConfigTag.BACKUP_CONFIG -> R.string.backup_restore
+                ConfigTag.COVER_CONFIG -> R.string.cover_config
+                ConfigTag.COVER_FONT_CONFIG -> R.string.cover_font_config
+                ConfigTag.WELCOME_CONFIG -> R.string.welcome_style
+                else -> R.string.other_setting
             }
-            val matches = configPreferenceMatches(
-                query,
-                preference.title,
-                preference.summary,
-                categories,
-            )
-            if (!matches) {
-                return@repeat
+
+            SettingScaffold(title = getString(titleRes), onBack = { finish() }) {
+                when (tag) {
+                    ConfigTag.THEME_CONFIG -> ThemeSection(actions)
+                    ConfigTag.BACKUP_CONFIG -> BackupSection(actions)
+                    ConfigTag.COVER_CONFIG -> CoverSection(actions)
+                    ConfigTag.COVER_FONT_CONFIG -> CoverFontSection(actions)
+                    ConfigTag.WELCOME_CONFIG -> WelcomeSection(actions)
+                    else -> OtherSection(actions)
+                }
             }
-            val title = preference.title?.takeIf { it.isNotBlank() }
-                ?: preference.summary?.takeIf { it.isNotBlank() }
-                ?: return@repeat
-            results += PreferenceSearchResult(
-                label = (categories + title).joinToString(" > "),
-                preference = preference,
-            )
+
+            iconPickerState?.let { picker ->
+                ListPickSheet(
+                    visible = true,
+                    title = getString(R.string.change_icon),
+                    entries = picker.entries,
+                    values = picker.values,
+                    current = picker.current,
+                    onPick = picker.onPick,
+                    onDismiss = { iconPickerState = null },
+                )
+            }
         }
-        return results
     }
 
-    private data class PreferenceSearchResult(
-        val label: String,
-        val preference: Preference,
-    ) {
-        override fun toString(): String = label
+    private data class IconPickerState(
+        val entries: List<String>,
+        val values: List<String>,
+        val current: String,
+        val onPick: (String) -> Unit,
+    )
+
+    @Suppress("DEPRECATION")
+    private fun showConfigDialog(clazz: Class<*>) {
+        val dialog = clazz.newInstance() as? DialogFragment ?: return
+        dialog.show(supportFragmentManager, clazz.simpleName)
     }
-
-}
-
-internal fun configPreferenceMatches(
-    query: String,
-    title: CharSequence?,
-    summary: CharSequence?,
-    categories: List<CharSequence>,
-): Boolean {
-    if (query.isBlank()) return false
-    return title?.contains(query, ignoreCase = true) == true ||
-            summary?.contains(query, ignoreCase = true) == true ||
-            categories.any { it.contains(query, ignoreCase = true) }
 }

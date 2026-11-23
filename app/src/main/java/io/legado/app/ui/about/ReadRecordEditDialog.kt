@@ -1,10 +1,24 @@
 package io.legado.app.ui.about
 
-import android.app.Dialog
-import android.content.DialogInterface
 import android.os.Bundle
-import androidx.appcompat.app.AlertDialog
-import androidx.core.view.isVisible
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.MutableLiveData
@@ -13,61 +27,118 @@ import androidx.lifecycle.viewModelScope
 import io.legado.app.R
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.ReadRecordAuthors
-import io.legado.app.databinding.DialogMultipleEditTextBinding
+import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.InkButtonVariant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * 阅读记录元信息编辑弹窗（新写 Compose 宿主，类名保留供长按行调用）。
+ *
+ * 重命名 / 改作者走 [ReadRecordEditModel] → `readRecordDao.renameBook`；旧 Binding 已移除。
+ */
 class ReadRecordEditDialog : DialogFragment() {
+
     private val model by viewModels<ReadRecordEditModel>()
-    private lateinit var binding: DialogMultipleEditTextBinding
     private val oldName get() = requireArguments().getString("bookName").orEmpty()
     private val oldAuthor get() = requireArguments().getString("author").orEmpty()
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        binding = DialogMultipleEditTextBinding.inflate(layoutInflater).apply {
-            layout1.hint = getString(R.string.book_name)
-            layout2.hint = getString(R.string.author)
-            layout2.isVisible = true
-            edit1.setText(savedInstanceState?.getString("name") ?: oldName)
-            edit2.setText(savedInstanceState?.getString("author") ?: ReadRecordAuthors.display(oldAuthor))
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View = ComposeView(requireContext()).apply {
+        setContent {
+            EditRecordDialog(
+                initialName = savedInstanceState?.getString("name") ?: oldName,
+                initialAuthor = savedInstanceState?.getString("author") ?: ReadRecordAuthors.display(oldAuthor),
+                saving = model.saving.value == true,
+                error = model.error.value,
+                onSave = { name, author ->
+                    model.save(oldName, oldAuthor, name,
+                        if (author == ReadRecordAuthors.display(oldAuthor)) oldAuthor else author)
+                },
+                onDismiss = { dismissAllowingStateLoss() },
+            )
         }
-        model.saved.observe(this) {
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        model.saved.observe(viewLifecycleOwner) {
             if (it) {
                 (activity as? ReadRecordActivity)?.onRecordMetadataSaved()
-                dismiss()
+                dismissAllowingStateLoss()
             }
         }
-        model.error.observe(this) { binding.layout1.error = it }
-        return AlertDialog.Builder(requireContext()).setTitle(R.string.read_record_edit)
-            .setMessage(R.string.read_record_edit_summary).setView(binding.root)
-            .setPositiveButton(R.string.action_save, null).setNegativeButton(R.string.cancel, null).create()
+        model.error.observe(viewLifecycleOwner) { /* 错误文本在表单内展示 */ }
     }
+}
 
-    override fun onStart() {
-        super.onStart()
-        val button = (requireDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE)
-        model.saving.observe(this) {
-            button.isEnabled = !it
-            (requireDialog() as AlertDialog).getButton(DialogInterface.BUTTON_NEGATIVE).isEnabled = !it
-            isCancelable = !it
+@Composable
+private fun EditRecordDialog(
+    initialName: String,
+    initialAuthor: String,
+    saving: Boolean,
+    error: String?,
+    onSave: (String, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    var name by remember { mutableStateOf(initialName) }
+    var author by remember { mutableStateOf(initialAuthor) }
+    var fieldError by remember { mutableStateOf<String?>(error) }
+
+    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        androidx.compose.foundation.text.BasicText(
+            text = context.getString(R.string.read_record_edit),
+            style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 18.sp18()),
+        )
+        androidx.compose.foundation.text.BasicText(
+            text = context.getString(R.string.read_record_edit_summary),
+            style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textSecondary, fontSize = 13.sp13()),
+        )
+        FormField(context.getString(R.string.book_name), name, fieldError) {
+            name = it; fieldError = null
         }
-        button.setOnClickListener {
-            val name = binding.edit1.text?.toString().orEmpty().trim()
-            val author = binding.edit2.text?.toString().orEmpty().trim()
-            if (name.isEmpty()) {
-                binding.layout1.error = getString(R.string.no_book_name)
-            } else {
-                model.save(oldName, oldAuthor, name,
-                    if (author == ReadRecordAuthors.display(oldAuthor)) oldAuthor else author)
+        FormField(context.getString(R.string.author), author, null) { author = it }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            InkButton(context.getString(R.string.cancel), variant = InkButtonVariant.SECONDARY, modifier = Modifier.weight(1f), enabled = !saving, onClick = onDismiss)
+            InkButton(context.getString(R.string.action_save), modifier = Modifier.weight(1f), enabled = !saving) {
+                val trimmedName = name.trim()
+                val trimmedAuthor = author.trim()
+                if (trimmedName.isEmpty()) {
+                    fieldError = context.getString(R.string.no_book_name)
+                } else {
+                    onSave(trimmedName, trimmedAuthor)
+                }
             }
         }
     }
+}
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        outState.putString("name", binding.edit1.text?.toString())
-        outState.putString("author", binding.edit2.text?.toString())
-        super.onSaveInstanceState(outState)
+@Composable
+private fun FormField(label: String, value: String, error: String?, onChange: (String) -> Unit) {
+    Column {
+        androidx.compose.foundation.text.BasicText(
+            text = label,
+            style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textSecondary, fontSize = 13.sp13()),
+        )
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 15.sp15()),
+        )
+        if (!error.isNullOrBlank()) {
+            androidx.compose.foundation.text.BasicText(
+                text = error,
+                style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.brandCopper, fontSize = 12.sp12()),
+            )
+        }
     }
 }
 
@@ -90,3 +161,8 @@ class ReadRecordEditModel : ViewModel() {
         }
     }
 }
+
+private fun Int.sp18() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp15() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp13() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp12() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)

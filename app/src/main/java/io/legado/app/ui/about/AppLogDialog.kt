@@ -1,146 +1,152 @@
 package io.legado.app.ui.about
 
-import android.content.Context
 import android.os.Bundle
-import android.view.MenuItem
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.appcompat.widget.Toolbar
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.Observer
 import io.legado.app.R
-import io.legado.app.base.BaseDialogFragment
-import io.legado.app.base.adapter.ItemViewHolder
-import io.legado.app.base.adapter.RecyclerAdapter
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.EventBus
-import io.legado.app.databinding.DialogRecyclerViewBinding
-import io.legado.app.databinding.ItemAppLogBinding
 import io.legado.app.help.http.HttpLogRecord
 import io.legado.app.help.http.HttpLogStore
 import io.legado.app.lib.dialogs.alert
-import io.legado.app.lib.theme.primaryColor
+import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.LogUtils
-import io.legado.app.utils.applyOpenTint
-import io.legado.app.utils.applyTint
-import io.legado.app.utils.installMd3OverflowMenu
-import io.legado.app.utils.observeEvent
-import io.legado.app.utils.setLayout
+import io.legado.app.utils.eventObservable
 import io.legado.app.utils.share
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.toastOnUi
-import io.legado.app.utils.viewbindingdelegate.viewBinding
-import splitties.views.onClick
 import java.io.File
-import java.util.*
+import java.util.Date
 
-class AppLogDialog : BaseDialogFragment(R.layout.dialog_recycler_view),
-    Toolbar.OnMenuItemClickListener {
+/**
+ * 应用日志弹窗（新写 Compose 宿主，类名保留供跨域 `showDialogFragment<AppLogDialog>()` 调用）。
+ *
+ * 日志读写复用 [AppLog] / [HttpLogStore]；行点击展开 HTTP 详情或异常堆栈；
+ * 顶栏支持清空、导出分享。旧内部 LogAdapter 已移除。
+ */
+class AppLogDialog : DialogFragment() {
 
     companion object {
         private const val MAX_SHARE_TEXT = 64_000
     }
 
-    private val binding by viewBinding(DialogRecyclerViewBinding::bind)
-    private val adapter by lazy {
-        LogAdapter(requireContext())
-    }
+    private var logs by mutableStateOf(AppLog.logs)
 
     override fun onStart() {
         super.onStart()
-        setLayout(0.9f, ViewGroup.LayoutParams.WRAP_CONTENT)
+        eventObservable<Boolean>(EventBus.APP_LOG_UPDATED)
+            .observe(this, Observer { logs = AppLog.logs })
     }
 
-    override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        binding.run {
-            toolBar.setBackgroundColor(primaryColor)
-            toolBar.setTitle(R.string.log)
-            toolBar.inflateMenu(R.menu.app_log)
-            toolBar.menu.applyTint(requireContext())
-            toolBar.installMd3OverflowMenu(
-                showIcons = true,
-                onOpenCustomMenu = { it.applyOpenTint(requireContext()) }
-            )
-            toolBar.setOnMenuItemClickListener(this@AppLogDialog)
-            recyclerView.layoutManager = LinearLayoutManager(requireContext())
-            recyclerView.adapter = adapter
-        }
-        adapter.setItems(AppLog.logs)
-        observeEvent<Boolean>(EventBus.APP_LOG_UPDATED) {
-            adapter.setItems(AppLog.logs)
-        }
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View = ComposeView(requireContext()).apply {
+        setContent { AppLogContent(logs = logs, onClear = ::confirmClear, onExport = ::exportLogs, onOpen = ::openEntry) }
     }
 
-    override fun onMenuItemClick(item: MenuItem?): Boolean {
-        when (item?.itemId) {
-            R.id.menu_clear -> alert(R.string.clear, R.string.clear_log_confirm) {
-                yesButton {
-                    AppLog.clear()
-                    HttpLogStore.clear()
-                    adapter.clearItems()
-                }
-                noButton()
+    private fun confirmClear() {
+        alert(R.string.clear, R.string.clear_log_confirm) {
+            yesButton {
+                AppLog.clear()
+                HttpLogStore.clear()
+                logs = AppLog.logs
             }
-
-            R.id.menu_export -> exportLogs()
+            noButton()
         }
-        return true
     }
 
     private fun exportLogs() {
-        val text = AppLog.exportText(AppLog.logs)
+        val text = AppLog.exportText(logs)
         if (text.isBlank()) {
-            toastOnUi(R.string.no_log)
-            return
+            toastOnUi(R.string.no_log); return
         }
         if (text.length <= MAX_SHARE_TEXT) {
-            requireContext().share(text, getString(R.string.log))
-            return
+            requireContext().share(text, getString(R.string.log)); return
         }
         runCatching {
             val file = File(requireContext().cacheDir, "applog.txt")
             file.writeText(text)
             requireContext().share(file, "text/plain")
-        }.onFailure {
-            toastOnUi(R.string.can_not_share)
-        }
+        }.onFailure { toastOnUi(R.string.can_not_share) }
     }
 
-    inner class LogAdapter(context: Context) :
-        RecyclerAdapter<Triple<Long, String, Throwable?>, ItemAppLogBinding>(context) {
-
-        override fun getViewBinding(parent: ViewGroup): ItemAppLogBinding {
-            return ItemAppLogBinding.inflate(inflater, parent, false)
+    private fun openEntry(item: Triple<Long, String, Throwable?>) {
+        val httpId = HttpLogRecord.parseId(item.second)
+        val httpRecord = httpId?.let(HttpLogStore::get)
+        when {
+            httpId != null -> showDialogFragment(TextDialog("HTTP", httpRecord?.detail ?: item.second))
+            else -> item.third?.let { showDialogFragment(TextDialog("Log", it.stackTraceToString())) }
         }
+    }
+}
 
-        override fun convert(
-            holder: ItemViewHolder,
-            binding: ItemAppLogBinding,
-            item: Triple<Long, String, Throwable?>,
-            payloads: MutableList<Any>
-        ) {
-            binding.textTime.text = LogUtils.logTimeFormat.format(Date(item.first))
-            binding.textMessage.text = item.second
+@Composable
+private fun AppLogContent(
+    logs: List<Triple<Long, String, Throwable?>>,
+    onClear: () -> Unit,
+    onExport: () -> Unit,
+    onOpen: (Triple<Long, String, Throwable?>) -> Unit,
+) {
+    val context = LocalContext.current
+    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            androidx.compose.foundation.text.BasicText(
+                text = context.getString(R.string.log),
+                style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 18.sp18()),
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            InkButton(context.getString(R.string.clear), variant = InkButtonVariant.GHOST, onClick = onClear)
+            InkButton(context.getString(R.string.share), variant = InkButtonVariant.GHOST, onClick = onExport)
         }
-
-        override fun registerListener(holder: ItemViewHolder, binding: ItemAppLogBinding) {
-            binding.root.onClick {
-                getItem(holder.layoutPosition)?.let { item ->
-                    val httpId = HttpLogRecord.parseId(item.second)
-                    val httpRecord = httpId?.let(HttpLogStore::get)
-                    when {
-                        httpId != null -> {
-                            showDialogFragment(TextDialog("HTTP", httpRecord?.detail ?: item.second))
-                        }
-
-                        else -> item.third?.let { throwable ->
-                            showDialogFragment(TextDialog("Log", throwable.stackTraceToString()))
-                        }
-                    }
+        LazyColumn(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(logs) { item ->
+                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.clickableRow { onOpen(item) }) {
+                    androidx.compose.foundation.text.BasicText(
+                        text = LogUtils.logTimeFormat.format(Date(item.first)),
+                        style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textTertiary, fontSize = 12.sp12()),
+                    )
+                    androidx.compose.foundation.text.BasicText(
+                        text = item.second,
+                        style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 14.sp14()),
+                    )
                 }
             }
         }
+    }
+}
 
+private fun Modifier.clickableRow(onClick: () -> Unit): Modifier =
+    this.then(Modifier).let { m ->
+        androidx.compose.foundation.clickable(m) { onClick() }
     }
 
-}
+private fun Int.sp18() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp14() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
+private fun Int.sp12() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
