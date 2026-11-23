@@ -3,28 +3,17 @@ package io.legado.app.ui.book.read.ink
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -32,16 +21,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -54,14 +40,14 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.legado.app.help.bubble.Action
 import io.legado.app.help.bubble.BubbleCandidate
 import io.legado.app.help.bubble.BubbleContent
 import io.legado.app.help.bubble.BubbleKind
+import io.legado.app.ui.components.HalfSheetFallback
+import io.legado.app.ui.components.HalfSheetMapper
+import io.legado.app.ui.components.InkHalfSheet
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 
 /**
  * 字 / 词 / 典故 / 人名 / 地名 / 年号 / 干支 / 朔望 统一气泡（切片-02 §3 各类型字段 +
@@ -312,154 +298,60 @@ private fun BubbleCard(
         }
     }
 
-    // 半屏详情 Sheet：纯覆盖层，不滚动正文；关闭后阅读位置 / 下划线状态一字不差。
-    InkBubbleDetailSheet(
-        content = content,
+    // 半屏详情 Sheet：复用统一 [InkHalfSheet]，按 kind 分派人物 / 字词两套固定顺序；
+    // 纯覆盖层，不滚动正文；关闭后阅读位置 / 下划线状态一字不差（切片-11 §5.4）。
+    val halfSheetModel = remember(content) { HalfSheetMapper.build(content) }
+    InkHalfSheet(
         visible = sheetOpen,
         onDismiss = { sheetOpen = false },
+        dialog = true,
+        title = content.headline.ifBlank { content.token },
+        source = content.source,
+        model = halfSheetModel,
+        onLinkSelected = { query ->
+            // 分区行点击：同名候选回传裸 query，交宿主按候选重查切换。
+            content.candidates.firstOrNull { it.query == query }
+                ?.let { onCandidateSelected(it) }
+        },
+        content = { BubbleRawDetail(content = content) },
     )
 }
 
 /**
- * 半屏详情 Sheet（切片-11 §5：纸白绢帛底 + 1px 金框 + 4dp 金杠拖拽器 + 茶色遮罩，
- * 高度 ≤ 60% 屏；弹起 250ms ease-out，遮罩 200ms，跟手下拉关闭）。
- *
- * 用 [Dialog] 开独立窗口：Sheet 是全屏覆盖层，不能被气泡自身的小尺寸父 Box 裁剪；
- * 正文滚动状态完全不受本层影响，关闭后宿主页码 / 偏移 / 下划线原样保留。
+ * 自定义内容槽：地名 / 纪年 / 干支 / 朔望 / 未识等不在 §5.2 / §5.3 两套固定顺序内的
+ * 气泡，原样展示拼音 + detail（缺省回退 body）；不另造分区模型，出处脚注由 [InkHalfSheet] 统一渲染。
  */
 @Composable
-private fun InkBubbleDetailSheet(
-    content: BubbleContent,
-    visible: Boolean,
-    onDismiss: () -> Unit,
-) {
-    val progress = remember { Animatable(if (visible) 1f else 0f) }
-    val maskAlpha = remember { Animatable(if (visible) 1f else 0f) }
-    val scope = rememberCoroutineScope()
-    var dragOffsetPx by remember { mutableStateOf(0f) }
-
-    LaunchedEffect(visible) {
-        if (visible) {
-            // Sheet 弹起 250ms ease-out；遮罩 200ms 淡入（切片-03 时长 / 缓动表）。
-            progress.animateTo(1f, tween(InkTokens.DURATION_SHEET, easing = InkTokens.cardEnterEasing))
-            maskAlpha.animateTo(1f, tween(InkTokens.DURATION_MASK, easing = InkTokens.maskEasing))
-        } else {
-            maskAlpha.animateTo(0f, tween(InkTokens.DURATION_MASK, easing = InkTokens.maskEasing))
-            progress.animateTo(0f, tween(InkTokens.DURATION_SHEET, easing = InkTokens.cardEnterEasing))
-        }
-    }
-
-    if (progress.value == 0f && !visible) return
-
-    val sheetState = rememberDraggableState { delta ->
-        // 只允许向下拖；向上拖不跟手，避免把 Sheet 拉过头。
-        if (delta > 0f) dragOffsetPx += delta
-    }
-    // Sheet 内部点击消费事件，不冒泡到背后遮罩触发关闭。
-    val sheetInteraction = remember { MutableInteractionSource() }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(visible) {
-                    detectTapGestures(onTap = { onDismiss() })
-                },
-        ) {
-            // 茶色遮罩（暗化 40%），随 Sheet 升起进度联动。
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(InkTokens.BG_OVERLAY.copy(alpha = maskAlpha.value * 0.45f)),
+private fun BubbleRawDetail(content: BubbleContent) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!content.phonetic.isNullOrBlank()) {
+            BasicText(
+                text = content.phonetic.trim(),
+                style = TextStyle(
+                    fontFamily = InkFonts.composeSansFamily,
+                    fontSize = 12.sp,
+                    color = InkTokens.TEXT_SECONDARY,
+                ),
             )
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    // 详情占屏 ≤ 60%（切片-11 §5.1）；超出由内部滚动，不把正文挤出可视区。
-                    .heightIn(max = maxHeight * SHEET_MAX_HEIGHT_FRACTION)
-                    .offset { IntOffset(0, dragOffsetPx.roundToInt()) }
-                    .clickable(
-                        interactionSource = sheetInteraction,
-                        indication = null,
-                    ) {}
-                    .draggable(
-                        state = sheetState,
-                        orientation = Orientation.Vertical,
-                        onDragStopped = { velocity ->
-                            // 下拉超过阈值或快速下甩 → 关闭；否则回弹回原位。
-                            val dismiss = dragOffsetPx > SHEET_DISMISS_PX || velocity > SHEET_FLING_VELOCITY
-                            if (dismiss) {
-                                onDismiss()
-                            } else {
-                                scope.launch { dragOffsetPx = 0f }
-                            }
-                        },
-                    )
-                    .frostedSurface(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .border(
-                        1.dp,
-                        InkTokens.BRAND_GOLD,
-                        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-                    )
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                // 4dp 金色横杠拖拽指示器，两端各一粒金点（切片-11 §5.1）。
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(InkTokens.BRAND_GOLD),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 6.dp)
-                            .width(48.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(InkTokens.BRAND_GOLD),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(InkTokens.BRAND_GOLD),
-                    )
-                }
-
+        }
+        val lines = content.detail.ifBlank { content.body }
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toList()
+        if (lines.isEmpty()) {
+            BasicText(
+                text = HalfSheetFallback.MISSING_TEXT,
+                style = TextStyle(
+                    fontFamily = InkFonts.composeFamily,
+                    fontSize = 14.sp,
+                    color = InkTokens.TEXT_TERTIARY,
+                ),
+            )
+        } else {
+            lines.forEach { line ->
                 BasicText(
-                    text = content.headline.ifBlank { content.token },
-                    style = TextStyle(
-                        fontFamily = InkFonts.composeTitleFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp,
-                        color = InkTokens.TEXT_PRIMARY,
-                    ),
-                )
-
-                if (!content.phonetic.isNullOrBlank()) {
-                    BasicText(
-                        text = content.phonetic.trim(),
-                        style = TextStyle(
-                            fontFamily = InkFonts.composeSansFamily,
-                            fontSize = 12.sp,
-                            color = InkTokens.TEXT_SECONDARY,
-                        ),
-                    )
-                }
-
-                BasicText(
-                    text = content.detail.ifBlank { content.body },
+                    text = line,
                     style = TextStyle(
                         fontFamily = InkFonts.composeFamily,
                         fontSize = 14.sp,
@@ -467,17 +359,6 @@ private fun InkBubbleDetailSheet(
                         lineHeight = 22.sp,
                     ),
                 )
-
-                if (content.source.isNotBlank()) {
-                    BasicText(
-                        text = sourceAnnotated(content.source),
-                        style = TextStyle(
-                            fontFamily = InkFonts.composeFamily,
-                            fontSize = 10.sp,
-                            color = InkTokens.TEXT_TERTIARY,
-                        ),
-                    )
-                }
             }
         }
     }
@@ -568,10 +449,3 @@ private fun resolveBody(content: BubbleContent): String {
     if (content.kind == BubbleKind.MISSING) return content.body
     return content.body.ifBlank { content.detail }
 }
-
-/** Sheet 最大高度占屏比例（切片-11 §5.1：60%）。 */
-private const val SHEET_MAX_HEIGHT_FRACTION = 0.6f
-
-/** Sheet 下拉关闭阈值（px）；与下甩速度阈值配合，防止小幅拖拽误关。 */
-private const val SHEET_DISMISS_PX = 160f
-private const val SHEET_FLING_VELOCITY = 600f

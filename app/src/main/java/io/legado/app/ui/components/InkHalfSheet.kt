@@ -1,6 +1,9 @@
 package io.legado.app.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -11,13 +14,20 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,35 +37,50 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /**
- * U6 半屏 Sheet（切片-11 逐字落地）。
+ * U6 半屏 Sheet（切片-11 逐字落地，统一收口组件）。
  *
- * 视觉契约：
+ * 视觉契约（§5.1）：
+ * - 弹起时阅读页整体下沉 8dp + 暗化 40%（茶色毛玻璃遮罩，色取 [ComponentTokens.bgOverlay]
+ *   即 rgba(26,20,16,.45)，模糊基准 12dp，见 [HalfSheetAnchors.MASK_BLUR_DP]）；
  * - Sheet 背景 = 纸白 [ComponentTokens.bgPage] + 金色 1px 边框，顶部圆角；
  * - 顶部 4dp 金色横杠拖拽指示器（**不是圆角条**），两端各一粒金点，Canvas 自绘；
- * - 茶色毛玻璃遮罩，暗化上限 40%；弹起时阅读页整体下沉 8dp；
  * - Sheet 最大高度 = 屏幕 × 60%；跟手下拉关闭，Sheet 下降的同时阅读页上升恢复亮度；
- * - 未过关闭阈值回弹到 60% 锚点（spring）。
+ * - 弹起 250ms ease-out（[ComponentTokens.cardEnterEasing]），遮罩 200ms
+ *   cubic-bezier(0.4,0,0.6,1)（[ComponentTokens.maskEasing]）；禁线性缓动、禁菊花、
+ *   禁 Material 默认组件与 elevation。
  *
- * 铁律（§5.4）：关闭后阅读位置、滚动位置、下划线状态一字不差——本组件只包裹宿主槽位，
- * 不读写宿主滚动 / 选中状态。
+ * 铁律（§5.4）：关闭后阅读位置、滚动位置、下划线状态一字不差——本组件只叠一层覆盖，
+ * 不读写宿主滚动 / 选中 / 高亮状态；宿主内容槽原样透传。开合前后快照比对见
+ * [HalfSheetHostSnapshot]，JVM 单测可断言。
  *
  * 统一规范：不包裹 MaterialTheme、不取 Material colorScheme；全站不用 Material ripple，
  * 遮罩点击走墨触手势；颜色 / 尺寸 / 曲线全部来自 [ComponentTokens] / [HalfSheetAnchors]。
  *
- * 与既有 [InkBottomSheet]（30/60/90 三段 detent）共存：本组件是切片-11 的 60% 上限
- * 单锚点半屏形态，互不覆盖。
+ * @param dialog 独立窗口覆盖层模式：气泡详情等场景宿主页在自身窗口内，Sheet 需跨窗口
+ *               铺满全屏而不被气泡小尺寸父 Box 裁剪；此模式下不渲染 [host] 槽，
+ *               宿主页不被重排、不被重算 layout（§5.4）。
+ * @param model 人物 / 字词分区模型；为 null 时走 [content] 自定义槽。
+ * @param host 宿主阅读页槽位（内嵌模式）：随弹起下沉 8dp，其上覆茶玻遮罩。
+ * @param source 出处标注脚注（如 Harvard CBDB #xxx / 《说文解字》版本）；空串不渲染。
+ * @param onLinkSelected 分区内行点击回传该行跳转 query（同场人物 / 同名候选切换）。
  */
 @Composable
 fun InkHalfSheet(
@@ -64,46 +89,119 @@ fun InkHalfSheet(
     modifier: Modifier = Modifier,
     state: ComponentVisualState = ComponentVisualState.DEFAULT,
     title: String = "",
+    source: String = "",
     model: HalfSheetContent? = null,
+    dialog: Boolean = false,
     host: @Composable () -> Unit = {},
     content: @Composable () -> Unit = {},
+    onLinkSelected: (String) -> Unit = {},
 ) {
     val progress = remember { Animatable(if (visible) 1f else 0f) }
+    val maskProgress = remember { Animatable(if (visible) 1f else 0f) }
     var dragOffsetPx by remember { mutableStateOf(0f) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(visible) {
         if (visible) {
-            progress.animateTo(1f, ComponentTokens.sheetSpring())
+            // Sheet 弹起 250ms ease-out；遮罩独立走 200ms cubic-bezier(0.4,0,0.6,1)。
+            progress.animateTo(
+                1f,
+                tween(HalfSheetAnchors.RISE_DURATION_MS, easing = ComponentTokens.cardEnterEasing),
+            )
+            maskProgress.animateTo(
+                1f,
+                tween(HalfSheetAnchors.MASK_DURATION_MS, easing = ComponentTokens.maskEasing),
+            )
         } else {
+            maskProgress.animateTo(
+                0f,
+                tween(HalfSheetAnchors.MASK_DURATION_MS, easing = ComponentTokens.maskEasing),
+            )
             progress.animateTo(
                 0f,
-                tween(ComponentPalette.DURATION_MASK, easing = ComponentTokens.maskEasing),
+                tween(HalfSheetAnchors.RISE_DURATION_MS, easing = ComponentTokens.cardEnterEasing),
             )
         }
     }
 
     if (progress.value == 0f && !visible) return
 
+    val sheet: @Composable () -> Unit = {
+        HalfSheetRoot(
+            modifier = modifier,
+            state = state,
+            title = title,
+            source = source,
+            model = model,
+            host = host,
+            content = content,
+            onDismiss = onDismiss,
+            onLinkSelected = onLinkSelected,
+            progress = progress.value,
+            maskProgress = maskProgress.value,
+            dragOffsetPx = dragOffsetPx,
+            onDragOffset = { dragOffsetPx = it },
+            onResetDrag = {
+                scope.launch {
+                    val anim = Animatable(dragOffsetPx)
+                    anim.animateTo(0f, ComponentTokens.sheetSpring()) { dragOffsetPx = value }
+                }
+            },
+        )
+    }
+
+    if (dialog) {
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            sheet()
+        }
+    } else {
+        sheet()
+    }
+}
+
+@Composable
+private fun HalfSheetRoot(
+    modifier: Modifier,
+    state: ComponentVisualState,
+    title: String,
+    source: String,
+    model: HalfSheetContent?,
+    host: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+    onDismiss: () -> Unit,
+    onLinkSelected: (String) -> Unit,
+    progress: Float,
+    maskProgress: Float,
+    dragOffsetPx: Float,
+    onDragOffset: (Float) -> Unit,
+    onResetDrag: () -> Unit,
+) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val maxHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
         val sinkDp = with(LocalDensity.current) {
-            HalfSheetAnchors.hostSinkDp(progress.value).toDp()
+            HalfSheetAnchors.hostSinkDp(progress).toDp()
         }
 
-        // ── 宿主阅读页：随弹起下沉 8dp，上覆茶玻暗化 40% ──
+        // ── 宿主阅读页：随弹起下沉 8dp，上覆茶玻暗化 40%（内嵌模式；独立窗口模式不重排宿主） ──
         Box(
             Modifier
                 .fillMaxSize()
                 .offset(y = sinkDp),
         ) {
             host()
+            // 茶色毛玻璃遮罩：bg-overlay rgba(26,20,16,.45)，模糊基准 12dp（§5.1）。
+            // 边界同 InkFrost：RenderEffect 模糊的是图层自身内容，背景截获式 backdrop blur
+            // 由窗口层（window blur behind）统一 mediate，此处不伪造 backdrop 采样。
             Box(
                 Modifier
                     .fillMaxSize()
+                    .blur(HalfSheetAnchors.MASK_BLUR_DP.dp)
                     .background(
                         ComponentTokens.bgOverlay.copy(
-                            alpha = HalfSheetAnchors.maskAlpha(progress.value),
+                            alpha = HalfSheetAnchors.maskAlpha(maskProgress),
                         ),
                     ),
             )
@@ -116,17 +214,21 @@ fun InkHalfSheet(
                 .then(rememberInkGesture(enabled = true, onClick = onDismiss).gestureModifier),
         )
 
-        // ── Sheet 本体 ──
-        val restingHeightPx = maxHeightPx * HalfSheetAnchors.MAX_HEIGHT_FRACTION
-        val sheetHeightPx = (restingHeightPx - dragOffsetPx)
-            .coerceIn(maxHeightPx * 0.12f, restingHeightPx)
-        val sheetHeightDp = with(LocalDensity.current) { sheetHeightPx.toDp() }
+        // ── Sheet 本体：最大高度 = 屏高 × 60%，超出由内部竖滑滚动，不截断丢内容 ──
+        val maxSheetHeightPx = maxHeightPx * HalfSheetAnchors.MAX_HEIGHT_FRACTION
+        val maxSheetHeightDp = with(LocalDensity.current) { maxSheetHeightPx.toDp() }
+
+        val draggableState = rememberDraggableState { delta ->
+            // 跟手：上滑 delta<0 抬高，下滑 delta>0 压低；只允许向下拖出。
+            if (delta > 0f) onDragOffset(dragOffsetPx + delta)
+        }
 
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(sheetHeightDp)
+                .heightIn(max = maxSheetHeightDp)
+                .offset { IntOffset(0, dragOffsetPx.roundToInt()) }
                 .clip(
                     RoundedCornerShape(
                         topStart = ComponentTokens.sheetRadius,
@@ -136,60 +238,71 @@ fun InkHalfSheet(
                 .background(ComponentTokens.bgPage)
                 .border(
                     1.dp,
-                    ComponentTokens.brandGold.copy(alpha = 0.45f),
+                    ComponentTokens.brandGold,
                     RoundedCornerShape(
                         topStart = ComponentTokens.sheetRadius,
                         topEnd = ComponentTokens.sheetRadius,
                     ),
                 )
-                .safeDrawingPadding(),
+                .padding(bottom = 12.dp),
         ) {
-            // 金杠拖拽指示器：直边横杠 + 两端金点（Canvas 自绘，非圆角条）
-            HalfSheetGrabber(Modifier.fillMaxWidth().padding(top = 8.dp))
+            // 金杠拖拽指示器挂在 Header：下拉手势只走横杠，正文区交给竖滑滚动，二者不抢手势。
+            HalfSheetGrabber(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .draggable(
+                        state = draggableState,
+                        orientation = Orientation.Vertical,
+                        onDragStopped = { velocity ->
+                            val fraction = (maxSheetHeightPx - dragOffsetPx) / maxHeightPx
+                            if (HalfSheetAnchors.shouldDismiss(fraction, velocity)) {
+                                onDismiss()
+                            } else {
+                                onResetDrag()
+                            }
+                        },
+                    )
+                    .padding(top = 8.dp),
+            )
 
             if (title.isNotBlank()) {
-                androidx.compose.foundation.text.BasicText(
+                BasicText(
                     text = title,
                     style = TextStyle(
                         color = ComponentTokens.textPrimary,
                         fontSize = 17.sp,
                         fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.SemiBold,
                     ),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
 
-            val draggableState = rememberDraggableState { delta ->
-                // 跟手：上滑 delta<0 抬高，下滑 delta>0 压低
-                dragOffsetPx = (dragOffsetPx - delta).coerceAtLeast(0f)
+            // 正文区：竖滑滚动；禁用态整体压到 30% 透明度；悬停 / 点击泛金辉。
+            val contentAlpha = if (state == ComponentVisualState.DISABLED) {
+                ComponentTokens.disabledAlpha
+            } else {
+                1f
             }
-
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .draggable(
-                        state = draggableState,
-                        orientation = Orientation.Vertical,
-                        onDragStopped = { velocity ->
-                            val fraction = sheetHeightPx / maxHeightPx
-                            if (HalfSheetAnchors.shouldDismiss(fraction, velocity)) {
-                                onDismiss()
-                            } else {
-                                scope.launch {
-                                    val anim = Animatable(dragOffsetPx)
-                                    anim.animateTo(0f, ComponentTokens.sheetSpring()) {
-                                        dragOffsetPx = value
-                                    }
-                                }
-                            }
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .graphicsLayer { alpha = contentAlpha }
+                    .then(
+                        if (state == ComponentVisualState.HOVERED ||
+                            state == ComponentVisualState.PRESSED
+                        ) {
+                            Modifier.background(ComponentTokens.colorGlow)
+                        } else {
+                            Modifier
                         },
-                    )
-                    .padding(horizontal = 16.dp),
+                    ),
             ) {
                 when (state) {
                     ComponentVisualState.LOADING -> Column(Modifier.padding(16.dp)) {
-                        InkLoadingDots()
+                        HalfSheetLoadingDots()
                     }
                     ComponentVisualState.EMPTY -> InkEmptyState(
                         message = "暂无相关内容",
@@ -201,11 +314,24 @@ fun InkHalfSheet(
                         offline = true,
                     )
                     else -> if (model != null) {
-                        HalfSheetSectionList(model)
+                        HalfSheetSectionList(model, onLinkSelected = onLinkSelected)
                     } else {
                         content()
                     }
                 }
+            }
+
+            // 出处脚注：每条数据必须带来源与版本（数据可信 = 命）；空串不渲染。
+            if (source.isNotBlank()) {
+                BasicText(
+                    text = "出处 · $source",
+                    style = TextStyle(
+                        color = ComponentTokens.textTertiary,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Serif,
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                )
             }
         }
     }
@@ -263,17 +389,54 @@ fun HalfSheetDivider(modifier: Modifier = Modifier) {
 }
 
 /**
- * 按 §5.2 / §5.3 固定顺序渲染分区列表：分区之间云灰细线分隔；
- * 首行加粗的分区（人物 ① 本段行为）首行走 SemiBold。
+ * 加载态：三金点 600ms 依次亮灭（落文金点签名；不用菊花 / 不引 Material 进度条）。
  */
 @Composable
-fun HalfSheetSectionList(model: HalfSheetContent, modifier: Modifier = Modifier) {
+private fun HalfSheetLoadingDots() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        repeat(3) { index ->
+            val anim = remember(index) { Animatable(0.25f) }
+            LaunchedEffect(Unit) {
+                anim.animateTo(
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = keyframes {
+                            durationMillis = 600
+                            0.25f at 0
+                            1f at 100 + index * 80
+                            0.25f at 600
+                        },
+                        repeatMode = RepeatMode.Restart,
+                    ),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(ComponentTokens.brandGold.copy(alpha = anim.value)),
+            )
+            if (index < 2) Spacer(Modifier.width(6.dp))
+        }
+    }
+}
+
+/**
+ * 按 §5.2 / §5.3 固定顺序渲染分区列表：分区之间云灰细线分隔；
+ * 首行加粗的分区（人物 ① 本段行为）首行走 SemiBold；带链接的行点击回传 query。
+ */
+@Composable
+fun HalfSheetSectionList(
+    model: HalfSheetContent,
+    modifier: Modifier = Modifier,
+    onLinkSelected: (String) -> Unit = {},
+) {
     Column(modifier) {
         model.sections.forEachIndexed { index, section ->
             if (index > 0) HalfSheetDivider()
             Column(Modifier.padding(vertical = 10.dp)) {
                 if (section.title.isNotBlank()) {
-                    androidx.compose.foundation.text.BasicText(
+                    BasicText(
                         text = section.title,
                         style = TextStyle(
                             color = ComponentTokens.stoneBlue,
@@ -285,15 +448,26 @@ fun HalfSheetSectionList(model: HalfSheetContent, modifier: Modifier = Modifier)
                 }
                 section.lines.forEachIndexed { lineIndex, line ->
                     val bold = section.boldFirst && lineIndex == 0
-                    androidx.compose.foundation.text.BasicText(
+                    val link = section.links.getOrNull(lineIndex).orEmpty()
+                    val rowModifier = if (link.isNotEmpty()) {
+                        Modifier.then(
+                            rememberInkGesture(enabled = true, onClick = { onLinkSelected(link) })
+                                .gestureModifier,
+                        )
+                    } else {
+                        Modifier
+                    }
+                    BasicText(
                         text = line,
                         style = TextStyle(
-                            color = ComponentTokens.textPrimary,
+                            color = if (link.isNotEmpty()) ComponentTokens.colorLink
+                            else ComponentTokens.textPrimary,
                             fontSize = 16.sp,
                             fontFamily = FontFamily.Serif,
                             fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
                             lineHeight = 26.sp,
                         ),
+                        modifier = rowModifier.padding(vertical = 2.dp),
                     )
                 }
             }
