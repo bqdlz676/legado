@@ -5,7 +5,8 @@ import kotlin.math.roundToLong
 /**
  * 组件模型层 bench（JVM 可跑，不依赖 Compose 渲染）。
  *
- * 测量四类纯模型操作的单次耗时：气泡构建+自检、时间轴导航、七态解析、Sheet 分段判定。
+ * 测量三类纯模型操作的单次耗时：时间轴导航、七态解析、Sheet 分段判定。
+ * 气泡模型属 help/bubble 冻结协议域，其构建耗时由 help/bubble 的 BubbleBenchmarkTest 覆盖，不在本组件 bench 内重复测量。
  * 动画不掉帧红线：单帧 16ms；模型层预算 [ComponentPalette.MODEL_BUDGET_MS]（4ms），
  * 给绘制 / 布局留出余量。渲染层动画帧耗时需在真机 / 模拟器上另测，本 bench 不冒充渲染结果。
  */
@@ -32,7 +33,6 @@ object ComponentBenchmark {
     fun run(): BenchReport {
         warmup()
         val phases = listOf(
-            phase("bubble-build-validate", ::benchBubble),
             phase("timeline-navigate", ::benchTimeline),
             phase("interaction-resolve", ::benchInteraction),
             phase("sheet-detent", ::benchSheet),
@@ -42,7 +42,6 @@ object ComponentBenchmark {
 
     private fun warmup() {
         repeat(WARMUP) {
-            benchBubble()
             benchTimeline()
             benchInteraction()
             benchSheet()
@@ -67,21 +66,6 @@ object ComponentBenchmark {
             p95Ms = p95Ns / 1_000_000.0,
             maxMs = maxNs / 1_000_000.0,
         )
-    }
-
-    private fun benchBubble() {
-        val content = BubbleContent(
-            kind = BubbleKind.PERSON,
-            token = "桓公",
-            phonetic = "huán gōng",
-            headline = "鲁桓公",
-            body = "在位十八年。",
-            actions = listOf(BubbleAction.OpenPerson("鲁桓公")),
-            candidates = listOf("鲁桓公", "齐桓公"),
-            source = "CBDB #1",
-        )
-        content.validate()
-        content.hasCandidates
     }
 
     private fun benchTimeline() {

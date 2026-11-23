@@ -7,7 +7,6 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import io.legado.app.R
 import io.legado.app.receiver.SharedReceiverActivity
-import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.main.MainActivity
 
 object ShortCuts {
@@ -28,17 +27,6 @@ object ShortCuts {
             .build()
     }
 
-    private fun buildReadBookShortCutInfo(context: Context): ShortcutInfoCompat {
-        val bookShelfIntent = buildIntent<MainActivity>(context)
-        val readBookIntent = buildIntent<ReadBookActivity>(context)
-        return ShortcutInfoCompat.Builder(context, "lastRead")
-            .setShortLabel(context.getString(R.string.last_read))
-            .setLongLabel(context.getString(R.string.last_read))
-            .setIcon(IconCompat.createWithResource(context, R.drawable.icon_read_book))
-            .setIntents(arrayOf(bookShelfIntent, readBookIntent))
-            .build()
-    }
-
     private fun buildReadAloudShortCutInfo(context: Context): ShortcutInfoCompat {
         val readAloudIntent = buildIntent<SharedReceiverActivity>(context)
         readAloudIntent.putExtra("action", "readAloud")
@@ -53,7 +41,6 @@ object ShortCuts {
     fun buildShortCuts(context: Context) {
         ShortcutManagerCompat.setDynamicShortcuts(
             context, listOf(
-                buildReadBookShortCutInfo(context),
                 buildReadAloudShortCutInfo(context),
                 buildBookShelfShortCutInfo(context)
             )
