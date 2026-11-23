@@ -282,7 +282,9 @@ private fun RuleList(
                                 ),
                             )
                             androidx.compose.foundation.text.BasicText(
-                                listOfNotNull(rule.cron, rule.comment).joinToString(" · "),
+                                // C2R6：末段为最近运行时间；从未运行显示"未运行"，配色沿用次级文本 token。
+                                listOfNotNull(rule.cron, rule.comment, rule.lastRunLabel)
+                                    .joinToString(" · "),
                                 style = TextStyle(
                                     color = ComponentTokens.textTertiary,
                                     fontSize = 12.sp,
