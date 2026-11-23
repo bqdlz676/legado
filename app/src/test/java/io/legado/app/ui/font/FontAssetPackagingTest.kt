@@ -50,7 +50,7 @@ class FontAssetPackagingTest {
     fun `every role packaged file exists matches candidate and stays under budget`() {
         val manifest = readJson("manifest.json")
         val roles = manifest.getAsJsonArray("roles")
-        assertEquals(FontRole.entries.size, roles.size)
+        assertEquals(FontRole.entries.size, roles.size())
 
         FontRole.entries.forEach { role ->
             val entry = roles.firstOrNull {
@@ -116,7 +116,7 @@ class FontAssetPackagingTest {
             }
 
         val jobs = coverage.getAsJsonArray("jobs")
-        assertEquals(FontRole.entries.size, jobs.size)
+        assertEquals(FontRole.entries.size, jobs.size())
         jobs.forEach { element ->
             val job = element.asJsonObject
             val role = job.get("role").asString

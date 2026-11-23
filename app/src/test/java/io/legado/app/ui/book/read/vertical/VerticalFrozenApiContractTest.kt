@@ -32,10 +32,10 @@ class VerticalFrozenApiContractTest {
     fun `engine frozen methods keep exact signatures`() {
         val engine = VerticalLayoutEngine::class.java
 
-        val layout = method(engine, "layout", String::class.java, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+        val layout = method(engine, "layout", String::class.java, Integer.TYPE, Integer.TYPE)
         assertEquals(VerticalPage::class.java, layout.returnType)
 
-        val hitTest = method(engine, "hitTest", Float::class.javaPrimitiveType, Float::class.javaPrimitiveType)
+        val hitTest = method(engine, "hitTest", Float.TYPE, Float.TYPE)
         assertEquals(CharHit::class.java, hitTest.returnType)
 
         val invalidate = method(engine, "invalidateCache")
@@ -47,8 +47,8 @@ class VerticalFrozenApiContractTest {
         val ctor = constructor(
             VerticalPage::class.java,
             List::class.java,
-            Int::class.javaPrimitiveType,
-            Float::class.javaPrimitiveType,
+            Integer.TYPE,
+            Float.TYPE,
         )
         assertNotNull(ctor)
         assertFields(VerticalPage::class.java, "columns", "pageIndex", "progress")
@@ -59,8 +59,8 @@ class VerticalFrozenApiContractTest {
         val ctor = constructor(
             Column::class.java,
             List::class.java,
-            Float::class.javaPrimitiveType,
-            Float::class.javaPrimitiveType,
+            Float.TYPE,
+            Float.TYPE,
         )
         assertNotNull(ctor)
         assertFields(Column::class.java, "cells", "left", "top")
@@ -71,11 +71,11 @@ class VerticalFrozenApiContractTest {
         val ctor = constructor(
             CharCell::class.java,
             Character.TYPE,
-            Int::class.javaPrimitiveType,
-            Float::class.javaPrimitiveType,
-            Float::class.javaPrimitiveType,
-            Float::class.javaPrimitiveType,
-            Float::class.javaPrimitiveType,
+            Integer.TYPE,
+            Float.TYPE,
+            Float.TYPE,
+            Float.TYPE,
+            Float.TYPE,
         )
         assertNotNull(ctor)
         assertFields(CharCell::class.java, "char", "offset", "x", "y", "width", "height")
@@ -86,9 +86,9 @@ class VerticalFrozenApiContractTest {
         val ctor = constructor(
             CharHit::class.java,
             Character.TYPE,
-            Int::class.javaPrimitiveType,
+            Integer.TYPE,
             String::class.java,
-            Int::class.javaPrimitiveType,
+            Integer.TYPE,
         )
         assertNotNull(ctor)
         assertFields(CharHit::class.java, "char", "offset", "paragraphText", "pos")
