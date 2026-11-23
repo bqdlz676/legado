@@ -123,8 +123,11 @@ android {
                 manifestPlaceholders.put("app_name", "@string/app_name")
             }
 
-            minifyEnabled true
-            shrinkResources = true
+            // 本阶段关闭 R8 混淆与资源压缩：7GB runner 上 100MB 级应用 minify 会 GC 抖动卡死；
+            // release 退化为 compile+dex+签名，内存需求与 debug 对齐，保证稳定产出可覆盖安装包。
+            // 后续若要恢复混淆，需换更大内存 runner 单独评估 Kotlin/Gradle 堆配比。
+            minifyEnabled false
+            shrinkResources = false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', 'cronet-proguard-rules.pro'
         }
         debug {
