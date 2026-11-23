@@ -10,6 +10,7 @@ import io.legado.app.utils.GSON
 import io.legado.app.utils.FileUtils
 import io.legado.app.utils.isContentScheme
 import io.legado.app.utils.printOnDebug
+import io.legado.app.utils.writeBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,10 +37,10 @@ class HandleFileViewModel(application: Application) : BaseViewModel(application)
     ) {
         execute { DirectLinkUpload.upLoad(fileName, file, contentType) }
             .onSuccess { success(it) }
-            .onError {
-                AppLog.put("上传文件失败\n${it.localizedMessage}", it)
-                it.printOnDebug()
-                _error.update { it.localizedMessage }
+            .onError { error ->
+                AppLog.put("上传文件失败\n${error.localizedMessage}", error)
+                error.printOnDebug()
+                _error.update { error.localizedMessage }
             }
     }
 
@@ -65,9 +66,9 @@ class HandleFileViewModel(application: Application) : BaseViewModel(application)
                     Uri.fromFile(newFile)
                 }
             }
-        }.onError {
-            it.printOnDebug()
-            _error.update { it.localizedMessage }
+        }.onError { error ->
+            error.printOnDebug()
+            _error.update { error.localizedMessage }
         }.onSuccess { success(it) }
     }
 }

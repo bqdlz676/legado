@@ -294,8 +294,9 @@ private fun SelectionBar(
     onDisable: () -> Unit,
     onShare: () -> Unit,
     onExport: () -> Unit,
+    onDismiss: () -> Unit = {},
 ) {
-    androidx.compose.ui.window.Dialog {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -373,7 +374,7 @@ private fun EditSheet(
         urlRule = initial.urlRule
         showRule = initial.showRule
     }
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = if (creating) "新建词典规则" else "编辑词典规则") {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = if (creating) "新建词典规则" else "编辑词典规则", content = {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ToolTextField("规则名称", name, { name = it })
             ToolTextField("URL 规则", urlRule, { urlRule = it }, multiLine = true)
@@ -388,7 +389,7 @@ private fun EditSheet(
                 }, variant = InkButtonVariant.PRIMARY)
             }
         }
-    }
+    })
 }
 
 @Composable
@@ -412,7 +413,7 @@ private fun ImportUrlDialog(
 
 @Composable
 private fun HelpSheet(mdText: String, onDismiss: () -> Unit) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = "帮助") {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = "帮助", content = {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             androidx.compose.foundation.text.BasicText(
                 mdText,
@@ -424,6 +425,6 @@ private fun HelpSheet(mdText: String, onDismiss: () -> Unit) {
                 ),
             )
         }
-    }
+    })
 }
 

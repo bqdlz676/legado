@@ -21,6 +21,8 @@ import io.legado.app.utils.toastOnUi
 class ReplaceEditActivity : FragmentActivity() {
 
     companion object {
+        private const val TRANSFER_THRESHOLD = 4000
+
         fun startIntent(
             context: Context,
             id: Long,
@@ -96,10 +98,6 @@ class ReplaceEditActivity : FragmentActivity() {
             putExtra("cursorPosition", current.length)
         }
         codeEdit.launch(intent)
-    }
-
-    private companion object {
-        const val TRANSFER_THRESHOLD = 4000
     }
 
     private fun showHelp() {

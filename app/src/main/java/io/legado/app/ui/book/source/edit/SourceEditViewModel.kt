@@ -95,13 +95,13 @@ class SourceEditViewModel(application: Application) : BaseViewModel(application)
     /** 向当前聚焦字段追加 / 替换文本（URL 参数、分组、文件内容插入落点）。 */
     fun insertIntoActiveField(text: String) {
         val (tab, key) = _uiState.value.activeField ?: return
-        val current = field(tab, key)?.value.orEmpty()
+        val current = _uiState.value.field(tab, key)?.value.orEmpty()
         updateField(tab, key, current + text)
     }
 
     fun resolveActiveField(): Pair<EditTab, EditField>? {
         val (tab, key) = _uiState.value.activeField ?: return null
-        return field(tab, key)?.let { tab to it }
+        return _uiState.value.field(tab, key)?.let { tab to it }
     }
 
     fun toggleAutoComplete() {

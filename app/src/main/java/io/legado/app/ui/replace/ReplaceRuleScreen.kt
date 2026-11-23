@@ -195,7 +195,7 @@ fun ReplaceRuleScreen(
     }
 
     state.helpText?.let { md ->
-        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助") {
+        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助", content = {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 androidx.compose.foundation.text.BasicText(
                     md,
@@ -208,7 +208,7 @@ fun ReplaceRuleScreen(
                 )
             }
         }
-    }
+    })
 }
 
 private enum class BatchGroup { ADD, REMOVE }
@@ -432,8 +432,9 @@ private fun SelectionBar(
     onBottom: () -> Unit,
     onShare: () -> Unit,
     onExport: () -> Unit,
+    onDismiss: () -> Unit = {},
 ) {
-    Dialog {
+    Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             androidx.compose.foundation.text.BasicText(
                 "已选 $count / $total",
@@ -496,7 +497,7 @@ private fun GroupManageSheet(
     onDismiss: () -> Unit,
 ) {
     var newName by remember { mutableStateOf("") }
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = "分组管理") {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = "分组管理", content = {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             ToolTextField("新分组名", newName, { newName = it }, placeholder = "分组名称")
             Row(horizontalArrangement = Arrangement.End) {
@@ -514,7 +515,7 @@ private fun GroupManageSheet(
                 InkEmptyState("暂无分组", compact = true)
             }
         }
-    }
+    })
 }
 
 @Composable

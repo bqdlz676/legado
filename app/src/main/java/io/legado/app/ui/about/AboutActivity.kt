@@ -139,6 +139,23 @@ class AboutActivity : AppCompatActivity() {
             AppLog.put("保存Logcat失败\n$e", e)
         }
     }
+
+    internal fun onRowClick(key: String) {
+        when (key) {
+            "contributors" -> openUrl(getString(R.string.contributors_url))
+            "update_log" -> showMdFile(getString(R.string.update_log), "updateLog.md")
+            "check_update" -> checkAppUpdate()
+            "check_beta_update" -> checkAppUpdate(beta = true)
+            "mail" -> sendMail(getString(R.string.email))
+            "license" -> showMdFile(getString(R.string.license), "LICENSE.md")
+            "disclaimer" -> showMdFile(getString(R.string.disclaimer), "disclaimer.md")
+            "privacyPolicy" -> showMdFile(getString(R.string.privacy_policy), "privacyPolicy.md")
+            "gzGzh" -> sendToClip(getString(R.string.legado_gzh))
+            "crashLog" -> showDialogFragment<CrashLogsDialog>()
+            "saveLog" -> saveLog()
+            "createHeapDump" -> createHeapDump()
+        }
+    }
 }
 
 private data class AboutRow(
@@ -219,29 +236,11 @@ private fun AboutScreen(activity: AboutActivity) {
 
 @Composable
 private fun AboutRowItem(row: AboutRow, onClick: () -> Unit) {
-    SettingRowShell(onClick = onClick) {
+    SettingRowShell(onClick = onClick, enabled = true) {
         RowTitleBlock(
             title = androidx.compose.ui.res.stringResource(row.titleRes),
             summary = row.summaryRes?.let { androidx.compose.ui.res.stringResource(it) },
         )
-    }
-}
-
-private fun AboutActivity.onRowClick(key: String) {
-    val context = this
-    when (key) {
-        "contributors" -> openUrl(getString(R.string.contributors_url))
-        "update_log" -> showMdFile(getString(R.string.update_log), "updateLog.md")
-        "check_update" -> checkAppUpdate()
-        "check_beta_update" -> checkAppUpdate(beta = true)
-        "mail" -> context.sendMail(getString(R.string.email))
-        "license" -> showMdFile(getString(R.string.license), "LICENSE.md")
-        "disclaimer" -> showMdFile(getString(R.string.disclaimer), "disclaimer.md")
-        "privacyPolicy" -> showMdFile(getString(R.string.privacy_policy), "privacyPolicy.md")
-        "gzGzh" -> context.sendToClip(getString(R.string.legado_gzh))
-        "crashLog" -> showDialogFragment<CrashLogsDialog>()
-        "saveLog" -> saveLog()
-        "createHeapDump" -> createHeapDump()
     }
 }
 

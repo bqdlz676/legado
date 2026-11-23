@@ -82,7 +82,7 @@ private fun MainOptionsSheet(
     vm: SourceManageViewModel,
     actions: SourceManageActions,
 ) {
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.book_source_manage_title)) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.book_source_manage_title), content = {
         Column {
             SheetRow(label = stringResource(R.string.add_book_source), onClick = actions::onAddSource)
             SheetRow(label = stringResource(R.string.js_source_new), onClick = actions::onAddJsSource)
@@ -126,7 +126,7 @@ private fun MainOptionsSheet(
             )
             SheetRow(label = stringResource(R.string.help), onClick = actions::onHelp)
         }
-    }
+    })
 }
 
 // ───────────────────────────── 排序 ─────────────────────────────
@@ -142,7 +142,7 @@ private fun SortSheet(state: SourceManageUiState, vm: SourceManageViewModel) {
         BookSourceSort.Respond to stringResource(R.string.sort_by_respondTime),
         BookSourceSort.Enable to stringResource(R.string.is_enabled),
     )
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.sort)) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.sort), content = {
         Column {
             options.forEach { (sort, label) ->
                 SheetRow(
@@ -157,14 +157,14 @@ private fun SortSheet(state: SourceManageUiState, vm: SourceManageViewModel) {
                 onToggle = { vm.toggleAscending() },
             )
         }
-    }
+    })
 }
 
 // ───────────────────────────── 分组筛选 ─────────────────────────────
 
 @Composable
 private fun GroupFiltersSheet(state: SourceManageUiState, vm: SourceManageViewModel) {
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.menu_action_group)) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.menu_action_group), content = {
         Column {
             val presets = listOf(
                 SourcePreset.ENABLED to stringResource(R.string.enabled),
@@ -189,7 +189,7 @@ private fun GroupFiltersSheet(state: SourceManageUiState, vm: SourceManageViewMo
                 )
             }
         }
-    }
+    })
 }
 
 // ───────────────────────────── 分组管理 ─────────────────────────────
@@ -199,7 +199,7 @@ private fun GroupManageSheet(state: SourceManageUiState, vm: SourceManageViewMod
     var renaming by remember { mutableStateOf<String?>(null) }
     var renameText by remember { mutableStateOf("") }
     var newGroup by remember { mutableStateOf("") }
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.group_manage)) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.group_manage), content = {
         Column {
             if (state.groups.isEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
@@ -284,7 +284,7 @@ private fun GroupManageSheet(state: SourceManageUiState, vm: SourceManageViewMod
                 },
             )
         }
-    }
+    })
 }
 
 // ───────────────────────────── 在线导入 ─────────────────────────────
@@ -293,7 +293,7 @@ private fun GroupManageSheet(state: SourceManageUiState, vm: SourceManageViewMod
 private fun OnlineImportSheet(vm: SourceManageViewModel, actions: SourceManageActions) {
     var url by remember { mutableStateOf("") }
     val history = vm.cachedImportUrls()
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.import_on_line)) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.import_on_line), content = {
         Column {
             SheetTextField(value = url, onValueChange = { url = it }, hint = stringResource(R.string.source_online_import_hint))
             Spacer(Modifier.height(10.dp))
@@ -326,7 +326,7 @@ private fun OnlineImportSheet(vm: SourceManageViewModel, actions: SourceManageAc
                 },
             )
         }
-    }
+    })
 }
 
 // ───────────────────────────── 校验 ─────────────────────────────
@@ -334,7 +334,7 @@ private fun OnlineImportSheet(vm: SourceManageViewModel, actions: SourceManageAc
 @Composable
 private fun CheckSourceSheet(vm: SourceManageViewModel, actions: SourceManageActions) {
     var keyword by remember { mutableStateOf(CheckSource.keyword) }
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.check_select_source)) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.check_select_source), content = {
         Column {
             SheetTextField(
                 value = keyword,
@@ -358,7 +358,7 @@ private fun CheckSourceSheet(vm: SourceManageViewModel, actions: SourceManageAct
                 )
             }
         }
-    }
+    })
 }
 
 // ───────────────────────────── 单条操作 ─────────────────────────────
@@ -371,7 +371,7 @@ private fun ItemActionsSheet(
     actions: SourceManageActions,
 ) {
     val source = state.items.firstOrNull { it.bookSourceUrl == sourceUrl } ?: return
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = source.bookSourceName) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = source.bookSourceName, content = {
         Column {
             SheetRow(
                 label = stringResource(R.string.to_top),
@@ -408,7 +408,7 @@ private fun ItemActionsSheet(
                 onClick = { vm.delete(listOf(source)); vm.closeSheet() },
             )
         }
-    }
+    })
 }
 
 // ───────────────────────────── 批量操作 ─────────────────────────────
@@ -419,7 +419,7 @@ private fun SelectionActionsSheet(
     vm: SourceManageViewModel,
     actions: SourceManageActions,
 ) {
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.source_selection_count, selection.size)) {
+    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.source_selection_count, selection.size), content = {
         Column {
             SheetRow(label = stringResource(R.string.enable_selection), onClick = { vm.enableSelection(); vm.closeSheet() })
             SheetRow(label = stringResource(R.string.disable_selection), onClick = { vm.disableSelection(); vm.closeSheet() })
@@ -443,7 +443,7 @@ private fun SelectionActionsSheet(
             })
             SheetRow(label = stringResource(R.string.check_selected_interval), onClick = { vm.selectCheckedInterval(); vm.closeSheet() })
         }
-    }
+    })
 }
 
 // ───────────────────────────── 分组输入 ─────────────────────────────
@@ -456,7 +456,7 @@ private fun GroupInputSheet(
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = title) {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = title, content = {
         Column {
             SheetTextField(value = name, onValueChange = { name = it }, hint = stringResource(R.string.source_group_name_hint))
             Spacer(Modifier.height(8.dp))
@@ -475,7 +475,7 @@ private fun GroupInputSheet(
                 },
             )
         }
-    }
+    })
 }
 
 // ───────────────────────────── 导出结果 ─────────────────────────────
@@ -486,7 +486,7 @@ private fun ExportResultSheet(
     actions: SourceManageActions,
     onDismiss: () -> Unit,
 ) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_export_title)) {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_export_title), content = {
         Column {
             androidx.compose.foundation.text.BasicText(
                 text = sheet.fileName,
@@ -522,7 +522,7 @@ private fun ExportResultSheet(
                 }
             }
         }
-    }
+    })
 }
 
 // ───────────────────────────── 通用行 / 输入 ─────────────────────────────

@@ -2,6 +2,8 @@ package io.legado.app.ui.book.source.debug
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +40,7 @@ import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.InkHalfSheet
 import io.legado.app.ui.components.InkLoadingDots
+import io.legado.app.ui.components.rememberInkGesture
 
 /** 查看分项原始响应的类别（10 搜索 / 20 详情 / 30 目录 / 40 正文）。 */
 enum class DebugSrcKind { SEARCH, BOOK, TOC, CONTENT }
@@ -213,14 +216,16 @@ private fun HelpPanel(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
+            val mine = stringResource(R.string.debug_help_mine)
+            val system = stringResource(R.string.debug_help_system)
             HelpSection(title = stringResource(R.string.debug_help_search)) {
                 ExampleChip(
-                    label = checkKeyWord ?: stringResource(R.string.debug_help_mine),
-                    onClick = { actions.onSubmit(checkKeyWord ?: stringResource(R.string.debug_help_mine)) },
+                    label = checkKeyWord ?: mine,
+                    onClick = { actions.onSubmit(checkKeyWord ?: mine) },
                 )
                 ExampleChip(
-                    label = stringResource(R.string.debug_help_system),
-                    onClick = { actions.onSubmit(stringResource(R.string.debug_help_system)) },
+                    label = system,
+                    onClick = { actions.onSubmit(system) },
                 )
             }
         }
@@ -291,15 +296,22 @@ private fun ExampleChip(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
+    val clickModifier = if (onLongClick != null) {
+        Modifier.combinedClickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            enabled = enabled,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+    } else {
+        rememberInkGesture(enabled = enabled, onClick = onClick).gestureModifier
+    }
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(ComponentTokens.bgSurface)
-            .clickable(
-                enabled = enabled,
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
+            .then(clickModifier)
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         androidx.compose.foundation.text.BasicText(
@@ -386,7 +398,7 @@ private fun OverflowSheet(
     onDismiss: () -> Unit,
     actions: SourceDebugActions,
 ) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_debug_title)) {
+    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_debug_title), content = {
         val options = buildList {
             add(SheetAction(R.string.scan_qr_code, actions::onScan))
             if (!state.searchSrc.isNullOrBlank()) {
@@ -409,7 +421,7 @@ private fun OverflowSheet(
                 SheetRow(label = stringResource(option.labelRes), onClick = option.onClick)
             }
         }
-    }
+    })
 }
 
 private data class SheetAction(val labelRes: Int, val onClick: () -> Unit)

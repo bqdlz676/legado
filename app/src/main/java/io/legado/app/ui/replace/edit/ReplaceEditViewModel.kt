@@ -2,11 +2,13 @@ package io.legado.app.ui.replace.edit
 
 import android.app.Application
 import com.script.rhino.RhinoInterruptError
+import androidx.lifecycle.viewModelScope
 import io.legado.app.base.BaseViewModel
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.ReplaceRule
 import io.legado.app.help.config.ReplacePreviewConfig
 import io.legado.app.utils.GSON
+import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.getClipText
 import io.legado.app.utils.sendToClip
 import io.legado.app.utils.toastOnUi
@@ -113,6 +115,10 @@ class ReplaceEditViewModel(application: Application) : BaseViewModel(application
                 is ReplacePreviewException -> when (error.reason) {
                     ReplacePreviewException.Reason.TIMEOUT ->
                         context.getString(io.legado.app.R.string.replace_preview_timeout)
+                    ReplacePreviewException.Reason.CONTEXT_UNAVAILABLE ->
+                        context.getString(io.legado.app.R.string.replace_preview_context_unavailable)
+                    ReplacePreviewException.Reason.JS_EVALUATION ->
+                        context.getString(io.legado.app.R.string.replace_preview_js_error)
                 }
                 is RhinoInterruptError ->
                     context.getString(io.legado.app.R.string.replace_preview_context_unavailable)

@@ -2,12 +2,14 @@ package io.legado.app.ui.book.source.manage
 
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.activity.viewModels
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentActivity
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
+import androidx.lifecycle.lifecycleScope
 import io.legado.app.R
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.BookSourcePart
@@ -119,7 +121,7 @@ class BookSourceActivity : FragmentActivity(), SourceManageActions {
     }
 
     override fun onImportQr() {
-        qrResult.launch()
+        qrResult.launch(null)
     }
 
     override fun onEdit(source: BookSourcePart) {
