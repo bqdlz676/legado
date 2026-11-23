@@ -6,9 +6,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import io.legado.app.help.bubble.Action
+import io.legado.app.help.bubble.BubbleCandidate
+import io.legado.app.help.chrono.ContextAnchor
 
 /**
- * 阅读页闭环入口（模块⑦对外 Compose 面）。
+ * 阅读页闭环入口（U5-A 对外 Compose 面）。
  *
  * 把 [InkReadController]（竖排引擎 / 气泡引擎 / 时空锚接线宿主）与 [InkReaderShell]
  * （手势遮罩 + 气泡层 + 底栏壳）组装到一起：
@@ -22,7 +24,7 @@ import io.legado.app.help.bubble.Action
  *
  * @param onBubbleAction 气泡动作回调；缺省走 [InkActionDispatcher] 分发到地图 / 人物 /
  *                       纪年 / 关系页。宿主需要自定义接管时传入自己的实现。
- * @param onCandidateSelect 候选切换：候选裸查询 token 回传宿主，由控制器走整词解析重查回填。
+ * @param onCandidateSelect 候选切换：候选条目回传宿主，由控制器走整词解析重查回填。
  * @param onFallback 兜底入口回调（"web" 联网 / "notebook" 生字本）；缺省为空操作。
  */
 @Composable
@@ -38,18 +40,20 @@ fun InkReaderBook(
     modifier: Modifier = Modifier,
     controller: InkReadController = rememberInkReadController(),
     onBubbleAction: ((Action) -> Unit)? = null,
-    onCandidateSelect: ((String) -> Unit)? = null,
+    onCandidateSelect: ((BubbleCandidate) -> Unit)? = null,
     onFallback: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
 
     // 缺省动作分发：四类 Action 接对应页 / 卡片；未接通的动作 chip 置灰（见 InkActionDispatcher）。
+    // 冻结签名：dispatch(action, context, anchor)，锚点取共享时空总线。
     val actionHandler: (Action) -> Unit = onBubbleAction ?: { action ->
-        InkActionDispatcher.dispatch(context, action)
+        InkActionDispatcher.dispatch(action, context, ContextAnchor)
     }
 
     // 缺省候选切换：走控制器整词解析重查回填；宿主需要自定义接管时传入自己的实现。
-    val candidateHandler: (String) -> Unit = onCandidateSelect ?: controller::switchCandidate
+    val candidateHandler: (BubbleCandidate) -> Unit =
+        onCandidateSelect ?: controller::switchCandidate
 
     // 书 / 章 / 正文变化时重锚时空总线并重排竖排引擎；空文本由引擎与渲染层兜底。
     LaunchedEffect(bookId, chapterId, title, body) {

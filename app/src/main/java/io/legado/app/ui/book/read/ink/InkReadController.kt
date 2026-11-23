@@ -6,8 +6,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.geometry.Rect
+import io.legado.app.help.bubble.BubbleCandidate
 import io.legado.app.help.bubble.BubbleContent
 import io.legado.app.help.bubble.BubbleResolver
 import io.legado.app.help.chrono.ContextAnchor
@@ -17,7 +18,7 @@ import io.legado.app.ui.book.read.vertical.VerticalPage
 import kotlin.math.roundToInt
 
 /**
- * 阅读页三引擎接线宿主（模块⑦ ↔ 模块②竖排 / 模块⑥气泡 / 时空锚）。
+ * 阅读页三引擎接线宿主（U5-A ↔ V1 竖排 / C2 气泡 / C1 时空锚）。
  *
  * 闭环链路：
  *  1. [bindChapter]：把当前书 / 章 / 正文写入 [ContextAnchor]，先按章标题与正文前段线索
@@ -27,7 +28,12 @@ import kotlin.math.roundToInt
  *  3. [requestBubble]：把命中段的 (paragraphText, pos) 喂给 [BubbleResolver.resolve]，
  *     锚点传共享总线 [ContextAnchor]；Resolver 内部 Missing 兜底，壳侧不空气泡。
  *  4. [turnPage]：掀角动画期间屏蔽新翻页；引擎 prev / next 翻页，回填进度并关闭气泡。
- *  5. [switchCandidate]：候选循环切换，按候选词走 [BubbleResolver.queryToken] 重解析并回填气泡。
+ *  5. [switchCandidate]：候选循环切换，按候选裸查询词走 [BubbleResolver.queryToken] 重解析回填。
+ *
+ * 性能（切片-08）：
+ *  - 章节正文按前后各 [InkTokens.CHAPTER_CACHE_RADIUS] 章缓存在 [chapterCache]，
+ *    翻章命中缓存即重排，不等正文二次加载，章节切换 0 白屏；
+ *  - 气泡解析结果按「章 + 页 + 段 + 字位」进 [bubbleCache]，同一页反复点同一字不重走解析链。
  *
  * 边界兜底：空正文 / 空尺寸 / 越界命中 / 字典缺失全部 runCatching 降级，不崩、不空白态。
  */
@@ -39,11 +45,24 @@ class InkReadController(
     val pageView: VerticalPageView = VerticalPageView(context)
 
     private var engine: VerticalLayoutEngine? = null
+    private var chapterId: String = ""
     private var chapterTitle: String? = null
     private var chapterBody: String = ""
 
     /** 已知总页数（引擎未暴露页数访问器；随翻页回填收敛，jumpTo 内部另有越界夹取兜底）。 */
     private var knownPageCount: Int = 1
+
+    /** 章节正文预热缓存：翻章命中即取，避免章节切换白屏（容量按前后各 3 章收口）。 */
+    private val chapterCache = object : LinkedHashMap<String, CachedChapter>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedChapter>?): Boolean =
+            size > CHAPTER_CACHE_MAX
+    }
+
+    /** 气泡解析结果按页缓存：同一页反复点同一字直接回填，不重走 Provider 链。 */
+    private val bubbleCache = object : LinkedHashMap<String, BubbleContent>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BubbleContent>?): Boolean =
+            size > BUBBLE_CACHE_MAX
+    }
 
     // ---------- 暴露给 Compose 壳的状态 ----------
 
@@ -73,6 +92,15 @@ class InkReadController(
     }
 
     /**
+     * 预热一章正文（切片-08「预载前后各一章」）。列表 / 相邻章就绪后调用，
+     * 仅写入缓存不触发排版；真翻到该章时 [bindChapter] 直接取用。
+     */
+    fun prefetchChapter(chapterId: String, title: String?, body: String) {
+        if (chapterId.isBlank() || body.isBlank()) return
+        chapterCache[chapterId] = CachedChapter(title?.takeIf { it.isNotBlank() }, body)
+    }
+
+    /**
      * 章切换接线：锚点总线写书 / 章，按标题 + 正文前段线索锚定候选年代区间，
      * 清气泡热缓存后重排竖排引擎。
      *
@@ -82,8 +110,10 @@ class InkReadController(
      * @param body     章节正文文本流（段落以换行分隔）
      */
     fun bindChapter(bookId: String, chapterId: String, title: String?, body: String) {
+        this.chapterId = chapterId
         chapterTitle = title?.takeIf { it.isNotBlank() }
-        chapterBody = body
+        chapterBody = body.ifBlank { chapterCache[chapterId]?.body.orEmpty() }
+        chapterCache[chapterId] = CachedChapter(chapterTitle, chapterBody)
 
         runCatching {
             ContextAnchor.setChapter(bookId, chapterTitle)
@@ -93,13 +123,14 @@ class InkReadController(
                 val clue = buildString {
                     append(chapterTitle.orEmpty())
                     if (isNotEmpty()) append('\n')
-                    append(body.take(CHAPTER_CLUE_CHARS))
+                    append(chapterBody.take(CHAPTER_CLUE_CHARS))
                 }
                 ContextAnchor.guessFromText(clue)
             }
         }
 
         runCatching { BubbleResolver.clearCache() }
+        bubbleCache.clear()
         bubbleContent = null
         engine?.invalidateCache()
         layoutIfNeeded(pageView.width, pageView.height)
@@ -174,10 +205,19 @@ class InkReadController(
         // 点字墨爆：独立 100ms 字面冲击，挂在字心；与气泡 250ms 入场动画互不挂接。
         val anchor = hit.anchor
         pageView.burstAt((anchor.left + anchor.right) / 2f, (anchor.top + anchor.bottom) / 2f)
+
+        val cacheKey = "${chapterId}:${engine?.currentPage?.pageIndex ?: 0}:${hit.paragraphText}:${hit.pos}"
+        val cached = bubbleCache[cacheKey]
+        if (cached != null) {
+            bubbleContent = cached
+            return
+        }
+
         val content = runCatching {
             BubbleResolver.resolve(hit.paragraphText, hit.pos, ContextAnchor)
         }.getOrNull()
         // Resolver 内部由 Missing 兜底、正常不返回 null；极端兜底为空则关闭气泡，不出空气泡。
+        if (content != null) bubbleCache[cacheKey] = content
         bubbleContent = content
     }
 
@@ -192,13 +232,14 @@ class InkReadController(
     // ---------- 候选切换 / 进度跳转 ----------
 
     /**
-     * 候选循环切换：按候选展示名走整词解析链重查，回填新气泡内容；
+     * 候选循环切换：按候选裸查询词走整词解析链重查，回填新气泡内容；
      * 查不到时保留当前气泡，不掉成空气泡。
      */
-    fun switchCandidate(candidateToken: String) {
-        if (candidateToken.isBlank()) return
+    fun switchCandidate(candidate: BubbleCandidate) {
+        val token = candidate.query.trim()
+        if (token.isEmpty()) return
         val content = runCatching {
-            BubbleResolver.queryToken(candidateToken, ContextAnchor)
+            BubbleResolver.queryToken(token, ContextAnchor)
         }.getOrNull() ?: return
         bubbleContent = content
     }
@@ -219,7 +260,15 @@ class InkReadController(
     private companion object {
         /** 章切换时取正文前段多少字参与年代线索猜测。 */
         const val CHAPTER_CLUE_CHARS = 500
+
+        /** 章节正文缓存容量：前后各 [InkTokens.CHAPTER_CACHE_RADIUS] 章 + 当前章。 */
+        val CHAPTER_CACHE_MAX = InkTokens.CHAPTER_CACHE_RADIUS * 2 + 1
+
+        /** 气泡解析结果缓存条数（够一章反复点按）。 */
+        const val BUBBLE_CACHE_MAX = 32
     }
+
+    private data class CachedChapter(val title: String?, val body: String)
 }
 
 /** 宿主 Composable 侧取控制器：随 Composition 记住单例。 */

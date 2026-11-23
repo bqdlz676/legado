@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.random.Random
 
 /**
- * 磨砂毛玻璃修饰符（切片-03 四层框架 · 绢帛面）。
+ * 磨砂毛玻璃修饰符（切片-03 四层框架 · 绢帛面；阅读页气泡 / Sheet 背板复用）。
  *
  * 三档口径（低端机 / 版本分别兜底，禁止用纯透明冒充磨砂）：
  *  - API 31+ 且非低端：[BlurEffect] 层模糊 + 半透明绢帛底；

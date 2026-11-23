@@ -1,7 +1,7 @@
 package io.legado.app.ui.book.read.ink
 
 /**
- * 阅读页规格档位与帧预算守卫（渲染层降级红线）。
+ * 阅读页规格档位与帧预算守卫（切片-08 性能红线 / 切片-03 低端机约束）。
  *
  * 职责：
  *  - [isLowSpec]：低端机判定（核数 / 堆内存启发式，可被测试或外部显式覆盖）；
@@ -37,11 +37,14 @@ object InkSpec {
     /** 连续超预算帧数达到阈值即应降级（粒子减半、跳过噪点叠层等）。 */
     fun shouldDegrade(streak: Int, threshold: Int): Boolean = streak >= threshold
 
-    /** 启发式判定本体（抽成纯函数便于离线单测）：核数 <4 或 JVM 堆上限 <4GB 视为低端。 */
+    /**
+     * 启发式判定本体（抽成纯函数便于离线单测）：核数 <4 或 JVM 堆上限 <4GB 视为低端。
+     * 对齐切片-03「hardwareConcurrency < 4 或 Android ≤8 → 粒子减半」口径。
+     */
     fun heuristicLowSpec(cores: Int, heapGb: Double): Boolean = cores < 4 || heapGb < 4.0
 
     /**
-     * 标题字尺寸识别：引擎未在 [CharCell] 上暴露标题标记，渲染层按字号判定——
+     * 标题字尺寸识别：引擎未在 CharCell 上暴露标题标记，渲染层按字号判定——
      * 字高落在正文 / 标题字号中点以上即判标题，走加粗宋体。纯函数，便于离线单测。
      */
     fun isTitleCellSize(cellHeightPx: Float, bodySizePx: Float, titleSizePx: Float): Boolean =

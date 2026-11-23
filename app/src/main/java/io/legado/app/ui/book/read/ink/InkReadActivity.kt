@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -21,7 +22,7 @@ import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.toc.TocActivityResult
 
 /**
- * 落文 · 竖排阅读壳宿主（灵魂闭环入口）。
+ * 落文 · 竖排阅读壳宿主（U5-A 灵魂闭环入口）。
  *
  * 职责：把 Legado 既有「书 / 章 / 正文」加载管线（[ReadBook] + [ReadBookViewModel]）
  * 接到 Compose 阅读壳 [InkReaderBook] 上——本类只做状态搬运与导航接线，
@@ -30,6 +31,8 @@ import io.legado.app.ui.book.toc.TocActivityResult
  * 闭环：书架 / 详情页带 bookUrl 进入本页 → ViewModel 初始化书章 →
  * [ReadBook.CallBack] 回填章节正文 → [InkReaderBook] 竖排渲染 →
  * 点字出气泡 → 动作经 [InkActionDispatcher] 分发地图 / 人物 / 纪年 / 关系页。
+ *
+ * 性能（切片-08）：当前章就绪后，把前后相邻章正文预热进控制器缓存，翻章 0 白屏。
  *
  * 兜底：章节尚未加载完成时正文为空串，壳与引擎按空页兜底，不出空白态、不崩；
  * 正文加载完成后回调刷新，状态自动回填。
@@ -129,6 +132,24 @@ class InkReadActivity : ComponentActivity() {
 
         setContent {
             val controller = rememberInkReadController()
+
+            // 相邻章正文预热：切片-08「预载前后各一章」，翻章命中缓存即重排，不等二次加载。
+            LaunchedEffect(chapterId, chapterBody) {
+                ReadBook.prevTextChapter?.let { prev ->
+                    controller.prefetchChapter(
+                        chapterId = prev.chapter.url,
+                        title = prev.title,
+                        body = chapterBodyText(prev),
+                    )
+                }
+                ReadBook.nextTextChapter?.let { next ->
+                    controller.prefetchChapter(
+                        chapterId = next.chapter.url,
+                        title = next.title,
+                        body = chapterBodyText(next),
+                    )
+                }
+            }
 
             // 兜底入口真实接线：web → 浏览器网页搜索当前气泡词条；notebook → 生字本本地落库并回执。
             val fallbackHandler: (String) -> Unit = fallbackHandler@{ kind ->

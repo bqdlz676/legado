@@ -7,9 +7,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 
 /**
- * 阅读页字体注入点（规格切片-09 §3.1：正文 Noto Serif SC 思源宋体；标题加粗宋体；注音小字无衬线）。
+ * 阅读页字体注入点（切片-09 §3.1 / 切片-14 字体系统）。
  *
- * 字体策略（两级兜底，不降级、不出空白态）：
+ * 字体分工：
+ *  - 正文：Noto Serif SC（思源宋体）；
+ *  - 标题：宋体加粗（SemiBold 量级，无内置粗字重时由 Paint fakeBold 兜底）；
+ *  - 注音 / 批注小字：无衬线 10sp（Noto Sans SC Light，缺失回退系统 sans）；
+ *  - 数字 / 年份：走系统等宽 / 默认，不在本层强绑 Inter。
+ *
+ * 两级兜底，不降级、不出空白态：
  *  1. 内置子集：U9 字体模块收口后，把 SIL OFL 许可的 Noto Serif SC 常用字子集放到
  *     `assets/fonts/` 下，[ensureSerifLoaded] 启动时从资产加载并注入；
  *  2. 系统 serif：内置子集缺失时回退系统衬线体（荣耀 WIN / HarmonyOS 的 serif 即
@@ -89,6 +95,12 @@ object InkFonts {
         get() = serifTypeface?.let { Typeface.create(it, Typeface.BOLD, false) }
             ?: Typeface.create(Typeface.SERIF, Typeface.BOLD, false)
 
+    /** View 侧注音 / 批注小字无衬线：内置 sans 子集未就位前回退系统 sans。 */
+    val viewSansTypeface: Typeface get() = Typeface.SANS_SERIF
+
     /** Compose 侧取用：未注入时系统 serif 兜底。 */
     val composeFamily: FontFamily get() = serifFamily ?: FontFamily.Serif
+
+    /** Compose 侧注音小字无衬线族；子集就位后可在此替换为 Noto Sans SC Light。 */
+    val composeSansFamily: FontFamily get() = FontFamily.SansSerif
 }

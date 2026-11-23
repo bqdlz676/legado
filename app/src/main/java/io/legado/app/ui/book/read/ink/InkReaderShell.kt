@@ -6,32 +6,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.legado.app.help.bubble.Action
+import io.legado.app.help.bubble.BubbleCandidate
 import io.legado.app.help.bubble.BubbleContent
-import kotlin.math.roundToInt
 
 /**
- * 阅读页 Compose 壳（模块⑦）。
+ * 阅读页 Compose 壳（U5-A）。
  *
- * 结构（契约第六节）：底层 [AndroidView] 挂排版引擎 View（一行不改），
- * 其上是手势遮罩层、气泡层，最顶层是 60dp Compose 底栏。
+ * 结构（自底向上）：底层 [AndroidView] 挂竖排引擎自绘 View；其上是手势遮罩层、
+ * 气泡层；最顶层是 60dp Compose 底栏。全部 Compose 自绘，不启用 Material 默认
+ * ripple / elevation / shared-axis 转场。
  *
  * 手势分区铁律：
  *  - 左 / 右 1/5：点中字 → 先出气泡；点空白 → 翻页；滑动 → 回 View fling。
@@ -40,12 +34,14 @@ import kotlin.math.roundToInt
  *  - [detectTapGestures] 只吃 tap / longPress，不注册任何 drag 检测器，
  *    滑动不消费，必须回 View；真机若 View 收不到滑动，切 [DispatchMode.ViewBridge]。
  *
- * @param engineView 排版引擎 View（ReadView / ContentTextView 层级），由宿主创建传入。
+ * @param engineView 竖排引擎自绘 View，由宿主控制器创建传入。
  * @param host 壳 ↔ 宿主桥接实现。
- * @param bubbleContent core 解析出的气泡内容；null 表示无气泡（含兜底 Missing 态）。
+ * @param bubbleContent 解析出的气泡内容；null 表示无气泡（含兜底 Missing 态）。
  * @param pageTick 翻页计数：变化即关闭气泡。
  * @param scrollTick 滚动计数：变化即关闭气泡。
  * @param dispatchMode 触摸派发模式；默认 ComposeOverlay，真机异常时切 ViewBridge。
+ * @param onFallback 兜底入口回调（"web" 联网 / "notebook" 生字本）；保留位，
+ *                   具体气泡内入口由 U5-B 的 InkBubble 按 allowWebSearch / allowNotebook 唤起。
  */
 @Composable
 fun InkReaderShell(
@@ -60,7 +56,7 @@ fun InkReaderShell(
     onMenu: () -> Unit,
     onSeek: (Float) -> Unit,
     onBubbleAction: (Action) -> Unit,
-    onCandidateSelect: (String) -> Unit,
+    onCandidateSelect: (BubbleCandidate) -> Unit,
     modifier: Modifier = Modifier,
     onFallback: (String) -> Unit = {},
     dispatchMode: DispatchMode = DispatchMode.ComposeOverlay,
@@ -69,9 +65,6 @@ fun InkReaderShell(
 ) {
     val density = LocalDensity.current
     val bottomBarPx = with(density) { InkTokens.BOTTOM_BAR_HEIGHT.toPx() }
-    val gapPx = with(density) { InkTokens.BUBBLE_GAP.toPx() }
-    val marginPx = with(density) { 12.dp.toPx() }
-    val topSafePxVal = with(density) { topSafePx.toPx() }
 
     // 壳侧包装：命中先记录锚点（气泡定位用），再交宿主解析 / 关闭。
     val shellHost = remember(host, state) {
@@ -111,12 +104,12 @@ fun InkReaderShell(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(InkTokens.bgPage),
+            .background(InkTokens.BG_PAGE),
     ) {
         val viewW = maxWidth.value
         val viewH = maxHeight.value
 
-        // 1) 排版引擎 View（底层，不动）
+        // 1) 竖排引擎自绘 View（底层，不动）
         AndroidView(
             factory = { engineView },
             modifier = Modifier.fillMaxSize(),
@@ -130,6 +123,7 @@ fun InkReaderShell(
                     .pointerInput(shellHost, bottomBarPx) {
                         detectTapGestures(
                             onTap = { offset ->
+                                (engineView as? VerticalPageView)?.notifyInteraction()
                                 val zone = ZoneClassifier.classify(
                                     x = offset.x,
                                     y = offset.y,
@@ -140,6 +134,7 @@ fun InkReaderShell(
                                 GestureRouter.onTap(shellHost, zone, offset.x, offset.y)
                             },
                             onLongPress = { offset ->
+                                (engineView as? VerticalPageView)?.notifyInteraction()
                                 val zone = ZoneClassifier.classify(
                                     x = offset.x,
                                     y = offset.y,
@@ -154,22 +149,14 @@ fun InkReaderShell(
             )
         }
 
-        // 3) 气泡层
+        // 3) 气泡层：定位 / 尖角 / 候选循环由 U5-B 的 InkBubble 按锚点自绘。
         val bubbleState = state.bubbleState
         if (bubbleState is BubbleState.Visible && bubbleContent != null) {
-            BubbleOverlay(
-                anchor = bubbleState.anchor,
+            InkBubble(
                 content = bubbleContent,
-                viewW = viewW,
-                viewH = viewH,
-                gapPx = gapPx,
-                topSafePx = topSafePxVal,
-                bottomReservedPx = bottomBarPx,
-                marginPx = marginPx,
+                anchor = bubbleState.anchor,
                 onAction = onBubbleAction,
-                actionEnabled = { InkActionDispatcher.canDispatch(it) },
-                onCandidateSelect = onCandidateSelect,
-                onFallback = onFallback,
+                onCandidateSelected = onCandidateSelect,
                 onDismiss = { shellHost.dismissBubble() },
             )
         }
@@ -185,62 +172,5 @@ fun InkReaderShell(
                 onSeek = onSeek,
             )
         }
-    }
-}
-
-@Composable
-private fun BubbleOverlay(
-    anchor: BubbleAnchor,
-    content: BubbleContent,
-    viewW: Float,
-    viewH: Float,
-    gapPx: Float,
-    topSafePx: Float,
-    bottomReservedPx: Float,
-    marginPx: Float,
-    onAction: (Action) -> Unit,
-    actionEnabled: (Action) -> Boolean,
-    onCandidateSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onFallback: (String) -> Unit = {},
-) {
-    var bubbleSize by remember { mutableStateOf(IntSize.Zero) }
-
-    val placement = remember(anchor, bubbleSize, viewW, viewH) {
-        BubblePlacer.place(
-            anchor = anchor,
-            bubbleW = bubbleSize.width.toFloat().coerceAtLeast(1f),
-            bubbleH = bubbleSize.height.toFloat().coerceAtLeast(1f),
-            viewW = viewW,
-            viewH = viewH,
-            gapPx = gapPx,
-            topSafePx = topSafePx,
-            bottomReservedPx = bottomReservedPx,
-            marginPx = marginPx,
-        )
-    }
-
-    val maxWidthDp = with(LocalDensity.current) { (viewW * InkTokens.BUBBLE_MAX_WIDTH_RATIO).toDp() }
-
-    Box(
-        modifier = Modifier
-            .offset {
-                IntOffset(placement.x.roundToInt(), placement.y.roundToInt())
-            }
-            // 点气泡空白处关闭；chips 自身 clickable 消费事件，不会冒泡到这里
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { onDismiss() })
-            },
-    ) {
-        InkBubble(
-            content = content,
-            placement = placement,
-            onAction = onAction,
-            actionEnabled = actionEnabled,
-            onCandidateSelect = onCandidateSelect,
-            maxWidthDp = maxWidthDp,
-            modifier = Modifier.onSizeChanged { bubbleSize = it },
-            onFallback = onFallback,
-        )
     }
 }

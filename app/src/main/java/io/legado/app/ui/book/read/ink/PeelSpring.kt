@@ -14,6 +14,10 @@ import kotlin.math.sqrt
  * 目标值 1（角完全掀起），初值 0、初速 0；刚度 / 阻尼比由 [InkTokens] 给定，
  * 整定时间落在 400ms 量级。纯 Kotlin 积分，不依赖 Android 动画类，可离线单测。
  *
+ * 为什么不用 CubicBezierEasing 直接推：规格 §3.3 要求「真实纸张翻过去」，纸角起手
+ * 慢、发力掀起到位后带一丝回弹，这是二阶欠阻尼系统的形态；缓动曲线只能给单段
+ * 标量进度，给不出速度与过冲，故这里自己做显式积分。
+ *
  * @param stiffness 弹簧刚度（[InkTokens.PEEL_SPRING_STIFFNESS]）
  * @param dampingRatio 阻尼比（[InkTokens.PEEL_SPRING_DAMPING_RATIO]）；<1 略欠阻尼留轻微回弹，=1 临界阻尼，>1 过阻尼。
  */
@@ -37,7 +41,7 @@ class PeelSpring(
 
     /**
      * 推进一步积分。
-     * @param dtSeconds 距上一帧的秒数；非正数直接返回当前值，不产生 NaN。
+     * @param dtSeconds 距上一帧的秒数；非正数 / 非法值直接返回当前值，不产生 NaN。
      * @return 新的 [value]
      */
     fun update(dtSeconds: Float): Float {
