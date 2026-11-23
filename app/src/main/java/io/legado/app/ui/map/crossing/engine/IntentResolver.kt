@@ -130,7 +130,7 @@ object IntentResolver {
         if (options.isEmpty()) return null
         return options.maxByOrNull { c ->
             if (enemies.isEmpty()) Double.MAX_VALUE
-            else enemies.minOf { octile(c, it.position) }
+            else enemies.minOf { octile(c, it.position) }.toDouble()
         }
     }
 
