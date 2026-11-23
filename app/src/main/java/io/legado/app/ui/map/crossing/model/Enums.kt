@@ -4,7 +4,7 @@ package io.legado.app.ui.map.crossing.model
  * 推演引擎 · 枚举口径（纯 JVM，不引 Android / Compose 类型，可在普通 JVM 单测中断言）。
  *
  * 规格来源：`docs/落文-原文/落文-原文-06-四渡赤水引擎.md` §一 JSON schema、§三 意图优先级、
- * §四 胜利条件；字段字符串与 `assets/map/campaigns/*.json` 既有数据资产口径对齐。
+ * §四 胜利条件；字段字符串与 `assets/map/campaigns/` 目录下既有 JSON 数据资产口径对齐。
  * 所有 fromLabel 兜底到保守默认值：未知 / 缺失字符串不得抛异常，由调用侧记 warning。
  */
 
