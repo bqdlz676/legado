@@ -211,8 +211,9 @@ private fun CandidateRow(
     index: Int,
     onCycle: () -> Unit,
 ) {
+    // 规格 §4 候选切换：气泡一行「还有 N 种解释」，点击在候选间循环；选中项展示带朝代/辖区装饰的展示名。
     val label = if (index == 0) {
-        "共 ${candidates.size} 个义项 ›"
+        "还有 ${candidates.size} 种解释 ›"
     } else {
         "候选 ${index + 1}/${candidates.size}：${candidates[index].display} ›"
     }
