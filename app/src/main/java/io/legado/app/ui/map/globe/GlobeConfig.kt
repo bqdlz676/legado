@@ -87,6 +87,12 @@ object GlobeConfig {
     /** 松手后惯性 0.8s 内衰减到 0。 */
     const val INERTIA_DECAY_SECONDS: Double = 0.8
 
+    /** 松手角速度上限（°/s）：防点按 / 极快抖动折算出超远滑行，手感兜底钳制。 */
+    const val INERTIA_MAX_VEL_DEG_PER_SEC: Double = 720.0
+
+    /** 首帧拿不到实测拖动时长时，按一帧 1/60s 折算松手角速度的兜底帧长。 */
+    const val INERTIA_FALLBACK_FRAME_SEC: Double = 1.0 / 60.0
+
     const val CAMERA_MIN_DISTANCE_RATIO: Float = 0.6f
     const val CAMERA_MAX_DISTANCE_RATIO: Float = 6.0f
 

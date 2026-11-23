@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.abs
 
 /**
  * 惯性旋转单测：拖动姿态、松手 0.8s 衰减、俯仰钳制、自动旋转（切片 19 / 20）。
@@ -68,6 +69,29 @@ class InertiaRotatorTest {
         rotator.onDrag(100.0, 0.0)
         rotator.update(0.1)
         assertFalse(rotator.isCoasting)
+    }
+
+    @Test
+    fun `松手初速度按末段位移除以时间估算（角速度量纲）`() {
+        val rotator = InertiaRotator()
+        rotator.onDragStart()
+        // 首帧无时长基准；0.1s 后第二段拖动，末段 dyaw = 100px × 0.25 = 25°。
+        rotator.onDrag(100.0, 0.0, nowNanos = 0L)
+        rotator.onDrag(100.0, 0.0, nowNanos = 100_000_000L)
+        rotator.onDragEnd()
+
+        // 角速度 = 25° / 0.1s = 250 °/s，而非整段累计角位移 50°。
+        assertEquals(250.0, rotator.coastVelocityYaw, 1e-6)
+        assertEquals(0.0, rotator.coastVelocityPitch, 1e-6)
+    }
+
+    @Test
+    fun `首帧点按无实测时长时按兜底帧长折算且速度被钳制`() {
+        val rotator = InertiaRotator()
+        rotator.onDragStart()
+        rotator.onDrag(10000.0, 0.0) // 不提供时间戳，走兜底帧长
+        rotator.onDragEnd()
+        assertTrue(abs(rotator.coastVelocityYaw) <= GlobeConfig.INERTIA_MAX_VEL_DEG_PER_SEC)
     }
 
     @Test

@@ -24,16 +24,43 @@ class SunLightTest {
         assertEquals(GlobeConfig.SUN_DISTANCE.toDouble(), pos.length, 1e-6)
     }
 
+    /** 地轴倾角弧度，与 Sun 内部口径一致。 */
+    private val tiltRad = GlobeConfig.AXIAL_TILT_DEG * Geo.DEG2RAD
+
     @Test
     fun `正对太阳法线日照系数为 1`() {
         val sun = Vec3.UNIT_Z
-        assertEquals(1f, Sun.dayFactor(Vec3.UNIT_Z, sun), 1e-6)
+        // 入参是模型空间法线：先逆倾斜，使施加 +23.5° 倾斜后的世界法线正对太阳。
+        val modelNormal = Geo.tiltAroundX(Vec3.UNIT_Z, -tiltRad)
+        assertEquals(1f, Sun.dayFactor(modelNormal, sun), 1e-6)
     }
 
     @Test
     fun `背向太阳法线日照系数为 0`() {
         val sun = Vec3.UNIT_Z
-        assertEquals(0f, Sun.dayFactor(Vec3(0.0, 0.0, -1.0), sun), 1e-6)
+        val modelNormal = Geo.tiltAroundX(Vec3(0.0, 0.0, -1.0), -tiltRad)
+        assertEquals(0f, Sun.dayFactor(modelNormal, sun), 1e-6)
+    }
+
+    @Test
+    fun `倾斜前后法线对照：旋转保模、夹角等于倾角、光照点积走倾斜后法线`() {
+        val modelNormal = Vec3.UNIT_Z
+        val worldNormal = Geo.tiltAroundX(modelNormal, tiltRad)
+
+        // 绕轴旋转不改变法线长度。
+        assertEquals(1.0, worldNormal.length, 1e-6)
+
+        // 倾斜前后夹角应等于地轴倾角 23.5°。
+        val angle = Math.acos(modelNormal.dot(worldNormal).coerceIn(-1.0, 1.0))
+        assertEquals(tiltRad, angle, 1e-6)
+
+        val sun = Vec3.UNIT_Z
+        // Sun 内部先倾斜再点积，结果应等于「倾斜后世界法线 · 太阳方向」。
+        assertEquals(worldNormal.dot(sun), Sun.dot(modelNormal, sun), 1e-9)
+
+        // 对照：未倾斜的朴素点积与倾斜后结果不同，证明倾斜确实进入了光照链路。
+        val naiveDot = modelNormal.dot(sun)
+        assertTrue(Math.abs(naiveDot - Sun.dot(modelNormal, sun)) > 1e-6)
     }
 
     @Test

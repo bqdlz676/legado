@@ -19,12 +19,17 @@ class InertiaRotator(
 ) {
     private var velocityYaw = 0.0
     private var velocityPitch = 0.0
-    private var dragStartYaw = 0.0
-    private var dragStartPitch = 0.0
     private var coastTime = 0.0
     private var v0Yaw = 0.0
     private var v0Pitch = 0.0
     private var dragging = false
+
+    // 末段拖动窗口：角速度 = 末段角位移 ÷ 末段时长。旧实现把整段累计角位移当初速度，
+    // 量纲是「角度」而非「角度/秒」，快拖会冲过头、慢拖又偏软；这里只取松手前最后一段。
+    private var lastNowNanos = 0L
+    private var lastDyaw = 0.0
+    private var lastDpitch = 0.0
+    private var lastDtSec = 0.0
 
     var autoRotate: Boolean = false
 
@@ -40,30 +45,45 @@ class InertiaRotator(
         v0Pitch = 0.0
         velocityYaw = 0.0
         velocityPitch = 0.0
-        dragStartYaw = yawDeg
-        dragStartPitch = pitchDeg
+        lastNowNanos = 0L
+        lastDyaw = 0.0
+        lastDpitch = 0.0
+        lastDtSec = 0.0
     }
 
     /**
      * @param dxPx 水平位移（像素，右为正）
      * @param dyPx 垂直位移（像素，下为正）
+     * @param nowNanos 当前纳秒时间戳；测试可显式传入以确定性估算角速度，默认取系统时钟。
      */
-    fun onDrag(dxPx: Double, dyPx: Double) {
+    fun onDrag(dxPx: Double, dyPx: Double, nowNanos: Long = System.nanoTime()) {
+        val dtSec = if (lastNowNanos == 0L) 0.0 else (nowNanos - lastNowNanos) / 1_000_000_000.0
         val dyaw = dxPx * dragSensitivity
         val dpitch = -dyPx * dragSensitivity
         yawDeg += dyaw
         pitchDeg = (pitchDeg + dpitch).coerceIn(-pitchLimit, pitchLimit)
-        // 记录本次拖动累计增量，松手后折算为惯性初速度
-        velocityYaw = yawDeg - dragStartYaw
-        velocityPitch = pitchDeg - dragStartPitch
+        // 覆盖式保留最后一段的角位移与耗时，松手时据此折算角速度。
+        lastDyaw = dyaw
+        lastDpitch = dpitch
+        lastDtSec = dtSec.coerceAtLeast(0.0)
+        lastNowNanos = nowNanos
     }
 
     fun onDragEnd() {
         dragging = false
         coastTime = 0.0
-        v0Yaw = velocityYaw
-        v0Pitch = velocityPitch
+        // 末段时长缺失（首帧 / 点按）时按一帧兜底折算，避免速度为零或除零。
+        val effDt = if (lastDtSec > 1e-3) lastDtSec else GlobeConfig.INERTIA_FALLBACK_FRAME_SEC
+        val maxVel = GlobeConfig.INERTIA_MAX_VEL_DEG_PER_SEC
+        v0Yaw = (lastDyaw / effDt).coerceIn(-maxVel, maxVel)
+        v0Pitch = (lastDpitch / effDt).coerceIn(-maxVel, maxVel)
     }
+
+    /** 松手初速度（°/s），供测试断言角速度量纲。 */
+    val coastVelocityYaw: Double get() = v0Yaw
+
+    /** 松手初速度（°/s），供测试断言角速度量纲。 */
+    val coastVelocityPitch: Double get() = v0Pitch
 
     /**
      * 每帧推进。
@@ -104,6 +124,10 @@ class InertiaRotator(
         v0Yaw = 0.0
         v0Pitch = 0.0
         coastTime = 0.0
+        lastNowNanos = 0L
+        lastDyaw = 0.0
+        lastDpitch = 0.0
+        lastDtSec = 0.0
     }
 
     companion object {

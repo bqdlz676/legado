@@ -39,6 +39,9 @@ class GlobeBenchTest {
         const val TERRAIN_AVG_BUDGET_MS = 1.0
         /** 单帧快照装配预算（组件模型预算 4ms 口径，对齐 ComponentPalette.MODEL_BUDGET_MS）。 */
         const val SNAPSHOT_BUDGET_MS = 4.0
+
+        /** 128×128 全网格离屏构建预算：势力色块按 LOD 缓存、非每帧重算，放宽到一次性构建口径。 */
+        const val FULL_GRID_BUDGET_MS = 16.0
     }
 
     private val route = GlobeRoute(
@@ -106,6 +109,20 @@ class GlobeBenchTest {
         repeat(50) { powerLayer.sampleGrid(32, 64) }
         val perCall = (System.nanoTime() - start) / 1_000_000.0 / 50
         assertTrue("势力 32×64 采样应 ≤ ${SNAPSHOT_BUDGET_MS}ms，实际 $perCall ms", perCall < SNAPSHOT_BUDGET_MS)
+    }
+
+    @Test
+    fun `势力全网格 128×128 离屏构建在预算内`() {
+        val steps = GlobeConfig.POWER_GRID_STEPS
+        // 预热一次，构建缓存与热点。
+        powerLayer.sampleGrid(steps, steps)
+
+        val rounds = 10
+        val start = System.nanoTime()
+        repeat(rounds) { powerLayer.sampleGrid(steps, steps) }
+        val perCall = (System.nanoTime() - start) / 1_000_000.0 / rounds
+        assertTrue("势力 ${steps}×${steps} 全网格采样应 ≤ ${FULL_GRID_BUDGET_MS}ms，实际 $perCall ms",
+            perCall < FULL_GRID_BUDGET_MS)
     }
 
     @Test
