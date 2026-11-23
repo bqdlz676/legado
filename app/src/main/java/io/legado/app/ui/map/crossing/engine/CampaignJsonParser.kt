@@ -53,7 +53,9 @@ object CampaignJsonParser {
         val title = str(obj, "title", "未名之战")
         val era = str(obj, "era", "")
         val context = str(obj, "context", "")
-        val heightMap = obj.get("heightMap")?.takeIf { it.isJsonPrimitive }?.asString
+        // B13：heightMap 统一走 strOrNull 守卫——非 primitive（对象 / 数组 / JsonNull）回落 null，
+        // 空白串裁掉后回落 null；与 B4 其余字段同一兜底口径，不把类型错位抛到壳层。
+        val heightMap = strOrNull(obj, "heightMap")
 
         val focus = parseFocus(obj, warnings)
         val duration = int(obj, "duration", DEFAULT_DURATION).coerceAtLeast(1)
