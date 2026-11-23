@@ -1,9 +1,13 @@
 package io.legado.app.ui.book.read.ink
 
+import io.legado.app.ui.book.read.vertical.VerticalTokens
+
 /**
  * 阅读页规格档位与帧预算守卫（切片-08 性能红线 / 切片-03 低端机约束）。
  *
  * 职责：
+ *  - 排版常量（版心 / 字号 / 行距 / 列距）：对齐切片-09 §3.1，数值与 V1 竖排引擎
+ *    [VerticalTokens] 同源委托，UI 层只从本对象取，避免同一行距两套数；
  *  - [isLowSpec]：低端机判定（核数 / 堆内存启发式，可被测试或外部显式覆盖）；
  *  - [particleCount]：常规 / 低端两档氛围粒子数；
  *  - [recordFrame] / [shouldDegrade]：单帧绘制超预算计数，连续超阈值即降级。
@@ -13,6 +17,32 @@ package io.legado.app.ui.book.read.ink
  * 整机内存档位待系统模块收口后在此替换判定口径。
  */
 object InkSpec {
+
+    // ── 切片-09 §3.1 排版常量（委托 V1 冻结 token，不在此另立数值） ──
+
+    /** 正文默认字号 18sp。 */
+    const val BODY_SP: Float = VerticalTokens.BODY_SP
+
+    /** 注音 / 批注小字字号 10sp，无衬线。 */
+    const val ANNOTATION_SP: Float = VerticalTokens.ANNOTATION_SP
+
+    /** 行距 = 字号 × 1.8。 */
+    const val LINE_HEIGHT_RATIO: Float = VerticalTokens.LINE_HEIGHT_RATIO
+
+    /** 列间距 = 字号 × 2.5。 */
+    const val COLUMN_GAP_RATIO: Float = VerticalTokens.COLUMN_GAP_RATIO
+
+    /** 正文版心宽度占屏宽比例（右侧 82%）。 */
+    const val TEXT_BLOCK_RATIO: Float = VerticalTokens.TEXT_BLOCK_RATIO
+
+    /** 左侧注音 / 批注栏占屏宽比例（18%）。 */
+    const val NOTE_BAND_RATIO: Float = VerticalTokens.NOTE_BAND_RATIO
+
+    /** 标题比正文大 2sp。 */
+    const val TITLE_SIZE_OFFSET_SP: Float = VerticalTokens.TITLE_SIZE_OFFSET_SP
+
+    /** 标题列与正文列横向间距 24dp。 */
+    const val TITLE_GAP_DP: Float = VerticalTokens.TITLE_GAP_DP
 
     /** 测试 / 外部显式覆盖档位；null 走 [detectLowSpec] 启发式。 */
     var overrideLowSpec: Boolean? = null

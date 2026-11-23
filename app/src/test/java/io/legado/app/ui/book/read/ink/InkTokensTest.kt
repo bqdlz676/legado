@@ -74,6 +74,19 @@ class InkTokensTest {
     }
 
     @Test
+    fun `排版常量对齐切片-09`() {
+        // 正文 18sp、注音 10sp、行距 1.8x、列距 2.5x、版心 0.82、注音栏 0.18、标题 +2sp、间距 24dp。
+        assertEquals(18f, InkSpec.BODY_SP, 0f)
+        assertEquals(10f, InkSpec.ANNOTATION_SP, 0f)
+        assertEquals(1.8f, InkSpec.LINE_HEIGHT_RATIO, 0f)
+        assertEquals(2.5f, InkSpec.COLUMN_GAP_RATIO, 0f)
+        assertEquals(0.82f, InkSpec.TEXT_BLOCK_RATIO, 0f)
+        assertEquals(0.18f, InkSpec.NOTE_BAND_RATIO, 0f)
+        assertEquals(2f, InkSpec.TITLE_SIZE_OFFSET_SP, 0f)
+        assertEquals(24f, InkSpec.TITLE_GAP_DP, 0f)
+    }
+
+    @Test
     fun `掀角背面墨透 15% 与静置暂停口径`() {
         assertEquals(0.15f, InkTokens.BACK_TRANSMISSION_ALPHA, 1e-6f)
         // 静置 3 秒后氛围粒子自动暂停（切片-03）。
