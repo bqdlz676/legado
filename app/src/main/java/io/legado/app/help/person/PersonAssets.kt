@@ -208,16 +208,29 @@ object PersonAssets {
 
     // ---- Context 灌入（register 扩展点；资产缺失时静默降级为空，不崩）----
 
-    /** 灌入 L1 核心：core + l1 互校 + 别名归并。 */
+    /** 灌入 L1 核心：core + l1 互校 + 别名归并（启动预载路径调用；资产缺失静默降级为空，不崩）。 */
     fun loadCore(context: Context) {
-        val supplements = parseL1Supplement(readAsset(context, "person_l1.txt"))
-        var records = parseCore(readAsset(context, "person_core.txt"), supplements)
-        val aliases = parseAlias(readAsset(context, "person_alias.txt"))
+        registerCore(
+            l1Lines = readAsset(context, "person_l1.txt"),
+            coreLines = readAsset(context, "person_core.txt"),
+            aliasLines = readAsset(context, "person_alias.txt"),
+        )
+    }
+
+    /**
+     * 纯 JVM 管线（单测 / bench 直喂资产行列表）：l1 互校补录 → core 解析 → 别名归并 →
+     * 灌入 [PersonDirectory.register]。与 [loadCore] 同口径，仅剥离 Context 读资产这一步，
+     * 便于宿主 JVM 单测直接验证「预载后目录可查 L1 人物」。
+     */
+    fun registerCore(l1Lines: List<String>, coreLines: List<String>, aliasLines: List<String>) {
+        val supplements = parseL1Supplement(l1Lines)
+        var records = parseCore(coreLines, supplements)
+        val aliases = parseAlias(aliasLines)
         records = mergeAliases(records, aliases)
         if (records.isNotEmpty()) PersonDirectory.register(records)
     }
 
-    /** 灌入同名分组持久化表。 */
+    /** 灌入同名分组持久化表（按需 / 后台加载，不进启动热路径，不拖慢启动）。 */
     fun loadDup(context: Context) {
         val rows = parseDup(readAsset(context, "person_dup.txt"))
         if (rows.isNotEmpty()) PersonDirectory.registerDuplicates(rows)
@@ -229,7 +242,7 @@ object PersonAssets {
         if (records.isNotEmpty()) PersonDirectory.register(records)
     }
 
-    /** 核心 + 同名分组 + 兜底全量一次灌入。 */
+    /** 核心 + 同名分组 + 兜底全量一次灌入（仅供后台 / 调试批量回填；启动路径只调 [loadCore]）。 */
     fun loadAll(context: Context) {
         loadCore(context)
         loadDup(context)

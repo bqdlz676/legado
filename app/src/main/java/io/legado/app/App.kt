@@ -111,7 +111,8 @@ class App : Application() {
             URL.setURLStreamHandlerFactory(ObsoleteUrlFactory(okHttpClient))
             launch { installGmsTlsProvider(appCtx) }
             // 首触零卡顿：只预热新模块链。chrono 纪年显式预热；bubble 装配内部触达 dict 字表、
-            // 重绑人物消歧入口；allusion/place/person 为惰性目录，首查询时加载。
+            // 重绑人物消歧入口；D2 人物 L1 手校核心库随启动预载灌入目录，同名分组（dup）与
+            // CBDB 兜底全量（bulk）按需 / 后台加载，不进启动热路径；allusion/place 惰性，首查时加载。
             // 旧扁平根（help.ChineseDict / help.AllusionDict / help.PlaceTimeDict /
             // help.PlaceGeo）不再启动预热，遗留消费方惰性加载；旧 help.relation 人物扁平栈已拆除。
             // 任何一张表失败都不影响其它表——各自 runCatching，绝不把启动拖成崩溃。
@@ -119,6 +120,10 @@ class App : Application() {
             // 气泡引擎预热：注入 Context 并触达纪年 / 典故 / 人物 / 地名 / 字 各字典惰性加载，
             // 对齐冷启首触气泡 ≤300ms、热路径 ≤80ms 红线；任一表失败不阻启动、不崩。
             launch { runCatching { io.legado.app.help.bubble.BubbleResolver.preload(appCtx) } }
+            // D2 人物预载：仅 L1 核心（core + l1 互校 + 别名归并）灌入 PersonDirectory；
+            // dup 同名分组 / bulk 全量候选池体积大，留待首查或后台按需加载，不堆进启动路径
+            // （对齐数据分层口径：APK 只内置核心小数据，大词典 / 全量库按需下载预缓存）。
+            launch { runCatching { io.legado.app.help.person.PersonAssets.loadCore(appCtx) } }
             //初始化封面
             BookCover.toString()
             //清除过期数据
