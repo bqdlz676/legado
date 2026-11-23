@@ -176,3 +176,19 @@ fun InkButton(
         }
     }
 }
+
+/**
+ * 尾随 lambda 重载：分区 / 弹窗里把点击动作写在末尾（`InkButton(text, variant = GHOST) { … }`）。
+ * 转发到主按钮；不渲染前置图标。主重载仍以第二个位置参数为 [onClick]，既有调用不受影响。
+ */
+@Composable
+fun InkButton(
+    text: String,
+    variant: InkButtonVariant = InkButtonVariant.PRIMARY,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    offline: Boolean = false,
+    empty: Boolean = false,
+    onClick: () -> Unit,
+) = InkButton(text, onClick, modifier, variant, enabled, loading, offline, empty, null)

@@ -1,33 +1,55 @@
 package io.legado.app.ui.autoTask
 
-import android.annotation.SuppressLint
-import android.content.Context
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.viewModels
-import androidx.recyclerview.widget.LinearLayoutManager
-import io.legado.app.R
-import io.legado.app.base.BaseDialogFragment
-import io.legado.app.base.adapter.ItemViewHolder
-import io.legado.app.base.adapter.RecyclerAdapter
 import io.legado.app.data.entities.AutoTaskRule
-import io.legado.app.databinding.DialogRecyclerViewBinding
-import io.legado.app.databinding.ItemSourceImportBinding
-import io.legado.app.lib.theme.primaryColor
-import io.legado.app.ui.widget.dialog.CodeDialog
-import io.legado.app.ui.widget.dialog.WaitDialog
+import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.InkButtonVariant
+import io.legado.app.ui.components.InkEmptyState
+import io.legado.app.ui.components.InkHalfSheet
+import io.legado.app.ui.components.ToolRow
 import io.legado.app.utils.GSON
-import io.legado.app.utils.fromJsonObject
-import io.legado.app.utils.gone
-import io.legado.app.utils.setLayout
-import io.legado.app.utils.showDialogFragment
-import io.legado.app.utils.viewbindingdelegate.viewBinding
-import io.legado.app.utils.visible
-import splitties.views.onClick
 
-class ImportAutoTaskDialog() : BaseDialogFragment(R.layout.dialog_recycler_view),
-    CodeDialog.Callback {
+/**
+ * 落文 · 自动任务导入弹窗（Compose 自绘壳）。
+ *
+ * 保留旧构造口径 [ImportAutoTaskDialog] (source, finishOnDismiss)，外部调用方不变。
+ * 解析 / 比对 / 勾选落库归 [ImportAutoTaskViewModel]。
+ * 兜底：解析失败 → 错误文案；空结果 → 空态；未勾选 → 导入按钮禁用。
+ */
+class ImportAutoTaskDialog() : DialogFragment() {
 
     constructor(source: String, finishOnDismiss: Boolean = false) : this() {
         arguments = Bundle().apply {
@@ -36,146 +58,182 @@ class ImportAutoTaskDialog() : BaseDialogFragment(R.layout.dialog_recycler_view)
         }
     }
 
-    private val binding by viewBinding(DialogRecyclerViewBinding::bind)
     private val viewModel by viewModels<ImportAutoTaskViewModel>()
-    private val adapter by lazy { SourcesAdapter(requireContext()) }
-    private var waitDialog: WaitDialog? = null
+    private var finishOnDismiss: Boolean = false
 
-    override fun onStart() {
-        super.onStart()
-        setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    }
-
-    override fun onDestroyView() {
-        waitDialog?.dismiss()
-        waitDialog = null
-        super.onDestroyView()
-    }
-
-    @SuppressLint("NotifyDataSetChanged")
-    override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        binding.toolBar.setBackgroundColor(primaryColor)
-        binding.toolBar.setTitle(R.string.import_auto_task)
-        binding.rotateLoading.visible()
-        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        binding.recyclerView.adapter = adapter
-        binding.tvCancel.visible()
-        binding.tvCancel.setOnClickListener { dismissAllowingStateLoss() }
-        binding.tvOk.visible()
-        binding.tvOk.isEnabled = false
-        binding.tvOk.setOnClickListener {
-            waitDialog = WaitDialog(requireContext()).also { it.show() }
-            viewModel.importSelect {
-                waitDialog?.dismiss()
-                waitDialog = null
-                dismissAllowingStateLoss()
-            }
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View {
+        finishOnDismiss = arguments?.getBoolean("finishOnDismiss") ?: false
+        val source = arguments?.getString("source").orEmpty()
+        if (source.isBlank()) {
+            dismissAllowingStateLoss()
+        } else {
+            viewModel.importSource(source)
         }
-        binding.tvFooterLeft.visible()
-        binding.tvFooterLeft.isEnabled = false
-        binding.tvFooterLeft.setOnClickListener {
-            val selectAll = viewModel.isSelectAll
-            viewModel.selectStatus.indices.forEach { index ->
-                viewModel.selectStatus[index] = !selectAll
-            }
-            adapter.notifyDataSetChanged()
-            upSelectText()
-        }
-        viewModel.errorLiveData.observe(viewLifecycleOwner) {
-            waitDialog?.dismiss()
-            waitDialog = null
-            binding.rotateLoading.gone()
-            binding.tvMsg.apply {
-                text = it
-                visible()
-            }
-        }
-        viewModel.successLiveData.observe(viewLifecycleOwner) {
-            binding.rotateLoading.gone()
-            if (it > 0) {
-                adapter.setItems(viewModel.allTasks)
-                binding.tvOk.isEnabled = true
-                binding.tvFooterLeft.isEnabled = true
-                upSelectText()
-            } else {
-                binding.tvMsg.apply {
-                    setText(R.string.wrong_format)
-                    visible()
-                }
-            }
-        }
-        val source = arguments?.getString("source")
-        if (source.isNullOrEmpty()) {
-            dismiss()
-            return
-        }
-        viewModel.importSource(source)
-    }
-
-    private fun upSelectText() {
-        binding.tvFooterLeft.text = getString(
-            if (viewModel.isSelectAll) R.string.select_cancel_count else R.string.select_all_count,
-            viewModel.selectCount,
-            viewModel.allTasks.size
-        )
-    }
-
-    inner class SourcesAdapter(context: Context) :
-        RecyclerAdapter<AutoTaskRule, ItemSourceImportBinding>(context) {
-
-        override fun getViewBinding(parent: ViewGroup): ItemSourceImportBinding {
-            return ItemSourceImportBinding.inflate(inflater, parent, false)
-        }
-
-        override fun convert(
-            holder: ItemViewHolder,
-            binding: ItemSourceImportBinding,
-            item: AutoTaskRule,
-            payloads: MutableList<Any>
-        ) {
-            binding.cbSourceName.isChecked = viewModel.selectStatus[holder.layoutPosition]
-            binding.cbSourceName.text = item.name.ifBlank { item.id }
-            val localTask = viewModel.checkTasks[holder.layoutPosition]
-            binding.tvSourceState.text = when {
-                localTask == null -> getString(R.string.import_status_new)
-                !sameAutoTaskForImport(item, localTask) -> getString(R.string.import_status_update)
-                else -> getString(R.string.import_status_exist)
-            }
-        }
-
-        override fun registerListener(holder: ItemViewHolder, binding: ItemSourceImportBinding) {
-            binding.cbSourceName.setOnCheckedChangeListener { buttonView, isChecked ->
-                if (buttonView.isPressed) {
-                    viewModel.selectStatus[holder.layoutPosition] = isChecked
-                    upSelectText()
-                }
-            }
-            binding.root.onClick {
-                binding.cbSourceName.isChecked = !binding.cbSourceName.isChecked
-                viewModel.selectStatus[holder.layoutPosition] = binding.cbSourceName.isChecked
-                upSelectText()
-            }
-            binding.tvOpen.setOnClickListener {
-                val task = viewModel.allTasks.getOrNull(holder.layoutPosition) ?: return@setOnClickListener
-                showDialogFragment(
-                    CodeDialog(
-                        GSON.toJson(task),
-                        disableEdit = false,
-                        requestId = holder.layoutPosition.toString()
-                    )
+        return ComposeView(requireContext()).apply {
+            setContent {
+                val state = viewModel.uiState.collectAsStateValue()
+                var jsonTarget by remember { mutableStateOf<AutoTaskRule?>(null) }
+                ImportContent(
+                    state = state,
+                    onToggle = viewModel::toggle,
+                    onToggleAll = viewModel::toggleAll,
+                    onViewJson = { jsonTarget = it },
+                    onImport = {
+                        viewModel.importSelect {
+                            dismissAllowingStateLoss()
+                            if (finishOnDismiss) activity?.finish()
+                        }
+                    },
+                    onDismiss = {
+                        dismissAllowingStateLoss()
+                        if (finishOnDismiss) activity?.finish()
+                    },
                 )
+                jsonTarget?.let { task ->
+                    InkHalfSheet(visible = true, onDismiss = { jsonTarget = null }, title = task.name) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            androidx.compose.foundation.text.BasicText(
+                                GSON.toJson(task),
+                                style = TextStyle(
+                                    color = ComponentTokens.textSecondary,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Serif,
+                                    lineHeight = 18.sp,
+                                ),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 
-    override fun onCodeSave(code: String, requestId: String?) {
-        requestId?.toIntOrNull()?.let { index ->
-            GSON.fromJsonObject<AutoTaskRule>(code).getOrNull()?.let { task ->
-                viewModel.updateTaskAt(index, task)?.let { validatedTask ->
-                    adapter.setItem(index, validatedTask)
-                    binding.tvMsg.gone()
-                    upSelectText()
+    @Composable
+    private fun collectAsStateValue() =
+        androidx.compose.runtime.collectAsState(viewModel.uiState).value
+
+    @Composable
+    private fun ImportContent(
+        state: ImportAutoTaskState,
+        onToggle: (Int) -> Unit,
+        onToggleAll: () -> Unit,
+        onViewJson: (AutoTaskRule) -> Unit,
+        onImport: () -> Unit,
+        onDismiss: () -> Unit,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.text.BasicText(
+                    "导入自动任务",
+                    style = TextStyle(
+                        color = ComponentTokens.textPrimary,
+                        fontSize = 17.sp,
+                        fontFamily = FontFamily.Serif,
+                    ),
+                    modifier = Modifier.weight(1f),
+                )
+                InkButton("关闭", onDismiss, variant = InkButtonVariant.GHOST)
+            }
+
+            when {
+                state.loading -> Box(Modifier.height(120.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.foundation.text.BasicText(
+                        "解析中…",
+                        style = TextStyle(color = ComponentTokens.textTertiary, fontSize = 14.sp),
+                    )
                 }
+
+                state.error != null -> InkEmptyState(
+                    message = state.error ?: "解析失败",
+                    offline = true,
+                    actionLabel = "关闭",
+                    onAction = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                state.tasks.isEmpty() -> InkEmptyState(
+                    message = "没有可导入的任务",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                else -> LazyColumn(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    itemsIndexed(state.tasks) { index, task ->
+                        val local = state.local.getOrNull(index)
+                        val checked = state.selected.getOrNull(index) ?: false
+                        val status = when {
+                            local == null -> "新增"
+                            !sameAutoTaskForImport(task, local) -> "更新"
+                            else -> "已存在"
+                        }
+                        ToolRow(onClick = { onToggle(index) }, selected = checked) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    androidx.compose.foundation.text.BasicText(
+                                        task.name.ifBlank { task.id },
+                                        style = TextStyle(
+                                            color = ComponentTokens.textPrimary,
+                                            fontSize = 15.sp,
+                                            fontFamily = FontFamily.Serif,
+                                        ),
+                                    )
+                                    androidx.compose.foundation.text.BasicText(
+                                        status,
+                                        style = TextStyle(
+                                            color = ComponentTokens.stoneBlue,
+                                            fontSize = 12.sp,
+                                        ),
+                                    )
+                                }
+                                Box(
+                                    Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                        ) { onViewJson(task) }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                ) {
+                                    androidx.compose.foundation.text.BasicText(
+                                        "查看",
+                                        style = TextStyle(
+                                            color = ComponentTokens.textSecondary,
+                                            fontSize = 13.sp,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                InkButton(
+                    if (state.isSelectAll) "取消全选" else "全选",
+                    onToggleAll,
+                    variant = InkButtonVariant.GHOST,
+                )
+                Spacer(Modifier.width(8.dp))
+                InkButton("取消", onDismiss, variant = InkButtonVariant.GHOST)
+                Spacer(Modifier.width(8.dp))
+                InkButton(
+                    "导入（${state.selectCount}）",
+                    onImport,
+                    variant = InkButtonVariant.PRIMARY,
+                    enabled = state.selectCount > 0,
+                )
             }
         }
     }
