@@ -81,7 +81,9 @@ fun GlobeScreenHost(
             withFrameNanos { now ->
                 val dtSec = ((now - lastFrameNanos).coerceAtLeast(0L)) / 1_000_000_000.0
                 lastFrameNanos = now
-                snapshot = host.frame(dtSec.coerceAtMost(0.1), now)
+                // now 是帧纳秒（since boot, ns），只用于 dtSec 差分；太阳方位必须按真实 UTC 毫秒
+                // epoch 取时，纳秒值不得再作为 utcMillis 传入门面（切片 19：太阳位置按真实 UTC 计算）。
+                snapshot = host.frame(dtSec.coerceAtMost(0.1), System.currentTimeMillis())
             }
         }
     }
