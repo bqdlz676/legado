@@ -90,9 +90,11 @@ class SandboxScene(
     // ── 性能核算 ──
 
     /**
-     * draw call 估算：势力色块 / 光柱 / 河流各占 1 次，遗址方钉与标签 atlas 各合批 1 次，
-     * 尾迹与关隘短线逐条计。超出 [SandboxConfig.MAX_DRAW_CALLS] 时渲染层按
-     * 势力 → 河流 → 尾迹顺序降配合批；模型层只如实上报，不偷偷改数据。
+     * draw call 估算：势力色块 / 光柱 / 河流各占 1 次；遗址方钉、关隘暗红短线同为
+     * 同色同宽小图元，各自整批合批 1 次；标签 atlas 合批 1 次；尾迹逐条计。
+     * 关隘短线若逐条计会把种子场景顶破 ≤20 红线，故与方钉走同一合批口径。
+     * 超出 [SandboxConfig.MAX_DRAW_CALLS] 时渲染层按势力 → 河流 → 尾迹顺序降配合批；
+     * 模型层只如实上报，不偷偷改数据。
      */
     fun estimateDrawCalls(): Int {
         var calls = 0
@@ -100,7 +102,7 @@ class SandboxScene(
         calls += pillarCities().size
         calls += visibleRivers().size
         calls += visibleTrails().size
-        calls += visibleChokes().size
+        if (visibleChokes().isNotEmpty()) calls += 1 // 关隘短线合批
         calls += 1 // 遗址方钉合批
         calls += SandboxConfig.LABEL_ATLAS_COUNT // 标签 atlas 合批
         return calls

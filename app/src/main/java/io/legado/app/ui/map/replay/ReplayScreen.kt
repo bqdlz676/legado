@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -28,7 +29,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.withFrameNanos
 
 /**
  * 3D 战役回放自绘壳（ui/map/replay 独占，切片-07）。
@@ -92,7 +92,7 @@ fun ReplayScreenHost(
                 BasicText(
                     text = "←",
                     style = TextStyle(
-                        color = Color(ReplayTokens.textSecondary),
+                        color = Color(ReplayTokens.headerInk),
                         fontSize = 16.sp,
                     ),
                     modifier = Modifier.padding(end = 12.dp),
@@ -100,7 +100,7 @@ fun ReplayScreenHost(
                 BasicText(
                     text = campaign.title,
                     style = TextStyle(
-                        color = Color(ReplayTokens.textSecondary),
+                        color = Color(ReplayTokens.headerInk),
                         fontSize = ReplayConfig.TITLE_SP.sp,
                         fontFamily = FontFamily.Serif,
                     ),
@@ -109,7 +109,7 @@ fun ReplayScreenHost(
                 BasicText(
                     text = campaign.era,
                     style = TextStyle(
-                        color = Color(ReplayTokens.textTertiary),
+                        color = Color(ReplayTokens.headerInk),
                         fontSize = ReplayConfig.ERA_SP.sp,
                     ),
                 )

@@ -134,6 +134,25 @@ class SandboxSceneTest {
         assertTrue(scene.estimateDrawCalls() <= SandboxConfig.MAX_DRAW_CALLS)
     }
 
+    @Test
+    fun `关隘短线合批为单次 draw call，不逐条计`() {
+        val withChokes = buildScene()
+        val withoutChokes = SandboxScene(
+            powers = PowerLayer(SeedSandbox.powers),
+            cities = SeedSandbox.cities,
+            rivers = SeedSandbox.rivers,
+            sites = SeedSandbox.sites,
+            chokes = emptyList(),
+            trails = emptyList(),
+        )
+        // 4 条关隘短线整批只占 1 次 call；去掉全部关隘后 draw call 只减 1，而非减 4。
+        val delta = withChokes.estimateDrawCalls() - withoutChokes.estimateDrawCalls()
+        assertEquals(1, delta)
+        // 种子场景实算：4 势力 + 5 光柱 + 6 河 + 0 尾迹 + 1 关隘合批 + 1 方钉 + 1 atlas = 18。
+        assertEquals(18, withChokes.estimateDrawCalls())
+        assertTrue(withChokes.estimateDrawCalls() <= SandboxConfig.MAX_DRAW_CALLS)
+    }
+
     // ── 相机 ──
 
     @Test

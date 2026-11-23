@@ -26,10 +26,21 @@ object ReplayTokens {
     val colorGlow: Long get() = ComponentPalette.COLOR_GLOW
     val stoneBlue: Long get() = ComponentPalette.STONE_BLUE
 
+    /**
+     * 顶栏浮字半透明墨色：墨色 token 压到 0.7 alpha（切片-07 §顶栏 rgba(26,20,16,0.7)）。
+     * 不另写色号，由 textPrimary 派生透明度。
+     */
+    val headerInk: Long get() = ColorMath.withAlpha(textPrimary, (0.7f * 255).toInt())
+
     /** 己方（红军 / 金朱）棋子主色。 */
     fun ownColor(): Long = brandGold
 
-    /** 敌方（蓝军 / 灰青）棋子主色：石青辅助色。 */
+    /**
+     * 敌方（蓝军 / 灰青）棋子主色：复用石青。
+     * 登记说明：ComponentPalette 原始语义为 Toast 提示态；本模块在战役地图场景下把它
+     * 兼作「敌方阵营」色（石青低饱和墨调，与己方暖金、盟友古铜区分），属同色不同场景复用，
+     * 不新增 hex、不改调色板主 token 清单。
+     */
     fun enemyColor(): Long = stoneBlue
 
     /** 盟友棋子主色：古铜。 */
