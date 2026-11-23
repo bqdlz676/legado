@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import io.legado.app.help.ChineseDict
+import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.person.PersonProfile
 import io.legado.app.help.person.graph.Appearance
@@ -38,6 +39,13 @@ class RelationActivity : AppCompatActivity() {
 
     @Volatile
     private var lastGraph: Graph? = null
+
+    /** 文本所处年代锚点：路由 extra 优先，缺省回退共享锚点总线；无锚点为 null，不猜。 */
+    @Volatile
+    private var anchorYear: Int? = null
+
+    @Volatile
+    private var anchorLabel: String? = null
 
     /** 页面没加载完就先存着，onPageFinished 再画 */
     @Volatile
@@ -87,6 +95,12 @@ class RelationActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
         webView.loadUrl("https://appassets.androidplatform.net/assets/relation/index.html")
+
+        // 锚点年代：气泡路由透传优先；未带时回退共享锚点总线，供图页标注与下传人物详情。
+        anchorYear = intent.getIntExtra("anchorYear", Int.MIN_VALUE)
+            .takeIf { it != Int.MIN_VALUE } ?: ContextAnchor.getYear()
+        anchorLabel = intent.getStringExtra("anchorLabel")?.takeIf { it.isNotBlank() }
+            ?: ContextAnchor.eraLabel()
 
         buildGraph()
     }
@@ -180,12 +194,15 @@ class RelationActivity : AppCompatActivity() {
                 o.put("text", a.text)
                 arr.put(o)
             }
-            // 同名消歧：把 D2 主键一并带到详情页，详情页按主键精确定位同名者
+            // 同名消歧：把 D2 主键一并带到详情页，详情页按主键精确定位同名者；
+            // 图页所持锚点年代继续下传，详情页据此标注所处年代。
             val personId = PersonProfile.profileOf(name)?.personId
             val intent = Intent(this@RelationActivity, PersonDetailActivity::class.java)
                 .putExtra("name", name)
                 .putExtra("appearances", arr.toString())
             personId?.let { intent.putExtra("personId", it) }
+            anchorYear?.let { intent.putExtra("anchorYear", it) }
+            anchorLabel?.let { intent.putExtra("anchorLabel", it) }
             startActivity(intent)
         }
     }
@@ -357,6 +374,7 @@ class RelationActivity : AppCompatActivity() {
     private fun toJson(graph: Graph): String {
         val root = JSONObject()
         root.put("source", graph.source)
+        anchorLabel?.takeIf { it.isNotBlank() }?.let { root.put("anchorLabel", it) }
         val nodeArr = JSONArray()
         graph.nodes.forEach { n ->
             val o = JSONObject()

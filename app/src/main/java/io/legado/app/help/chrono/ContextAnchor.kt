@@ -157,6 +157,28 @@ object ContextAnchor {
     /** 年份 → 朝代名。 */
     fun getDynasty(): String? = eraOf(year ?: range?.first)
 
+    /**
+     * 当前文本所处年代的展示标签（人物详情 / 关系图路由透传用）：
+     * 精确年给「朝代 · 公元年（干支）· 距今」；只能定区间时给朝代 + 区间两端；
+     * 无锚点返回 null，不猜年份。Action 枚举签名冻结，年代经本共享总线在触发点携带。
+     */
+    fun eraLabel(): String? {
+        val y = year
+        if (y != null) {
+            return listOfNotNull(eraOf(y), Chronology.yearLabel(y)).joinToString(" · ")
+        }
+        val r = range
+        if (r != null) {
+            val span = if (r.first == r.last) fmtYearText(r.first)
+            else "${fmtYearText(r.first)} — ${fmtYearText(r.last)}"
+            return listOfNotNull(eraOf(r.first), span).joinToString(" · ")
+        }
+        return null
+    }
+
+    private fun fmtYearText(y: Int): String =
+        if (y <= 0) "公元前${1 - y}" else "公元$y"
+
     /** 是否已锚定年代。 */
     fun hasAnchor(): Boolean = year != null || range != null
 

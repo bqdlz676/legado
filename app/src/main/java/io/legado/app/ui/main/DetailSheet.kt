@@ -150,12 +150,6 @@ class DetailSheet : BottomSheetDialogFragment() {
             label("提示")
             body("此字未收，只按字形显示。")
         }
-
-        fullButton {
-            startActivity(
-                Intent(requireContext(), CharDetailActivity::class.java).putExtra("char", ch)
-            )
-        }
     }
 
     // ---------- 人 ----------

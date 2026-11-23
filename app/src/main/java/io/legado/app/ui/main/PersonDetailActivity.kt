@@ -10,6 +10,7 @@ import io.legado.app.R
 import io.legado.app.help.ChineseDict
 import io.legado.app.help.HanConv
 import io.legado.app.help.chrono.Chronology
+import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.person.PersonProfile
 import org.json.JSONArray
 
@@ -39,6 +40,10 @@ class PersonDetailActivity : AppCompatActivity() {
 
         // 路由层可透传 personId：同名多人时按主键精确定位，避免默认命中张冠李戴
         val personId = intent.getStringExtra("personId")
+        // 文本所处年代：气泡路由透传锚点年代（朝代 · 公元年 · 干支）；
+        // 路由未带时回退共享锚点总线；仍无锚点则不占行，不猜年份。
+        val anchorLabel = intent.getStringExtra("anchorLabel")?.takeIf { it.isNotBlank() }
+            ?: ContextAnchor.eraLabel()
         val prof = PersonProfile.profileOf(name, personId)
         val display = HanConv.toTrad(prof?.name ?: name)
 
@@ -101,11 +106,22 @@ class PersonDetailActivity : AppCompatActivity() {
             visibility = if (aliasLine.isBlank()) View.GONE else View.VISIBLE
         }
 
+        // 所处年代（文本锚点）排在档案说明最前；与档案自身生卒朝代区分。
+        anchorLabel?.let { insertAnchorEra(it) }
+
         // 事迹 / 小传 / 谱系 / 出处：D2 冻结字段里有、旧页没位置展示，
         // 动态插到「出场段落」之前，不改动布局 XML；字段无载则整行省略。
         prof?.let { insertProfileNotes(it) }
 
         renderAppearances()
+    }
+
+    /** 在出场段落列表之前插入「所处年代」行（当前文本锚定的朝代 / 公元年 / 干支）。 */
+    private fun insertAnchorEra(label: String) {
+        val appearBox = findViewById<LinearLayout>(R.id.layout_appear)
+        val root = appearBox.parent as? LinearLayout ?: return
+        val pos = root.indexOfChild(appearBox)
+        root.addView(infoLine("所处年代　$label"), pos)
     }
 
     /** 在出场段落列表之前插入档案说明行；无载字段不占行。 */

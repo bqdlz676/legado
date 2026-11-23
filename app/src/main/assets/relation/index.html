@@ -303,8 +303,9 @@ body{background:var(--bg-page);color:var(--text-primary);font-family:var(--font-
       return '<div class="lg"><span class="dot" style="background:' + colorOf(f) + ';color:' + colorOf(f) + '"></span>' + esc(f) + '</div>';
     }).join('');
 
+    var era = data.anchorLabel ? esc(data.anchorLabel) + ' · ' : '';
     document.getElementById('sub').textContent =
-      (data.nodes || []).length + ' 人 · ' + (data.edges || []).length + ' 条关系 · 双指缩放 · 拖动平移';
+      era + (data.nodes || []).length + ' 人 · ' + (data.edges || []).length + ' 条关系 · 双指缩放 · 拖动平移';
     document.getElementById('hint').textContent = data.source || '';
   };
 

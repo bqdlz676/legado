@@ -43,22 +43,41 @@ class InkActionDispatcherTest {
     }
 
     @Test
-    fun `OpenPerson 姓名与 personId 透传，id 可空`() {
+    fun `OpenPerson 姓名与 personId 透传，id 可空，锚点年代一并携带`() {
         val withId = InkActionDispatcher.route(
             Action.OpenPerson("孔子", "CBDB-1"), ContextAnchor,
         ) as InkRoute.Person
         assertEquals("孔子", withId.name)
         assertEquals("CBDB-1", withId.personId)
+        assertEquals(-722, withId.anchorYear)
+        // 标签含朝代与干支：春秋 · 公元前722 年（己未）…
+        assertTrue(withId.anchorLabel?.contains("春秋") == true)
+        assertTrue(withId.anchorLabel?.contains("己未") == true)
 
         val noId = InkActionDispatcher.route(Action.OpenPerson("颜回"), ContextAnchor) as InkRoute.Person
         assertEquals("颜回", noId.name)
         assertNull(noId.personId)
+        assertEquals(-722, noId.anchorYear)
     }
 
     @Test
-    fun `OpenRelation 映射关系图路由并透传姓名`() {
+    fun `OpenRelation 映射关系图路由并透传姓名与锚点年代`() {
         val route = InkActionDispatcher.route(Action.OpenRelation("孔子"), ContextAnchor) as InkRoute.Relation
         assertEquals("孔子", route.name)
+        assertEquals(-722, route.anchorYear)
+        assertTrue(route.anchorLabel?.contains("春秋") == true)
+    }
+
+    @Test
+    fun `锚点未定年时人物 / 关系路由年代为 null，不猜年份`() {
+        ContextAnchor.reset()
+        val person = InkActionDispatcher.route(Action.OpenPerson("孔子"), ContextAnchor) as InkRoute.Person
+        assertNull(person.anchorYear)
+        assertNull(person.anchorLabel)
+
+        val relation = InkActionDispatcher.route(Action.OpenRelation("孔子"), ContextAnchor) as InkRoute.Relation
+        assertNull(relation.anchorYear)
+        assertNull(relation.anchorLabel)
     }
 
     @Test

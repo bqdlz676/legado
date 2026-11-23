@@ -34,8 +34,6 @@ import io.legado.app.help.ChineseDict
 import io.legado.app.help.AllusionDict
 import io.legado.app.help.EnDict
 import io.legado.app.help.HanConv
-import io.legado.app.ui.main.AllusionDetailActivity
-import io.legado.app.ui.main.CharDetailActivity
 import io.legado.app.help.relation.PersonPinyin
 import io.legado.app.help.relation.PersonProfile
 import io.legado.app.help.HighlightMatcher
@@ -1175,18 +1173,13 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         relativeOffset: Float,
         textLine: TextLine,
     ) {
+        // 典故释义与出处已在气泡内联展示；旧全屏典故详情页已清剿，不再出「详情」跳转。
         showBubble(
             entry.word,
             entry.pinyin,
             entry.meaning + "\n〔出处〕" + entry.source,
-            x, y, relativeOffset, textLine, entry.word.length >= 3, true
-        ) {
-            dismissCharBubble()
-            val it2 = Intent(context, AllusionDetailActivity::class.java)
-                .putExtra("word", entry.word)
-            if (context !is Activity) it2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(it2)
-        }
+            x, y, relativeOffset, textLine, entry.word.length >= 3, false
+        )
     }
 
 
@@ -1391,13 +1384,6 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 val fm = (context as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager
                 if (fm != null) {
                     io.legado.app.ui.main.DetailSheet.char(ch).show(fm, "detail_char")
-                } else {
-                    val intent = Intent(context, CharDetailActivity::class.java)
-                        .putExtra("char", ch)
-                    if (context !is Activity) {
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
                 }
             }
         }

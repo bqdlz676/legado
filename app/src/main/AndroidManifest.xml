@@ -164,15 +164,6 @@
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:exported="false"
             android:label="战役推演" />
-        <activity
-            android:name=".ui.main.AllusionDetailActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.main.CharDetailActivity"
-            android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
-            android:exported="false"
-            android:label="字典"
-            android:theme="@style/AppTheme.Light" />
         <!-- 墨板画板 -->
         <activity
             android:name=".ui.main.PaintActivity"

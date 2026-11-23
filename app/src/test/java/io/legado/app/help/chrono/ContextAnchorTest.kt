@@ -166,4 +166,26 @@ class ContextAnchorTest {
         assertFalse(ContextAnchor.hasAnchor())
         assertNull(ContextAnchor.getYear())
     }
+
+    @Test
+    fun `eraLabel composes dynasty ganzhi and year for fixed anchor`() {
+        ContextAnchor.setYear(-722)
+        val label = ContextAnchor.eraLabel()
+        assertNotNull(label)
+        assertTrue(label!!.contains("春秋"))
+        assertTrue(label.contains("己未"))
+        assertTrue(label.contains("公元前722"))
+    }
+
+    @Test
+    fun `eraLabel gives range text for weak range anchor and null without anchor`() {
+        ContextAnchor.setYearRange(-722..-453)
+        val label = ContextAnchor.eraLabel()
+        assertNotNull(label)
+        assertTrue(label!!.contains("春秋"))
+        assertTrue(label.contains("公元前722"))
+
+        ContextAnchor.reset()
+        assertNull(ContextAnchor.eraLabel())
+    }
 }

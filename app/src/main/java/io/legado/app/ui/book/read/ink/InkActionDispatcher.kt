@@ -18,8 +18,10 @@ import io.legado.app.ui.main.RelationActivity
  * 路由口径（冻结协议，四类穷尽分支，不许增删 Action）：
  *  - [Action.OpenMap]      → 古今地图 [PlaceMapActivity]；地名优先取 placeName，缺省回退 placeId；
  *                            年代取共享锚点 [ContextAnchor] 当前年，供地图选朝代图层。
- *  - [Action.OpenPerson]   → 人物档案 [PersonDetailActivity]；personId 随 extra 透传（页面暂按名检索）。
- *  - [Action.OpenRelation] → 人物关系图 [RelationActivity]；图由页面按当前书正文抽取，无需额外入参。
+ *  - [Action.OpenPerson]   → 人物档案 [PersonDetailActivity]；personId 随 extra 透传（页面暂按名检索）；
+ *                            文本所处年代（锚点公元年 + 朝代 / 干支标签）一并透传，页面显示「所处年代」。
+ *  - [Action.OpenRelation] → 人物关系图 [RelationActivity]；图由页面按当前书正文抽取；锚点年代
+ *                            随 extra 透传，供图页标注所处年代，并在点节点进详情时继续带下。
  *  - [Action.OpenTimeline] → 纪年时间轴 [InkTimelineActivity]；year 为公元年（负数为公元前），label 作轴标题。
  *
  * 「联网检索 / 加入生字本」不是导航动作，由 BubbleContent.allowWebSearch /
@@ -41,9 +43,15 @@ object InkActionDispatcher {
         is Action.OpenPerson -> InkRoute.Person(
             name = action.name,
             personId = action.personId,
+            anchorYear = anchor.getYear(),
+            anchorLabel = anchor.eraLabel(),
         )
 
-        is Action.OpenRelation -> InkRoute.Relation(name = action.name)
+        is Action.OpenRelation -> InkRoute.Relation(
+            name = action.name,
+            anchorYear = anchor.getYear(),
+            anchorLabel = anchor.eraLabel(),
+        )
 
         is Action.OpenTimeline -> InkRoute.Timeline(
             year = action.year,
@@ -75,9 +83,14 @@ object InkActionDispatcher {
         is InkRoute.Person -> Intent(context, PersonDetailActivity::class.java).apply {
             putExtra("name", route.name)
             route.personId?.let { putExtra("personId", it) }
+            route.anchorYear?.let { putExtra("anchorYear", it) }
+            route.anchorLabel?.takeIf { it.isNotBlank() }?.let { putExtra("anchorLabel", it) }
         }
 
-        is InkRoute.Relation -> Intent(context, RelationActivity::class.java)
+        is InkRoute.Relation -> Intent(context, RelationActivity::class.java).apply {
+            route.anchorYear?.let { putExtra("anchorYear", it) }
+            route.anchorLabel?.takeIf { it.isNotBlank() }?.let { putExtra("anchorLabel", it) }
+        }
 
         is InkRoute.Timeline -> Intent(context, InkTimelineActivity::class.java).apply {
             putExtra("year", route.year)
@@ -94,11 +107,20 @@ sealed interface InkRoute {
     /** 地图：展示名（古名 / 今址）+ 锚点年代。 */
     data class Map(val placeName: String, val year: Int?) : InkRoute
 
-    /** 人物：本名 + 可选人物主键。 */
-    data class Person(val name: String, val personId: String?) : InkRoute
+    /** 人物：本名 + 可选人物主键 + 文本所处年代锚点（公元年可空；展示标签可空）。 */
+    data class Person(
+        val name: String,
+        val personId: String?,
+        val anchorYear: Int? = null,
+        val anchorLabel: String? = null,
+    ) : InkRoute
 
-    /** 关系图：按当前书正文抽取，仅带姓名用于高亮。 */
-    data class Relation(val name: String) : InkRoute
+    /** 关系图：按当前书正文抽取，仅带姓名用于高亮；锚点年代随图页标注并下传详情。 */
+    data class Relation(
+        val name: String,
+        val anchorYear: Int? = null,
+        val anchorLabel: String? = null,
+    ) : InkRoute
 
     /** 纪年时间轴：公元年（负 = 公元前）+ 可选轴标题。 */
     data class Timeline(val year: Int, val label: String?) : InkRoute
