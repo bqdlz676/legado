@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -103,9 +104,11 @@ fun InkBubble(
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                // 注音栏：有拼音 / 注音数据才显示（无衬线 10sp）；无字库读音时按规格留空、不猜读音，
+                // 行整体隐藏，不留空白占位行；释义区由 headline / body 兜底，不出空气泡。
                 if (content.phonetic?.isNotBlank() == true) {
                     BasicText(
-                        text = content.phonetic,
+                        text = content.phonetic!!.trim(),
                         style = TextStyle(
                             fontFamily = FontFamily.Default,
                             fontSize = 10.sp,
@@ -118,6 +121,7 @@ fun InkBubble(
                     text = content.headline.ifBlank { content.token },
                     style = TextStyle(
                         fontFamily = InkFonts.composeFamily,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
                         color = InkTokens.textPrimary,
                     ),

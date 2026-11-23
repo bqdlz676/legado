@@ -60,6 +60,14 @@ class InkSpecTest {
     }
 
     @Test
+    fun `标题字按字号中点阈值识别`() {
+        // 正文 18px、标题 20px，阈值 19px；严格大于才判标题。
+        assertFalse(InkSpec.isTitleCellSize(cellHeightPx = 18f, bodySizePx = 18f, titleSizePx = 20f))
+        assertFalse(InkSpec.isTitleCellSize(cellHeightPx = 19f, bodySizePx = 18f, titleSizePx = 20f))
+        assertTrue(InkSpec.isTitleCellSize(cellHeightPx = 20f, bodySizePx = 18f, titleSizePx = 20f))
+    }
+
+    @Test
     fun `帧预算红线常量达标`() {
         // 翻页帧预算 16ms（60fps），气泡热路径预算 80ms，点字墨爆 100ms
         assertEquals(16.0, InkTokens.FRAME_BUDGET_MS, 0.0)

@@ -15,7 +15,9 @@ import android.view.View
 import androidx.compose.ui.graphics.toArgb
 import io.legado.app.ui.book.read.vertical.CharCell
 import io.legado.app.ui.book.read.vertical.VerticalPage
+import io.legado.app.ui.book.read.vertical.VerticalTokens
 import io.legado.app.utils.dpToPx
+import io.legado.app.utils.spToPx
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
@@ -65,6 +67,12 @@ class VerticalPageView @JvmOverloads constructor(
 
     private val effectiveTypeface: Typeface
         get() = typeface ?: InkFonts.viewTypeface
+
+    /** 正文字号 px；标题字号 px；标题判定由 [InkSpec.isTitleCellSize] 按二者中点阈值完成。 */
+    private val bodySizePx: Float by lazy { VerticalTokens.BODY_SP.spToPx() }
+    private val titleSizePx: Float by lazy {
+        (VerticalTokens.BODY_SP + VerticalTokens.TITLE_SIZE_OFFSET_SP).spToPx()
+    }
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = effectiveTypeface
@@ -395,7 +403,10 @@ class VerticalPageView @JvmOverloads constructor(
     private fun drawCell(canvas: Canvas, cell: CharCell) {
         val text = cell.char.toString()
         if (text.isEmpty()) return
-        // 字身方框边长即字号（标题字更大，引擎已在 cell 尺寸里区分）。
+        // 字身方框边长即字号；标题列字号更大（正文 18sp / 标题 20sp），按尺寸阈值识别后上加粗宋体。
+        val isTitle = InkSpec.isTitleCellSize(cell.height, bodySizePx, titleSizePx)
+        textPaint.typeface = if (isTitle) InkFonts.viewTypefaceBold else InkFonts.viewTypeface
+        textPaint.isFakeBoldText = isTitle
         textPaint.textSize = cell.height.coerceAtLeast(1f)
 
         val cx = cell.x + cell.width / 2f

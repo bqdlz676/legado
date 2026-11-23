@@ -117,6 +117,9 @@ class InkReadActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 宋体注入：先探 assets/fonts/ 内置子集，缺失则回退系统 serif（子集待 U9 收口）。
+        InkFonts.ensureSerifLoaded(applicationContext)
+
         // 预热字典 / 纪年 / 人物 / 地名 Provider，避免首点气泡冷启动卡顿。
         runCatching { BubbleResolver.preload(this) }
 

@@ -40,6 +40,13 @@ object InkSpec {
     /** 启发式判定本体（抽成纯函数便于离线单测）：核数 <4 或 JVM 堆上限 <4GB 视为低端。 */
     fun heuristicLowSpec(cores: Int, heapGb: Double): Boolean = cores < 4 || heapGb < 4.0
 
+    /**
+     * 标题字尺寸识别：引擎未在 [CharCell] 上暴露标题标记，渲染层按字号判定——
+     * 字高落在正文 / 标题字号中点以上即判标题，走加粗宋体。纯函数，便于离线单测。
+     */
+    fun isTitleCellSize(cellHeightPx: Float, bodySizePx: Float, titleSizePx: Float): Boolean =
+        cellHeightPx > (bodySizePx + titleSizePx) / 2f
+
     private fun detectLowSpec(): Boolean {
         val cores = Runtime.getRuntime().availableProcessors()
         val heapGb = Runtime.getRuntime().maxMemory() / 1024.0 / 1024.0 / 1024.0

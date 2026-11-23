@@ -67,9 +67,9 @@ class InkReadController(
         pageView.onSizeChanged = { w, h -> layoutIfNeeded(w, h) }
         // 掀角动画结束后由 View 复位动画中屏蔽位；此处预留对外回调扩展位。
         pageView.onTurnAnimEnd = { /* 状态已在 View 内部复位，壳侧无需额外动作 */ }
-        // 宋体注入点：U9 字体系统注入 Noto Serif SC 后，View 与引擎测量共用同一字体；
-        // 未注入时 InkFonts 回退系统 serif。
-        pageView.typeface = InkFonts.serifTypeface
+        // 宋体注入点：ensureSerifLoaded 已在宿主 onCreate 完成；View 与引擎测量共用同一字体，
+        // 未注入内置子集时 InkFonts 回退系统 serif。
+        pageView.typeface = InkFonts.viewTypeface
     }
 
     /**
@@ -109,7 +109,7 @@ class InkReadController(
     internal fun layoutIfNeeded(widthPx: Int, heightPx: Int) {
         if (widthPx <= 0 || heightPx <= 0) return
         val e = engine ?: VerticalLayoutEngineFactory
-            .create(widthPx, heightPx, typeface = InkFonts.serifTypeface)
+            .create(widthPx, heightPx, typeface = InkFonts.viewTypeface)
             .also { engine = it }
         val page = runCatching {
             e.layout(chapterBody, widthPx, heightPx, chapterTitle)
