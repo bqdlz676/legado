@@ -171,6 +171,9 @@ class InkReadController(
     }
 
     override fun requestBubble(hit: CharHit) {
+        // 点字墨爆：独立 100ms 字面冲击，挂在字心；与气泡 250ms 入场动画互不挂接。
+        val anchor = hit.anchor
+        pageView.burstAt((anchor.left + anchor.right) / 2f, (anchor.top + anchor.bottom) / 2f)
         val content = runCatching {
             BubbleResolver.resolve(hit.paragraphText, hit.pos, ContextAnchor)
         }.getOrNull()

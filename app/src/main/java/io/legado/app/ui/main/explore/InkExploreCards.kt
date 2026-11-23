@@ -1,5 +1,8 @@
 package io.legado.app.ui.main.explore
 
+import android.os.Build
+import android.graphics.RenderEffect
+import android.graphics.ShaderTileMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +23,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -254,6 +258,18 @@ fun ClassicGridCard(
     }
 }
 
+/** API 31+ 层模糊磨砂；旧版 / 低端机不挂 RenderEffect，由 frostBrush 半透明渐变兜底。 */
+private fun Modifier.frostBlur(enabled: Boolean): Modifier = this.then(
+    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Modifier.graphicsLayer {
+            val radius = 18.dp.toPx()
+            renderEffect = RenderEffect.createBlurEffect(radius, radius, ShaderTileMode.CLAMP)
+        }
+    } else {
+        Modifier
+    },
+)
+
 /** 竖排：逐字换行；超 6 字取前五字加省略号 */
 private fun verticalize(title: String): String {
     val chars = title.trim().toCharArray()
@@ -266,9 +282,10 @@ private fun verticalize(title: String): String {
 // ————————————————————————————————————————————————
 
 /**
- * 毛玻璃底：上层叠半透明暖色渐变 + 顶部暖光，模拟磨砂。
+ * 毛玻璃底：API 31+ 叠 RenderEffect 层模糊 + 半透明暖色渐变；API 26-30 无 RenderEffect，
+ * 以半透明暖色渐变 + 顶部暖光模拟磨砂，不用纯透明冒充。
  * [lowSpec] 对应低端机兜底（内存 <4GB 或核数 <4）：退化为半透明纯色，不做模糊叠层。
- * 真正的 backdrop RenderEffect 模糊需 API 31+ 且要截取背景，留待共享 Sheet 层统一实现。
+ * 说明：RenderEffect 模糊图层自身内容，背景截获式 backdrop blur 仍待共享 Sheet 层统一实现。
  */
 @Composable
 fun TopicBannerCard(
@@ -301,6 +318,7 @@ fun TopicBannerCard(
         modifier = modifier
             .revealLayer(reveal)
             .clip(CardRadius)
+            .frostBlur(enabled = !lowSpec)
             .background(frostBrush)
             .border(1.dp, cardBorder(interaction), CardRadius)
             .tiltLayer(interaction, baseTilt = 0f)

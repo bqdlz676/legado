@@ -61,9 +61,6 @@ object InkTokens {
     /** 气泡 cubic-bezier(.34,1.56,.64,1)（回弹过冲） */
     val bubbleEasing: CubicBezierEasing = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
 
-    /** 翻页掀角 cubic-bezier(.4,0,.2,1) */
-    val pageTurnEasing: CubicBezierEasing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
-
     /** 遮罩 cubic-bezier(.4,0,.6,1) */
     val maskEasing: CubicBezierEasing = CubicBezierEasing(0.4f, 0f, 0.6f, 1f)
 
@@ -144,4 +141,67 @@ object InkTokens {
 
     /** 翻角物理阴影最大透明度。 */
     const val PEEL_SHADOW_ALPHA: Float = 0.18f
+
+    // ─────────────────────────── 磨砂毛玻璃（切片-03 四层框架 · 绢帛面） ───────────────────────────
+
+    /** API 31+ RenderEffect 模糊半径（dp）；26-30 不走模糊，改半透明 + 噪点纹理模拟。 */
+    val FROST_BLUR_RADIUS_DP: Dp = 18.dp
+
+    /** API 31+ 磨砂面底色透明度（模糊层自身仍保留绢帛底色，不是纯透明）。 */
+    const val FROST_SURFACE_ALPHA_MODERN: Float = 0.82f
+
+    /** API 26-30 兜底磨砂：半透明绢帛 + 噪点颗粒叠加，禁止纯透明冒充。 */
+    const val FROST_SURFACE_ALPHA_LEGACY: Float = 0.88f
+
+    /** 低端机兜底：退近纯色绢帛，不做模糊 / 噪点叠层。 */
+    const val FROST_SURFACE_ALPHA_LOW_SPEC: Float = 0.94f
+
+    /** 磨砂噪点网格粒度（dp），与宣纸颗粒同口径。 */
+    const val FROST_NOISE_GRID_DP: Float = 2f
+
+    /** 磨砂噪点墨色透明度。 */
+    const val FROST_NOISE_ALPHA: Float = 0.04f
+
+    // ─────────────────────────── 墨爆 / 氛围粒子运动 ───────────────────────────
+
+    /** 点字墨爆字面冲击时长（ms）：独立于气泡 250ms 入场，100ms 内完成扩散。 */
+    const val BURST_DURATION_MS: Int = 100
+
+    /** 墨爆冲击环最大半径（dp）。 */
+    val BURST_RING_RADIUS_DP: Dp = 28.dp
+
+    /** 墨爆飞散墨点颗数。 */
+    const val BURST_FLECK_COUNT: Int = 6
+
+    /** 墨爆飞散墨点半径区间（dp）。 */
+    val BURST_FLECK_MIN_DP: Dp = 1.dp
+    val BURST_FLECK_MAX_DP: Dp = 2.dp
+
+    /** 氛围粒子低端机颗数（常规 [PARTICLE_COUNT] 的一半）。 */
+    const val PARTICLE_COUNT_LOW_SPEC: Int = 14
+
+    /** 氛围粒子漂移速度：归一化屏宽 / 秒（极缓，避免抢正文视线）。 */
+    const val PARTICLE_DRIFT_RATIO_PER_SEC: Float = 0.008f
+
+    /** 氛围粒子明灭周期（ms），相位由种子固定。 */
+    const val PARTICLE_TWINKLE_PERIOD_MS: Int = 3200
+
+    // ─────────────────────────── 掀角 spring 物理 ───────────────────────────
+
+    /** 掀角弹簧刚度（N/m 量级）；与阻尼比配合使整定时间落在 400ms 量级。 */
+    const val PEEL_SPRING_STIFFNESS: Float = 220f
+
+    /** 掀角弹簧阻尼比：略欠阻尼，纸角到位时留一丝轻微回弹。 */
+    const val PEEL_SPRING_DAMPING_RATIO: Float = 0.75f
+
+    // ─────────────────────────── 帧预算 / 降级红线 ───────────────────────────
+
+    /** 单帧绘制预算（ms，60fps 一帧 16.6ms）。 */
+    const val FRAME_BUDGET_MS: Double = 16.0
+
+    /** 气泡热路径预算（ms，规格：冷启 ≤300ms、之后 ≤80ms）。 */
+    const val BUBBLE_HOT_BUDGET_MS: Double = 80.0
+
+    /** 连续超预算帧数阈值：达到即触发低端降级（粒子减半、跳过噪点叠层）。 */
+    const val OVER_BUDGET_STREAK: Int = 3
 }

@@ -1,7 +1,5 @@
 package io.legado.app.ui.book.read.ink
 
-import android.animation.AnimatorListenerAdapter
-import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -12,16 +10,17 @@ import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.util.AttributeSet
+import android.view.Choreographer
 import android.view.View
-import android.view.animation.Interpolator
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.ui.graphics.toArgb
 import io.legado.app.ui.book.read.vertical.CharCell
 import io.legado.app.ui.book.read.vertical.VerticalPage
 import io.legado.app.utils.dpToPx
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.random.Random
 
 /**
@@ -32,10 +31,13 @@ import kotlin.random.Random
  * 本 View 不做测量与分页——几何全部来自引擎，渲染层只负责把字画到字位上。
  *
  * 纸面质感（§3.2）：宣纸底 #F7F1E6 + 2px 级噪点颗粒；左上 2800K 烛光暖光渐变，
- * 右下略暗；章节氛围粒子以极淡水墨散点勾勒，不是贴图。
- * 翻页（§3.3）：右下角掀起纸角 400ms，背面墨色透印 alpha 15%，翻角带物理阴影。
+ * 右下略暗；章节氛围粒子极缓漂移 + 明灭（固定种子可复现，低端机减半并静止）。
+ * 点字墨爆（§4 交互铁律）：独立 100ms 字面冲击环 + 飞散墨点，不挂气泡入场动画。
+ * 翻页（§3.3）：右下角掀起纸角，真 spring 物理（刚度 / 阻尼比见 [InkTokens]），
+ * 整定 400ms 量级；背面墨色透印 alpha 15%，翻角带物理阴影。
  *
- * 兜底：空页 / 空文本只画宣纸底与光影，不崩、不空白态报错。
+ * 帧预算守卫：单帧绘制超 [InkTokens.FRAME_BUDGET_MS] 连续若干帧即进入降级档
+ * （粒子减半、噪点叠层跳过）；兜底：空页 / 空文本只画宣纸底与光影，不崩、不空白态报错。
  */
 class VerticalPageView @JvmOverloads constructor(
     context: Context,
@@ -75,25 +77,55 @@ class VerticalPageView @JvmOverloads constructor(
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val peelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val burstPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     /** 噪点瓦片（48dp 见方，跨屏平铺），尺寸 / 密度变化时重建。 */
     private var noiseTile: Bitmap? = null
     private var noiseTileSizePx: Int = 0
 
-    /** 氛围粒子预生成：归一化坐标 + 半径比，种子固定避免每帧抖动。 */
+    /** 氛围粒子（归一化坐标 + 漂移速度比 + 明灭相位），种子固定。 */
     private var particles: List<Particle> = emptyList()
 
-    // ── 掀角翻页动画状态 ──────────────────────────────────────────────
+    // ── 掀角 spring 翻页状态 ──────────────────────────────────────────
 
-    private var turnAnimator: ValueAnimator? = null
+    private val peelSpring = PeelSpring(
+        stiffness = InkTokens.PEEL_SPRING_STIFFNESS,
+        dampingRatio = InkTokens.PEEL_SPRING_DAMPING_RATIO,
+    )
     private var peelProgress = 0f
     private var turnAnimating = false
+
+    // ── 点字墨爆状态（独立 100ms，不挂气泡入场） ──────────────────────
+
+    private var burstActive = false
+    private var burstStartMs = 0L
+    private var burstCenterX = 0f
+    private var burstCenterY = 0f
+    private var burstFlecks: List<Fleck> = emptyList()
+
+    // ── 帧循环 / 帧预算守卫 ──────────────────────────────────────────
+
+    private val choreographer = Choreographer.getInstance()
+    private var frameCallback: Choreographer.FrameCallback? = null
+    private var lastFrameMs = 0L
+    private var overBudgetStreak = 0
+    private var degraded = false
 
     private data class Particle(
         val xRatio: Float,
         val yRatio: Float,
         val radiusRatio: Float,
-        val alpha: Float,
+        val baseAlpha: Float,
+        val vxRatioPerSec: Float,
+        val vyRatioPerSec: Float,
+        val phase: Float,
+        val twinkleSpeed: Float,
+    )
+
+    private data class Fleck(
+        val angle: Float,
+        val distanceRatio: Float,
+        val radiusRatio: Float,
     )
 
     /** 引擎翻页 / 重排后回填当前页并触发重绘。 */
@@ -102,28 +134,32 @@ class VerticalPageView @JvmOverloads constructor(
         invalidate()
     }
 
-    /** 触发右下角掀角翻页动画；[direction] 预留（Prev / Next 均自右下掀角，规格只定义一种掀法）。 */
+    /**
+     * 触发右下角掀角翻页；弹簧积分在帧回调里推进，整定后复位屏蔽位。
+     * [direction] 预留（Prev / Next 均自右下掀角，规格只定义一种掀法）。
+     */
     fun startPageTurn(direction: EdgeDirection) {
-        turnAnimator?.cancel()
+        peelSpring.reset()
+        peelProgress = 0f
         turnAnimating = true
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = InkTokens.DURATION_PAGE.toLong()
-            interpolator = ComposeEasingInterpolator(InkTokens.pageTurnEasing)
-            addUpdateListener {
-                peelProgress = it.animatedValue as Float
-                invalidate()
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    turnAnimating = false
-                    peelProgress = 0f
-                    onTurnAnimEnd?.invoke()
-                    invalidate()
-                }
-            })
+        ensureFrameLoop()
+    }
+
+    /** 点字墨爆：在字心 (cx, cy) 起独立 100ms 冲击，与气泡 250ms 入场互不挂接。 */
+    fun burstAt(cx: Float, cy: Float) {
+        burstCenterX = cx
+        burstCenterY = cy
+        burstStartMs = nowMillis()
+        burstActive = true
+        val rand = Random(BURST_SEED xor (cx.roundToInt() * 31L) xor (cy.roundToInt() * 17L))
+        burstFlecks = List(InkTokens.BURST_FLECK_COUNT) {
+            Fleck(
+                angle = rand.nextFloat() * (2f * Math.PI.toFloat()),
+                distanceRatio = 0.03f + rand.nextFloat() * 0.05f,
+                radiusRatio = rand.nextFloat(),
+            )
         }
-        turnAnimator = animator
-        animator.start()
+        ensureFrameLoop()
     }
 
     /** 翻页动画是否进行中（进行中屏蔽新气泡与边缘翻页，避免动画打架）。 */
@@ -139,6 +175,7 @@ class VerticalPageView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
+        val drawStart = System.nanoTime()
         super.onDraw(canvas)
         val w = width
         val h = height
@@ -148,7 +185,7 @@ class VerticalPageView @JvmOverloads constructor(
         canvas.drawColor(InkTokens.bgPage.toArgb())
 
         drawCandlelight(canvas, w, h)
-        drawNoise(canvas, w, h)
+        if (!degraded) drawNoise(canvas, w, h)
         drawParticles(canvas, w, h)
 
         val current = page
@@ -161,7 +198,10 @@ class VerticalPageView @JvmOverloads constructor(
             drawProgressLine(canvas, w, h, current.progress)
         }
 
+        drawBurst(canvas)
         drawPeel(canvas, w, h)
+
+        noteFrameBudget(drawStart)
     }
 
     // ── §3.2 光影 / 颗粒 / 粒子 ──────────────────────────────────────
@@ -231,27 +271,78 @@ class VerticalPageView @JvmOverloads constructor(
     }
 
     private fun rebuildParticles() {
+        val lowSpec = InkSpec.isLowSpec() || degraded
+        val count = InkSpec.particleCount(
+            full = InkTokens.PARTICLE_COUNT,
+            low = InkTokens.PARTICLE_COUNT_LOW_SPEC,
+            lowSpec = lowSpec,
+        )
         val rand = Random(PARTICLE_SEED)
-        particles = List(InkTokens.PARTICLE_COUNT) {
+        particles = List(count) {
+            val drift = if (lowSpec) 0f else InkTokens.PARTICLE_DRIFT_RATIO_PER_SEC
             Particle(
                 xRatio = rand.nextFloat(),
                 yRatio = rand.nextFloat(),
                 radiusRatio = rand.nextFloat(),
-                alpha = InkTokens.PARTICLE_ALPHA * (0.5f + rand.nextFloat() * 0.5f),
+                baseAlpha = InkTokens.PARTICLE_ALPHA * (0.5f + rand.nextFloat() * 0.5f),
+                vxRatioPerSec = (rand.nextFloat() - 0.5f) * drift,
+                vyRatioPerSec = (rand.nextFloat() - 0.5f) * drift,
+                phase = rand.nextFloat() * (2f * Math.PI.toFloat()),
+                twinkleSpeed = 0.6f + rand.nextFloat() * 0.8f,
             )
         }
     }
 
     private fun drawParticles(canvas: Canvas, w: Int, h: Int) {
+        if (particles.isEmpty()) return
         val minRadius = InkTokens.PARTICLE_RADIUS_MIN_DP.value.dpToPx()
         val maxRadius = InkTokens.PARTICLE_RADIUS_MAX_DP.value.dpToPx()
         particlePaint.color = InkTokens.textPrimary.toArgb()
+        val now = nowMillis()
+        val motionActive = !InkSpec.isLowSpec() && !degraded
         for (p in particles) {
+            val xRatio = if (motionActive) wrap01(p.xRatio + p.vxRatioPerSec * elapsedSec(now)) else p.xRatio
+            val yRatio = if (motionActive) wrap01(p.yRatio + p.vyRatioPerSec * elapsedSec(now)) else p.yRatio
+            val twinkle = if (motionActive) {
+                val cycle = (now % InkTokens.PARTICLE_TWINKLE_PERIOD_MS) /
+                    InkTokens.PARTICLE_TWINKLE_PERIOD_MS.toFloat()
+                0.55f + 0.45f * sin(2f * Math.PI.toFloat() * cycle * p.twinkleSpeed + p.phase)
+            } else 1f
             val radius = minRadius + (maxRadius - minRadius) * p.radiusRatio
-            particlePaint.alpha = (p.alpha * 255).roundToInt().coerceIn(0, 255)
-            canvas.drawCircle(p.xRatio * w, p.yRatio * h, radius, particlePaint)
+            particlePaint.alpha = (p.baseAlpha * twinkle * 255).roundToInt().coerceIn(0, 255)
+            canvas.drawCircle(xRatio * w, yRatio * h, radius, particlePaint)
         }
         particlePaint.alpha = 255
+    }
+
+    // ── 点字墨爆（独立 100ms） ────────────────────────────────────────
+
+    private fun drawBurst(canvas: Canvas) {
+        if (!burstActive) return
+        val t = ((nowMillis() - burstStartMs).toFloat() / InkTokens.BURST_DURATION_MS)
+            .coerceIn(0f, 1f)
+        if (t >= 1f) {
+            burstActive = false
+            return
+        }
+        val ease = 1f - (1f - t) * (1f - t)
+        val ringRadius = InkTokens.BURST_RING_RADIUS_DP.value.dpToPx() * ease
+        burstPaint.color = InkTokens.textPrimary.toArgb()
+        burstPaint.alpha = ((1f - t) * 0.18f * 255).roundToInt().coerceIn(0, 255)
+        canvas.drawCircle(burstCenterX, burstCenterY, ringRadius, burstPaint)
+
+        val minSide = min(width, height).toFloat()
+        val minFleck = InkTokens.BURST_FLECK_MIN_DP.value.dpToPx()
+        val maxFleck = InkTokens.BURST_FLECK_MAX_DP.value.dpToPx()
+        for (fleck in burstFlecks) {
+            val dist = fleck.distanceRatio * minSide * ease
+            val fx = burstCenterX + cos(fleck.angle) * dist
+            val fy = burstCenterY + sin(fleck.angle) * dist
+            val radius = minFleck + (maxFleck - minFleck) * fleck.radiusRatio
+            burstPaint.alpha = ((1f - t) * 0.22f * 255).roundToInt().coerceIn(0, 255)
+            canvas.drawCircle(fx, fy, radius, burstPaint)
+        }
+        burstPaint.alpha = 255
     }
 
     // ── §3.1 右缘进度线 ──────────────────────────────────────────────
@@ -270,13 +361,14 @@ class VerticalPageView @JvmOverloads constructor(
         }
     }
 
-    // ── §3.3 掀角翻页 ────────────────────────────────────────────────
+    // ── §3.3 掀角 spring 翻页 ────────────────────────────────────────
 
     private fun drawPeel(canvas: Canvas, w: Int, h: Int) {
-        if (peelProgress <= 0f) return
+        val progress = peelProgress.coerceIn(0f, 1f)
+        if (progress <= 0f) return
         val corner = w * InkTokens.PEEL_CORNER_FRACTION
         // 折起量：角点沿对角线缩回；背面透印 15% 墨色。
-        val peel = corner * peelProgress
+        val peel = corner * progress
         val backPath = Path().apply {
             moveTo(w.toFloat(), h.toFloat())
             lineTo(w - peel, h.toFloat())
@@ -290,7 +382,7 @@ class VerticalPageView @JvmOverloads constructor(
 
         // 翻角物理阴影：折痕线另一侧的柔影，随掀角幅度增强。
         shadowPaint.color = InkTokens.textPrimary
-            .copy(alpha = InkTokens.PEEL_SHADOW_ALPHA * peelProgress)
+            .copy(alpha = InkTokens.PEEL_SHADOW_ALPHA * progress)
             .toArgb()
         shadowPaint.strokeWidth = 2f.dpToPx()
         canvas.drawLine(
@@ -332,16 +424,79 @@ class VerticalPageView @JvmOverloads constructor(
     private fun isInlineScript(ch: Char): Boolean =
         ch in 'a'..'z' || ch in 'A'..'Z' || ch in '0'..'9'
 
+    // ── 帧循环 / 预算守卫内部 ─────────────────────────────────────────
+
+    private fun ensureFrameLoop() {
+        if (frameCallback != null) return
+        lastFrameMs = nowMillis()
+        val callback = object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                val now = nowMillis()
+                val dtSec = ((now - lastFrameMs).coerceAtLeast(1L)) / 1000f
+                lastFrameMs = now
+
+                var keepAlive = false
+
+                // 掀角弹簧推进
+                if (turnAnimating) {
+                    peelProgress = peelSpring.update(dtSec)
+                    if (peelSpring.settled) {
+                        turnAnimating = false
+                        peelProgress = 0f
+                        onTurnAnimEnd?.invoke()
+                    } else {
+                        keepAlive = true
+                    }
+                }
+
+                // 墨爆到期由 drawBurst 自行收口；未到期保持帧循环
+                if (burstActive) keepAlive = true
+
+                // 氛围粒子运动档：持续帧循环；静止档不挂循环
+                if (ambientMotionActive()) keepAlive = true
+
+                invalidate()
+                if (keepAlive) {
+                    frameCallback = this
+                    choreographer.postFrameCallback(this)
+                } else {
+                    frameCallback = null
+                }
+            }
+        }
+        frameCallback = callback
+        choreographer.postFrameCallback(callback)
+    }
+
+    private fun ambientMotionActive(): Boolean =
+        !InkSpec.isLowSpec() && !degraded && particles.any { it.vxRatioPerSec != 0f || it.vyRatioPerSec != 0f }
+
+    private fun noteFrameBudget(drawStartNanos: Long) {
+        val elapsedMs = (System.nanoTime() - drawStartNanos) / 1_000_000.0
+        overBudgetStreak = InkSpec.recordFrame(
+            streak = overBudgetStreak,
+            elapsedMs = elapsedMs,
+            budgetMs = InkTokens.FRAME_BUDGET_MS,
+        )
+        val shouldDegrade = InkSpec.shouldDegrade(overBudgetStreak, InkTokens.OVER_BUDGET_STREAK)
+        if (shouldDegrade && !degraded) {
+            degraded = true
+            rebuildParticles()
+            invalidate()
+        }
+    }
+
+    private fun elapsedSec(nowMs: Long): Float = (nowMs - PARTICLE_EPOCH) / 1000f
+
+    private fun nowMillis(): Long = System.currentTimeMillis()
+
+    private fun wrap01(v: Float): Float = ((v % 1f) + 1f) % 1f
+
     private companion object {
         const val NOISE_SEED = 20261123L
         const val PARTICLE_SEED = 77440101L
+        const val BURST_SEED = 51502027L
         const val NOISE_ALPHA_MAX = 255f
+        const val PARTICLE_EPOCH = 0L
     }
-}
-
-/** Compose [CubicBezierEasing] → Android [Interpolator] 适配，翻页掀角沿用同一根曲线。 */
-private class ComposeEasingInterpolator(
-    private val easing: CubicBezierEasing,
-) : Interpolator {
-    override fun getInterpolation(input: Float): Float = easing.transform(input)
 }

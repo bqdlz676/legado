@@ -3,7 +3,6 @@ package io.legado.app.ui.book.read.ink
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,7 +77,6 @@ fun InkBubble(
         )
     }
     val scale = progress.value
-    val alpha = scale.coerceIn(0f, 1f)
     val arrowLocalX = (placement.arrowX - placement.x).roundToInt()
 
     // 候选循环下标；气泡内容切换后回到首个候选。
@@ -97,21 +95,11 @@ fun InkBubble(
         }
 
         Box {
-            // 墨爆冲击环（0-100ms 墨色冲击，半径 60dp）
-            Canvas(modifier = Modifier.matchParentSize()) {
-                val ringRadius = 60.dp.toPx() * (1f - progress.value).coerceIn(0f, 1f)
-                if (ringRadius > 0f) {
-                    drawCircle(
-                        color = InkTokens.textPrimary.copy(alpha = 0.12f * alpha),
-                        radius = ringRadius,
-                        center = Offset(size.width / 2f, size.height / 2f),
-                    )
-                }
-            }
-
+            // 磨砂绢帛面：API 31+ 层模糊，26-30 半透明 + 噪点颗粒兜底，低端机近纯色。
+            // 点字墨爆由底层 VerticalPageView 独立 100ms 冲击承担，不在气泡入场进度里画环。
             Column(
                 modifier = Modifier
-                    .background(InkTokens.bgSurface, RoundedCornerShape(12.dp))
+                    .frostedSurface(RoundedCornerShape(12.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
