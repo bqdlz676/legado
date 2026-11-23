@@ -64,7 +64,7 @@ class GreatCircleRouteTest {
     }
 
     @Test
-    fun `采样点沿径向抬升 1.5 单位`() {
+    fun `采样点沿径向抬升 1点5 单位`() {
         val route = sampleRoute()
         val radius = GlobeConfig.RADIUS.toDouble()
         val mid = route.sample(0.5, radius)

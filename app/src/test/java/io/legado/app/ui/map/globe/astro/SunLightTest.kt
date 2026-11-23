@@ -32,14 +32,14 @@ class SunLightTest {
         val sun = Vec3.UNIT_Z
         // 入参是模型空间法线：先逆倾斜，使施加 +23.5° 倾斜后的世界法线正对太阳。
         val modelNormal = Geo.tiltAroundX(Vec3.UNIT_Z, -tiltRad)
-        assertEquals(1f, Sun.dayFactor(modelNormal, sun), 1e-6)
+        assertEquals(1.0, Sun.dayFactor(modelNormal, sun).toDouble(), 1e-6)
     }
 
     @Test
     fun `背向太阳法线日照系数为 0`() {
         val sun = Vec3.UNIT_Z
         val modelNormal = Geo.tiltAroundX(Vec3(0.0, 0.0, -1.0), -tiltRad)
-        assertEquals(0f, Sun.dayFactor(modelNormal, sun), 1e-6)
+        assertEquals(0.0, Sun.dayFactor(modelNormal, sun).toDouble(), 1e-6)
     }
 
     @Test
@@ -73,9 +73,9 @@ class SunLightTest {
     }
 
     @Test
-    fun `夜侧亮度压到 0.15`() {
-        assertEquals(GlobeConfig.NIGHT_BRIGHTNESS, Sun.nightBrightness(0f), 1e-6)
-        assertEquals(1f, Sun.nightBrightness(1f), 1e-6)
+    fun `夜侧亮度压到零点一五`() {
+        assertEquals(GlobeConfig.NIGHT_BRIGHTNESS.toDouble(), Sun.nightBrightness(0f).toDouble(), 1e-6)
+        assertEquals(1.0, Sun.nightBrightness(1f).toDouble(), 1e-6)
     }
 
     @Test

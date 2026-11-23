@@ -31,15 +31,15 @@ class Mat4Test {
     fun `lookAt 观察矩阵基向量正交`() {
         val view = Mat4.lookAt(Vec3(0.0, 0.0, 5.0), Vec3.ZERO, Vec3.UNIT_Y)
         // 相机在 +Z 看向原点，z 轴基向量应指向 +Z
-        assertEquals(0.0, view.m[2], 1e-6)
-        assertEquals(0.0, view.m[6], 1e-6)
-        assertEquals(1.0, view.m[10], 1e-6)
+        assertEquals(0.0, view.m[2].toDouble(), 1e-6)
+        assertEquals(0.0, view.m[6].toDouble(), 1e-6)
+        assertEquals(1.0, view.m[10].toDouble(), 1e-6)
     }
 
     @Test
     fun `透视投影远平面 z 分量为负`() {
-        val proj = Mat4.perspective(Math.PI / 4, 1.0f, 1f, 100f)
+        val proj = Mat4.perspective(Math.PI / 4, 1.0, 1f, 100f)
         assertTrue(proj.m[10] < 0f)
-        assertEquals(-1f, proj.m[11], 1e-6)
+        assertEquals(-1.0, proj.m[11].toDouble(), 1e-6)
     }
 }

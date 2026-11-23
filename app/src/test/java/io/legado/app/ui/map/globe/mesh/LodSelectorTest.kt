@@ -42,7 +42,7 @@ class LodSelectorTest {
         repeat(GlobeConfig.LOD_MORPH_FRAMES) { selector.update() }
         assertFalse(selector.isMorphing)
         assertEquals(LodLevel.LOD2, selector.current)
-        assertEquals(1f, selector.morphProgress, 1e-6)
+        assertEquals(1.0, selector.morphProgress.toDouble(), 1e-6)
     }
 
     @Test

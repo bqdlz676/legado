@@ -16,14 +16,14 @@ class LabelSchemeTest {
 
     @Test
     fun `都城任何缩放级别透明度为 1`() {
-        assertEquals(1f, LabelScheme.fadeOf(capital, 5.0), 1e-6)
-        assertEquals(1f, LabelScheme.fadeOf(capital, 0.3), 1e-6)
+        assertEquals(1.0, LabelScheme.fadeOf(capital, 5.0).toDouble(), 1e-6)
+        assertEquals(1.0, LabelScheme.fadeOf(capital, 0.3).toDouble(), 1e-6)
     }
 
     @Test
     fun `一般地名远距淡出到 0`() {
-        assertEquals(0f, LabelScheme.fadeOf(normal, LabelScheme.NORMAL_LABEL_NEAR_RATIO), 1e-6)
-        assertEquals(0f, LabelScheme.fadeOf(normal, 4.0), 1e-6)
+        assertEquals(0.0, LabelScheme.fadeOf(normal, LabelScheme.NORMAL_LABEL_NEAR_RATIO).toDouble(), 1e-6)
+        assertEquals(0.0, LabelScheme.fadeOf(normal, 4.0).toDouble(), 1e-6)
     }
 
     @Test

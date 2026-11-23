@@ -33,8 +33,8 @@ class SphereGridTest {
     fun `UV 横向 seam 复制一列保证闭合`() {
         val grid = SphereGrid.build(16, 16, GlobeConfig.RADIUS)
         // 同一行首列 u=0，末列 u=1
-        assertEquals(0f, grid.uvs[0], 1e-6)
-        assertEquals(1f, grid.uvs[1 * 17 * 2 - 2], 1e-6)
+        assertEquals(0.0, grid.uvs[0].toDouble(), 1e-6)
+        assertEquals(1.0, grid.uvs[1 * 17 * 2 - 2].toDouble(), 1e-6)
     }
 
     @Test

@@ -33,7 +33,7 @@ class TerrainClassifierTest {
     fun `极圈且覆盖为冰判为极地冰盖`() {
         val sample = classifier.classify(500.0, CoverType.ICE.hex, 70.0, 40.0)
         assertTrue(sample.isIce)
-        assertEquals(GlobeConfig.ICE_SPECULAR, sample.specular, 1e-6)
+        assertEquals(GlobeConfig.ICE_SPECULAR.toDouble(), sample.specular.toDouble(), 1e-6)
     }
 
     @Test

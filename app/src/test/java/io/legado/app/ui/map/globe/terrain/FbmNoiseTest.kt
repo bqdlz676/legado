@@ -26,7 +26,7 @@ class FbmNoiseTest {
     }
 
     @Test
-    fun `森林凸起封顶 2.5 单位`() {
+    fun `森林凸起封顶 2点5 单位`() {
         val noise = FbmNoise()
         for (i in 0 until 50) {
             val v = noise.forestBump(i * 0.5, i * 0.5)

@@ -42,9 +42,9 @@ class PowerPolygonTest {
 
     @Test
     fun `关系透明度对齐切片 20 阈值`() {
-        assertEquals(GlobeConfig.POWER_OWN_ALPHA, PowerRelation.OWN.alpha(), 1e-6)
-        assertEquals(GlobeConfig.POWER_ENEMY_ALPHA, PowerRelation.ENEMY.alpha(), 1e-6)
-        assertEquals(GlobeConfig.POWER_ALLY_ALPHA, PowerRelation.ALLY.alpha(), 1e-6)
+        assertEquals(GlobeConfig.POWER_OWN_ALPHA.toDouble(), PowerRelation.OWN.alpha().toDouble(), 1e-6)
+        assertEquals(GlobeConfig.POWER_ENEMY_ALPHA.toDouble(), PowerRelation.ENEMY.alpha().toDouble(), 1e-6)
+        assertEquals(GlobeConfig.POWER_ALLY_ALPHA.toDouble(), PowerRelation.ALLY.alpha().toDouble(), 1e-6)
     }
 
     @Test

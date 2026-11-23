@@ -22,7 +22,7 @@ class InertiaRotatorTest {
     }
 
     @Test
-    fun `松手后惯性在 0.8 秒内衰减到零`() {
+    fun `松手后惯性在 0点8 秒内衰减到零`() {
         val rotator = InertiaRotator()
         rotator.onDragStart()
         rotator.onDrag(200.0, 0.0)
@@ -54,7 +54,7 @@ class InertiaRotatorTest {
     }
 
     @Test
-    fun `自动旋转按 0.2 度每秒推进`() {
+    fun `自动旋转按 0点2 度每秒推进`() {
         val rotator = InertiaRotator()
         rotator.autoRotate = true
         val before = rotator.yawDeg
