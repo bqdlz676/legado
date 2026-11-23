@@ -24,6 +24,7 @@ class SandboxBenchTest {
             sites = SeedSandbox.sites,
             chokes = SeedSandbox.chokes,
             trails = emptyList(),
+            elevation = TerrainElevation.Flat,
         )
         scene.year = -700
     }
@@ -53,6 +54,7 @@ class SandboxBenchTest {
                 sites = SeedSandbox.sites,
                 chokes = SeedSandbox.chokes,
                 trails = emptyList(),
+                elevation = TerrainElevation.Flat,
             )
         }
         assertTrue("场景构建超 4ms: $buildAvg", buildAvg < 4.0)

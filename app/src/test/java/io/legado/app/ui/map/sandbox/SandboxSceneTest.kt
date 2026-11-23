@@ -19,6 +19,7 @@ class SandboxSceneTest {
             sites = SeedSandbox.sites,
             chokes = SeedSandbox.chokes,
             trails = emptyList(),
+            elevation = TerrainElevation.Flat,
         )
         scene.year = year
         return scene
@@ -144,6 +145,7 @@ class SandboxSceneTest {
             sites = SeedSandbox.sites,
             chokes = emptyList(),
             trails = emptyList(),
+            elevation = TerrainElevation.Flat,
         )
         // 4 条关隘短线整批只占 1 次 call；去掉全部关隘后 draw call 只减 1，而非减 4。
         val delta = withChokes.estimateDrawCalls() - withoutChokes.estimateDrawCalls()

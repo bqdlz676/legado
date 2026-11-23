@@ -16,7 +16,8 @@ class SandboxScene(
     val sites: List<SitePin>,
     val chokes: List<ChokePoint>,
     val trails: List<MarchTrail>,
-    val elevation: TerrainElevation = TerrainElevation.Flat,
+    /** 地形高度采样器；由壳层注入 DEM 实现，解码失败时注入 [TerrainElevation.Flat]。 */
+    val elevation: TerrainElevation,
 ) {
 
     /** 当前锚定年代（公元前为负）；null 表示未锚定，图层不做年代过滤。 */

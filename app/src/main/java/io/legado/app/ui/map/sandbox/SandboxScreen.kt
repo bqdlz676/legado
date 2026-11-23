@@ -1,5 +1,6 @@
 package io.legado.app.ui.map.sandbox
 
+import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -19,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -41,7 +43,7 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun SandboxScreenHost(
-    scene: SandboxScene = remember { defaultScene() },
+    scene: SandboxScene = rememberSandboxScene(),
     interaction: SandboxInteraction = remember { SandboxInteraction() },
     rig: CameraRig = remember { CameraRig(focus = LatLng(35.6, 112.0)) },
     modifier: Modifier = Modifier,
@@ -180,13 +182,21 @@ private fun TimelineLine(turn: Double, campaignRounds: Int) {
     }
 }
 
-private fun defaultScene(): SandboxScene = SandboxScene(
+/** 默认场景：进入沙盘时延迟加载 DEM 栅格；资产缺失由加载器回落平面地形。 */
+@Composable
+private fun rememberSandboxScene(): SandboxScene {
+    val context = LocalContext.current
+    return remember(context) { defaultScene(context) }
+}
+
+private fun defaultScene(context: Context): SandboxScene = SandboxScene(
     powers = PowerLayer(SeedSandbox.powers),
     cities = SeedSandbox.cities,
     rivers = SeedSandbox.rivers,
     sites = SeedSandbox.sites,
     chokes = SeedSandbox.chokes,
     trails = emptyList(),
+    elevation = DemTerrainLoader.load(context),
 )
 
 private const val ROTATE_SPEED_DEG: Float = 0.2f
