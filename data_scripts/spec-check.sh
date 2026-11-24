@@ -44,6 +44,17 @@ DEFS=$(grep -oE '(B|C|D|E|F|N)[0-9]+' "$QL" 2>/dev/null | sort -u | wc -l)
 echo -e "  问题清单缺陷：${DEFS} 个（已立项规格 ${APPROVED} 条；缺陷数不应小于已立项数）"
 if [ "$DEFS" -lt "$APPROVED" ]; then echo -e "${RED}✗ ③ 已立项 ${APPROVED} > 缺陷 ${DEFS}，存在无缺陷号的立项${NC}"; hard_fail=1; else echo -e "${GRN}✓ ③ 缺陷号覆盖已立项规格${NC}"; fi
 
+# ④ 反向校验：每个 [已立项] 的缺陷号（第5列）都能在问题清单找到对应行（防登记册写了不存在的缺陷号）
+MISSING_DEF=""
+for d in $(awk -F'|' '/\[已立项\]/{gsub(/ /,"",$5); if($5!="") print $5}' "$REG"); do
+  grep -qE "\b$d\b" "$QL" 2>/dev/null || MISSING_DEF="$MISSING_DEF $d"
+done
+if [ -n "$MISSING_DEF" ]; then echo -e "${RED}✗ ④ 登记册写了问题清单里不存在的缺陷号：$MISSING_DEF${NC}"; hard_fail=1; else echo -e "${GRN}✓ ④ 每个[已立项]缺陷号都在问题清单找到${NC}"; fi
+
+# ⑤ 每个 [已验收] 的验收档位（第7列）非空（功能项=级别+报告；治理项=落地物+commit sha）
+NOEVID=$(awk -F'|' '/\[已验收\]/{gsub(/^ +| +$/,"",$7); if($7=="—"||$7=="") print $5}' "$REG")
+if [ -n "$NOEVID" ]; then echo -e "${RED}✗ ⑤ 有[已验收]但验收档位为空：$NOEVID${NC}"; hard_fail=1; else echo -e "${GRN}✓ ⑤ 每个[已验收]都有验收证据${NC}"; fi
+
 echo
 if [ "$hard_fail" -eq 0 ]; then
   echo -e "${GRN}SPEC-CHECK: 结构完整（切片连续、无硬缺口）${NC}"
