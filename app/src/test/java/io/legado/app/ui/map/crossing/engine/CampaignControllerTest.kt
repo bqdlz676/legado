@@ -90,6 +90,34 @@ class CampaignControllerTest {
     }
 
     @Test
+    fun `B4-R 装配链抛异常：顶层兜底走降级空战场，warning 可读且快照不留白`() {
+        // 注入装配期故障（internal 桩，生产路径恒 null），验证 catch → assembleDegraded 分支：
+        // 不抛、降级标志置真、corps 清空、warning 含可读失败文案、快照 corps 为 0。
+        CampaignController.assemblyFault = IllegalStateException("栅格解码崩溃")
+        try {
+            val controller = CampaignController.load(DemoCampaigns.CHISHUI_JSON, null)
+            assertTrue(controller.degraded)
+            assertTrue(controller.corps.isEmpty())
+            assertTrue(controller.warnings.any { it.contains("战役载入失败") })
+            assertEquals(0, controller.snapshot().corps.size)
+        } finally {
+            CampaignController.assemblyFault = null
+        }
+    }
+
+    @Test
+    fun `B4-R rivers 字段整体为 JsonNull 时记字段级 warning 且回落空表`() {
+        val def = CampaignJsonParser.parse("""
+        {
+          "id": "rivers-null",
+          "terrain": { "rivers": null }
+        }
+        """)
+        assertTrue(def.terrain.rivers.isEmpty())
+        assertTrue(def.warnings.any { it.contains("rivers") && it.contains("null") })
+    }
+
+    @Test
     fun `空高程图走合成兜底场并置降级标志`() {
         val controller = CampaignController.load(DemoCampaigns.CHISHUI_JSON, null)
         assertTrue(controller.raster.degraded)

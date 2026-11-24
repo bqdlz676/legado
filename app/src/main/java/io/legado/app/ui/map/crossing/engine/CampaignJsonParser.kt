@@ -266,10 +266,15 @@ object CampaignJsonParser {
             }
             val rivers = mutableListOf<RiverDef>()
             // rivers 字段类型错位（对象 / 字符串 / 数字 / 布尔 / JsonNull）由 jsonArray 守卫回落空表；
-            // 非空且非数组时补一条字段级 warning，避免整组河流静默丢失（B4 验收 4.3 粒度缺口）。
+            // 非数组时补一条字段级 warning，避免整组河流静默丢失（B4 验收 4.3 粒度缺口）；
+            // JsonNull 与其它错位同口径各记一条，不允许静默回落。
             val riversEl = t.get("rivers")
-            if (riversEl != null && !riversEl.isJsonNull && !riversEl.isJsonArray) {
-                warnings += "terrain.rivers 类型错位，已忽略全部河流"
+            if (riversEl != null && !riversEl.isJsonArray) {
+                warnings += if (riversEl.isJsonNull) {
+                    "terrain.rivers 为 null，已忽略全部河流"
+                } else {
+                    "terrain.rivers 类型错位，已忽略全部河流"
+                }
             }
             jsonArray(t, "rivers")?.forEachIndexed { index, rv ->
                 if (!rv.isJsonObject) {
@@ -329,6 +334,15 @@ object CampaignJsonParser {
     }
 
     // ── 兜底与原始取值工具 ─────────────────────────────────────
+
+    /**
+     * 顶层兜底 / 测试用最小中立定义：warnings 留空，由调用方追加降级原因。
+     * 仅在 parser 漏网异常、`load` 尚未拿到 definition 的分支使用（B4 验收修 1）。
+     */
+    internal fun degradedFallback(): CampaignDefinition {
+        val def = fallback("推演兜底战场", mutableListOf())
+        return def.copy(warnings = emptyList())
+    }
 
     private fun fallback(reason: String, warnings: MutableList<String>): CampaignDefinition {
         warnings += reason

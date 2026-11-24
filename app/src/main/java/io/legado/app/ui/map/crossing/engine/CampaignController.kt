@@ -882,23 +882,35 @@ class CampaignController private constructor(
         }
 
         /**
+         * 测试专用装配故障桩（internal，同包单测可见；生产路径恒为 null，不进公开 API）。
+         * 非空时 [assemble] 在实例化前原样抛出该异常，使顶层 catch → [assembleDegraded]
+         * 降级分支可被单测触发；用例结束必须复位为 null，避免跨用例污染。
+         */
+        @JvmField
+        internal var assemblyFault: Throwable? = null
+
+        /**
          * 载入入口：JSON 残缺 / 高程图缺失全部兜底，永不抛异常。
          *
          * @param raster 壳层解码 PNG 得到的高程栅格；null 时用内置合成默认场并置降级标志
          * @param ownSideId 己方阵营 id；缺省取第一支军队所在阵营
          */
         fun load(json: String?, raster: HeightRaster? = null, ownSideId: String? = null): CampaignController {
-            // parser 自身契约永不抛；此处顶层兜底覆盖投影 / 栅格 / 地形 / 寻路 / 实例化任一环节抛出。
-            val definition = CampaignJsonParser.parse(json)
+            // 顶层兜底覆盖解析 + 装配全链：parser 漏网异常与投影 / 栅格 / 地形 / 寻路 / 实例化
+            // 任一环节抛出，都走降级空战场，不穿透到 UI（B4 验收修 1：parse 原在 try 外，现一并纳入）。
+            var definition: CampaignDefinition? = null
             return try {
-                assemble(definition, raster, ownSideId)
+                val parsed = CampaignJsonParser.parse(json)
+                definition = parsed
+                assemble(parsed, raster, ownSideId)
             } catch (t: Throwable) {
                 // 降级空战役：错误文案进 warnings 供壳层读取；不崩、不留空白战场。
                 // assembleDegraded 输入全部为常量空表，不依赖原始残缺 definition 再次装配。
-                val degradedDef = definition.copy(
+                val reason = "战役载入失败：${t.javaClass.simpleName}${t.message?.let { "（$it）" } ?: ""}，已进入空战场降级态"
+                val baseDefinition = definition ?: CampaignJsonParser.degradedFallback()
+                val degradedDef = baseDefinition.copy(
                     degraded = true,
-                    warnings = definition.warnings +
-                        "战役载入失败：${t.javaClass.simpleName}${t.message?.let { "（$it）" } ?: ""}，已进入空战场降级态",
+                    warnings = baseDefinition.warnings + reason,
                 )
                 assembleDegraded(degradedDef, ownSideId)
             }
@@ -910,6 +922,7 @@ class CampaignController private constructor(
             raster: HeightRaster?,
             ownSideId: String?,
         ): CampaignController {
+            assemblyFault?.let { throw it }
             val effectiveRaster = raster ?: HeightRaster.synthetic(seed = SEED_FALLBACK, gridN = GRID_N, degraded = true)
             val projection = GeoProjection(definition.focus, GRID_N)
             val map = TerrainMap(
