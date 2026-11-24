@@ -1,4 +1,11 @@
-9b330301d0547409c57ade890033ece64f574a9425f45e1d1f338e31bb0508cd  app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+4a1047ad04e9326e5bbb9fc1d7d893483ee449bc53986848c81945f98acd7bd4  app/src/main/res/mipmap-mdpi/ic_launcher.png
+70ac2275666a66c2a26a1afc62fc6ee6234632712f8c1a8fd68027ddd4c2384c  app/src/main/res/mipmap-hdpi/ic_launcher.png
+1a6105e44b7e56b9837770d81256acc0ae576fe3bdb1bc75eb8dc05b3990b69f  app/src/main/res/mipmap-xhdpi/ic_launcher.png
+6ba570de4042294aea5045f863e288114bfe596d21c5560727506018d7e4ac70  app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+b039d76d30d3f73d006373aa311c6d8a018162dc9730dafe9526a45b119fd4e2  app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 9b330301d0547409c57ade890033ece64f574a9425f45e1d1f338e31bb0508cd  app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
-d593db832d9361a99d5a91d3c89cba5d52f72aad1b4635698fe53cdf6bc1b71e  app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-a465c0dde713f1cc878627bcd780f7cc01ea7151eaca5a8f9a55b97d8a048340  app/src/main/res/values/colors.xml
+2d83c1a68651f5881381184a19d334d50b20a0cce811611668886e696446d41a  app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+e3abcfd7c1f2149e62848c29d5d54ac835c05ce0d5c84b3df49006049a392837  app/src/main/res/drawable/ic_launcher_background.xml
+0e27f3d89ee04b53f990010fbea246adfc1fb2a3386de5a718f811808fb9417d  app/src/main/res/drawable/ic_launcher_foreground.xml
+18cd2a1a24698985ac4e1f197de27091b05ff89b4780b464cc99901bb582e26a  app/src/main/res/drawable/ic_launcher_monochrome.xml
+34d326d5a11706490a472aa0a7468b34ced76645facc3a9f8eebc1f3886303cf  app/src/main/res/values/colors.xml

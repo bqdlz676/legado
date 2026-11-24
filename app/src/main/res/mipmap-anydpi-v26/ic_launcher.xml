@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_fg" />
-    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
+    <!-- A·绢帛墨山（规格 docs/规格候选-启动图标-A-绢帛墨印.md）：背景/前景/单色三层 -->
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

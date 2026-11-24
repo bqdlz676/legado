@@ -120,7 +120,12 @@
     <color name="reviewContentText">#CC000000</color>
     <color name="reviewCardStroke">#16000000</color>
     <color name="reviewBadgeBg">#12000000</color>
-    <!-- 玻璃金星盘底色（由 icon_v/apply_icon.py 从新图标采样，勿手改） -->
-    <!-- F-73 作废：启动图标无规格原文，待规格化重做（docs/审计-无规格实现清单.md 表二#1） -->
-    <color name="ic_launcher_background">#3B342A</color>
+    <!-- LAUNCHER-A:BEGIN 绢帛墨山启动图标色块（规格 §4，脚本生成，勿手改） -->
+    <color name="ic_launcher_background">#F7F1E6</color>  <!-- B1 绢帛底 = cardPaper -->
+    <color name="ic_launcher_ink">#1A1410</color>          <!-- B2/F3 墨 = ink -->
+    <color name="ic_launcher_cloud">#9B9687</color>        <!-- F5 薄雾 = cloudGray -->
+    <color name="ic_launcher_gold">#D4A54A</color>          <!-- F4 暖金 = warmGold -->
+    <color name="ic_launcher_mountain_far">#4D746D</color>  <!-- F1 远山 = stoneBlue→cloudGray lerp 20%（§4 标称35%不达§9对比度地板，收口见脚本注释） -->
+    <color name="ic_launcher_mountain_near">#202521</color> <!-- F2 近山 = ink→stoneBlue lerp 20% -->
+    <!-- LAUNCHER-A:END -->
 </resources>

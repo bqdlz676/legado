@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 前景层：全部内容收进 72dp 安全区 [18,90]dp（规格 §2） -->
+    <!-- F1 远山脊：峰位 (36,64)、(66,62)，下沿 y=80；iconMountainFar 派生色 -->
+    <path android:pathData="M 18.00,74.00 L 27.00,68.00 L 36.00,64.00 L 46.00,69.00 L 56.00,67.00 L 66.00,62.00 L 77.00,68.00 L 90.00,74.00 L 90.00,80.00 L 18.00,80.00 Z" android:fillColor="@color/ic_launcher_mountain_far" />
+    <!-- F5 山脚薄雾：y 76→80，cloudGray alpha 0.18，仅远山与近山交界 -->
+    <path android:pathData="M 20,76 h 68 v 4 h -68 z" android:fillColor="@color/ic_launcher_cloud" android:fillAlpha="0.18" />
+    <!-- F2 近山主脊：顶 (54,40)，左足 (26,80)，右足 (82,80)；iconMountainNear 派生色 -->
+    <path android:pathData="M 54,40 C 44,54 32,68 26,80 L 82,80 C 68,66 62,52 54,40 Z" android:fillColor="@color/ic_launcher_mountain_near" />
+    <!-- F3 墨爆碎屑：圆粒 ink；飞白细丝 alpha 0.5 -->
+    <path android:pathData="M 58.09,82.30 a 1.10,1.10 0 1 0 2.21,0 a 1.10,1.10 0 1 0 -2.21,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 58.79,76.16 a 1.12,1.12 0 1 0 2.23,0 a 1.12,1.12 0 1 0 -2.23,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 52.48,81.89 a 0.80,0.80 0 1 0 1.61,0 a 0.80,0.80 0 1 0 -1.61,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 73.59,76.76 a 1.62,1.62 0 1 0 3.24,0 a 1.62,1.62 0 1 0 -3.24,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 79.78,74.09 a 1.44,1.44 0 1 0 2.88,0 a 1.44,1.44 0 1 0 -2.88,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 80.15,79.99 a 1.53,1.53 0 1 0 3.06,0 a 1.53,1.53 0 1 0 -3.06,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 38.30,72.97 a 1.60,1.60 0 1 0 3.20,0 a 1.60,1.60 0 1 0 -3.20,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 28.49,77.83 a 1.04,1.04 0 1 0 2.08,0 a 1.04,1.04 0 1 0 -2.08,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 50.43,80.20 a 0.96,0.96 0 1 0 1.92,0 a 0.96,0.96 0 1 0 -1.92,0 z" android:fillColor="@color/ic_launcher_ink" />
+    <path android:pathData="M 34.50,79.29 L 30.65,79.60" android:strokeColor="@color/ic_launcher_ink" android:strokeWidth="0.6" android:strokeAlpha="0.5" android:strokeLineCap="round" />
+    <path android:pathData="M 39.08,75.40 L 36.14,77.03" android:strokeColor="@color/ic_launcher_ink" android:strokeWidth="0.6" android:strokeAlpha="0.5" android:strokeLineCap="round" />
+    <path android:pathData="M 82.52,72.05 L 84.00,72.94" android:strokeColor="@color/ic_launcher_ink" android:strokeWidth="0.6" android:strokeAlpha="0.5" android:strokeLineCap="round" />
+    <!-- F4 暖金笔意线：(22,60)→(50,58)→(76,56)，线宽 1.2dp，圆角端点/拐点；金点 (78,55) r1.4 -->
+    <path android:pathData="M 22.00,60.00 L 50.00,58.00 L 76.00,56.00" android:strokeColor="@color/ic_launcher_gold" android:strokeWidth="1.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M 76.60,55.00 a 1.40,1.40 0 1 0 2.80,0 a 1.40,1.40 0 1 0 -2.80,0 z" android:fillColor="@color/ic_launcher_gold" />
+</vector>
