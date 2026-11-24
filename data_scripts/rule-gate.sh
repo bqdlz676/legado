@@ -35,7 +35,7 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.23" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.23"; else bad "④索引版本" "未升版（期望 v2.23）"; fi
+if grep -q "版本：v2.24" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.24"; else bad "④索引版本" "未升版（期望 v2.24）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
@@ -119,6 +119,23 @@ if [ -z "$CHANGED_RPTS" ]; then
 else
   EV14=$(python3 data_scripts/check-evidence.py --strict $CHANGED_RPTS 2>&1)
   if [ $? -eq 0 ]; then ok "⑭回执证据" "$(echo "$CHANGED_RPTS" | wc -l | tr -d ' ') 份报告回证齐全"; else bad "⑭回执证据" "$(echo "$EV14" | grep '→ FAIL' | head -3)"; fi
+fi
+
+# ⑮ 三段流水线锚点守卫（F-78）：无规格功能必须走 设计规格→独立选型→（判低回炉）→写码；
+#    实现/交付类报告首行须含三锚点 `规格：`/`选型：`/`验收：`，缺一即 FAIL；
+#    选型文档须有明确"选中第 N 份 + 判低份数与理由"，无选型结论的 FAIL。
+#    例外：报告显式写明"无规格→已按 F-73 退回设计"可免 `规格：` 锚点；既无锚点又无退回声明的 FAIL 并提示退回第①段。
+#    边界：只校验本次 git status 新增/修改的目标报告；历史留档不追改（同 ⑭ 口径，否则一上来就红）。
+CHANGED_TRIPLE=$(git -c core.quotepath=false status --porcelain docs 2>/dev/null | awk '{
+  if ($0 ~ /->/) { sub(/^.*-> /, ""); } else { $1=""; }
+  gsub(/^ +/, ""); gsub(/^"/, ""); gsub(/"$/, "");
+  if ($0 ~ /(实现|交付)-.*\.md$/ || $0 ~ /卡片-.*\.md$/ || $0 ~ /图标单卡\/.*\.md$/) print $0
+}')
+if [ -z "$CHANGED_TRIPLE" ]; then
+  ok "⑮三段锚点" "本次改动无新增/修改的实现/交付报告"
+else
+  TRI15=$(python3 data_scripts/check-triple-anchor.py $CHANGED_TRIPLE 2>&1)
+  if [ $? -eq 0 ]; then ok "⑮三段锚点" "$(echo "$CHANGED_TRIPLE" | wc -l | tr -d ' ') 份报告三锚点齐全"; else bad "⑮三段锚点" "$(echo "$TRI15" | grep '→ FAIL' | head -3)"; fi
 fi
 
 echo
