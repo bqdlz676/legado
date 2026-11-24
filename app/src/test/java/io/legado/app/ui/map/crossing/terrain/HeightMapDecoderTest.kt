@@ -82,7 +82,7 @@ class HeightMapDecoderTest {
                 val px = pixel(x, y)
                 for (c in 0 until channels) curr[x * channels + c] = px[c] and 0xFF
             }
-            raw[p++] = filter
+            raw[p++] = filter.toByte() // 每条扫描行的过滤器字节，PNG spec 规定为 0..4 单字节
             for (i in 0 until width * channels) {
                 val left = if (i >= bpp) curr[i - bpp] else 0
                 val up = prev[i]
