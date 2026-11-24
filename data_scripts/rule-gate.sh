@@ -223,5 +223,10 @@ if [ $? -eq 0 ]; then ok "㉗子代理存活" "$(echo "$LIVE27" | grep 'AGENT-LI
 TFN28=$(python3 data_scripts/check-test-fun-names.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉘测试函数名合法性" "$(echo "$TFN28" | grep 'TEST-FUN-NAME: PASS')"; else bad "㉘测试函数名合法性" "$(echo "$TFN28" | grep -E '非法字符|FAIL' | head -4 | tr '\n' ' ')"; fi
 
+# ㉙ 停工守卫（F-103）：用户要求"没有我的指令中途不许停工"。用外部事实判定——
+#    HEAD 超 IDLE_ALLOW_MINUTES(默认 120) 分钟未动、而队列仍有 PENDING/RUNNING，就是空转。
+IDLE29=$(python3 data_scripts/check-no-idle.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉙停工守卫" "$(echo "$IDLE29" | grep 'NO-IDLE: PASS')"; else bad "㉙停工守卫" "$(echo "$IDLE29" | grep -E 'FAIL' | head -2 | tr '\n' ' ')"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
