@@ -238,5 +238,10 @@ if [ $? -eq 0 ]; then ok "㉚队首推进" "$(echo "$QR30" | grep 'QUEUE-RUNNING
 IR31=$(python3 data_scripts/check-incident-register.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉛事故清单完整性" "$(echo "$IR31" | grep 'INCIDENT-REG: PASS')"; else bad "㉛事故清单完整性" "$(echo "$IR31" | grep -E '未登记|FAIL' | head -4 | tr '\n' ' ')"; fi
 
+# ㉜ Float/Double 混算（K-16 机制化）：float * double 会被推成 Double，
+#    return 声明 Float 或不带 toFloat() 就编译红。这条把这些行机械抓出来。
+FD32=$(python3 data_scripts/check-float-double-mix.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉜FloatDouble混算" "$(echo "$FD32" | grep 'FLOAT-DOUBLE-MIX: PASS')"; else bad "㉜FloatDouble混算" "$(echo "$FD32" | grep -E 'FAIL|:' | head -3 | tr '\n' ' ')"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
