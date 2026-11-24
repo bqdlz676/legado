@@ -86,5 +86,18 @@ if ls "$HOME/.gradle/jdks" 2>/dev/null | grep -qv 'CACHEDIR.TAG'; then BUILD_CAP
 if pgrep -f 'gradle|kotlinc|assemble' >/dev/null 2>&1; then BUILD_CAP=1; fi
 if [ "$BUILD_CAP" -eq 0 ]; then ok "⑩本地构建能力" "已封死（无gradle/SDK/JDK21，无构建进程）"; else bad "⑩本地构建能力" "检测到本地构建能力/进程，禁提交禁派单"; fi
 
+# ⑪ 规格完整性（用户令：每一项规格都要有立项检查，保证全项目完整）
+SPEC_DIR=docs/落文-规格切片
+MAXN=$(ls "$SPEC_DIR"/切片-*.md 2>/dev/null | grep -oE '切片-[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1)
+GAPS=""
+if [ -n "$MAXN" ]; then
+  for i in $(seq 1 "$MAXN"); do
+    ls "$SPEC_DIR"/切片-$(printf '%02d' "$i")-*.md >/dev/null 2>&1 || GAPS="$GAPS 切片-$(printf '%02d' "$i")"
+  done
+fi
+SLICES=$(ls "$SPEC_DIR"/切片-*.md 2>/dev/null | wc -l)
+DEFS=$(grep -oE '(B|C|D|E|F|N)[0-9]+' docs/问题清单.md 2>/dev/null | sort -u | wc -l)
+if [ -n "$GAPS" ]; then bad "⑪规格完整性" "切片跳号：$GAPS"; else ok "⑪规格完整性" "切片 $SLICES 个连续、无跳号；问题清单缺陷 $DEFS 个（覆盖台账 docs/规格覆盖台账.md 逐条对齐）"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
