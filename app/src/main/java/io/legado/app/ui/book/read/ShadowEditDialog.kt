@@ -1,85 +1,236 @@
 package io.legado.app.ui.book.read
 
-import android.os.Bundle
-import android.view.View
-import android.view.ViewGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.legado.app.R
-import io.legado.app.base.BaseDialogFragment
-import io.legado.app.databinding.DialogHighlightShadowBinding
 import io.legado.app.help.HighlightStyle.Shadow
-import io.legado.app.utils.setLayout
-import io.legado.app.utils.viewbindingdelegate.viewBinding
+import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.InkButtonVariant
 import java.util.Locale
 import kotlin.math.roundToInt
 
-class ShadowEditDialog : BaseDialogFragment(R.layout.dialog_highlight_shadow) {
-
-    interface Callback {
-        fun onShadowChanged(shadow: Shadow)
-    }
-
-    private val binding by viewBinding(DialogHighlightShadowBinding::bind)
-    private val initialShadow: Shadow
-        get() = Shadow(
-            radius = arguments?.getFloat(ARG_RADIUS) ?: Shadow().radius,
-            dx = arguments?.getFloat(ARG_DX) ?: Shadow().dx,
-            dy = arguments?.getFloat(ARG_DY) ?: Shadow().dy,
-            color = arguments?.getInt(ARG_COLOR) ?: Shadow().color
-        )
-
-    override fun onStart() {
-        super.onStart()
-        setLayout(0.9f, ViewGroup.LayoutParams.WRAP_CONTENT)
-    }
-
-    override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        val shadow = initialShadow
-        binding.dsbRadius.valueFormat = { formatHalf(it) }
-        binding.dsbDx.valueFormat = { formatHalf(it - OFFSET_PROGRESS, signed = true) }
-        binding.dsbDy.valueFormat = { formatHalf(it - OFFSET_PROGRESS, signed = true) }
-        binding.dsbRadius.progress = progressOf(shadow.radius, 0f, 10f)
-        binding.dsbDx.progress = progressOf(shadow.dx, -10f, 10f)
-        binding.dsbDy.progress = progressOf(shadow.dy, -10f, 10f)
-
-        binding.btnCancel.setOnClickListener { dismiss() }
-        binding.btnOk.setOnClickListener {
-            (parentFragment as? Callback)?.onShadowChanged(
-                shadow.copy(
-                    radius = binding.dsbRadius.progress / 2f,
-                    dx = binding.dsbDx.progress / 2f - 10f,
-                    dy = binding.dsbDy.progress / 2f - 10f
-                )
-            )
-            dismiss()
+/**
+ * 高亮阴影 / 辉光参数编辑（C4A Compose 重写）。
+ *
+ * 旧版是 `BaseDialogFragment` + XML SeekBar 三件套，回调走 `parentFragment as? Callback`。
+ * 本版不再挂 Fragment 事务：由样式面板 [HighlightStyleDialog] 的 Compose 树直接托管本半屏，
+ * 确认结果经 [onConfirm] 原样回传；阴影颜色不在本面板编辑，沿用 [initial] 中的 color。
+ *
+ * 取值口径与旧版逐字对齐：radius ∈ [0, 10]，dx / dy ∈ [-10, 10]，步进 0.5；
+ * 展示文案 radius 用 `%.1f`，偏移用 `%+.1f`（旧 formatHalf 口径）。
+ */
+@Composable
+internal fun ShadowEditSheet(
+    visible: Boolean,
+    initial: Shadow,
+    onConfirm: (Shadow) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // 每次弹起时以 initial 复位本地草稿；关闭后草稿不残留（§5.4 关闭后状态不变）。
+    var radius by remember { mutableFloatStateOf(initial.radius.coerceIn(0f, 10f)) }
+    var dx by remember { mutableFloatStateOf(initial.dx.coerceIn(-10f, 10f)) }
+    var dy by remember { mutableFloatStateOf(initial.dy.coerceIn(-10f, 10f)) }
+    LaunchedEffect(visible) {
+        if (visible) {
+            radius = initial.radius.coerceIn(0f, 10f)
+            dx = initial.dx.coerceIn(-10f, 10f)
+            dy = initial.dy.coerceIn(-10f, 10f)
         }
     }
+    if (!visible) return
 
-    private fun progressOf(value: Float, min: Float, max: Float): Int {
-        val safeValue = value.takeIf { it.isFinite() } ?: min
-        return ((safeValue.coerceIn(min, max) - min) * 2).roundToInt()
-    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        BasicText(
+            text = stringRes(R.string.highlight_shadow),
+            style = TextStyle(
+                color = ComponentTokens.textPrimary,
+                fontSize = 17.sp,
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.SemiBold,
+            ),
+        )
 
-    private fun formatHalf(progress: Int, signed: Boolean = false): String {
-        val format = if (signed) "%+.1f" else "%.1f"
-        return String.format(Locale.getDefault(), format, progress / 2f)
-    }
+        InkStyleSlider(
+            label = stringRes(R.string.highlight_shadow_radius),
+            value = radius,
+            min = 0f,
+            max = 10f,
+            valueText = formatHalf(radius, signed = false),
+            onValueChange = { radius = it },
+        )
+        InkStyleSlider(
+            label = stringRes(R.string.highlight_shadow_offset_x),
+            value = dx,
+            min = -10f,
+            max = 10f,
+            valueText = formatHalf(dx, signed = true),
+            onValueChange = { dx = it },
+        )
+        InkStyleSlider(
+            label = stringRes(R.string.highlight_shadow_offset_y),
+            value = dy,
+            min = -10f,
+            max = 10f,
+            valueText = formatHalf(dy, signed = true),
+            onValueChange = { dy = it },
+        )
 
-    companion object {
-        private const val ARG_RADIUS = "radius"
-        private const val ARG_DX = "dx"
-        private const val ARG_DY = "dy"
-        private const val ARG_COLOR = "color"
-        private const val OFFSET_PROGRESS = 20
-
-        fun show(fragmentManager: androidx.fragment.app.FragmentManager, shadow: Shadow) {
-            ShadowEditDialog().apply {
-                arguments = Bundle().apply {
-                    putFloat(ARG_RADIUS, shadow.radius)
-                    putFloat(ARG_DX, shadow.dx)
-                    putFloat(ARG_DY, shadow.dy)
-                    putInt(ARG_COLOR, shadow.color)
-                }
-            }.show(fragmentManager, ShadowEditDialog::class.simpleName)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            InkButton(stringRes(R.string.cancel), onDismiss, variant = InkButtonVariant.GHOST)
+            Spacer(Modifier.width(8.dp))
+            InkButton(stringRes(R.string.ok), variant = InkButtonVariant.PRIMARY) {
+                onConfirm(
+                    initial.copy(
+                        radius = snapHalf(radius),
+                        dx = snapHalf(dx),
+                        dy = snapHalf(dy),
+                    ),
+                )
+            }
         }
     }
 }
+
+/**
+ * 样式参数滑杆（阴影 / 下划线面板共用）。
+ *
+ * 纯手势自绘：轨道 + 暖金拇指，无 Material SeekBar / ripple；拖动只改本地草稿，
+ * 松手不回写宿主，确认按钮统一提交。步进 0.5 与旧 SeekBar 双倍进度口径一致。
+ */
+@Composable
+internal fun InkStyleSlider(
+    label: String,
+    value: Float,
+    min: Float,
+    max: Float,
+    valueText: String,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val range = (max - min).takeIf { it > 0f } ?: 1f
+    val fraction = ((value - min) / range).coerceIn(0f, 1f)
+    val thumbHalfPx = with(LocalDensity.current) { 8.dp.toPx() }
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText(
+                text = label,
+                style = TextStyle(
+                    color = ComponentTokens.textSecondary,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Serif,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+            BasicText(
+                text = valueText,
+                style = TextStyle(
+                    color = ComponentTokens.textPrimary,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.SansSerif,
+                ),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(24.dp)
+                .pointerInput(min, max) {
+                    detectHorizontalDragGestures { change, dragAmount ->
+                        change.consume()
+                        val width = size.width.toFloat().takeIf { it > 0f }
+                            ?: return@detectHorizontalDragGestures
+                        val next = fraction + dragAmount / width
+                        onValueChange(snapHalf(min + next.coerceIn(0f, 1f) * range))
+                    }
+                },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            // 轨道：绢帛底；已走段暖金。
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(ComponentTokens.bgSurface),
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth(fraction)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(ComponentTokens.brandGold),
+            )
+            // 拇指：暖金圆点，按比例落在轨道上；墨触无 ripple。
+            Box(
+                Modifier
+                    .offset {
+                        IntOffset(
+                            ((fraction * size.width) - thumbHalfPx).roundToInt(),
+                            0,
+                        )
+                    }
+                    .size(16.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(ComponentTokens.brandGold),
+            )
+        }
+    }
+}
+
+/** 0.5 步进吸附：旧 SeekBar 进度为值的两倍，折算后保留半格粒度。 */
+private fun snapHalf(value: Float): Float {
+    if (!value.isFinite()) return 0f
+    return (value * 2f).roundToInt() / 2f
+}
+
+private fun formatHalf(value: Float, signed: Boolean): String {
+    val format = if (signed) "%+.1f" else "%.1f"
+    return String.format(Locale.getDefault(), format, value)
+}
+
+@Composable
+private fun stringRes(id: Int): String = LocalContext.current.getString(id)

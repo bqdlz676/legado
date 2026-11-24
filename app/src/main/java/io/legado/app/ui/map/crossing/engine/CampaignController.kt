@@ -9,6 +9,7 @@ import io.legado.app.ui.map.crossing.model.CorpsView
 import io.legado.app.ui.map.crossing.model.EventAction
 import io.legado.app.ui.map.crossing.model.FactionRole
 import io.legado.app.ui.map.crossing.model.Geo
+import io.legado.app.ui.map.crossing.model.IntelRecordSnapshot
 import io.legado.app.ui.map.crossing.model.Intent
 import io.legado.app.ui.map.crossing.model.Morale
 import io.legado.app.ui.map.crossing.model.Relation
@@ -539,7 +540,6 @@ class CampaignController private constructor(
             val seen = isFriendlySide(playerSide, c.sideId) || c.id in observedIds
             // B9：已观测给实时坐标；未观测给上次已知报告（从未目睹为 null，F8 口径不变）；
             // 模糊半径经 [reportRadiusCells] 出口供壳层 / 单测取用（CorpsView 扩字段待总控批准）。
-            // 为什么加 ?.let：victory.side 可空，latestReport 只收非空 sideId（否则 String? → String 编译红）。
             val report = if (seen) c.latLng else playerSide?.let { latestReport(it, c.id) }
             c.toView(observed = seen, report = report)
         }
@@ -566,42 +566,84 @@ class CampaignController private constructor(
             .mapNotNull { it.value[targetId] }
             .maxByOrNull { it.seenTurn }?.geo
 
-    /** 保存分支存档（深拷贝运行态，避免后续回合改动污染存档）。 */
+    /** 保存分支存档（深拷贝运行态，避免后续回合改动污染存档）。B7：全部可变量纳入快照。 */
     fun saveBranch(): BranchSnapshot = BranchSnapshot(
         turn = turn,
         elapsedDays = elapsedDays,
-        corps = corps.map { it.copy() },
+        corps = corps.map { it.deepCopy() },
         firedEventIds = firedEvents.toSet(),
         captureHold = captureHold.toMap(),
         pointHolders = buildPointHolders(),
+        status = status,
+        winnerSide = winnerSide,
+        finishReason = finishReason,
+        eventLog = _eventLog.toList(),
+        marchCells = marchCells.toMap(),
+        intel = intel.snapshotIntel(),
+        reports = reports.snapshotIntel(),
     )
 
-    /** 恢复分支：时间 / 兵力 / 已触发事件一并回滚；状态重置为进行中。 */
+    /**
+     * 恢复分支：运行态全部可变量逐字段回滚到存档时刻（B7「恢复后完全一致」口径）。
+     * 终局状态 / 胜负方 / 原因、事件日志、行军累计、双情报表一并还原；不再强制重置为进行中。
+     */
     fun restoreBranch(branch: BranchSnapshot) {
         corps.clear()
-        corps += branch.corps.map { it.copy() }
+        corps += branch.corps.map { it.deepCopy() }
         turn = branch.turn
         elapsedDays = branch.elapsedDays
         firedEvents.clear()
         firedEvents += branch.firedEventIds
         captureHold.clear()
         captureHold.putAll(branch.captureHold)
-        restorePointHolders(branch.pointHolders)
-        // B9：情报随存档回滚——按恢复后的军位重新播种决策层情报；视图目睹记录清空，需重新侦察。
-        intel.clear()
-        reports.clear()
-        for (observer in corps) for (enemy in enemiesOf(observer)) {
-            intel.getOrPut(observer.id) { mutableMapOf() }[enemy.id] = IntelRecord(
-                geo = enemy.latLng,
-                cell = enemy.position,
-                seenTurn = branch.turn,
-                radiusCells = 0,
-            )
-        }
-        status = BattleStatus.ONGOING
-        winnerSide = null
-        finishReason = ""
+        _eventLog.clear()
+        _eventLog += branch.eventLog
+        marchCells.clear()
+        marchCells.putAll(branch.marchCells)
+        intel.restoreIntel(branch.intel)
+        reports.restoreIntel(branch.reports)
+        status = branch.status
+        winnerSide = branch.winnerSide
+        finishReason = branch.finishReason
         log("已恢复分支存档（第 $turn 回合）")
+    }
+
+    /** 军队运行态深拷贝：route / lastKnown 是容器引用，须断开与活态的别名，避免后续回合改动污染存档。 */
+    private fun Corps.deepCopy(): Corps = copy(
+        route = route.toList(),
+        lastKnown = lastKnown.toMap(),
+    )
+
+    /** 情报表深拷贝为不可变快照（B7）：两层 map 与条目全部断开引用。 */
+    private fun Map<String, MutableMap<String, IntelRecord>>.snapshotIntel():
+        Map<String, Map<String, IntelRecordSnapshot>> =
+        mapValues { (_, targets) ->
+            targets.mapValues { (_, rec) ->
+                IntelRecordSnapshot(
+                    geo = rec.geo,
+                    cell = rec.cell,
+                    seenTurn = rec.seenTurn,
+                    radiusCells = rec.radiusCells,
+                )
+            }
+        }
+
+    /** 快照条目回填为控制器内部情报记录。 */
+    private fun IntelRecordSnapshot.toRecord(): IntelRecord =
+        IntelRecord(geo = geo, cell = cell, seenTurn = seenTurn, radiusCells = radiusCells)
+
+    /**
+     * 情报表从快照真恢复（B7/B9）：逐条目回填，不重播种、不清空目睹记录。
+     * 旧实现清空后按恢复位置重新播种，会把陈旧情报当成刚目睹（半径清零），且丢失视图层目睹历史，
+     * 与「快照必须保存全部变量」口径不等价，故改为真快照往返。
+     */
+    private fun MutableMap<String, MutableMap<String, IntelRecord>>.restoreIntel(
+        snapshot: Map<String, Map<String, IntelRecordSnapshot>>,
+    ) {
+        clear()
+        snapshot.forEach { (observer, targets) ->
+            this[observer] = targets.mapValues { (_, rec) -> rec.toRecord() }.toMutableMap()
+        }
     }
 
     // ── 内部工具 ──────────────────────────────────────────────
@@ -655,6 +697,12 @@ class CampaignController private constructor(
     internal fun perceivedEnemiesOf(corpsId: String): List<Corps> =
         corps.firstOrNull { it.id == corpsId }?.let { perceivedEnemies(it) } ?: emptyList()
 
+    /** 测试口径出口：决策层情报表不可变拷贝（B7 往返断言用）；生产代码不读此出口。 */
+    internal fun intelSnapshotOf(): Map<String, Map<String, IntelRecordSnapshot>> = intel.snapshotIntel()
+
+    /** 测试口径出口：视图层目睹情报表不可变拷贝（B7 往返断言用）；生产代码不读此出口。 */
+    internal fun reportsSnapshotOf(): Map<String, Map<String, IntelRecordSnapshot>> = reports.snapshotIntel()
+
     /**
      * 测试 / 壳层口径出口（B9）：目标军对本方当前的模糊半径（格）。
      * 已目睹且本回合在视野内为 0；陈旧情报按龄期放大；从未目睹返回 null。
@@ -674,11 +722,11 @@ class CampaignController private constructor(
 
     /**
      * 阵营级友方判定（B3 收口）：同阵营或外交 ALLIED 盟约方；任一侧 sideId 为空时一律非友。
-     * 情报快照的侦察跳过条件 / 可见性标记与 [alliesOf] 阵营口径同源，避免两套口径漂移。
+     * 谓词实现收口到 [VictoryChecker.isFriendlySide]，与 DEFEND 据点失守判定同源，
+     * 避免判定层 / 控制器各写一套 sideId 比较导致口径漂移；盟友集合仍由 [alliedSidesWith] 推导。
      */
     private fun isFriendlySide(side: String?, otherSide: String?): Boolean =
-        side != null && otherSide != null &&
-            (side == otherSide || otherSide in alliedSidesWith(side))
+        VictoryChecker.isFriendlySide(side, otherSide, alliedSidesWith(side))
 
     private fun dailyMaxCells(corps: Corps): Int {
         val kind = map.kindAt(corps.position)
@@ -726,13 +774,6 @@ class CampaignController private constructor(
         reportLat = report?.lat,
         reportLng = report?.lng,
     )
-
-    /** 恢复据点归属：快照里记录了"据点 id → 阵营"，恢复时重算对应军的占领计数并写回。 */
-    private fun restorePointHolders(holders: Map<String, String>) {
-        if (holders.isEmpty()) return
-        captureHold.clear()
-        for ((_, side) in holders) for (c in corps) if (c.sideId == side) captureHold[c.id] = 1
-    }
 
     companion object {
         /** 推演网格边长（格 × 格）；高程图与投影共用同一口径。 */

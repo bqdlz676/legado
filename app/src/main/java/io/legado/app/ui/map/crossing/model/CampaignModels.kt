@@ -220,7 +220,24 @@ data class TurnSnapshot(
     val events: List<String>,
 )
 
-/** 分支存档：手动改意图后可存一条状态线，之后与历史线对比（§五 分支保存）。 */
+/**
+ * 情报表条目快照（B7）：与控制器私有 `IntelRecord` 同构的不可变拷贝，供分支存档深拷贝往返。
+ * 决策层 [BranchSnapshot.intel] 与视图层 [BranchSnapshot.reports] 共用本结构。
+ */
+data class IntelRecordSnapshot(
+    val geo: Geo?,
+    val cell: Cell?,
+    val seenTurn: Int,
+    val radiusCells: Int,
+)
+
+/**
+ * 分支存档：手动改意图后可存一条状态线，之后与历史线对比（§五 分支保存）。
+ *
+ * B7 口径：快照必须覆盖运行态全部可变量，恢复后与存档时刻逐字段一致——除军队本体外，
+ * 终局状态 / 胜负方 / 终局原因 / 事件日志 / 行军累计 / 双情报表均纳入；缺省空值仅用于
+ * 空存档构造兜底（本存档只在内存中流转，不落盘，不存在旧格式反序列化兼容问题）。
+ */
 data class BranchSnapshot(
     val turn: Int,
     val elapsedDays: Int,
@@ -230,4 +247,18 @@ data class BranchSnapshot(
     val captureHold: Map<String, Int> = emptyMap(),
     /** 据点当前归属（据点 id → 阵营 id）：B7 要求快照回滚全部可变量，否则恢复后胜负面板沿用旧占领方。 */
     val pointHolders: Map<String, String> = emptyMap(),
+    /** 终局状态：存档时刻若已分胜负，恢复须逐字还原，不得强制重置为进行中（B7）。 */
+    val status: BattleStatus = BattleStatus.ONGOING,
+    /** 终局胜负方 sideId；未分胜负为 null。 */
+    val winnerSide: String? = null,
+    /** 终局原因文案；进行中为空串。 */
+    val finishReason: String = "",
+    /** 事件日志快照：分支回滚后日志不沿用旧时间线（B7）。 */
+    val eventLog: List<String> = emptyList(),
+    /** 本回合每支军队行军格数累计：士气推进消费，随存档回滚（B7）。 */
+    val marchCells: Map<String, Int> = emptyMap(),
+    /** 决策层情报表真快照：观察者军 id → 目标军 id → 情报条目；非"清空重播种"（B7/B9）。 */
+    val intel: Map<String, Map<String, IntelRecordSnapshot>> = emptyMap(),
+    /** 视图层目睹情报表真快照：口径同 [intel]；未目睹目标不留条目（B7/B9）。 */
+    val reports: Map<String, Map<String, IntelRecordSnapshot>> = emptyMap(),
 )
