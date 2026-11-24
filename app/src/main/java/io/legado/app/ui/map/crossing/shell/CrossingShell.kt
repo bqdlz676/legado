@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -47,6 +50,8 @@ import io.legado.app.ui.map.crossing.model.TerrainKind
 import io.legado.app.ui.map.crossing.model.TurnSnapshot
 import io.legado.app.ui.map.crossing.terrain.GeoProjection
 import kotlinx.coroutines.delay
+import kotlin.math.atan2
+import kotlin.math.hypot
 
 /**
  * 四渡赤水推演自绘壳（§1.5 绢帛军图：底图 + 渡口金柱 + 行军线路 + 棋子）。
@@ -173,7 +178,7 @@ fun CrossingCampaignShell(
             CorpsRoster(
                 snapshot = snapshot,
                 overrides = overrides,
-                onCycleIntent = { id, intent -> overrides = overrides + (id to intent) },
+                onPickIntent = { id, intent -> overrides = overrides + (id to intent) },
             )
             Spacer(Modifier.height(8.dp))
             ControlRow(
@@ -501,18 +506,80 @@ private fun EventLog(events: List<String>) {
 private fun CorpsRoster(
     snapshot: TurnSnapshot,
     overrides: Map<String, Intent>,
-    onCycleIntent: (String, Intent) -> Unit,
+    onPickIntent: (String, Intent) -> Unit,
 ) {
+    // 空/缺失兜底：军队列表为空或全部溃散 → 明示「该回合无可选意图」，不崩不空白。
+    val aliveCorps = snapshot.corps.filter { it.alive }
+    if (aliveCorps.isEmpty()) {
+        BasicText(
+            text = "该回合无可选意图",
+            style = TextStyle(
+                color = Color(CrossingTokens.textTertiary),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Serif,
+            ),
+            modifier = Modifier.semantics {
+                contentDescription = "该回合无可选意图：军队列表为空或均已溃散"
+            },
+        )
+        return
+    }
+
+    var paletteFor by remember { mutableStateOf<String?>(null) }
+    var dragVector by remember { mutableStateOf<Offset?>(null) }
+
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        snapshot.corps.take(6).forEach { corps ->
+        aliveCorps.take(6).forEach { corps ->
             val override = overrides[corps.id]
+            val current = override ?: corps.intent
+            val spec = IntentGestureMap.entries[current]
+            val dialPreview = dragVector?.let { dialIntent(it.x, it.y) }
+            // 意图改写高亮走 spring（复用对比行 reveal 口径）；禁固定 delay 硬切，连拖不跳帧。
+            val intentAlpha by animateFloatAsState(
+                targetValue = if (override != null) 1f else 0f,
+                animationSpec = compareSpring<Float>(),
+                label = "intent-override-alpha",
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .pointerInput(corps.id) {
-                        detectTapGestures {
-                            onCycleIntent(corps.id, nextIntent(override ?: corps.intent))
+                    .semantics {
+                        contentDescription = buildString {
+                            append("${corps.name}，当前意图${current.label()}。")
+                            if (spec != null) append("上下左右拖拽调整方向，长按展开意图面板。")
                         }
+                    }
+                    // 长按通道：静止按住展开意图面板（不改写意图）。
+                    .pointerInput(corps.id) {
+                        detectTapGestures(
+                            onLongPress = { paletteFor = corps.id },
+                        )
+                    }
+                    // 拖拽通道：累积向量，抬手时交纯函数按八向罗盘归位。
+                    .pointerInput(corps.id) {
+                        detectDragGestures(
+                            onDragStart = { dragVector = Offset.Zero },
+                            onDragEnd = {
+                                dragVector?.let { v ->
+                                    when (val r = resolveGesture(GestureInput(v.x, v.y, 0L, 1))) {
+                                        is GestureResult.Pick -> onPickIntent(corps.id, r.intent)
+                                        else -> Unit
+                                    }
+                                }
+                                dragVector = null
+                            },
+                            onDragCancel = { dragVector = null },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                // 预览向量钳到 maxDragPx：超长拖不放大预览，判定仍只看角度。
+                                val next = (dragVector ?: Offset.Zero) + amount
+                                val cap = DefaultGestureThresholds.maxDragPx
+                                dragVector = Offset(
+                                    next.x.coerceIn(-cap, cap),
+                                    next.y.coerceIn(-cap, cap),
+                                )
+                            },
+                        )
                     },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -534,12 +601,88 @@ private fun CorpsRoster(
                     modifier = Modifier.weight(1f),
                 )
                 BasicText(
-                    text = (override ?: corps.intent).label(),
+                    text = (dialPreview ?: current).label(),
                     style = TextStyle(
                         color = Color(CrossingTokens.brandGold),
                         fontSize = 11.sp,
                     ),
+                    modifier = Modifier.alpha(0.55f + 0.45f * intentAlpha),
                 )
+            }
+        }
+
+        // 长按展开的意图面板：12 意图命中区全列，点选直改，不再走点按循环。
+        paletteFor?.let { corpsId ->
+            val selected = overrides[corpsId]
+                ?: aliveCorps.firstOrNull { it.id == corpsId }?.intent
+            IntentPalette(
+                selected = selected,
+                onPick = { intent ->
+                    onPickIntent(corpsId, intent)
+                    paletteFor = null
+                },
+                onDismiss = { paletteFor = null },
+            )
+        }
+    }
+}
+
+/**
+ * 意图面板：12 枚命中区两排陈列；每枚带一句话无障碍语义，点选经纯函数校验区码后落定。
+ */
+@Composable
+private fun IntentPalette(
+    selected: Intent?,
+    onPick: (Intent) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(CrossingTokens.bgSurface).copy(alpha = 0.6f))
+            .border(1.dp, Color(CrossingTokens.colorDivider), RoundedCornerShape(10.dp))
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        IntentGestureMap.entries.keys.chunked(6).forEach { rowIntents ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                rowIntents.forEach { intent ->
+                    val spec = IntentGestureMap.entries.getValue(intent)
+                    val active = intent == selected
+                    val chipAlpha by animateFloatAsState(
+                        targetValue = if (active) 1f else 0f,
+                        animationSpec = compareSpring<Float>(),
+                        label = "intent-chip-alpha",
+                    )
+                    BasicText(
+                        text = intent.label(),
+                        style = TextStyle(
+                            color = if (active) {
+                                Color(CrossingTokens.brandGold)
+                            } else {
+                                Color(CrossingTokens.textSecondary)
+                            },
+                            fontSize = 11.sp,
+                        ),
+                        modifier = Modifier
+                            .semantics { contentDescription = spec.semantics }
+                            .background(
+                                Color(CrossingTokens.brandGold).copy(alpha = 0.10f + 0.25f * chipAlpha),
+                                RoundedCornerShape(6.dp),
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .pointerInput(intent) {
+                                detectTapGestures {
+                                    val zone = IntentGestureMap.zoneLabel(intent)
+                                    when (val r = resolveGesture(GestureInput(0f, 0f, 0L, 1, zone))) {
+                                        is GestureResult.Pick -> onPick(r.intent)
+                                        GestureResult.Ignored -> onDismiss()
+                                        GestureResult.OpenPalette -> Unit
+                                    }
+                                }
+                            },
+                    )
+                }
             }
         }
     }
@@ -606,11 +749,227 @@ private fun geoToOffset(geo: Geo, projection: GeoProjection, size: androidx.comp
     return Offset((cell.col + 0.5f) * step, (cell.row + 0.5f) * step)
 }
 
-private fun nextIntent(current: Intent): Intent {
-    val cycle = listOf(Intent.HOLD, Intent.ADVANCE, Intent.RETREAT, Intent.FIGHT, Intent.AMBUSH)
-    val index = cycle.indexOf(current)
-    return cycle[(index + 1).coerceAtLeast(0) % cycle.size]
+// ── B11 意图手势映射与识别（纯 JVM 层，表驱动单测覆盖） ──────────
+
+/** 手势通道：方向拖拽罗盘 / 长按静置 / 面板命中区直选。 */
+enum class IntentGestureChannel { DRAG_DIAL, LONG_PRESS, TAP_ZONE }
+
+/**
+ * 单条意图的手势契约。
+ * @property hitZone 主命中区描述（罗盘方位 / 长按行 / 面板条目）
+ * @property chipLabel 面板短标签，同时作为命中区码供纯函数校验
+ * @property rationale 为什么用这个手势（选型理由，写给接手人看）
+ * @property semantics 无障碍一句话语义（动作 + 方向，不是符号缩写）
+ */
+internal data class IntentGestureSpec(
+    val channel: IntentGestureChannel,
+    val hitZone: String,
+    val chipLabel: String,
+    val rationale: String,
+    val semantics: String,
+)
+
+/**
+ * 12 意图 → 手势/命中区 集中映射表。
+ * 为什么集中一处：新增意图只改这张表；交互文案、无障碍描述、单测都从这里取，
+ * 避免手势口径散落在多个 Composable 里各写一套。
+ */
+internal object IntentGestureMap {
+    val entries: Map<Intent, IntentGestureSpec> = mapOf(
+        Intent.ADVANCE to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·上",
+            chipLabel = "进军",
+            rationale = "进军是向前压上，方向语义为正北，向上拖拽最符合军事方位直觉。",
+            semantics = "令该军向北正面进军",
+        ),
+        Intent.RAPID to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·右上",
+            chipLabel = "急行军",
+            rationale = "急行军强调斜向全速穿插，归入东北象限，与正面进军区分开。",
+            semantics = "令该军向东北方向快速急行军",
+        ),
+        Intent.SUPPORT to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·右",
+            chipLabel = "支援",
+            rationale = "支援是横向靠拢友军，纯水平位移，归入正东。",
+            semantics = "令该军向东侧友军靠拢支援",
+        ),
+        Intent.ROUT to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·右下",
+            chipLabel = "溃逃",
+            rationale = "溃逃是脱离接触向下脱出，归入东南象限；与正南撤退的区别在于斜向离散。",
+            semantics = "令该军向东南方向脱离战场溃逃",
+        ),
+        Intent.RETREAT to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·下",
+            chipLabel = "撤退",
+            rationale = "撤退是向后收兵，方向语义为正南，向下拖拽。",
+            semantics = "令该军向南撤回后方",
+        ),
+        Intent.BREAKOUT to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·左下",
+            chipLabel = "突围",
+            rationale = "突围是斜向撕开包围，归入西南象限，朝敌最弱方向脱出。",
+            semantics = "令该军向西南方向突围",
+        ),
+        Intent.FLANK to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·左",
+            chipLabel = "包抄",
+            rationale = "包抄是横向迂回至敌侧后，纯水平位移，归入正西。",
+            semantics = "令该军向西翼迂回包抄",
+        ),
+        Intent.SEIZE to IntentGestureSpec(
+            channel = IntentGestureChannel.DRAG_DIAL,
+            hitZone = "罗盘·左上",
+            chipLabel = "夺隘",
+            rationale = "夺隘是斜向上抢占制高点关隘，归入西北象限。",
+            semantics = "令该军向西北方向抢占关隘",
+        ),
+        Intent.HOLD to IntentGestureSpec(
+            channel = IntentGestureChannel.LONG_PRESS,
+            hitZone = "长按棋子行",
+            chipLabel = "据守",
+            rationale = "据守是原地不动，手指按住静止的动作语义与据守一一对应，无需方向。",
+            semantics = "令该军原地据守防御",
+        ),
+        Intent.AMBUSH to IntentGestureSpec(
+            channel = IntentGestureChannel.TAP_ZONE,
+            hitZone = "意图面板·设伏",
+            chipLabel = "设伏",
+            rationale = "设伏依赖关隘等特定地形条件，不是纯方向动作，放面板命中区由用户确认。",
+            semantics = "令该军潜伏关隘设伏",
+        ),
+        Intent.FIGHT to IntentGestureSpec(
+            channel = IntentGestureChannel.TAP_ZONE,
+            hitZone = "意图面板·应战",
+            chipLabel = "应战",
+            rationale = "应战是被动接战、无位移方向，罗盘拖拽会误导方位，面板直选最直接。",
+            semantics = "令该军就地迎战相邻敌军",
+        ),
+        Intent.CONTINUE to IntentGestureSpec(
+            channel = IntentGestureChannel.TAP_ZONE,
+            hitZone = "意图面板·续进",
+            chipLabel = "续进",
+            rationale = "续进是维持原路线，本身不产生新方向，归入面板命中区。",
+            semantics = "令该军沿原路继续推进",
+        ),
+    )
+
+    /** 面板命中区码 → 意图；未知区码返回 null，由解析器判为忽略。 */
+    private val zoneIntents: Map<String, Intent> =
+        entries.associate { (intent, spec) -> spec.chipLabel to intent }
+
+    fun zoneIntent(zone: String): Intent? = zoneIntents[zone]
+
+    fun zoneLabel(intent: Intent): String = entries.getValue(intent).chipLabel
 }
+
+/**
+ * 手势冲突阈值（集中一处；调手感只改这里，禁止散落在 Composable 里写死）。
+ * 优先级：双指忽略 > 面板命中区直选 > 长按静置 > 方向拖拽 > 误触忽略。
+ */
+internal data class GestureThresholds(
+    /** 位移低于此像素视为误触/点按，不产生拖拽意图。 */
+    val minDragPx: Float,
+    /** 拖拽超过此像素不归零，仍按最近八向归位（超长拖不另设越界意图）。 */
+    val maxDragPx: Float,
+    /** 静止按住达到此毫秒数 → 长按通道，展开意图面板。 */
+    val longPressMs: Long,
+    /** 长按判定后位移超过此半径 → 长按作废，转入拖拽通道。 */
+    val longPressCancelPx: Float,
+)
+
+internal val DefaultGestureThresholds = GestureThresholds(
+    minDragPx = 24f,
+    maxDragPx = 160f,
+    longPressMs = 350L,
+    longPressCancelPx = 18f,
+)
+
+/** 一次手势的原始采样（屏幕像素；dx 右正、dy 下正；elapsedMs 为按住时长）。 */
+internal data class GestureInput(
+    val dx: Float,
+    val dy: Float,
+    val elapsedMs: Long,
+    val pointerCount: Int,
+    /** 面板命中区码；非空时走 TAP_ZONE 通道，不再解析向量。 */
+    val paletteZone: String? = null,
+)
+
+internal sealed interface GestureResult {
+    /** 选定意图。 */
+    data class Pick(val intent: Intent) : GestureResult
+    /** 长按静置：展开意图面板，本次不改写意图。 */
+    object OpenPalette : GestureResult
+    /** 误触 / 越界 / 双指：忽略，意图保持不变。 */
+    object Ignored : GestureResult
+}
+
+/** 手势向量 → 意图 的纯函数入口；无 Compose 依赖，可直接表驱动单测。 */
+internal fun resolveGesture(
+    input: GestureInput,
+    thresholds: GestureThresholds = DefaultGestureThresholds,
+): GestureResult {
+    // 双指手势预留给地图缩放/平移：面板单指交互不抢占。
+    if (input.pointerCount > 1) return GestureResult.Ignored
+    // 面板命中区直选：唯一不经过手势向量的通道；未知区码按忽略处理。
+    input.paletteZone?.let { zone ->
+        val intent = IntentGestureMap.zoneIntent(zone) ?: return GestureResult.Ignored
+        return GestureResult.Pick(intent)
+    }
+    val distance = hypot(input.dx, input.dy)
+    // 先判长按（静止且够久）；位移一旦超出取消半径即作废长按，避免按住后微调被误判成长按。
+    if (input.elapsedMs >= thresholds.longPressMs && distance <= thresholds.longPressCancelPx) {
+        return GestureResult.OpenPalette
+    }
+    if (distance < thresholds.minDragPx) return GestureResult.Ignored
+    return dialIntent(input.dx, input.dy, thresholds)?.let { GestureResult.Pick(it) }
+        ?: GestureResult.Ignored
+}
+
+/** 八向罗盘：按角度归最近象限；距离过短返回 null（误触），过长仍归最近象限。 */
+internal fun dialIntent(
+    dx: Float,
+    dy: Float,
+    thresholds: GestureThresholds = DefaultGestureThresholds,
+): Intent? {
+    val distance = hypot(dx, dy)
+    if (distance < thresholds.minDragPx) return null
+    // 超长拖（distance > maxDragPx）：不归零、不产生越界意图，仍按角度归最近八向。
+    val angle = compassAngleDeg(dx, dy)
+    return DIAL_OCTANTS.minByOrNull { circularAngleDiff(it.centerDeg, angle) }?.intent
+}
+
+/** 屏幕向量 → 罗盘角度：0°=正上，顺时针 90°=正右，180°=正下，270°=正左。 */
+internal fun compassAngleDeg(dx: Float, dy: Float): Float {
+    val raw = Math.toDegrees(atan2(dx.toDouble(), -dy.toDouble())).toFloat()
+    return ((raw % 360f) + 360f) % 360f
+}
+
+private fun circularAngleDiff(a: Float, b: Float): Float {
+    val d = ((a - b) % 360f + 360f) % 360f
+    return if (d > 180f) 360f - d else d
+}
+
+private data class DialOctant(val centerDeg: Float, val intent: Intent)
+
+private val DIAL_OCTANTS = listOf(
+    DialOctant(0f, Intent.ADVANCE),
+    DialOctant(45f, Intent.RAPID),
+    DialOctant(90f, Intent.SUPPORT),
+    DialOctant(135f, Intent.ROUT),
+    DialOctant(180f, Intent.RETREAT),
+    DialOctant(225f, Intent.BREAKOUT),
+    DialOctant(270f, Intent.FLANK),
+    DialOctant(315f, Intent.SEIZE),
+)
 
 private fun Intent.label(): String = when (this) {
     Intent.FIGHT -> "应战"
