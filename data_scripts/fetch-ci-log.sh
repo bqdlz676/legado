@@ -73,7 +73,8 @@ html_url = meta.get('html_url', '')
 # 2. 取日志 zip：优先本地缓存 zip（离线重跑），否则走日志接口
 if LOCAL_ZIP and os.path.exists(LOCAL_ZIP):
     zbytes = open(LOCAL_ZIP, 'rb').read()
-    src = f'local:{LOCAL_ZIP}'
+    # 文档里不留沙箱绝对路径：离线重跑只标记来源类型，路径属本机临时信息。
+    src = 'local zip（offline rerun）'
 else:
     zbytes = api(f'/actions/runs/{RUN_ID}/logs', raw=True)
     src = 'actions logs api'
@@ -81,13 +82,11 @@ else:
 zf = zipfile.ZipFile(io.BytesIO(zbytes))
 entries = [n for n in zf.namelist() if n.endswith('.txt')]
 
-# 3. 选日志：优先名字含 unit test 的步骤文件；否则取 job 拼接主日志（0_*.txt / 单条非 system），模糊匹配兜底
-unit = [n for n in entries if 'unit test' in n.lower()]
-if unit:
-    chosen = unit
-else:
-    main = [n for n in entries if not n.endswith('system.txt')]
-    chosen = main or entries
+# 3. 选日志：扫全部非 system 条目（job 拼接主日志 + per-job 分步目录下的步骤 txt）。
+# 为什么不再只挑名字含 "unit test" 的文件：配置阶段失败发生在 Discover 的
+# "Compile unit test sources" 分步里，而依赖解析/DSL 错可能落在任何 job 的任意步骤；
+# 拼接主日志与分步日志内容重复，下游分类用 seen 集合按内容去重，不会重复计数。
+chosen = [n for n in entries if not n.endswith('system.txt')] or entries
 
 TIMESTAMP = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s?')
 lines = []
@@ -109,8 +108,15 @@ RE_PACK = re.compile(
     r'Missing resource|Package .* not found|linkage error|'
     r'AAPT2? error|AndroidManifest\.xml.*(missing|error|conflict)', re.I)
 RE_PACK_SKIP = re.compile(r'\bAAPT=|\$"?AAPT\b|aapt2 \|', re.I)
+# 配置/脚本评估阶段错：还没进任何 Task 就炸（DSL 属性名、插件/仓库解析、build.gradle 行号）。
+# 与 Kotlin 编译 `e: file.kt:行:列` 区分开——这类错在所有跑 :app 的 job 上都会先炸。
+RE_CONFIG = re.compile(
+    r"Could not set unknown property|A problem occurred evaluating project|"
+    r"MissingPropertyException|No such property|Could not resolve|"
+    r"Build file '.*' line: \d+", re.I)
+RE_CONFIG_SKIP = re.compile(r'^\s*at |^\s*\.\.\. \d+ more|DirectMethodHandle|sun\.reflect|jdk\.internal')
 
-compiles, test_fails, pack_hits, seen = [], [], [], set()
+compiles, test_fails, pack_hits, config_hits, seen = [], [], [], [], set()
 test_summary = None
 for name, line in lines:
     if not line.strip():
@@ -144,6 +150,10 @@ for name, line in lines:
         key = ('pk', line)
         if key not in seen:
             seen.add(key); pack_hits.append((name, line))
+    if RE_CONFIG.search(line) and not RE_CONFIG_SKIP.search(line):
+        key = ('cfg', line)
+        if key not in seen:
+            seen.add(key); config_hits.append((name, line))
 
 # 5. 写完整归因文档
 out_md = os.path.join('docs', f'CI归因-{RUN_ID}.md')
@@ -160,7 +170,8 @@ with open(out_md, 'w') as f:
     f.write(f'## 摘要\n\n')
     f.write(f'- 编译错：{len(compiles)} 条\n')
     f.write(f'- 单测失败：{len(test_fails)} 条' + (f'（汇总：{test_summary[0]} tests completed, {test_summary[1]} failed）' if test_summary else '') + '\n')
-    f.write(f'- 资源/打包错：{len(pack_hits)} 条\n\n')
+    f.write(f'- 资源/打包错：{len(pack_hits)} 条\n')
+    f.write(f'- 配置/脚本评估错：{len(config_hits)} 条\n\n')
 
     f.write('## 一、编译错（`e: 文件:行:列`）\n\n')
     if compiles:
@@ -189,10 +200,18 @@ with open(out_md, 'w') as f:
     else:
         f.write('无命中。\n')
 
+    f.write('\n## 四、Gradle 配置 / 脚本评估错（未进 Task 即炸）\n\n')
+    if config_hits:
+        f.write('| 日志文件 | 命中行 |\n|---|---|\n')
+        for name, line in config_hits:
+            f.write(f'| {name} | `{line[:160]}` |\n')
+    else:
+        f.write('无命中。\n')
+
 # 6. stdout ≤30 行摘要
 print(f'run {RUN_ID} | {conclusion} | {sha} | {created}')
 print(f'日志来源: {src}；扫描 {len(chosen)} 个日志文件')
-print(f'编译错 {len(compiles)} | 单测失败 {len(test_fails)} | 资源/打包错 {len(pack_hits)}')
+print(f'编译错 {len(compiles)} | 单测失败 {len(test_fails)} | 资源/打包错 {len(pack_hits)} | 配置/脚本评估错 {len(config_hits)}')
 if test_summary:
     print(f'单测汇总: {test_summary[0]} tests completed, {test_summary[1]} failed')
 print('--- 编译错（前 8）---')
@@ -206,6 +225,9 @@ for name, cls, case in test_fails[:8]:
     print(f'  {cls} > {case[:100]}')
 print('--- 资源/打包错（前 8）---')
 for name, line in pack_hits[:8]:
+    print(f'  {line[:120]}')
+print('--- 配置/脚本评估错（前 8）---')
+for name, line in config_hits[:8]:
     print(f'  {line[:120]}')
 print(f'完整命中: {out_md}')
 PY
