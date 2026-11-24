@@ -35,7 +35,7 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.27" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.27"; else bad "④索引版本" "未升版（期望 v2.27）"; fi
+if grep -q "版本：v2.32" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.32"; else bad "④索引版本" "未升版（期望 v2.32）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
@@ -69,14 +69,55 @@ if [ -f docs/.icon_freeze.sha256 ]; then
   if sha256sum -c docs/.icon_freeze.sha256 >/dev/null 2>&1; then ok "⑧图标冻结" "哈希一致"; else bad "⑧图标冻结" "图标被改动"; fi
 else say "⑧图标冻结" "无冻结哈希文件（首次需生成）"; fi
 
-# ⑨ 铁律E9（2026-11-24 终版）：并发硬上限 5 = 4 写码 + 1 验收（查）。
-#    负载动态：1 分钟负载 load1 < 1.5 允许满 5；≥1.5 饱和降到 2。
-if [ -f "$LEDGER" ]; then
+# ⑨ 铁律E9 / F-82（2026-11-24 终版）：并发档位表在册，档位与配比读 docs/并发档位.md（唯一事实源）。
+#    档1 5=4写+1查；档2 6=4写+2查；档3 8=5写+3查（硬顶）。load1 ≥1.5 饱和降到档1写槽减半（2写1查，总数3）。
+#    台账暂无"写/查"分列，本项先判总数 ≤ 档位总数；写查分判待台账补列（见复盘报告注明）。
+TIER=docs/并发档位.md
+if [ -f "$LEDGER" ] && [ -f "$TIER" ]; then
   OPEN=$(grep -cE '^\|.*\| *在飞' "$LEDGER" || true)
+  TIER_LINE=$(grep -E '当前档位：' "$TIER" | head -1)
+  TIER_HEAD=${TIER_LINE%%；*}
+  TIER_N=$(echo "$TIER_HEAD" | grep -oE '档位：[0-9]' | grep -oE '[0-9]')
+  TOTAL=$(echo "$TIER_HEAD" | grep -oE '写 [0-9] \+ 查 [0-9]' | awk '{print $2+$5}')
   LOAD1=$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo 0)
-  if awk "BEGIN{exit !($LOAD1 < 1.5)}"; then CAP=5; BAND="空闲"; else CAP=2; BAND="饱和"; fi
-  if [ "$OPEN" -gt "$CAP" ]; then bad "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP(4写+1查)，在飞 $OPEN 超限，禁再派单"; else ok "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP(4写+1查)，在飞 $OPEN 未超"; fi
-else bad "⑨并发上限" "缺 $LEDGER"; fi
+  if awk "BEGIN{exit !($LOAD1 >= 1.5)}"; then CAP=3; BAND="饱和(档1减半 2写1查)"; else CAP="$TOTAL"; BAND="档位$TIER_N"; fi
+  if [ -z "$TOTAL" ]; then bad "⑨并发上限" "档位文件配比解析失败";
+  elif [ "$OPEN" -gt "$CAP" ]; then bad "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP，在飞 $OPEN 超限，禁再派单";
+  else ok "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP，在飞 $OPEN 未超（写查分判待台账补列）"; fi
+else bad "⑨并发上限" "缺 $LEDGER 或 $TIER"; fi
+
+# ⑯ 台账新鲜度（F-79/F-80）：HEAD 比台账新 >60min 即 FAIL；在飞超硬上限 FAIL；无当日行仅 WARN。
+LED16=$(python3 data_scripts/check-dispatch-ledger.py 2>&1)
+if [ $? -eq 0 ]; then ok "⑯台账新鲜度" "$(echo "$LED16" | grep -E 'ok|PASS' | tail -2 | tr '\n' ' ')"; else bad "⑯台账新鲜度" "$(echo "$LED16" | grep 'FAIL' | head -3)"; fi
+
+# ⑰ 并发档位表在册（F-82）：口径冻结必须含三档串，并发档位.md 必须存在且含"当前档位："行；
+#    防"只落最低档、后两档被摘要吞掉"（2026-11-24 漏改事故：口令被压缩时未落地部分被当成已完结）。
+SPEC=docs/口径冻结-2026-11-24-15点后.md
+TIER_OK=1
+for T in "5 = 4 写 + 1 查" "6 = 4 写 + 2 查" "8 = 5 写 + 3 查"; do
+  grep -qF "$T" "$SPEC" 2>/dev/null || TIER_OK=0
+done
+if [ -f "$TIER" ] && grep -q '当前档位：' "$TIER"; then TIER_OK2=1; else TIER_OK2=0; fi
+if [ "$TIER_OK" -eq 1 ] && [ "$TIER_OK2" -eq 1 ]; then ok "⑰档位表在册" "三档串与档位文件齐全"; else bad "⑰档位表在册" "三档串/档位文件缺失（F-82 未落地）"; fi
+
+# ⑱ 队列与满槽（F-84）：队列在册；PENDING 不超时丢单；不空槽空转；有积压不空转。
+QUE18=$(python3 data_scripts/check-dispatch-queue.py 2>&1)
+if [ $? -eq 0 ]; then ok "⑱队列满槽" "$(echo "$QUE18" | grep -E 'ok|PASS|WARN' | tr '\n' ' ')"; else bad "⑱队列满槽" "$(echo "$QUE18" | grep 'FAIL' | head -3)"; fi
+
+# ⑲ 锚点卡（F-85）：写码回执须带存在的锚点卡；验收报告须逐字对照锚点卡；
+#    机械改动 / F-73 退回设计 / 验收-选型（F-73 第二段，候选规格即锚点）豁免。
+#    边界同 ⑭/⑮：只校验本次 git status 新增/修改的写码/验收报告，历史留档不追改。
+CHANGED_ANCHOR=$(git -c core.quotepath=false status --porcelain docs 2>/dev/null | awk '{
+  if ($0 ~ /->/) { sub(/^.*-> /, ""); } else { $1=""; }
+  gsub(/^ +/, ""); gsub(/^"/, ""); gsub(/"$/, "");
+  if ($0 ~ /(修复|实现|验收)-.*\.md$/) print $0
+}')
+if [ -z "$CHANGED_ANCHOR" ]; then
+  ok "⑲锚点卡" "本次改动无新增/修改的写码/验收报告"
+else
+  ANC19=$(python3 data_scripts/check-anchor-card.py --strict $CHANGED_ANCHOR 2>&1)
+  if [ $? -eq 0 ]; then ok "⑲锚点卡" "$(echo "$CHANGED_ANCHOR" | wc -l | tr -d ' ') 份报告锚点齐全"; else bad "⑲锚点卡" "$(echo "$ANC19" | grep '→ FAIL' | head -3)"; fi
+fi
 
 # ⑩ 铁律30/88（本地禁编译）：本地构建能力必须=0
 BUILD_CAP=0
@@ -89,6 +130,12 @@ if [ "$BUILD_CAP" -eq 0 ]; then ok "⑩本地构建能力" "已封死（无gradl
 # ⑪ 规格完整性（用户令：不断查完整性；单一实现=spec-check.sh，不重复逻辑）
 SPECRES=$(bash data_scripts/spec-check.sh 2>&1)
 if [ $? -eq 0 ]; then ok "⑪规格完整性" "$(echo "$SPECRES" | grep -E '共|连续' | tail -3 | tr '\n' ' ')"; else bad "⑪规格完整性" "$(echo "$SPECRES" | grep '✗' | head -1)"; fi
+
+# ㉒ 规格流入巡检（F-88）：切片↔登记册 / 登记册↔清单 / 登记册↔索引 / 登记册↔派单踪迹 四向双向对齐；
+#    任一断裂 FAIL。为什么：用户会持续贴新规格，漏登一片则后续写码/验收无锚点可回源；旧 spec-check.sh
+#    不反向校验切片↔登记册，切片 21~25 漏登长期未被发现。适用：commit/push/派单前随门禁跑一遍。
+FLOW22=$(python3 data_scripts/check-spec-flow.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉒规格流入巡检" "$(echo "$FLOW22" | grep 'SPEC-FLOW: PASS')"; else bad "㉒规格流入巡检" "$(echo "$FLOW22" | grep 'FAIL' | head -4)"; fi
 
 # ⑫ 扩展函数 import 守卫（来源：2026-11-24 CI 连红两次均为 Compose 扩展函数漏 import：
 #    CardBase.animateFloat / TopicCard.clip。语法合法、IDE 无感，只有 CI 才报，故做机械门禁。
@@ -138,6 +185,11 @@ else
   TRI15=$(python3 data_scripts/check-triple-anchor.py $CHANGED_TRIPLE 2>&1)
   if [ $? -eq 0 ]; then ok "⑮三段锚点" "$(echo "$CHANGED_TRIPLE" | wc -l | tr -d ' ') 份报告三锚点齐全"; else bad "⑮三段锚点" "$(echo "$TRI15" | grep '→ FAIL' | head -3)"; fi
 fi
+
+# ⑳ 缝合怪清理（F-86）：扫双轨/兼容层/超大文件/废弃调用/wip 半成品分支；
+#    命中须在 docs/台账-缝合怪.md 在册，未在册判 FAIL；留档豁免必须能回查到台账条目，防自报豁免。
+FRANK=$(python3 data_scripts/check-frankenstein.py 2>&1)
+if [ $? -eq 0 ]; then ok "⑳缝合怪" "$(echo "$FRANK" | grep -E 'FRANKENSTEIN: PASS')"; else bad "⑳缝合怪" "$(echo "$FRANK" | grep 'FRANKENSTEIN: FAIL')"; fi
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
