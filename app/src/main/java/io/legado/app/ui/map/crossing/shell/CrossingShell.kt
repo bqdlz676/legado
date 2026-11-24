@@ -1,5 +1,6 @@
 package io.legado.app.ui.map.crossing.shell
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -70,14 +71,18 @@ fun CrossingCampaignShell(
     var autoPlay by remember { mutableStateOf(false) }
     var overrides by remember { mutableStateOf<Map<String, Intent>>(emptyMap()) }
 
+    // 自动推演：单一协程逐回合驱动（不为每步另起 sleep，避免长局 N 个协程堆积）。
+    // 节拍由纯函数 [beatDelayMs] 按事件档位 + 回合进度计算；状态先推进，弹簧动画跟随新状态，
+    // 不挂「动画播完再下一步」的栅栏——快速连点/快进时弹簧直接改追新目标，不会错位。
     LaunchedEffect(autoPlay, host) {
         while (autoPlay) {
             snapshot = host.step(overrides)
             overrides = emptyMap()
             if (snapshot.status != io.legado.app.ui.map.crossing.model.BattleStatus.ONGOING) {
                 autoPlay = false
+                break
             }
-            delay(AUTO_STEP_DELAY_MS)
+            delay(beatDelayMs(snapshot.events, snapshot.turn))
         }
     }
 
@@ -88,11 +93,20 @@ fun CrossingCampaignShell(
                 detectTapGestures { /* 预留棋盘点选：点棋子展开意图面板 */ }
             },
     ) {
-        MapCanvas(
-            host = host,
-            snapshot = snapshot,
-            modifier = Modifier.fillMaxSize(),
-        )
+        // 回合切换过渡：Crossfade 以透明度跟随回合状态做淡入淡出（动画跟随状态，幂等）。
+        // 旧快照在弹簧期间短暂保留，新快照落位后即替换；不等待动画结束再推进，故不会出现
+        // 「动画未结束就进入下一回合」的错位。弹簧角色见 [SpringRole.TURN_CROSSFADE]。
+        Crossfade(
+            targetState = snapshot.turn,
+            animationSpec = springFor(SpringRole.TURN_CROSSFADE),
+            label = "turn-crossfade",
+        ) { _ ->
+            MapCanvas(
+                host = host,
+                snapshot = snapshot,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         // 空数据兜底：军队为空时居中写明提示，画布不留白。
         if (snapshot.corps.isEmpty()) {
@@ -347,7 +361,7 @@ private fun CompareCorpsRow(view: CorpsView, diff: CorpsDiff?) {
     // 差异高亮走 spring 淡入（禁固定 delay 硬切）：alpha 随弹簧逼近目标值，快速连点不跳帧。
     val highlightAlpha by animateFloatAsState(
         targetValue = if (highlighted) 1f else 0f,
-        animationSpec = compareSpring<Float>(),
+        animationSpec = springFor(SpringRole.REVEAL_HIGHLIGHT),
         label = "compare-row-highlight",
     )
     Row(
@@ -537,7 +551,7 @@ private fun CorpsRoster(
             // 意图改写高亮走 spring（复用对比行 reveal 口径）；禁固定 delay 硬切，连拖不跳帧。
             val intentAlpha by animateFloatAsState(
                 targetValue = if (override != null) 1f else 0f,
-                animationSpec = compareSpring<Float>(),
+                animationSpec = springFor(SpringRole.INTENT_OVERRIDE),
                 label = "intent-override-alpha",
             )
             Row(
@@ -651,7 +665,7 @@ private fun IntentPalette(
                     val active = intent == selected
                     val chipAlpha by animateFloatAsState(
                         targetValue = if (active) 1f else 0f,
-                        animationSpec = compareSpring<Float>(),
+                        animationSpec = springFor(SpringRole.PALETTE_CHIP),
                         label = "intent-chip-alpha",
                     )
                     BasicText(
@@ -995,25 +1009,110 @@ private fun io.legado.app.ui.map.crossing.model.Morale.label(): String = when (t
 
 private fun Double.round1(): Double = (this * 10).toInt() / 10.0
 
-/** 自动推演每回合间隔（毫秒）：留出壳层重绘余量，避免连点式快进。 */
-private const val AUTO_STEP_DELAY_MS: Long = 600L
-
-/** 弹簧参数与组件库气泡回弹口径对齐（§1.5-C）。 */
-@Suppress("unused")
-private val ShellSpringDamping: Float = ComponentPalette.BUBBLE_SPRING_DAMPING
-
-@Suppress("unused")
-private val ShellSpringStiffness: Float = ComponentPalette.BUBBLE_SPRING_STIFFNESS
+// ── B14 推演节拍：纯 JVM 计算，表驱动单测覆盖 ──────────────────
 
 /**
- * 对比行差异高亮弹簧：沿用卡片入场弹簧口径（阻尼 0.80 抑制回弹过冲，刚度 360 落位干脆）。
- * 为什么不用固定 delay：B14 口径要求一切过渡走 spring；固定时长硬切在快速连点步进时会跳帧，
- * 且无法按目标值自然衰减。参数收口在这两处常量，调手感只改这里。
+ * 节拍档位。一回合内多类事件并存时按 [BeatKind.COMBAT] > [BeatKind.EVENT] >
+ * [BeatKind.MARCH] > [BeatKind.QUIET] 取最高档（战斗信息密度最高，节拍最长）。
  */
-private val CompareRowSpringDamping: Float = ComponentPalette.REVEAL_SPRING_DAMPING
-private val CompareRowSpringStiffness: Float = ComponentPalette.REVEAL_SPRING_STIFFNESS
+internal enum class BeatKind { COMBAT, EVENT, MARCH, QUIET }
 
-private fun <T> compareSpring(): SpringSpec<T> = spring(
-    dampingRatio = CompareRowSpringDamping,
-    stiffness = CompareRowSpringStiffness,
+/**
+ * 各档基础节拍（毫秒）。取值依据与适用条件：
+ * - COMBAT 620：遭遇/溃散/投降需要让用户看清伤亡与士气变化，信息密度最高，节拍最长；
+ * - EVENT 540：脚本事件（士气/补给/兵力变动）有文案阅读需求，居中一档；
+ * - MARCH 460：纯位移/转向回合信息密度低，短一档即可；
+ * - QUIET 320：无事件回合快速掠过，不拖节奏。
+ * 适用条件：手机竖屏单壳手动/自动推演；快进与暂停由 autoPlay 开关控制，不改本节拍表。
+ */
+internal val BEAT_BASE_MS: Map<BeatKind, Long> = mapOf(
+    BeatKind.COMBAT to 620L,
+    BeatKind.EVENT to 540L,
+    BeatKind.MARCH to 460L,
+    BeatKind.QUIET to 320L,
 )
+
+/** 长局压缩起点：回合 ≥ 此值进入压缩档（长平/赤水 60 回合场景），避免长局逐个长 delay 堆积。 */
+internal const val LONG_CAMPAIGN_TURN: Int = 50
+
+/** 长局节拍地板（毫秒）：再长也不低于此值，每步仍可辨识，不做瞬切。 */
+internal const val BATCH_BEAT_FLOOR_MS: Long = 180L
+
+/** 超过起点后每回合的压缩斜率（0~1）：50 回合后节拍按比例向地板收拢，固定帧率节奏不堆积。 */
+internal const val LONG_CAMPAIGN_COMPRESS: Double = 0.012
+
+/** 战斗关键词：命中即按战斗档节拍（遭遇/伤亡/溃散/失守等结算）。 */
+private val COMBAT_KEYWORDS = listOf(
+    "遭遇", "伏击", "折损", "伤亡", "溃散", "投降", "被俘", "覆没",
+    "失守", "殉国", "破城", "崩溃", "火攻", "兵败", "解散", "脱离水阵",
+)
+
+/** 脚本事件关键词：事件「」前缀或士气/补给/兵力变动类结算。 */
+private val EVENT_KEYWORDS = listOf("事件「", "士气变为", "补给断绝", "兵力变动", "未生效")
+
+/** 行军/转向关键词：位移、改变意图、目标点更新。 */
+private val MARCH_KEYWORDS = listOf("转入", "包抄", "追击", "渡河", "目标点更新", "意图调整", "设伏")
+
+/** 事件文案 → 节拍档位纯函数；空事件列表返回 [BeatKind.QUIET]。 */
+internal fun classifyBeat(events: List<String>): BeatKind {
+    if (events.isEmpty()) return BeatKind.QUIET
+    val joined = events.joinToString(" ")
+    if (COMBAT_KEYWORDS.any { joined.contains(it) }) return BeatKind.COMBAT
+    if (EVENT_KEYWORDS.any { joined.contains(it) }) return BeatKind.EVENT
+    if (MARCH_KEYWORDS.any { joined.contains(it) }) return BeatKind.MARCH
+    return BeatKind.QUIET
+}
+
+/**
+ * 回合节拍纯函数：先按事件档位取基础节拍；长局（turn ≥ [LONG_CAMPAIGN_TURN]）按斜率向
+ * [BATCH_BEAT_FLOOR_MS] 压缩。回合 0（首回合）与短局不压缩；战役总回合上限在引擎层截断，
+ * 节拍函数不重复接收 duration。
+ */
+internal fun beatDelayMs(events: List<String>, turn: Int): Long {
+    val base = BEAT_BASE_MS.getValue(classifyBeat(events))
+    if (turn <= 0 || turn < LONG_CAMPAIGN_TURN) return base
+    val over = turn - LONG_CAMPAIGN_TURN
+    val compressed = base * (1.0 - LONG_CAMPAIGN_COMPRESS * over)
+    return compressed.toLong().coerceAtLeast(BATCH_BEAT_FLOOR_MS)
+}
+
+// ── B14 过渡弹簧：参数集中一处，角色化选型，禁止散落 magic number ──
+
+/**
+ * 过渡弹簧角色。阻尼/刚度全部取自 [ComponentPalette] 既有口径；[rationale] 写明该角色
+ * 为什么用这组阻尼/刚度，调手感只改本表，Composable 里不再写死数值。
+ */
+internal enum class SpringRole(
+    val dampingRatio: Float,
+    val stiffness: Float,
+    val rationale: String,
+) {
+    /** 对比行差异高亮：高阻尼抑制 overshoot，高刚度快速落位，连点步进不晃。 */
+    REVEAL_HIGHLIGHT(
+        ComponentPalette.REVEAL_SPRING_DAMPING,
+        ComponentPalette.REVEAL_SPRING_STIFFNESS,
+        "差异高亮：阻尼 0.80 抑制回弹过冲，刚度 360 落位干脆，连点不晃。",
+    ),
+    /** 意图改写高亮：同 reveal 口径，状态切换要求稳，拖拽松手后不弹动。 */
+    INTENT_OVERRIDE(
+        ComponentPalette.REVEAL_SPRING_DAMPING,
+        ComponentPalette.REVEAL_SPRING_STIFFNESS,
+        "意图改写：同高亮口径，稳落位，避免拖拽松手后弹动。",
+    ),
+    /** 意图面板选中 chip：同 reveal 口径，高频点选要干脆。 */
+    PALETTE_CHIP(
+        ComponentPalette.REVEAL_SPRING_DAMPING,
+        ComponentPalette.REVEAL_SPRING_STIFFNESS,
+        "面板选中态：高频点选，干脆落位。",
+    ),
+    /** 回合切换淡入：气泡 overshoot 口径，跨内容切换允许轻微回弹，保留呼吸感。 */
+    TURN_CROSSFADE(
+        ComponentPalette.BUBBLE_SPRING_DAMPING,
+        ComponentPalette.BUBBLE_SPRING_STIFFNESS,
+        "回合淡入：允许轻微 overshoot，内容切换有呼吸感。",
+    ),
+}
+
+/** 按角色取弹簧规格纯函数；泛型保留给 Float/Offset 等动画目标类型。 */
+internal fun <T> springFor(role: SpringRole): SpringSpec<T> =
+    spring(dampingRatio = role.dampingRatio, stiffness = role.stiffness)
