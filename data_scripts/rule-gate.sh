@@ -21,8 +21,8 @@ TODAY=$(date +%F)
 LOG="docs/落文-对话流水-$TODAY.md"
 if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "缺 $LOG（铁律54 违反）"; fi
 
-# ④ 铁律51：规矩总纲与契约索引含最新口令（83 条已立）
-if grep -q "铁律 83" docs/落文-规矩总纲.md; then ok "④规矩随口令" "铁律83 在册"; else bad "④规矩随口令" "铁律83 缺失"; fi
+# ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
+if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发2 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
 if grep -q "v2.15" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.15"; else bad "④索引版本" "未升版"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
@@ -56,6 +56,20 @@ say "⑦级别自报(人工+验收代理)" "docs 含'验收通过'的文件 $HIT
 if [ -f docs/.icon_freeze.sha256 ]; then
   if sha256sum -c docs/.icon_freeze.sha256 >/dev/null 2>&1; then ok "⑧图标冻结" "哈希一致"; else bad "⑧图标冻结" "图标被改动"; fi
 else say "⑧图标冻结" "无冻结哈希文件（首次需生成）"; fi
+
+# ⑨ 铁律E9（资源清查 2026-11-24）：在飞代理硬上限 2（本机 2 核，>2 必抢 CPU）
+if [ -f "$LEDGER" ]; then
+  OPEN=$(grep -cE '^\|.*\| *在飞' "$LEDGER" || true)
+  if [ "$OPEN" -gt 2 ]; then bad "⑨并发上限" "在飞 $OPEN 条 > 2，禁止再派单"; else ok "⑨并发上限" "在飞 $OPEN ≤ 2"; fi
+else bad "⑨并发上限" "缺 $LEDGER"; fi
+
+# ⑩ 铁律30/88（本地禁编译）：本地构建能力必须=0
+BUILD_CAP=0
+if command -v gradle >/dev/null 2>&1; then BUILD_CAP=1; fi
+if [ -n "$ANDROID_HOME$ANDROID_SDK_ROOT" ]; then BUILD_CAP=1; fi
+if ls "$HOME/.gradle/jdks" 2>/dev/null | grep -qv 'CACHEDIR.TAG'; then BUILD_CAP=1; fi
+if pgrep -f 'gradle|kotlinc|assemble' >/dev/null 2>&1; then BUILD_CAP=1; fi
+if [ "$BUILD_CAP" -eq 0 ]; then ok "⑩本地构建能力" "已封死（无gradle/SDK/JDK21，无构建进程）"; else bad "⑩本地构建能力" "检测到本地构建能力/进程，禁提交禁派单"; fi
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
