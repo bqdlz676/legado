@@ -85,8 +85,66 @@ def strip_noise(src: str) -> str:
     return ''.join(out)
 
 
+# 错包 import 名单：这些名字在 Kotlin/Android 生态里"长得对、包不对"，写错只有编译才报。
+# 来源：2026-11-24 CI 抓到 `android.annotation.RequiresApi`（实际在 androidx.annotation）。
+WRONG_IMPORT = {
+    'import android.annotation.RequiresApi': '改用 androidx.annotation.RequiresApi',
+    'import androidx.compose.ui.text.TextUnit': '改用 androidx.compose.ui.unit.TextUnit',
+    'import androidx.compose.ui.geometry.Dp': '改用 androidx.compose.ui.unit.Dp',
+}
+
+
+def scan_hard_rules(src: str):
+    """三条"必然编译红 / 必然静默出错"的硬规则，来源都是本轮真实事故：
+
+    1) 块注释里出现 `/*`：Kotlin 块注释**可嵌套**，KDoc 正文里写一个 `/*`（例如路径 `model/**`）
+       会让 Kotlin 多开一层，文件末尾的 `*/` 只回退一层 → 整段代码被吞、报
+       `Syntax error: Unclosed comment`。这类错误肉眼极难发现（CampaignController 就这么挂的）。
+    2) `const val` 初始化用了 `.dp` / `.sp` / `Color(...)`：const 只接受编译期常量字面量 →
+       `Const 'val' initializer must be a constant value`（HighlightNoteDialog 的事故）。
+    3) 十六进制字面量**16 位**（即 ≥2^63）且无 `L`/`u` 后缀：Kotlin 遇 8~15 位会自动升为 Long，
+       但 16 位已超出 Long 的带符号范围 → `Value out of range`
+       （HeightMapDecoder 的 FNV-1a 常数事故）。8 位色值 `0xFFF7F1E6` 属正常 Long，不报。
+    """
+    issues = []
+    n = len(src)
+    i = 0
+    while i < n - 1:
+        if src[i] == '/' and src[i + 1] == '*':
+            j = i + 2
+            depth = 1
+            body_start = j
+            while j < n - 1 and depth > 0:
+                if src[j] == '/' and src[j + 1] == '*':
+                    depth += 1
+                    j += 2
+                    continue
+                if src[j] == '*' and src[j + 1] == '/':
+                    depth -= 1
+                    j += 2
+                    continue
+                j += 1
+            if depth > 1:
+                issues.append('块注释内嵌 `/*`（Kotlin 嵌套注释会吞掉后续代码）')
+            i = j
+            continue
+        i += 1
+    for m in re.finditer(r'const\s+val\s+[\w]+[^=\n]*=[^\n]*', src):
+        txt = m.group(0)
+        if re.search(r'\.\s*(dp|sp)\b', txt) or 'Color(' in txt or 'listOf' in txt:
+            line = src[:m.start()].count('\n') + 1
+            issues.append('L%d: const val 用了非编译期常量（.%s / Color / listOf）' %
+                          (line, 'dp' if '.dp' in txt else 'sp'))
+    for m in re.finditer(r'0x([0-9A-Fa-f]{16})([^lLuU0-9A-Fa-f]|$)', src):
+        line = src[:m.start()].count('\n') + 1
+        issues.append('L%d: 十六进制字面量 0x%s 超 Int 范围但缺 L 后缀' % (line, m.group(1)))
+    return issues
+
+
 def main(root: str) -> int:
     bad = []
+    wrong = []
+    hard = []
     for base, _, files in os.walk(root):
         for fn in files:
             if not fn.endswith('.kt'):
@@ -98,6 +156,11 @@ def main(root: str) -> int:
             # 若文件里一个 androidx.compose import 都没有，它就是旧 View 世界，按 Compose 口径判必假报。
             if 'import androidx.compose.' not in src:
                 continue
+            for msg in scan_hard_rules(src):
+                hard.append((p, msg))
+            for w, hint in WRONG_IMPORT.items():
+                if w in src:
+                    wrong.append((p, w, hint))
             imports = set(re.findall(r'^import\s+([\w.]+)', src, re.M))
             alias = set(re.findall(r'^import\s+[\w.]+\s+as\s+([\w]+)', src, re.M))
             code = strip_noise(src)
@@ -110,6 +173,16 @@ def main(root: str) -> int:
                 if name in alias:
                     continue
                 bad.append((p, name))
+    if hard:
+        print('✗ 硬规则违规（%d 处）：' % len(hard))
+        for p, msg in hard:
+            print('   %s %s' % (p, msg))
+        return 1
+    if wrong:
+        print('✗ 错包 import（%d 处）：' % len(wrong))
+        for p, w, hint in wrong:
+            print('   %s -> %s（%s）' % (p, w, hint))
+        return 1
     if bad:
         print('✗ 扩展函数缺 import（%d 处）：' % len(bad))
         for p, n in bad:
