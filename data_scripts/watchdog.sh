@@ -46,3 +46,21 @@ if [ -d "$AGENTS_DIR" ]; then
 else
   echo "未找到 agents 目录（可传参：bash data_scripts/watchdog.sh <agents绝对路径>）"
 fi
+
+echo
+echo "=== ⑦ 请求率快照（记录增量，回放限流临界点用）==="
+RRLOG="data_scripts/.reqrate.log"
+TOTAL=$(find "$AGENTS_DIR" -name 'trajectory.jsonl' -exec grep -h -c '"type":"function"' {} + 2>/dev/null | awk '{s+=$1} END{print s+0}')
+NOW=$(date +%s)
+if [ -f "$RRLOG" ] && [ "$TOTAL" -ge 0 ]; then
+  read -r LAST_TS LAST_TOTAL < "$RRLOG"
+  DT=$((NOW - LAST_TS)); DN=$((TOTAL - LAST_TOTAL))
+  if [ "$DT" -gt 0 ] && [ "$DN" -ge 0 ]; then
+    RATE=$(awk "BEGIN{printf \"%.1f\", $DN/$DT*60}")
+  else RATE="—"; fi
+  echo "上次 $(date -d @$LAST_TS '+%m-%d %H:%M:%S') 总 $LAST_TOTAL → 本次 $(date -d @$NOW '+%m-%d %H:%M:%S') 总 $TOTAL"
+  echo "间隔 ${DT}s，增量 ${DN} 次，请求率 ${RATE} 次/分钟"
+else
+  echo "首次快照：$(date -d @$NOW '+%m-%d %H:%M:%S') 总 $TOTAL（下次运行开始算增量速率）"
+fi
+printf "%s %s\n" "$NOW" "$TOTAL" > "$RRLOG"
