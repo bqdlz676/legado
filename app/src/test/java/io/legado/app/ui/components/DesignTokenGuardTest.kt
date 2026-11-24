@@ -21,10 +21,6 @@ import java.io.File
  */
 class DesignTokenGuardTest {
 
-    private companion object {
-        const val UI_PREFIX = "io/legado/app/ui/" // 基线/单源清单的路径前缀，与 uiSourceRoot 相对路径拼接后才可比
-    }
-
     @Test
     fun `anchor contract 12 colors 4 easings 5 durations match frozen source`() {
         // 12 色主 token 数量硬判：多一项少一项都 FAIL
@@ -131,6 +127,9 @@ class DesignTokenGuardTest {
     }
 
     private companion object {
+        /** 基线清单用的仓库内相对路径前缀；与 uiSourceRoot.relativize 结果拼接后才可比（漏拼会全量误报） */
+        const val UI_PREFIX = "io/legado/app/ui/"
+
         const val palettePath = "io/legado/app/ui/components/ComponentPalette.kt"
 
         /** token 单源定义文件：色值字面量允许出现在这里，其余位置禁止内联。 */
