@@ -57,13 +57,13 @@ if [ -f docs/.icon_freeze.sha256 ]; then
   if sha256sum -c docs/.icon_freeze.sha256 >/dev/null 2>&1; then ok "⑧图标冻结" "哈希一致"; else bad "⑧图标冻结" "图标被改动"; fi
 else say "⑧图标冻结" "无冻结哈希文件（首次需生成）"; fi
 
-# ⑨ 铁律E9（2026-11-24 终版）：并发硬上限 3 = 2 写码 + 1 验收（查）。
-#    负载动态：1 分钟负载 load1 < 1.5 允许满 3；≥1.5 饱和降到 2。
+# ⑨ 铁律E9（2026-11-24 终版）：并发硬上限 5 = 4 写码 + 1 验收（查）。
+#    负载动态：1 分钟负载 load1 < 1.5 允许满 5；≥1.5 饱和降到 2。
 if [ -f "$LEDGER" ]; then
   OPEN=$(grep -cE '^\|.*\| *在飞' "$LEDGER" || true)
   LOAD1=$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo 0)
-  if awk "BEGIN{exit !($LOAD1 < 1.5)}"; then CAP=3; BAND="空闲"; else CAP=2; BAND="饱和"; fi
-  if [ "$OPEN" -gt "$CAP" ]; then bad "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP(2写+1查)，在飞 $OPEN 超限，禁再派单"; else ok "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP(2写+1查)，在飞 $OPEN 未超"; fi
+  if awk "BEGIN{exit !($LOAD1 < 1.5)}"; then CAP=5; BAND="空闲"; else CAP=2; BAND="饱和"; fi
+  if [ "$OPEN" -gt "$CAP" ]; then bad "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP(4写+1查)，在飞 $OPEN 超限，禁再派单"; else ok "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP(4写+1查)，在飞 $OPEN 未超"; fi
 else bad "⑨并发上限" "缺 $LEDGER"; fi
 
 # ⑩ 铁律30/88（本地禁编译）：本地构建能力必须=0
