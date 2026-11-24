@@ -21,6 +21,10 @@ import java.io.File
  */
 class DesignTokenGuardTest {
 
+    private companion object {
+        const val UI_PREFIX = "io/legado/app/ui/" // 基线/单源清单的路径前缀，与 uiSourceRoot 相对路径拼接后才可比
+    }
+
     @Test
     fun `anchor contract 12 colors 4 easings 5 durations match frozen source`() {
         // 12 色主 token 数量硬判：多一项少一项都 FAIL
@@ -73,7 +77,9 @@ class DesignTokenGuardTest {
         val actualHexFiles = uiSourceRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .filter { hexPattern.containsMatchIn(it.readText()) }
-            .map { uiSourceRoot.toPath().relativize(it.toPath()).toString().replace(File.separatorChar, '/') }
+            // 基线清单用的是仓库内相对路径（io/legado/app/ui/...），此处必须补同前缀，
+            // 否则 relativize 得到的 "book/read/..." 与基线永远对不上 → 全量误报 FAIL（CI run 45454989707 实测）
+            .map { UI_PREFIX + uiSourceRoot.toPath().relativize(it.toPath()).toString().replace(File.separatorChar, '/') }
             .toSet()
 
         // 单源定义文件本身豁免；其余命中必须全部落在遗留基线内
