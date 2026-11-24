@@ -35,6 +35,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -597,8 +598,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBlindZone(
             if (i % 2 != 0) continue
             drawArc(
                 color = gold,
-                startAngleDeg = i * 360f / dashCount,
-                sweepAngleDeg = 360f / dashCount * 0.8f,
+                startAngle = i * 360f / dashCount,
+                sweepAngle = 360f / dashCount * 0.8f,
                 useCenter = false,
                 topLeft = Offset(center.x - radius, center.y - radius),
                 size = Size(radius * 2, radius * 2),
@@ -1014,7 +1015,9 @@ internal object IntentGestureMap {
 
     /** 面板命中区码 → 意图；未知区码返回 null，由解析器判为忽略。 */
     private val zoneIntents: Map<String, Intent> =
-        entries.associate { (intent, spec) -> spec.chipLabel to intent }
+        // associate 是 Iterable 扩展，Map 本身不可迭代；先取 entries 视图（Set<Entry>）再关联，
+        // 键为面板短标签 chipLabel，值为对应意图，供命中区码反查。
+        entries.entries.associate { (intent, spec) -> spec.chipLabel to intent }
 
     fun zoneIntent(zone: String): Intent? = zoneIntents[zone]
 

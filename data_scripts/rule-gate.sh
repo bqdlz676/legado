@@ -90,5 +90,12 @@ if [ "$BUILD_CAP" -eq 0 ]; then ok "⑩本地构建能力" "已封死（无gradl
 SPECRES=$(bash data_scripts/spec-check.sh 2>&1)
 if [ $? -eq 0 ]; then ok "⑪规格完整性" "$(echo "$SPECRES" | grep -E '共|连续' | tail -3 | tr '\n' ' ')"; else bad "⑪规格完整性" "$(echo "$SPECRES" | grep '✗' | head -1)"; fi
 
+# ⑫ 扩展函数 import 守卫（来源：2026-11-24 CI 连红两次均为 Compose 扩展函数漏 import：
+#    CardBase.animateFloat / TopicCard.clip。语法合法、IDE 无感，只有 CI 才报，故做机械门禁。
+#    为什么单独成项：编译类问题在沙箱无法本地复现，只能靠静态检查兜住。
+EXT=$(python3 data_scripts/check-ext-imports.py app/src/main/java 2>&1)
+EXT_RC=$?
+if [ "$EXT_RC" -eq 0 ]; then ok "⑫扩展import" "齐全"; else bad "⑫扩展import" "$(echo "$EXT" | grep -F -- '->' | wc -l | tr -d ' ') 处缺失"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }

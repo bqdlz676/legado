@@ -719,7 +719,8 @@ private fun ShelfSearchOverlay(
                     modifier = Modifier.weight(1f),
                 )
                 if (query.isNotBlank()) {
-                    OverlayClearButton { onQueryChange("") }
+                    // onClear 语义＝清空关键词；该叉按钮即浮层内独立清空入口，故不传单空回调
+                    OverlayClearButton(onClear = { onQueryChange("") })
                 }
             }
             Spacer(Modifier.height(6.dp))

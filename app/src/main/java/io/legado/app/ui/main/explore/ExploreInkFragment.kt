@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSnapHelper
@@ -55,6 +56,17 @@ class ExploreInkFragment() : BaseFragment(R.layout.fragment_explore_ink), MainFr
         buildClassics()
         buildTopics()
         buildUpdates()
+    }
+
+    /**
+     * 重复点击底部导航时复位发现页。D25 重写后已无可展开/收起的书源卡片，
+     * 旧架构里“压缩展开项”的一半不再有对应对象；这里只保留另一半：把整页
+     * ScrollView 与横向战役条回滚到顶部，避免残留滚动位置错乱。
+     * ScrollView 在布局中未设 id，经 rvCampaign 向上取祖先容器。
+     */
+    fun compressExplore() {
+        binding.rvCampaign.scrollToPosition(0)
+        (binding.rvCampaign.parent?.parent as? ScrollView)?.fullScroll(View.FOCUS_UP)
     }
 
     private fun openCampaign(c: Campaign) {

@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -216,6 +217,9 @@ internal fun InkStyleSlider(
     // fraction 二次夹紧：外部传入越界值（旧存档 / 异常恢复）也不会让拇指跑出轨道。
     val fraction = ((value - min) / range).coerceIn(0f, 1f)
     val thumbHalfPx = with(LocalDensity.current) { 8.dp.toPx() }
+    // 轨道宽先在 offset 块外量成 px 捕获：offset lambda 接收者是 Density，
+    // 没有 size 属性；块内调 size.width 会报 size/width 期望函数调用、接收者类型不匹配。
+    var trackWidthPx by remember { mutableFloatStateOf(0f) }
     Column(modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -244,6 +248,7 @@ internal fun InkStyleSlider(
             Modifier
                 .fillMaxWidth()
                 .height(24.dp)
+                .onSizeChanged { trackWidthPx = it.width.toFloat() }
                 .pointerInput(min, max) {
                     detectHorizontalDragGestures { change, dragAmount ->
                         change.consume()
@@ -275,7 +280,7 @@ internal fun InkStyleSlider(
                 Modifier
                     .offset {
                         IntOffset(
-                            ((fraction * size.width) - thumbHalfPx).roundToInt(),
+                            ((fraction * trackWidthPx) - thumbHalfPx).roundToInt(),
                             0,
                         )
                     }

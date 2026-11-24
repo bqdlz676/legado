@@ -452,16 +452,21 @@ object HeightMapDecoder {
         return top + (bottom - top) * sy
     }
 
+    // 六个混排常数均为 64 位无符号哈希常数（xxHash 混合 / FNV-1a 偏移基）。
+    // Kotlin 有符号 Long 字面量不接受 ≥2^63 的十六进制值，故先以 uL 按 64 位无符号字面量落入
+    // ULong，再 .toLong() 按位重解释为负 Long；xor / 乘 / ushr 在二补码下与无符号运算逐位一致，
+    // 哈希碰撞率保持 64 位口径，不得降级成 32 位 Int（会显著抬高晶格噪声的碰撞概率）。
     private fun lattice(ix: Int, iy: Int, seed: Long): Double {
-        var h = seed xor (ix.toLong() * 0x9E3779B97F4A7C15L) xor (iy.toLong() * 0xC2B2AE3D27D4EB4FL)
-        h = (h xor (h ushr 33)) * 0xFF51AFD7ED558CCDL
-        h = (h xor (h ushr 33)) * 0xC4CEB9FE1A85EC53L
+        var h = seed xor (ix.toLong() * 0x9E3779B97F4A7C15uL.toLong()) xor (iy.toLong() * 0xC2B2AE3D27D4EB4FuL.toLong())
+        h = (h xor (h ushr 33)) * 0xFF51AFD7ED558CCDuL.toLong()
+        h = (h xor (h ushr 33)) * 0xC4CEB9FE1A85EC53uL.toLong()
         h = h xor (h ushr 33)
         return (h and 0xFFFFFFFFL).toDouble() / 0xFFFFFFFFL
     }
 
     private fun fnv1a(s: String): Long {
-        var h = 0xCBF29CE842222325L
+        // FNV-1a 64 位偏移基 offset-basis = 14695981039346656037，同样 ≥2^63，走 uL 重解释。
+        var h = 0xCBF29CE842222325uL.toLong()
         for (ch in s) {
             h = h xor ch.code.toLong()
             h *= 0x100000001B3L

@@ -200,7 +200,9 @@ class HighlightNoteDialog() : DialogFragment() {
 
         // 截断提示文案集中在此常量：摘录 / 备注两个输入框共用，避免两处各写一份导致口径漂移。
         // %1$d = 本次粘贴被截掉的字数；%2$d = 当前字段上限字数。
-        internal const val TRUNCATED_HINT_FORMAT = "已达 %2$d 字上限，超出的 %1$d 字未录入"
+        // 格式串里的 $ 必须转义：Kotlin 双引号串会把 $d 当成模板引用标识符 d，
+        // 既报 unresolved reference 'd'，也让 const 初值不再是编译期常量。
+        internal const val TRUNCATED_HINT_FORMAT = "已达 %2\$d 字上限，超出的 %1\$d 字未录入"
 
         // 按 UTF-16 code unit 截断；代理对边界极少出现在中文备注，此处不做 codePoint 回退。
         internal fun clampLength(input: String, max: Int): String =

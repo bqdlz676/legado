@@ -97,7 +97,7 @@ class CampaignController private constructor(
 
     /**
      * B13/M5：解码出的 0..1 归一化栅格原始产物。model 接纳栅格字段前（挂账 D24），
-     * 暂挂 controller internal 属性供桥接层 / 同包单测读取；不改 `model/**`。
+     * 暂挂 controller internal 属性供桥接层 / 同包单测读取；不改 model 包内模型定义。
      * null = 本次装配未走 heightMap 解码通路（壳层直接传入了 [raster]，或字段空白）。
      */
     internal var heightMapRaster: HeightMapRaster? = null
