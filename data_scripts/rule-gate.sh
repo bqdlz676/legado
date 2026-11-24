@@ -35,7 +35,7 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.34" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.34"; else bad "④索引版本" "未升版（期望 v2.34）"; fi
+if grep -q "版本：v2.35" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.35"; else bad "④索引版本" "未升版（期望 v2.35）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
@@ -204,6 +204,18 @@ if [ $? -eq 0 ]; then ok "㉓规则总账" "$(echo "$LED23" | grep 'RULE-LEDGER:
 # ㉔ 三件缺项台账（F-89 §3）：缺项在册且无超期；补齐前限权，逾期升级阻断。
 GAP24=$(python3 data_scripts/check-rule-ledger.py --check gap 2>&1)
 if [ $? -eq 0 ]; then ok "㉔缺项台账" "$(echo "$GAP24" | grep 'RULE-LEDGER: PASS')"; else bad "㉔缺项台账" "$(echo "$GAP24" | grep -E '·|FAIL' | head -5)"; fi
+
+# ㉑ 组合验收金字塔（F-92）：矩阵强制入册 / 关键对 100% 覆盖 / 缺陷落层归因 / 禁跳级；
+#    本项只许 FAIL 不许 WARN；待验/未落地是在册明确状态，必须带验收代理与锚点。
+COMBO21=$(python3 data_scripts/check-combo-coverage.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉑组合验收覆盖" "$(echo "$COMBO21" | grep 'COMBO-COV: PASS')"; else bad "㉑组合验收覆盖" "$(echo "$COMBO21" | grep '·' | head -5)"; fi
+
+# ㉗ 子代理存活/锚点回执/跑题守卫（F-93~F-97）：
+#    实证 2026-11-25：两个子代理首轮零工具调用、产出与本单无关的通用文案（小红书/寒暄），
+#    而派单原文确实已到达（轨迹首行可查）——事故在"首轮没有强制机械动作"，所以守卫必须机械：
+#    近一轮动过的代理里，凡零工具调用且未登记 docs/台账-子代理存活.md 者判 FAIL。
+LIVE27=$(python3 data_scripts/check-agent-liveness.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉗子代理存活" "$(echo "$LIVE27" | grep 'AGENT-LIVENESS: PASS')"; else bad "㉗子代理存活" "$(echo "$LIVE27" | grep -E 'FAIL' | head -4 | tr '\n' ' ')"; fi
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
