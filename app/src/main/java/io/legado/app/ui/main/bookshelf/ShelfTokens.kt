@@ -88,8 +88,9 @@ object ShelfTokens {
     const val GLOW_OVERFLOW_DP: Float = 4f
     /** 按下 3D 前倾 5° */
     const val TILT_DEG: Float = 5f
-    /** 朱砂进度竖线宽 3dp */
-    const val VLINE_WIDTH_DP: Float = 3f
+    /** 朱砂进度竖线宽 1dp；冻结口径 1dp（切片-10:22 / ShelfParams.PROGRESS_LINE_WIDTH_DP=1.0）。
+     *  为什么改：旧值 3f 与冻结 1dp 冲突，渲染层已改引 ShelfParams 单源，本副本按同口径修正，避免两处漂移。 */
+    const val VLINE_WIDTH_DP: Float = 1f
     /** 底部细线进度高 2dp */
     const val BOTTOM_LINE_HEIGHT_DP: Float = 2f
     /** 云灰 1px 分隔线 */
@@ -98,7 +99,10 @@ object ShelfTokens {
     // —— 金色微粒（切片-10：卡片下方悬浮 15-20 粒极淡金色微粒）——
     const val PARTICLE_MIN: Int = 15
     const val PARTICLE_MAX: Int = 20
-    const val PARTICLE_DEFAULT: Int = 18
+    // 为什么派生：默认粒数不再自由写死 18，改由区间上下限中点（四舍五入向上）派生：
+    // (15+20+1)/2=18；区间日后调整时默认值自动跟随，不会与 15-20 冻结区间脱节。
+    // 用整数除法是因为 const val 只允许编译期常量表达式，不能调 roundToInt()。
+    const val PARTICLE_DEFAULT: Int = (PARTICLE_MIN + PARTICLE_MAX + 1) / 2
 
     /** 新增判定窗口：7 天内入库视为新书 */
     const val NEW_BOOK_WINDOW_MS: Long = 7L * 24 * 60 * 60 * 1000

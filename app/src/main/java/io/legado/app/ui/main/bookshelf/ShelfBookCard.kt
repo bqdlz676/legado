@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.ShelfParams
 import kotlinx.coroutines.delay
 
 /**
@@ -86,7 +87,7 @@ fun ShelfBookCard(
 
     // —— 前倾：spring 带回弹；按下前倾 5°，松开回正 ——
     val tiltY by animateFloatAsState(
-        targetValue = if (pressed) ShelfTokens.TILT_DEG else 0f,
+        targetValue = if (pressed) ShelfParams.CARD_TILT_DEGREES.toFloat() else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium,
@@ -137,7 +138,7 @@ fun ShelfBookCard(
 
     val density = LocalDensity.current
     val revealDy = with(density) { 26.dp.toPx() }
-    val glowPad = with(density) { ShelfTokens.GLOW_RADIUS_DP.dp.toPx() }
+    val glowPad = with(density) { ShelfParams.SHADOW_BLUR_DP.toFloat().dp.toPx() }
     // 按下微光由暖金转为朱砂（切片-10：阴影从暖金变为朱砂）
     val glowColor = if (pressed) ShelfTokens.textAccent else ShelfTokens.colorGlow
     val cardShape = RoundedCornerShape(ShelfTokens.CARD_RADIUS_DP.dp)
@@ -145,7 +146,7 @@ fun ShelfBookCard(
     Box(
         modifier = modifier
             .aspectRatio(0.66f)
-            .padding(ShelfTokens.GLOW_RADIUS_DP.dp),
+            .padding(ShelfParams.SHADOW_BLUR_DP.toFloat().dp),
     ) {
         // 暖金 / 朱砂微光溢出：Canvas 自绘三层叠晕，不用 elevation 阴影
         Box(
@@ -283,11 +284,11 @@ private fun ShelfCardContent(book: ShelfBookUi, modifier: Modifier = Modifier) {
                                 text = ch,
                                 style = TextStyle(
                                     color = ShelfTokens.textPrimary,
-                                    fontSize = ShelfTokens.TITLE_SP.sp,
+                                    fontSize = ShelfParams.TITLE_FONT_SIZE_SP.toFloat().sp,
                                     fontWeight = ShelfTokens.titleWeight,
                                     fontFamily = ShelfTokens.serifTitle,
                                     textAlign = TextAlign.Center,
-                                    lineHeight = (ShelfTokens.TITLE_SP + 2f).sp,
+                                    lineHeight = (ShelfParams.TITLE_FONT_SIZE_SP.toFloat() + 2f).sp,
                                 ),
                             )
                         }
@@ -295,7 +296,7 @@ private fun ShelfCardContent(book: ShelfBookUi, modifier: Modifier = Modifier) {
                     // 朱砂进度竖线：线长 = 阅读进度比例；余段留云灰轨道
                     Box(
                         modifier = Modifier
-                            .width(ShelfTokens.VLINE_WIDTH_DP.dp)
+                            .width(ShelfParams.PROGRESS_LINE_WIDTH_DP.toFloat().dp)
                             .height(72.dp)
                             .background(ShelfTokens.colorDivider, RoundedCornerShape(50)),
                     ) {
@@ -326,7 +327,7 @@ private fun ShelfCardContent(book: ShelfBookUi, modifier: Modifier = Modifier) {
                 text = "${book.author} · ${book.chapterText}",
                 style = TextStyle(
                     color = ShelfTokens.textSecondary,
-                    fontSize = ShelfTokens.AUTHOR_SP.sp,
+                    fontSize = ShelfParams.AUTHOR_FONT_SIZE_SP.toFloat().sp,
                     fontFamily = ShelfTokens.serifBody,
                 ),
                 maxLines = 1,

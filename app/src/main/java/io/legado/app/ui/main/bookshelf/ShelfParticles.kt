@@ -1,5 +1,6 @@
 package io.legado.app.ui.main.bookshelf
 
+import io.legado.app.ui.components.ShelfParams
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -50,7 +51,7 @@ object ShelfParticles {
 
     /** 微粒数量收口在切片-10 的 15-20 粒区间，越界一律夹回。 */
     fun clampCount(count: Int): Int =
-        count.coerceIn(ShelfTokens.PARTICLE_MIN, ShelfTokens.PARTICLE_MAX)
+        count.coerceIn(ShelfParams.PARTICLE_MIN, ShelfParams.PARTICLE_MAX)
 
     fun seedGoldMotes(count: Int, seed: Long = 20261123L): List<GoldMote> {
         val rng = SeededRng(seed)
