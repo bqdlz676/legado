@@ -6,6 +6,7 @@ import io.legado.app.ui.map.crossing.model.Geo
 import io.legado.app.ui.map.crossing.model.TerrainFocus
 import io.legado.app.ui.map.crossing.model.TerrainKind
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -187,5 +188,61 @@ class TerrainCostTest {
         assertTrue("前置：内部水带格不应判为渡口", !waterMap.isFord(interior))
         val cost = TerrainCost.enterCost(interior, ArmyType.REGULAR, waterMap, "clear")
         assertTrue("非涉渡水面代价应堵死，实际 $cost", cost >= TerrainCost.BLOCKED_COST)
+    }
+
+    @Test
+    fun `表驱动：每种天候 × 多档路况，速度 = 基础 × 天候折减 × 路况倒数，方向单调`() {
+        // 表驱动矩阵（REGULAR 基础 1.00、疲劳 0 惩罚 1.00）：
+        // 期望速度 = 1.00 × weatherModifier(condition) × (1 / terrainFactor(kind, false))。
+        // 行覆盖 5 档恶劣/基准天候 + null + 阴(overcast)；列覆盖 PLAIN/HILL/MOUNTAIN/SNOW 四档路况。
+        val weatherCases: List<Pair<String?, Double>> = listOf(
+            "clear" to 1.00,
+            "fog" to 0.90,
+            "wind" to 0.85,
+            "rain" to 0.75,
+            "snow" to 0.60,
+            null to 1.00,
+            "overcast" to 1.00,
+        )
+        val terrainCases: List<Pair<TerrainKind, Double>> = listOf(
+            TerrainKind.PLAIN to 1.0,
+            TerrainKind.HILL to 1.4,
+            TerrainKind.MOUNTAIN to 2.0,
+            TerrainKind.SNOW to 2.5,
+        )
+        for ((condition, weather) in weatherCases) {
+            for ((kind, factor) in terrainCases) {
+                val expected = 1.00 * weather * (1.0 / factor)
+                val actual = TerrainCost.marchSpeed(ArmyType.REGULAR, 0.0, condition, kind)
+                assertEquals("天候=$condition 路况=$kind 速度应等于手算值", expected, actual, 1e-9)
+                // 方向兜底：任何天候 × 路况组合速度都不得超过基础速度（只降速、不加速）。
+                assertTrue("天候=$condition 路况=$kind 速度不应 > 基础速度", actual <= 1.0 + 1e-9)
+                assertTrue("天候=$condition 路况=$kind 速度应为正", actual > 0.0)
+            }
+        }
+        // 同路况（PLAIN）天气单调：clear ≥ fog ≥ wind ≥ rain > snow。
+        val plainSpeed = { c: String? -> TerrainCost.marchSpeed(ArmyType.REGULAR, 0.0, c, TerrainKind.PLAIN) }
+        assertTrue(plainSpeed("clear") >= plainSpeed("fog"))
+        assertTrue(plainSpeed("fog") >= plainSpeed("wind"))
+        assertTrue(plainSpeed("wind") >= plainSpeed("rain"))
+        assertTrue(plainSpeed("rain") > plainSpeed("snow"))
+        // 同天气（clear）路况单调：plain > hill > mountain > snow。
+        val clearSpeed = { k: TerrainKind -> TerrainCost.marchSpeed(ArmyType.REGULAR, 0.0, "clear", k) }
+        assertTrue(clearSpeed(TerrainKind.PLAIN) > clearSpeed(TerrainKind.HILL))
+        assertTrue(clearSpeed(TerrainKind.HILL) > clearSpeed(TerrainKind.MOUNTAIN))
+        assertTrue(clearSpeed(TerrainKind.MOUNTAIN) > clearSpeed(TerrainKind.SNOW))
+    }
+
+    @Test
+    fun `边界：null 与未知天候归基准，极端疲劳速度为正、不反转、不出 NaN`() {
+        // null / 未知串不折减也不加成；疲劳拉满时惩罚 1/(1+0.12f) 仍恒正，不得出现负速、提速或 NaN。
+        assertEquals(1.0, TerrainCost.weatherModifier(null), 1e-9)
+        assertEquals(1.0, TerrainCost.weatherModifier("drizzle-unknown"), 1e-9)
+        val rested = TerrainCost.marchSpeed(ArmyType.REGULAR, 0.0, null, TerrainKind.PLAIN)
+        val exhausted = TerrainCost.marchSpeed(ArmyType.REGULAR, 100.0, "snow", TerrainKind.MOUNTAIN)
+        assertTrue(exhausted > 0.0)
+        assertTrue(exhausted < rested)
+        assertFalse(exhausted.isNaN())
+        assertFalse(rested.isNaN())
     }
 }

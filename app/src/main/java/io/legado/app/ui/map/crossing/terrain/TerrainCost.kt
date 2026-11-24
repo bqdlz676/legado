@@ -33,9 +33,13 @@ object TerrainCost {
     /**
      * 天候折减系数（速度侧，恒 ≤1）：坏天气只拖慢行军；晴朗 / 缺省为基准 1.0，任何天气都不加速。
      *
+     * 符号为什么是 ≤1（B2 锁定）：本系数在 [marchSpeed] 里以**乘法**进入速度预算，
+     * 乘一个 ≤1 的数只会把速度往下压；若任一档取 >1，坏天气反而提速，即为方向反转
+     * （旧提交 22cefd1 事故：rain 1.30 / snow 1.50 / fog 1.20 / wind 1.10，已回归）。
+     *
      * 单调口径（规格 §三 L80 速度预算）：clear ≥ fog ≥ wind ≥ rain/mud > snow。
      * 取值依据（按通行受阻程度定性标定，非实测气象数据）：
-     *  - clear / null / 未知：1.00（基准，不折减）
+     *  - clear / null / 未知 / 阴(overcast/cloudy)：1.00（基准，非恶劣天候，不折减也不加成）
      *  - fog / foggy / mist：0.90（能见度下降，小幅折减）
      *  - wind / windy：0.85（顶风阻力，折减略大于雾）
      *  - rain / rainy / mud：0.75（泥泞拖慢）
@@ -70,12 +74,16 @@ object TerrainCost {
         val base = terrainFactor(kind, map.isFord(cell))
         val slope = slopePenalty(map.slopeDeg(cell))
         val weather = weatherModifier(weatherCondition)
+        // 符号方向：代价侧取天候倒数——折减越小（天气越坏），base/weather 越大、路径越贵；
+        // 这里不能写成 *weather，否则坏天气路径反而更便宜，与速度侧折减方向相反。
         return base * slope / weather
     }
 
     /**
      * 行军速度系数（回合移动用）：基础速度 × 天候折减(≤1) × 路况速度系数 × 疲劳惩罚。
      * 规格 §三 L80：行军速度 = 基础速度 × 路况系数 × 疲劳惩罚；天候在此基础上再乘一层折减。
+     * 路况速度系数 [terrainSpeedFactor] 在此**相乘消费**（不是只算不用），返回值直接被
+     * `dailyMaxCells` 取作日行预算；漏乘本因子会导致各类地形日行格数全部等于基础值。
      * 疲劳 0..5，每点折减 12%；断粮加速疲劳由 MoraleSystem 负责，这里只读当前疲劳。
      */
     fun marchSpeed(
