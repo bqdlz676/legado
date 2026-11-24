@@ -233,5 +233,10 @@ if [ $? -eq 0 ]; then ok "㉙停工守卫" "$(echo "$IDLE29" | grep 'NO-IDLE: PA
 QR30=$(python3 data_scripts/check-queue-running.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉚队首推进" "$(echo "$QR30" | grep 'QUEUE-RUNNING: PASS')"; else bad "㉚队首推进" "$(echo "$QR30" | grep -E 'FAIL' | head -2 | tr '\n' ' ')"; fi
 
+# ㉛ 事故清单完整性（F-105）：事故散落在复盘/CI归因/存活台账里，"发生过什么"只能靠人翻，
+#    一旦漏登记下一棒就会重犯。这条强制"凡事故必须进 docs/事故清单.md"。
+IR31=$(python3 data_scripts/check-incident-register.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉛事故清单完整性" "$(echo "$IR31" | grep 'INCIDENT-REG: PASS')"; else bad "㉛事故清单完整性" "$(echo "$IR31" | grep -E '未登记|FAIL' | head -4 | tr '\n' ' ')"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
