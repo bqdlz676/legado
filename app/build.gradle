@@ -171,7 +171,8 @@ android {
     testOptions {
         // Paparazzi 在 JVM 下通过 layoutlib 渲染，必须把主源资源 / 资产纳入单元测试类路径；
         // 不开则 R 资源与 drawable 在截图渲染时解析不到。既有纯 JVM 单测不受此开关负面影响。
-        unitTests.isIncludeAndroidResources = true
+        // 注意：Groovy DSL 属性名是 includeAndroidResources（Kotlin DSL 才是 isIncludeAndroidResources）。
+        unitTests.includeAndroidResources = true
     }
     packaging {
         resources.excludes.add('META-INF/*')
