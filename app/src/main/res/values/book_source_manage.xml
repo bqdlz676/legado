@@ -17,7 +17,6 @@
     <string name="sure_rename">重命名</string>
     <string name="js_lib">jsLib</string>
     <string name="source_edit_title">书源编辑</string>
-    <string name="source_field_full_edit">全屏编辑</string>
     <string name="source_exit_confirm">退出前未保存修改</string>
     <string name="source_field_error">字段有误，请检查后再保存</string>
     <string name="source_debug_title">书源调试</string>

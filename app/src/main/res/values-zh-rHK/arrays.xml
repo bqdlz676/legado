@@ -9,10 +9,6 @@
         <item>影片</item>
     </string-array>
 
-    <string-array name="group_style">
-        <item>標籤</item>
-        <item>文件夾</item>
-    </string-array>
 
     <string-array name="theme_mode">
         <item>跟隨系統</item>
@@ -21,12 +17,6 @@
         <item>E-Ink(墨水螢幕)</item>
     </string-array>
 
-    <string-array name="NavBarColors">
-        <item>自動</item>
-        <item>黑色</item>
-        <item>白色</item>
-        <item>跟隨背景</item>
-    </string-array>
 
     <string-array name="screen_time_out">
         <item>默認</item>

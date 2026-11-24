@@ -27,16 +27,7 @@
 		<item>视频</item>
 	</string-array>
 
-	<string-array name="group_style">
-		<item>Tab</item>
-		<item>Folder</item>
-	</string-array>
 
-	<string-array name="bookshelf_read_progress">
-		<item>@string/read_progress_hidden</item>
-		<item>@string/read_progress_standard</item>
-		<item>@string/read_progress_enhanced</item>
-	</string-array>
 
 	<string-array name="book_sort">
 		<item>@string/text_default</item>
@@ -56,17 +47,7 @@
 		<item>@string/indent_4</item>
 	</string-array>
 
-	<string-array name="text_suffix">
-		<item>.txt</item>
-		<item>.json</item>
-		<item>.xml</item>
-	</string-array>
 
-	<string-array name="convert_s">
-		<item>@string/jf_convert_o</item>
-		<item>@string/jf_convert_j</item>
-		<item>@string/jf_convert_f</item>
-	</string-array>
 
 	<string-array name="theme_mode">
 		<item>Follow system</item>
@@ -75,12 +56,6 @@
 		<item>E-Ink mode</item>
 	</string-array>
 
-	<string-array name="NavBarColors">
-		<item>Auto</item>
-		<item>Black</item>
-		<item>White</item>
-		<item>Following</item>
-	</string-array>
 
 	<string-array name="screen_time_out">
 		<item>Default</item>
@@ -190,11 +165,6 @@
 	</string-array>
 
 
-	<string-array name="default_app_variant">
-		<item>@string/default_version</item>
-		<item>@string/beta_release_version</item>
-		<item>@string/beta_releaseS_version</item>
-	</string-array>
 
 	<string-array name="default_home_page_value">
 		<item>bookshelf</item>
@@ -203,11 +173,6 @@
 		<item>my</item>
 	</string-array>
 
-	<string-array name="default_app_variant_value">
-		<item>default_version</item>
-		<item>beta_release_version</item>
-		<item>beta_releaseS_version</item>
-	</string-array>
 
 	<string-array name="punctuation_compress_title">
 		<item>@string/punctuation_compress_none</item>
