@@ -87,23 +87,45 @@ object HeightMapDecoder {
     // ── 来源分类 ──────────────────────────────────────────────
 
     /**
-     * 判定 [raw] 的来源类别（纯函数，不读盘）。
-     * 规则顺序：空白 → NONE；`data:` 前缀 → BASE64；`/` 或 `file://` 开头 → LOCAL_PATH；
-     * 不含路径分隔符且像 base64（长度 ≥32、字符集合法）→ BASE64；其余按资产基名 → ASSET。
+     * 裸 base64 最小长度：标准 PNG 编码产物远长于此；短串即便字符集像 base64 也按资产基名兜底，
+     * 避免文件名 / 短代号被误当内联栅格送 Base64 解码。
+     */
+    private const val BASE64_MIN_LENGTH: Int = 200
+
+    /**
+     * 判定 [raw] 的来源类别（纯函数，不读盘）。分类优先级（M4 修：base64 字符集判定先于路径分隔符判定）：
+     *
+     * | 形态 | 判定 |
+     * |---|---|
+     * | 空 / 空白串 | [SourceKind.NONE] |
+     * | `data:` 前缀 | [SourceKind.BASE64] |
+     * | 长度 ≥ [BASE64_MIN_LENGTH] 且全部字符属 base64 字母表（`=` 仅作尾部填充） | [SourceKind.BASE64]（即便含 `/` 或 `+`） |
+     * | 以 `/` 或 `file://` 开头 | [SourceKind.LOCAL_PATH] |
+     * | 含 `/` 且长度 <200（如 `assets/map/x.png`） | [SourceKind.ASSET] |
+     * | 其余（短串 / 无分隔符 / 字符集不合法） | [SourceKind.ASSET] 兜底桶（INLINE/UNKNOWN 待 model 接纳栅格字段时再细分） |
+     *
+     * 为什么字符集判定必须在前：标准 base64 字母表本身含 `/` 与 `+`；旧实现先用 `!contains('/')`
+     * 排除路径，导致含 `/` 的裸标准 base64 被误判为 ASSET，内联通路被跳过。
      */
     fun classify(raw: String?): SourceKind {
         val s = raw?.trim().orEmpty()
         if (s.isEmpty()) return SourceKind.NONE
         if (s.startsWith("data:")) return SourceKind.BASE64
+        // 优先级①：纯 base64 字符集 + 足够长 → BASE64；此时允许串内出现 '/' 与 '+'。
+        if (looksLikeBase64(s)) return SourceKind.BASE64
+        // 优先级②：路径形态。绝对路径 / file:// → LOCAL_PATH；含 '/' 的短相对路径 → ASSET。
         if (s.startsWith("/") || s.startsWith("file://")) return SourceKind.LOCAL_PATH
-        if (!s.contains('/') && looksLikeBase64(s)) return SourceKind.BASE64
+        if (s.contains('/') && s.length < BASE64_MIN_LENGTH) return SourceKind.ASSET
         return SourceKind.ASSET
     }
 
     private fun looksLikeBase64(s: String): Boolean {
-        if (s.length < 32) return false
+        if (s.length < BASE64_MIN_LENGTH) return false
         val tailEquals = s.count { it == '=' }
         if (tailEquals > 2) return false
+        // base64 填充位 `=` 只能出现在串尾；中段出现 `=` 判非法字符集。
+        val padStart = s.indexOf('=')
+        if (padStart >= 0 && padStart < s.length - 2) return false
         return s.all { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '+' || it == '/' || it == '=' }
     }
 
@@ -216,14 +238,25 @@ object HeightMapDecoder {
         val channels = channelsOf(colorType) ?: return null
         if (colorType == 3 && palette.isEmpty()) return null
 
+        val expectedRaw = height * (1 + width * channels)
         val inflated = try {
             val inflater = Inflater(false)
             inflater.setInput(idat.toByteArray())
-            val raw = ByteArray(height * (1 + width * channels))
-            val n = inflater.inflate(raw)
+            // 为什么不能单次 inflate：zlib 流可由多个 deflate 块拼接而成，一次 inflate 只解出当前块，
+            // 剩余字节仍留在 inflater 内部缓冲；大 IDAT / 多块压缩场景下单次调用会短读，
+            // 再用「解压长度 == 期望长度」比对就会把合法流误判畸形而错误回落合成。
+            // 故循环充气直到 finished()；needsInput() 为真而尚未 finished 说明输入截断，直接判 null。
+            val out = java.io.ByteArrayOutputStream()
+            val buf = ByteArray(65536)
+            while (!inflater.finished()) {
+                if (inflater.needsInput()) return null
+                val n = inflater.inflate(buf)
+                if (n <= 0) return null
+                out.write(buf, 0, n)
+            }
             inflater.end()
-            if (n != raw.size) return null
-            raw
+            if (out.size() != expectedRaw) return null
+            out.toByteArray()
         } catch (_: Throwable) {
             return null
         }

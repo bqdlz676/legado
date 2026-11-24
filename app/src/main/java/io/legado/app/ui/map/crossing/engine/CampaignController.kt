@@ -17,6 +17,7 @@ import io.legado.app.ui.map.crossing.model.TerrainDef
 import io.legado.app.ui.map.crossing.model.TerrainFocus
 import io.legado.app.ui.map.crossing.model.TurnSnapshot
 import io.legado.app.ui.map.crossing.terrain.GeoProjection
+import io.legado.app.ui.map.crossing.terrain.HeightMapRaster
 import io.legado.app.ui.map.crossing.terrain.HeightRaster
 import io.legado.app.ui.map.crossing.terrain.TerrainCost
 import io.legado.app.ui.map.crossing.terrain.TerrainMap
@@ -93,6 +94,14 @@ class CampaignController private constructor(
 
     private val firedEvents: MutableSet<Int> = mutableSetOf()
     private val captureHold: MutableMap<String, Int> = mutableMapOf()
+
+    /**
+     * B13/M5：解码出的 0..1 归一化栅格原始产物。model 接纳栅格字段前（挂账 D24），
+     * 暂挂 controller internal 属性供桥接层 / 同包单测读取；不改 `model/**`。
+     * null = 本次装配未走 heightMap 解码通路（壳层直接传入了 [raster]，或字段空白）。
+     */
+    internal var heightMapRaster: HeightMapRaster? = null
+        private set
 
     /**
      * 据点当前归属表（据点标识 → 阵营 id；B7/M3）。
@@ -1146,18 +1155,74 @@ class CampaignController private constructor(
             ownSideId: String?,
         ): CampaignController {
             assemblyFault?.let { throw it }
-            val effectiveRaster = raster ?: HeightRaster.synthetic(seed = SEED_FALLBACK, gridN = GRID_N, degraded = true)
-            val projection = GeoProjection(definition.focus, GRID_N)
+            // 壳层显式传入栅格时优先采用（既有覆盖通路不变）；否则按 definition.heightMap 解码装配。
+            val (resolvedDef, effectiveRaster, decoded) = if (raster != null) {
+                Triple(definition, raster, null)
+            } else {
+                val resolved = resolveHeightMap(definition)
+                Triple(resolved.first, resolved.second, resolved.third)
+            }
+            val projection = GeoProjection(resolvedDef.focus, GRID_N)
             val map = TerrainMap(
                 raster = effectiveRaster,
                 projection = projection,
-                rivers = definition.terrain.rivers,
-                ridges = definition.terrain.ridges,
+                rivers = resolvedDef.terrain.rivers,
+                ridges = resolvedDef.terrain.ridges,
             )
-            val pathfinder = Pathfinder(map, definition.weather?.condition)
-            val fallbackSide = definition.armies.firstOrNull()?.sideId ?: definition.sides.firstOrNull()?.id ?: "own"
+            val pathfinder = Pathfinder(map, resolvedDef.weather?.condition)
+            val fallbackSide = resolvedDef.armies.firstOrNull()?.sideId ?: resolvedDef.sides.firstOrNull()?.id ?: "own"
             val side = ownSideId ?: fallbackSide
-            return CampaignController(definition, effectiveRaster, projection, map, pathfinder, side)
+            val controller = CampaignController(resolvedDef, effectiveRaster, projection, map, pathfinder, side)
+            controller.heightMapRaster = decoded
+            return controller
+        }
+
+        /**
+         * B13/M5：按 [definition] 的 `heightMap` 字符串解码高程栅格。
+         *
+         * - 引擎层不引 Android 资源 API，平台 assets / 文件系统 reader 由壳层桥接注入；
+         *   本通路 reader 传 null——内联 base64 纯 JVM 直解，资产 / 路径类在 reader 注入前
+         *   由解码器回落确定性合成场（与既有降级口径一致）。
+         * - 解码失败（回落合成场）时把 warning 并入 definition 既有 warnings 表，不新增第二条
+         *   警告通道；`degraded` 随之置真。字段空白时保持旧合成兜底口径，不重复记 warning。
+         *
+         * @return 解析后的 definition（可能追加 warning）、可消费的 [HeightRaster]、0..1 原始栅格（可空）。
+         */
+        private fun resolveHeightMap(
+            definition: CampaignDefinition,
+        ): Triple<CampaignDefinition, HeightRaster, HeightMapRaster?> {
+            val raw = definition.heightMap
+            if (raw.isNullOrBlank()) {
+                return Triple(
+                    definition,
+                    HeightRaster.synthetic(seed = SEED_FALLBACK, gridN = GRID_N, degraded = true),
+                    null,
+                )
+            }
+            val decoded = CampaignJsonParser.decodeHeightMap(raw, reader = null)
+            val heightRaster = toHeightRaster(decoded)
+            val resolvedDef = if (decoded.degraded) {
+                val note = "heightMap 未解码为真实高程图：回落确定性合成高程场（来源 ${decoded.source}）"
+                definition.copy(degraded = true, warnings = definition.warnings + note)
+            } else {
+                definition
+            }
+            return Triple(resolvedDef, heightRaster, decoded)
+        }
+
+        /**
+         * 0..1 归一化栅格 → 既有 [HeightRaster]（0..255 `IntArray`）。
+         *
+         * 为什么 0..255：[HeightRaster] 是地形消费侧既有口径，米制换算
+         * `metersFor = value / 255 * DEM_MAX_METERS`，TerrainMap / 通视 / 坡度全部按 0..255
+         * 取像素；解码器内部归一化到 0..1 仅为隔离 PNG 亮度值域。换算集中在装配点这一处，
+         * 避免消费侧混用两套值域；四舍五入后夹紧 0..255，越界值不穿透到地形层。
+         */
+        private fun toHeightRaster(raster: HeightMapRaster): HeightRaster {
+            val data = IntArray(raster.size) { i ->
+                (raster.data[i].coerceIn(0f, 1f) * 255f + 0.5f).toInt().coerceIn(0, 255)
+            }
+            return HeightRaster.create(raster.width, raster.height, data, degradedHint = raster.degraded)
         }
 
         /** 顶层兜底装配：原点聚焦 + 合成高程场 + 空地形空军队，保证降级态可建、可出快照。 */
