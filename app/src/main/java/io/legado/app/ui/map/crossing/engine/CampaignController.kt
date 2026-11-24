@@ -23,6 +23,41 @@ import io.legado.app.ui.map.crossing.terrain.TerrainMap
 import kotlin.math.roundToInt
 
 /**
+ * 火攻推演三态（B12；规格 §六 赤壁战役：风向 / 火攻 / 气温是关键变量）。
+ *
+ * 口径限制：`WeatherDef` 目前只有标量风速，**没有风向方位角字段**；顺 / 逆 / 侧风在本层
+ * 以风速区间近似——中等风 + 干热 ≈ 顺风借势蔓延，极强风 ≈ 逆风失控反噬，小风 ≈ 侧风受控。
+ * 风向方位字段补齐前，规则层不得臆造攻方与风向的相对方位（EventDef 亦无攻方字段）。
+ *
+ * 三态必须在消费侧 [when] 中逐一枚举，禁止 `else` 兜底吞掉未知态。
+ */
+enum class FireAttackRule(val label: String) {
+    /** 火势蔓延：风助火威叠加干热天气，折损放大，目标士气降一级。 */
+    SPREAD("火势蔓延"),
+
+    /** 火势受控：风弱或气温偏低，按基础折损结算，目标士气降一级。 */
+    CONTAINED("火势受控"),
+
+    /** 强风反噬：大风乱卷致火势失控，目标仅轻微波及且阵脚不乱；攻方反噬损失待攻方字段建模。 */
+    BACKFIRE("强风反噬");
+}
+
+/**
+ * 单次火攻结算结论（B12，纯数据，供事件分支与单测逐例核对）。
+ *
+ * @param rule 三态裁决结果
+ * @param damageFrac 最终折损比例（0..1，占目标当前兵力）
+ * @param moraleDrops 目标是否降一级士气；BACKFIRE 为 false
+ * @param note 可读说明（风 / 温取值与裁决理由，进事件日志）
+ */
+internal data class FireAttackOutcome(
+    val rule: FireAttackRule,
+    val damageFrac: Double,
+    val moraleDrops: Boolean,
+    val note: String,
+)
+
+/**
  * 推演引擎对外门面（纯 JVM，不引 Android / Compose 类型）。
  *
  * 职责收口：载入 JSON + 高程图 + 规则 → 初始化棋盘 → 回合主循环（情报 → 意图 → 移动 →
@@ -108,9 +143,36 @@ class CampaignController private constructor(
 
     val warnings: List<String> get() = definition.warnings
 
+    /**
+     * 归一后的风速（m/s）与气温（℃），推演层只消费这两份归一值，不直接读原始 JSON 数值。
+     * 缺天气块 → 静风 + 常温；NaN / 无穷 / 越界一律夹紧并记 [weatherNotes]，极端值不崩。
+     */
+    private val windMps: Double
+    private val temperatureC: Double
+
+    /** 风温归一告警：载入时一次性记录，供单测与壳层排查异常天气数据。 */
+    private val weatherNotes: MutableList<String> = mutableListOf()
+
     init {
+        val rawWind = definition.weather?.windMps
+        val rawTemp = definition.weather?.temperatureC
+        windMps = normalizeWindMps(rawWind)
+        temperatureC = normalizeTemperatureC(rawTemp)
+        if (rawWind != null && (rawWind.isNaN() || rawWind.isInfinite() ||
+                rawWind < 0.0 || rawWind > WIND_MAX_MPS)
+        ) {
+            weatherNotes += "风速异常（$rawWind）：已归一到 $windMps m/s"
+        }
+        if (rawTemp != null && (rawTemp.isNaN() || rawTemp.isInfinite() ||
+                rawTemp < TEMP_MIN_C || rawTemp > TEMP_MAX_C)
+        ) {
+            weatherNotes += "气温异常（$rawTemp℃）：已归一到 $temperatureC℃"
+        }
         instantiateCorps()
     }
+
+    /** 测试 / 壳层口径出口：风温归一告警列表（只读）。 */
+    internal fun weatherDiagnostics(): List<String> = weatherNotes.toList()
 
     // ── 载入 ──────────────────────────────────────────────────
 
@@ -303,11 +365,15 @@ class CampaignController private constructor(
 
             // ── 事件型：火攻 / 攻城器械 / 中央突破 ────────────────────
             EventAction.FIRE_ATTACK -> {
-                val frac = fracOf(event.value, LOSS_FIRE_ATTACK)
-                val loss = target.strength * frac
+                // B12：火攻不再是固定三成五；按归一后的风速 / 气温裁决三态（蔓延 / 受控 / 反噬），
+                // 折损倍率与士气是否降级都由 [FireAttackOutcome] 收口。
+                val outcome = evaluateFireAttack(windMps, temperatureC, event.value)
+                val loss = target.strength * outcome.damageFrac
                 target.applyLoss(loss)
-                target.morale = target.morale.downgrade()
-                log("事件「${event.reason}」：${label} 遭火攻，折损 ${loss.round1()}，士气下降")
+                if (outcome.moraleDrops) target.morale = target.morale.downgrade()
+                val moralePart = if (outcome.moraleDrops) "士气下降" else "阵脚未乱"
+                log("事件「${event.reason}」：${label} 遭火攻（${outcome.rule.label}），" +
+                    "折损 ${loss.round1()}，$moralePart；${outcome.note}")
             }
             EventAction.SIEGE_ENGINE -> {
                 val frac = fracOf(event.value, LOSS_SIEGE_ENGINE)
@@ -775,7 +841,10 @@ class CampaignController private constructor(
     private fun dailyMaxCells(corps: Corps): Int {
         val kind = map.kindAt(corps.position)
         val speed = TerrainCost.marchSpeed(corps.type, corps.fatigue, definition.weather?.condition, kind)
-        return (BASE_DAILY_CELLS * speed).roundToInt().coerceAtLeast(1)
+        // B12：标量风速与极端气温再叠一层行军折减（恒 ≤1，坏天气只拖慢不加速）；
+        // B2 的 condition 定性折减仍在 [TerrainCost.marchSpeed] 内，两层口径见复审报告叠加说明。
+        val adjusted = speed * windMarchFactor(windMps) * tempMarchFactor(temperatureC)
+        return (BASE_DAILY_CELLS * adjusted).roundToInt().coerceAtLeast(1)
     }
 
     private fun nearPoint(a: Geo, b: Geo): Boolean {
@@ -872,6 +941,128 @@ class CampaignController private constructor(
         const val LOSS_SIEGE_ENGINE: Double = 0.55
         const val LOSS_BREAKTHROUGH: Double = 0.25
         const val LOSS_NAVAL_ROUT: Double = 0.20
+
+        // ── B12 火攻 / 风温系数 ──────────────────────────────────────
+        // 以下全部为**经验默认值，待用户校**：按定性战场经验标定，非实测气象 / 弹道数据；
+        // 重标定时实现与本单测试须同批修改，避免断言与实现错位。
+
+        /** 风速归一上界（m/s）：超出按大风封顶，不做线性外推。 */
+        const val WIND_MAX_MPS: Double = 40.0
+
+        /** 气温归一区间（℃）：低于 / 高于此物理区间夹紧；NaN / 无穷 / 缺省回落到常温。 */
+        const val TEMP_MIN_C: Double = -60.0
+        const val TEMP_MAX_C: Double = 60.0
+        const val TEMP_DEFAULT_C: Double = 15.0
+
+        /** 静风上限（m/s）：低于此值风不助燃，也不折减行军。 */
+        const val WIND_CALM_MPS: Double = 2.0
+
+        /** 大风阈值（m/s）：达到即判火势失控反噬（[FireAttackRule.BACKFIRE]）。 */
+        const val WIND_GALE_MPS: Double = 10.0
+
+        /** 干热助燃阈值（℃）：达到即给干燥加成。 */
+        const val TEMP_HOT_DRY_C: Double = 28.0
+
+        /** 寒冷难燃阈值（℃）：低于此值火势被湿冷压制。 */
+        const val TEMP_COLD_C: Double = 0.0
+
+        /** SPREAD 折损放大倍率（风助火势）。 */
+        const val FIRE_SPREAD_MULT: Double = 1.35
+
+        /** BACKFIRE 折损收窄倍率（反噬中目标仅轻微波及）。 */
+        const val FIRE_BACKFIRE_MULT: Double = 0.40
+
+        /** 干热天气折损加成倍率。 */
+        const val TEMP_DRY_BONUS_MULT: Double = 1.15
+
+        /** 寒冷天气折损压制倍率。 */
+        const val TEMP_COLD_PENALTY_MULT: Double = 0.65
+
+        /** 强风行军折减下限：风速自静风到大线性折减，不再往下压。 */
+        const val WIND_MARCH_FLOOR: Double = 0.85
+
+        /** 酷热阈值（℃）：中暑行军折减。 */
+        const val TEMP_HEAT_C: Double = 35.0
+
+        /** 严寒阈值（℃）：冻阻行军折减。 */
+        const val TEMP_FREEZING_C: Double = -10.0
+
+        /** 酷热行军系数（恒 ≤1）。 */
+        const val TEMP_HEAT_MARCH_FACTOR: Double = 0.90
+
+        /** 严寒行军系数（恒 ≤1）。 */
+        const val TEMP_FREEZING_MARCH_FACTOR: Double = 0.85
+
+        /** 风速归一：null / NaN / 无穷 → 静风；负值按 0；超过上界封顶。 */
+        internal fun normalizeWindMps(raw: Double?): Double {
+            if (raw == null || raw.isNaN() || raw.isInfinite()) return 0.0
+            return raw.coerceIn(0.0, WIND_MAX_MPS)
+        }
+
+        /** 气温归一：null / NaN / 无穷 → 常温；超出物理区间夹紧。 */
+        internal fun normalizeTemperatureC(raw: Double?): Double {
+            if (raw == null || raw.isNaN() || raw.isInfinite()) return TEMP_DEFAULT_C
+            return raw.coerceIn(TEMP_MIN_C, TEMP_MAX_C)
+        }
+
+        /** 事件 value 折损比例：空白 / 非法数字 / 越界回落到默认比例，不抛异常。 */
+        private fun fireFrac(raw: String?, default: Double): Double =
+            raw?.toDoubleOrNull()?.coerceIn(0.0, 1.0) ?: default
+
+        /**
+         * 火攻三态裁决（纯函数，供事件分支与表驱动单测复用）。
+         *
+         * 裁决顺序（先风后温，强风优先）：
+         * 1. 风速 ≥ [WIND_GALE_MPS] → [FireAttackRule.BACKFIRE]：大风乱卷失控，火势反噬；
+         * 2. 气温 < [TEMP_COLD_C] → [FireAttackRule.CONTAINED]：湿冷难燃；
+         * 3. 风速 > [WIND_CALM_MPS] 且气温 ≥ [TEMP_HOT_DRY_C] → [FireAttackRule.SPREAD]；
+         * 4. 其余 → [FireAttackRule.CONTAINED]。
+         *
+         * 折损倍率 = 基础比例 × 状态倍率 × 气温倍率，最终钳到 0..1；BACKFIRE 不降级士气。
+         */
+        internal fun evaluateFireAttack(
+            windMps: Double,
+            temperatureC: Double,
+            eventFrac: String?,
+            baseFrac: Double = LOSS_FIRE_ATTACK,
+        ): FireAttackOutcome {
+            val rule = when {
+                windMps >= WIND_GALE_MPS -> FireAttackRule.BACKFIRE
+                temperatureC < TEMP_COLD_C -> FireAttackRule.CONTAINED
+                windMps > WIND_CALM_MPS && temperatureC >= TEMP_HOT_DRY_C -> FireAttackRule.SPREAD
+                else -> FireAttackRule.CONTAINED
+            }
+            val tempMult = when {
+                temperatureC >= TEMP_HOT_DRY_C -> TEMP_DRY_BONUS_MULT
+                temperatureC < TEMP_COLD_C -> TEMP_COLD_PENALTY_MULT
+                else -> 1.0
+            }
+            val ruleMult = when (rule) {
+                FireAttackRule.SPREAD -> FIRE_SPREAD_MULT
+                FireAttackRule.CONTAINED -> 1.0
+                FireAttackRule.BACKFIRE -> FIRE_BACKFIRE_MULT
+            }
+            val frac = fireFrac(eventFrac, baseFrac)
+            val damageFrac = (frac * ruleMult * tempMult).coerceIn(0.0, 1.0)
+            val moraleDrops = rule != FireAttackRule.BACKFIRE
+            val note = "风速 ${windMps} m/s，气温 ${temperatureC}℃"
+            return FireAttackOutcome(rule, damageFrac, moraleDrops, note)
+        }
+
+        /** 风速行军折减（恒 ≤1）：静风不折减；大风自 [WIND_CALM_MPS] 到 [WIND_GALE_MPS] 线性压到 [WIND_MARCH_FLOOR]。 */
+        internal fun windMarchFactor(windMps: Double): Double {
+            if (windMps <= WIND_CALM_MPS) return 1.0
+            val t = ((windMps - WIND_CALM_MPS) / (WIND_GALE_MPS - WIND_CALM_MPS))
+                .coerceIn(0.0, 1.0)
+            return 1.0 - t * (1.0 - WIND_MARCH_FLOOR)
+        }
+
+        /** 气温行军折减（恒 ≤1）：酷热 / 严寒各取一档系数，常温不折减。 */
+        internal fun tempMarchFactor(temperatureC: Double): Double = when {
+            temperatureC >= TEMP_HEAT_C -> TEMP_HEAT_MARCH_FACTOR
+            temperatureC <= TEMP_FREEZING_C -> TEMP_FREEZING_MARCH_FACTOR
+            else -> 1.0
+        }
 
         /** 快照事件条保留条数。 */
         const val LOG_TAIL: Int = 8
