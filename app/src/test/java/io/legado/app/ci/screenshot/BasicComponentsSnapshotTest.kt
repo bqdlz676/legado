@@ -106,7 +106,7 @@ class BasicComponentsSnapshotTest {
                 CategoryCard(
                     name = "史部",
                     count = 12,
-                    previewItems = ["史记", "汉书", "后汉书", "三国志"],
+                    previewItems = listOf("史记", "汉书", "后汉书", "三国志"),
                     onClick = {},
                     state = CardState.Default,
                 )
