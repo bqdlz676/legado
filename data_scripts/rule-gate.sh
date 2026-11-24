@@ -35,7 +35,7 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.21" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.21"; else bad "④索引版本" "未升版（期望 v2.21）"; fi
+if grep -q "版本：v2.22" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.22"; else bad "④索引版本" "未升版（期望 v2.22）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
@@ -96,6 +96,13 @@ if [ $? -eq 0 ]; then ok "⑪规格完整性" "$(echo "$SPECRES" | grep -E '共|
 EXT=$(python3 data_scripts/check-ext-imports.py app/src/main/java 2>&1)
 EXT_RC=$?
 if [ "$EXT_RC" -eq 0 ]; then ok "⑫扩展import" "齐全"; else bad "⑫扩展import" "$(echo "$EXT" | grep -F -- '->' | wc -l | tr -d ' ') 处缺失"; fi
+
+# ⑬ 测试/主源编译陷阱静态守卫（来源：2026-11-24 CI 连红 9 次，一批错误可机械检出：
+#    R1 反引号名非法字符 / R2 静态调实例方法 = ERROR 计入失败；R3 尾随 lambda 绑错形参 /
+#    R4 可空 map 键 / R5 泛型无法推断 = WARN 仅提示。脚本退出码只由 ERROR 决定。）
+TSTSRC=$(python3 data_scripts/check-test-source.py app/src 2>&1)
+TSTSRC_RC=$?
+if [ "$TSTSRC_RC" -eq 0 ]; then ok "⑬测试源码陷阱" "$(echo "$TSTSRC" | grep -F 'ERROR=')"; else bad "⑬测试源码陷阱" "$(echo "$TSTSRC" | grep -E 'R1|R2' | head -3)"; fi
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
