@@ -1,0 +1,46 @@
+name: Build & verify APKs
+description: >-
+  出包与实证断言：assembleDebug/assembleRelease → 列产物 → 从 APK 二进制读 versionCode
+  与 .versioncode 比对 → 上传 debug/release 产物。分片模式与 baseline 模式共用此 composite，
+  避免出包步骤在两个 job 里各抄一份导致漂移。
+runs:
+  using: composite
+  steps:
+    - name: Build debug APK
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
+      shell: bash
+
+    - name: Build release APK
+      run: ./gradlew assembleRelease --no-daemon --stacktrace
+      shell: bash
+
+    - name: List APK outputs
+      run: find app/build/outputs/apk -name "*.apk" -type f
+      shell: bash
+
+    # 实证断言：直接从产出的 APK 二进制里读 versionCode，与 .versioncode 比对；
+    # 光看 gradle 读文件不算验证，只有包里的号对上，才证明"能覆盖安装"这条路真的通了。
+    - name: Assert APK versionCode matches .versioncode
+      run: |
+        VC="$(tr -d '[:space:]' < .versioncode)"
+        AAPT="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+        for apk in $(find app/build/outputs/apk -name "*.apk" -type f); do
+          GOT="$("$AAPT" dump badging "$apk" 2>/dev/null | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)"
+          echo "$apk -> versionCode=$GOT (期望 $VC)"
+          [ "$GOT" = "$VC" ] || { echo "::error::$apk versionCode=$GOT 与 .versioncode=$VC 不一致"; exit 1; }
+        done
+      shell: bash
+
+    - name: Upload debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: legado-debug-apk
+        path: app/build/outputs/apk/**/debug/*.apk
+        if-no-files-found: error
+
+    - name: Upload release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: legado-release-apk
+        path: app/build/outputs/apk/**/release/*.apk
+        if-no-files-found: error

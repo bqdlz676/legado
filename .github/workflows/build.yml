@@ -98,6 +98,9 @@ jobs:
           roots = glob.glob('app/build/tmp/kotlin-classes/*UnitTest*') + \
                   glob.glob('app/build/intermediates/javac/*UnitTest*/classes')
           SKIP_BASE = {'R.class', 'BuildConfig.class', 'module-info.class'}
+          # 截图帧测试（Paparazzi）归独立 screenshot job 出帧，不进 3185 基线单测分片；
+          # 这里只排除本专用包，不跳过任何既有单测类。
+          SKIP_PACKAGE_PREFIXES = ('io.legado.app.ci.screenshot.',)
           classes = set()
           for root in roots:
               for path in glob.glob(os.path.join(root, '**', '*.class'), recursive=True):
@@ -107,7 +110,10 @@ jobs:
                       continue
                   if base in SKIP_BASE:  # 生成类不是测试类，剔除后 --tests 清单更干净
                       continue
-                  classes.add(rel[:-6].replace(os.sep, '.'))
+                  fqcn = rel[:-6].replace(os.sep, '.')
+                  if any(fqcn.startswith(p) for p in SKIP_PACKAGE_PREFIXES):
+                      continue
+                  classes.add(fqcn)
           if not classes:
               sys.exit('::error::未枚举到任何测试类（编译产物目录缺失？），拒绝生成空分片清单')
           cls = sorted(classes)
@@ -360,17 +366,15 @@ jobs:
           path: app/build/test-results/testAppDebugUnitTest/*.xml
           if-no-files-found: warn
 
-  # ---------- 出包：分片模式由 test-aggregate 放行，baseline 模式由 test-baseline 放行 ----------
-  build:
-    name: Build & verify APKs
-    needs: [discover, test-shard, test-aggregate, test-baseline]
-    if: |
-      (github.event_name == 'workflow_dispatch' && inputs.baseline_full_test == true && needs.test-baseline.result == 'success') ||
-      (github.event_name != 'workflow_dispatch' && needs.test-aggregate.result == 'success') ||
-      (github.event_name == 'workflow_dispatch' && inputs.baseline_full_test != true && needs.test-aggregate.result == 'success')
+  # ---------- 出包（分片路径）：needs 只挂分片链路上的 job，不引用 baseline job，避免 skipped 级联 ----------
+  build-shard:
+    name: Build & verify APKs (shard path)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    needs: [discover, test-shard, test-aggregate]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -419,36 +423,66 @@ jobs:
             echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
           fi
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Build & verify APKs (shared composite)
+        uses: ./.github/actions/build-apks
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+  # ---------- 出包（baseline 路径）：needs 只挂 test-baseline ----------
+  build-baseline:
+    name: Build & verify APKs (baseline path)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline_full_test == true }}
+    needs: test-baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
 
-      - name: List APK outputs
-        run: find app/build/outputs/apk -name "*.apk" -type f
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 实证断言：直接从产出的 APK 二进制里读 versionCode，与 .versioncode 比对。
-      - name: Assert APK versionCode matches .versioncode
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Resolve versionCode (.versioncode single source)
         run: |
           VC="$(tr -d '[:space:]' < .versioncode)"
-          AAPT="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
-          for apk in $(find app/build/outputs/apk -name "*.apk" -type f); do
-            GOT="$("$AAPT" dump badging "$apk" 2>/dev/null | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)"
-            echo "$apk -> versionCode=$GOT (期望 $VC)"
-            [ "$GOT" = "$VC" ] || { echo "::error::$apk versionCode=$GOT 与 .versioncode=$VC 不一致"; exit 1; }
-          done
+          echo "versionCode=$VC" | tee -a "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$VC" =~ ^[0-9]+$ ]] || (( VC < 38000 )); then
+            echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
+          fi
 
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: legado-debug-apk
-          path: app/build/outputs/apk/**/debug/*.apk
-          if-no-files-found: error
+      - name: Build & verify APKs (shared composite)
+        uses: ./.github/actions/build-apks
 
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: legado-release-apk
-          path: app/build/outputs/apk/**/release/*.apk
-          if-no-files-found: error
