@@ -74,7 +74,7 @@ def load_baseline(baseline: str):
 def verify(baseline: str) -> int:
     """复核基线；返回退出码 0/1。WARN（无基线）退出 0。"""
     if not os.path.isfile(baseline) or os.path.getsize(baseline) == 0:
-        print("WARN  观感基线不存在或为空：工序未启动（P0 出包前判 WARN，不算 FAIL）")
+        print("WARN  观感基线不存在或为空：工序未启动（P0 截图基建前判 WARN，不算 FAIL）")
         return 0
 
     entries = load_baseline(baseline)
