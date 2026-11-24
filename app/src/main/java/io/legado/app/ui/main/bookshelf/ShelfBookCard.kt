@@ -322,11 +322,11 @@ private fun ShelfCardContent(book: ShelfBookUi, modifier: Modifier = Modifier) {
                 )
             }
 
-            // 作者 / 章节一行小字（云灰 11sp）
+            // 作者 / 章节一行小字（云灰 11sp，锚点 S-10：TEXT_TERTIARY #9B9687）
             BasicText(
                 text = "${book.author} · ${book.chapterText}",
                 style = TextStyle(
-                    color = ShelfTokens.textSecondary,
+                    color = ShelfTokens.textTertiary,
                     fontSize = ShelfParams.AUTHOR_FONT_SIZE_SP.toFloat().sp,
                     fontFamily = ShelfTokens.serifBody,
                 ),
