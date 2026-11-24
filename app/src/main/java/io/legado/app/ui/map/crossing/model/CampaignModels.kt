@@ -231,3 +231,102 @@ data class BranchSnapshot(
     /** 据点当前归属（据点 id → 阵营 id）：B7 要求快照回滚全部可变量，否则恢复后胜负面板沿用旧占领方。 */
     val pointHolders: Map<String, String> = emptyMap(),
 )
+
+// ── B10 分支并列对比：逐回合差异（纯 JVM，不依赖 Compose） ─────────────────────
+
+/**
+ * 两线同一回合内，单支军队被标出的差异维度。
+ *
+ * 标签只做语义化展示；壳层用暖金描边 + 文字标签呈现，不映射红 / 绿纯色块（口径冻结 F 系列配色约束）。
+ */
+enum class DiffField(val label: String) {
+    /** 兵力差值超出容差。 */
+    STRENGTH("兵力"),
+
+    /** 士气档位发生变化。 */
+    MORALE("士气"),
+
+    /** 坐标位移超出投影舍入容差。 */
+    POSITION("位置"),
+
+    /** 存亡 / 投降状态变化（含一侧溃散、另一侧仍在阵）。 */
+    STATUS("存亡"),
+    // 据点归属差异预留：据点持有者随 B7 `pointHolders` 快照下发；B7 合并进 main 后在此补 HOLDING 分支。
+}
+
+/** 单支军队在两线同一回合的差异结论；[fields] 为空即本回合两线一致。 */
+data class CorpsDiff(
+    val corpsId: String,
+    val name: String,
+    val fields: Set<DiffField>,
+) {
+    val different: Boolean get() = fields.isNotEmpty()
+}
+
+/**
+ * 同一回合两条回放线的对比结论。
+ * [left] / [right] 任一为 null 表示该分支未推进到本回合，壳层据此出占位卡，不留白屏。
+ */
+data class TurnDiff(
+    val turn: Int,
+    val left: TurnSnapshot?,
+    val right: TurnSnapshot?,
+    val corps: List<CorpsDiff>,
+) {
+    /** 任一侧缺快照：整回合不逐行高亮，只出「未推进」占位。 */
+    val missingSide: Boolean get() = left == null || right == null
+
+    /** 两侧都有快照且至少一支军队存在差异。 */
+    val hasAnyDiff: Boolean get() = !missingSide && corps.any { it.different }
+}
+
+/**
+ * 分支对比 diff 纯函数（B10）。
+ *
+ * 为什么纯函数化：diff 不持有 Compose 状态、不读控制器内部，入参两条不可变快照、出参不可变结论，
+ * 便于表驱动单测逐例核对；壳层只消费 [TurnDiff] 做描边与标签渲染。
+ */
+object SnapshotDiff {
+
+    /** 兵力容差：结算舍入 / 浮点抖动在 0.05 以内视为同值，避免尾数差误标「兵力」。 */
+    const val STRENGTH_EPSILON: Double = 0.05
+
+    /** 位置容差（度）：网格投影再回算的舍入位移在此阈值内不算「位置」差异。 */
+    const val POSITION_EPSILON_DEG: Double = 0.0005
+
+    /**
+     * 对比两条回放线在同一回合的快照。
+     * [left] / [right] 任一为 null：直接返回缺侧结论，不做逐军比对。
+     */
+    fun diff(left: TurnSnapshot?, right: TurnSnapshot?): TurnDiff {
+        val turn = left?.turn ?: right?.turn ?: -1
+        if (left == null || right == null) {
+            return TurnDiff(turn = turn, left = left, right = right, corps = emptyList())
+        }
+        val byIdLeft = left.corps.associateBy { it.id }
+        val byIdRight = right.corps.associateBy { it.id }
+        val ids = (byIdLeft.keys + byIdRight.keys).sorted()
+        val corps = ids.map { id -> diffCorps(id, byIdLeft[id], byIdRight[id]) }
+        return TurnDiff(turn = turn, left = left, right = right, corps = corps)
+    }
+
+    private fun diffCorps(id: String, a: CorpsView?, b: CorpsView?): CorpsDiff {
+        val name = a?.name ?: b?.name ?: id
+        if (a == null || b == null) {
+            // 一侧缺编：只按存亡差异标注；兵力 / 位置不逐项比，避免把「溃散出局」误读成位移或减员。
+            return CorpsDiff(id, name, setOf(DiffField.STATUS))
+        }
+        val fields = mutableSetOf<DiffField>()
+        if (kotlin.math.abs(a.strength - b.strength) > STRENGTH_EPSILON) {
+            fields += DiffField.STRENGTH
+        }
+        if (a.morale != b.morale) fields += DiffField.MORALE
+        if (kotlin.math.abs(a.lat - b.lat) > POSITION_EPSILON_DEG ||
+            kotlin.math.abs(a.lng - b.lng) > POSITION_EPSILON_DEG
+        ) {
+            fields += DiffField.POSITION
+        }
+        if (a.alive != b.alive || a.surrendered != b.surrendered) fields += DiffField.STATUS
+        return CorpsDiff(id, name, fields)
+    }
+}

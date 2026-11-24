@@ -1,6 +1,11 @@
 package io.legado.app.ui.map.crossing.shell
 
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -30,9 +37,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.ui.components.ComponentPalette
 import io.legado.app.ui.map.crossing.engine.CampaignController
+import io.legado.app.ui.map.crossing.model.CorpsDiff
+import io.legado.app.ui.map.crossing.model.CorpsView
 import io.legado.app.ui.map.crossing.model.FactionRole
 import io.legado.app.ui.map.crossing.model.Geo
 import io.legado.app.ui.map.crossing.model.Intent
+import io.legado.app.ui.map.crossing.model.SnapshotDiff
 import io.legado.app.ui.map.crossing.model.TerrainKind
 import io.legado.app.ui.map.crossing.model.TurnSnapshot
 import io.legado.app.ui.map.crossing.terrain.GeoProjection
@@ -180,6 +190,191 @@ fun CrossingCampaignShell(
                     overrides = emptyMap()
                     autoPlay = false
                 },
+            )
+        }
+    }
+}
+
+// ── B10 分支并列对比：双快照并排回放 + 逐回合差异标注 ──────────
+
+/**
+ * 分支并列对比壳：两条回放线同屏并排，逐回合 diff 高亮（§五「开一个分支跑到底，跟原历史线对比」）。
+ *
+ * 纯展示子组件：入参为两条已跑完的快照线（[CampaignController.runToEnd] 产物；
+ * 首回合若需对照，调用方自行前置一次 `snapshot()`）。本组件不持有引擎状态、不回写控制器；
+ * 分支存档读取 / 双控制器装配属 B7、B11、B14 接线范围，待合并派单。
+ *
+ * 两栏共用同一个回合下标：任一栏步进，两栏同步滚到对应回合；各栏按钮独立可点。
+ */
+@Composable
+fun BranchCompareShell(
+    leftLine: List<TurnSnapshot>?,
+    rightLine: List<TurnSnapshot>?,
+    modifier: Modifier = Modifier,
+) {
+    val safeLeft = leftLine.orEmpty()
+    val safeRight = rightLine.orEmpty()
+    val maxTurns = maxOf(safeLeft.size, safeRight.size)
+    var rawIndex by remember { mutableStateOf(0) }
+    // 线长在外部异步加载完成后可能由 0 变非 0：下标在读取处钳制到合法区间，避免越界取快照。
+    val turnIndex = rawIndex.coerceIn(0, (maxTurns - 1).coerceAtLeast(0))
+
+    val leftSnap = safeLeft.getOrNull(turnIndex)
+    val rightSnap = safeRight.getOrNull(turnIndex)
+    val diff = remember(turnIndex, safeLeft, safeRight) {
+        SnapshotDiff.diff(leftSnap, rightSnap)
+    }
+    val diffMap = diff.corps.associateBy { it.corpsId }
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        CompareColumn(
+            title = "左线",
+            snapshot = leftSnap,
+            diffMap = diffMap,
+            turnIndex = turnIndex,
+            maxTurns = maxTurns,
+            onStep = { delta ->
+                rawIndex = (rawIndex + delta).coerceIn(0, (maxTurns - 1).coerceAtLeast(0))
+            },
+            modifier = Modifier.weight(1f),
+        )
+        CompareColumn(
+            title = "右线",
+            snapshot = rightSnap,
+            diffMap = diffMap,
+            turnIndex = turnIndex,
+            maxTurns = maxTurns,
+            onStep = { delta ->
+                rawIndex = (rawIndex + delta).coerceIn(0, (maxTurns - 1).coerceAtLeast(0))
+            },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun CompareColumn(
+    title: String,
+    snapshot: TurnSnapshot?,
+    diffMap: Map<String, CorpsDiff>,
+    turnIndex: Int,
+    maxTurns: Int,
+    onStep: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicText(
+                text = title,
+                style = TextStyle(
+                    color = Color(CrossingTokens.textPrimary),
+                    fontSize = 15.sp,
+                    fontFamily = FontFamily.Serif,
+                ),
+            )
+            Spacer(Modifier.width(8.dp))
+            BasicText(
+                text = if (snapshot != null) "回合 ${snapshot.turn}" else "— / ${maxTurns.coerceAtLeast(1)}",
+                style = TextStyle(color = Color(CrossingTokens.brandGold), fontSize = 12.sp),
+            )
+            Spacer(Modifier.weight(1f))
+            ShellButton("上一回合", enabled = turnIndex > 0, onClick = { onStep(-1) })
+            Spacer(Modifier.width(6.dp))
+            ShellButton("下一回合", enabled = maxTurns > 0 && turnIndex < maxTurns - 1, onClick = { onStep(1) })
+        }
+
+        when {
+            snapshot == null -> ComparePlaceholderCard()
+            snapshot.corps.isEmpty() -> CompareEmptyNote()
+            else -> snapshot.corps.take(6).forEach { view ->
+                CompareCorpsRow(view, diffMap[view.id])
+            }
+        }
+    }
+}
+
+/** 空侧占位卡：绢帛茶玻面 + 细分隔线圆角，文案明示「该分支未推进」，不崩不白屏。 */
+@Composable
+private fun ComparePlaceholderCard(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(CrossingTokens.bgSurface).copy(alpha = 0.6f))
+            .border(1.dp, Color(CrossingTokens.colorDivider), RoundedCornerShape(10.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        BasicText(
+            text = "该分支未推进",
+            style = TextStyle(
+                color = Color(CrossingTokens.textSecondary),
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Serif,
+            ),
+        )
+        BasicText(
+            text = "本回合无快照，等待该线推演后再对照",
+            style = TextStyle(color = Color(CrossingTokens.textTertiary), fontSize = 11.sp),
+        )
+    }
+}
+
+@Composable
+private fun CompareEmptyNote() {
+    BasicText(
+        text = "本回合无可视军队",
+        style = TextStyle(
+            color = Color(CrossingTokens.textTertiary),
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Serif,
+        ),
+    )
+}
+
+@Composable
+private fun CompareCorpsRow(view: CorpsView, diff: CorpsDiff?) {
+    val highlighted = diff?.different == true
+    // 差异高亮走 spring 淡入（禁固定 delay 硬切）：alpha 随弹簧逼近目标值，快速连点不跳帧。
+    val highlightAlpha by animateFloatAsState(
+        targetValue = if (highlighted) 1f else 0f,
+        animationSpec = compareSpring<Float>(),
+        label = "compare-row-highlight",
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = Color(CrossingTokens.brandGold).copy(alpha = 0.35f + 0.65f * highlightAlpha),
+                shape = RoundedCornerShape(8.dp),
+            )
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicText(
+            text = view.name,
+            style = TextStyle(
+                color = pieceColor(view.role),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Serif,
+            ),
+            modifier = Modifier.width(64.dp),
+        )
+        BasicText(
+            text = "兵力 ${view.strength.round1()}｜${view.morale.label()}",
+            style = TextStyle(color = Color(CrossingTokens.textSecondary), fontSize = 11.sp),
+            modifier = Modifier.weight(1f),
+        )
+        if (highlighted) {
+            BasicText(
+                text = diff!!.fields.joinToString("·") { it.label },
+                style = TextStyle(color = Color(CrossingTokens.brandGold), fontSize = 11.sp),
+                modifier = Modifier.alpha(highlightAlpha),
             )
         }
     }
@@ -450,3 +645,16 @@ private val ShellSpringDamping: Float = ComponentPalette.BUBBLE_SPRING_DAMPING
 
 @Suppress("unused")
 private val ShellSpringStiffness: Float = ComponentPalette.BUBBLE_SPRING_STIFFNESS
+
+/**
+ * 对比行差异高亮弹簧：沿用卡片入场弹簧口径（阻尼 0.80 抑制回弹过冲，刚度 360 落位干脆）。
+ * 为什么不用固定 delay：B14 口径要求一切过渡走 spring；固定时长硬切在快速连点步进时会跳帧，
+ * 且无法按目标值自然衰减。参数收口在这两处常量，调手感只改这里。
+ */
+private val CompareRowSpringDamping: Float = ComponentPalette.REVEAL_SPRING_DAMPING
+private val CompareRowSpringStiffness: Float = ComponentPalette.REVEAL_SPRING_STIFFNESS
+
+private fun <T> compareSpring(): SpringSpec<T> = spring(
+    dampingRatio = CompareRowSpringDamping,
+    stiffness = CompareRowSpringStiffness,
+)
