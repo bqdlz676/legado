@@ -31,7 +31,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -50,6 +53,8 @@ import io.legado.app.ui.map.crossing.model.SnapshotDiff
 import io.legado.app.ui.map.crossing.model.TerrainKind
 import io.legado.app.ui.map.crossing.model.TurnSnapshot
 import io.legado.app.ui.map.crossing.terrain.GeoProjection
+import android.graphics.Paint
+import android.graphics.Typeface
 import kotlinx.coroutines.delay
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -131,6 +136,21 @@ fun CrossingCampaignShell(
                     ),
                 )
             }
+        }
+
+        // 全域盲区兜底：军队在册但全部未观测 → 画布不留白，给一条可读提示条。
+        if (snapshot.corps.isNotEmpty() && snapshot.corps.all { !it.observed }) {
+            BasicText(
+                text = "全域盲区：当面之敌均未侦察到，方位不明",
+                style = TextStyle(
+                    color = Color(CrossingTokens.textSecondary),
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Serif,
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 64.dp),
+            )
         }
 
         // 顶栏：标题 / 年代 / 回合 / 降级标识。
@@ -411,6 +431,15 @@ private fun MapCanvas(
     val map = host.map
     val raster = host.raster
 
+    // 盲区显隐弹簧：任一部队进入 / 离开盲区状态时，透明度随 REVEAL_HIGHLIGHT 弹簧逼近目标值；
+    // 禁固定 delay 硬切（与对比行高亮同一口径，弹簧角色取自既有 SpringRole 表，不另设数值）。
+    val blindPresent = snapshot.corps.any { isBlindCorps(it) }
+    val blindAlpha by animateFloatAsState(
+        targetValue = if (blindPresent) 1f else 0f,
+        animationSpec = springFor(SpringRole.REVEAL_HIGHLIGHT),
+        label = "blind-zone-reveal",
+    )
+
     Canvas(modifier = modifier) {
         val n = projection.gridN
         val step = size.minDimension / n
@@ -454,11 +483,15 @@ private fun MapCanvas(
             )
         }
 
-        // 行军线路：己方暖金、盟友古铜、敌方灰青。
-        snapshot.corps.filter { it.alive }.forEach { corps ->
+        // 行军线路：己方暖金、盟友古铜、敌方灰青。未观测敌军路线引擎已清空；这里再拦一道，
+        // 防御性跳过 NaN 路点，避免盲区路线被投影到左上角格。
+        snapshot.corps.filter { it.alive && it.observed }.forEach { corps ->
             if (corps.route.size >= 2) {
                 val color = routeColor(corps.role)
-                val pts = corps.route.map { geoToOffset(it, projection, size) }
+                val pts = corps.route.mapNotNull { routeGeo ->
+                    if (routeGeo.lat.isNaN() || routeGeo.lng.isNaN()) null
+                    else geoToOffset(routeGeo, projection, size)
+                }
                 for (i in 1 until pts.size) {
                     drawLine(
                         color = color.copy(alpha = 0.7f),
@@ -470,8 +503,18 @@ private fun MapCanvas(
             }
         }
 
-        // 棋子：势力底色块 + 角色色圆子；溃散 / 投降压暗。
+        // 棋子：势力底色块 + 角色色圆子；溃散 / 投降压暗。盲区单位不绘子，改绘盲区圈 + 文案。
         snapshot.corps.forEach { corps ->
+            if (isBlindCorps(corps)) {
+                drawBlindZone(
+                    corps = corps,
+                    host = host,
+                    projection = projection,
+                    step = step,
+                    alpha = blindAlpha,
+                )
+                return@forEach
+            }
             val pos = geoToOffset(Geo(corps.lat, corps.lng), projection, size)
             val fillAlpha = when (corps.role) {
                 FactionRole.OWN -> CrossingTokens.OWN_FILL_ALPHA
@@ -491,10 +534,89 @@ private fun MapCanvas(
                 color = Color(CrossingTokens.colorGlow),
                 radius = step * 0.30f + 2f,
                 center = pos,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f),
+                style = Stroke(width = 1f),
             )
         }
 
+    }
+}
+
+// ── B9 情报盲区：门控判定 / 盲区圈 / 文案 ──────────────────────
+
+/** 盲区判定：未观测，或主坐标为 NaN 占位（从未侦察）。NaN 进投影会被 toInt 钳到左上角格，必须先拦。 */
+private fun isBlindCorps(corps: CorpsView): Boolean =
+    !corps.observed || corps.lat.isNaN() || corps.lng.isNaN()
+
+/** 盲区圆心：优先取上次已知上报坐标；无旧报告（从未侦察）返回 null，只出文案不画圈。 */
+private fun blindCenter(corps: CorpsView, projection: GeoProjection, size: Size): Offset? {
+    val lat = corps.reportLat
+    val lng = corps.reportLng
+    if (lat == null || lng == null || lat.isNaN() || lng.isNaN()) return null
+    return geoToOffset(Geo(lat, lng), projection, size)
+}
+
+/** 盲区文案缺省占位：引擎未下发 blindZoneLabel 时的中文兜底，不留空白。 */
+private const val DEFAULT_BLIND_ZONE_LABEL = "情报空白区：方位不明"
+
+/** 画布盲区文案最大字数：原生 Canvas 不换行，超长截断避免压出圈外。 */
+private const val BLIND_LABEL_MAX_CHARS = 12
+
+/**
+ * 盲区绘制：暖金虚线圈（半径 = 记录级模糊半径）+ 毛玻璃弱化填充 + 盲区文案。
+ * 半径 null / ≤0 时只出文案；负数夹紧为 0（见 [drawBlindZone] 内注释）。
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBlindZone(
+    corps: CorpsView,
+    host: CampaignController,
+    projection: GeoProjection,
+    step: Float,
+    alpha: Float,
+) {
+    val center = blindCenter(corps, projection, size)
+    // 半径：模型字段优先，缺省回读引擎内部出口；都拿不到按 0 处理（只文案）。
+    val rawRadius = corps.reportRadiusCells ?: host.reportRadiusCells(corps.id) ?: 0
+    // 负数夹紧为 0：半径语义是非负格数；负值多为旧档 / 异常下发，画负半径会反向缩到圆心，
+    // 不如退化为纯文案提示，避免在画布上画出无意义的反向圈。
+    val radiusCells = rawRadius.coerceAtLeast(0)
+    val label = corps.blindZoneLabel
+        ?: host.blindZoneLabel(corps.id)
+        ?: DEFAULT_BLIND_ZONE_LABEL
+
+    if (center != null && radiusCells > 0) {
+        val radius = radiusCells * step
+        // 毛玻璃弱化填充：绢帛面低透明度压一层，不遮挡底图地形与河线。
+        drawCircle(
+            color = Color(CrossingTokens.bgSurface).copy(alpha = 0.25f * alpha),
+            radius = radius,
+            center = center,
+        )
+        // 暖金虚线环：周长均分 16 段，奇偶留缺口；显隐统一由 blindAlpha 弹簧驱动。
+        val dashCount = 16
+        val gold = Color(CrossingTokens.brandGold).copy(alpha = 0.55f * alpha)
+        for (i in 0 until dashCount) {
+            if (i % 2 != 0) continue
+            drawArc(
+                color = gold,
+                startAngleDeg = i * 360f / dashCount,
+                sweepAngleDeg = 360f / dashCount * 0.8f,
+                useCenter = false,
+                topLeft = Offset(center.x - radius, center.y - radius),
+                size = Size(radius * 2, radius * 2),
+                style = Stroke(width = 1.4f),
+            )
+        }
+    }
+
+    if (center != null) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = Typeface.SERIF
+            textAlign = Paint.Align.CENTER
+            textSize = 11.sp.toPx()
+            color = Color(CrossingTokens.textSecondary).copy(alpha = 0.85f * alpha).toArgb()
+        }
+        val text = label.take(BLIND_LABEL_MAX_CHARS)
+        val labelY = center.y + (if (radiusCells > 0) radiusCells * step else 0f) + 14.sp.toPx()
+        drawContext.canvas.nativeCanvas.drawText(text, center.x, labelY, paint)
     }
 }
 
@@ -614,14 +736,25 @@ private fun CorpsRoster(
                     ),
                     modifier = Modifier.weight(1f),
                 )
-                BasicText(
-                    text = (dialPreview ?: current).label(),
-                    style = TextStyle(
-                        color = Color(CrossingTokens.brandGold),
-                        fontSize = 11.sp,
-                    ),
-                    modifier = Modifier.alpha(0.55f + 0.45f * intentAlpha),
-                )
+                if (!corps.observed) {
+                    // 盲区单位不列敌方意图（决策信息不随雾透传），改挂盲区占位文案。
+                    BasicText(
+                        text = corps.blindZoneLabel ?: DEFAULT_BLIND_ZONE_LABEL,
+                        style = TextStyle(
+                            color = Color(CrossingTokens.textTertiary),
+                            fontSize = 10.sp,
+                        ),
+                    )
+                } else {
+                    BasicText(
+                        text = (dialPreview ?: current).label(),
+                        style = TextStyle(
+                            color = Color(CrossingTokens.brandGold),
+                            fontSize = 11.sp,
+                        ),
+                        modifier = Modifier.alpha(0.55f + 0.45f * intentAlpha),
+                    )
+                }
             }
         }
 
@@ -757,6 +890,9 @@ private fun routeColor(role: FactionRole): Color = when (role) {
 }
 
 private fun geoToOffset(geo: Geo, projection: GeoProjection, size: androidx.compose.ui.geometry.Size): Offset {
+    // NaN 哨兵：盲区占位坐标禁止进投影——toInt 会把 NaN 钳到 cell(0,0) 左上角。
+    // 调用方须先用 isBlindCorps / reportLat 判 NaN；此处再兜一层，返回离屏哨兵，不画到角落。
+    if (geo.lat.isNaN() || geo.lng.isNaN()) return Offset(-10_000f, -10_000f)
     val cell = projection.toCell(geo)
     val n = projection.gridN
     val step = size.minDimension / n

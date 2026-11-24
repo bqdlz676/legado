@@ -87,7 +87,7 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
 
         // 3D 地球仪：Compose 自绘宿主 GlobeActivity 接 GlobeController 门面，
         // 球面几何 / 大圆寻路 / LOD / 势力 / 回放 / 离线兜底全部走门面，断网走种子舆图。
-        rows += Row(Row.NAV, "舆图地球仪", "球面战役 · 势力舆图 · 离线兜底", R.drawable.ic_bottom_explore) {
+        rows += Row(Row.NAV, "舆图地球仪", "球面战役 · 势力舆图 · 离线兜底", R.drawable.ic_cfg_other) {
             open(GlobeActivity::class.java)
         }
 

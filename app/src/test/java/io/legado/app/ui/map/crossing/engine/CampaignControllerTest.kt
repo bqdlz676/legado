@@ -3,6 +3,8 @@ package io.legado.app.ui.map.crossing.engine
 import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.BattleStatus
 import io.legado.app.ui.map.crossing.model.BranchSnapshot
+import io.legado.app.ui.map.crossing.model.Cell
+import io.legado.app.ui.map.crossing.terrain.HeightRaster
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -322,6 +324,103 @@ class CampaignControllerTest {
         assertNull("两回合后仍未目睹，视图不下发坐标", view.reportLat)
     }
 
+    // ── B9 补测：recordRadius 记录级半径确定性（距离项 + 龄期扩圈 + 封顶）─────────
+
+    /**
+     * 记录级半径公式（与 [CampaignController.recordRadius] 同口径，先算后断言）：
+     *   age = turn - seenTurn；age ≤ 0 → 0
+     *   distanceTerm = (seenDistCells / 2).coerceIn(0, visionRadiusFor(type))
+     *   ageTerm = age × STALE_DRIFT_CELLS_PER_TURN（=1）
+     *   radius  = (distanceTerm + ageTerm).coerceAtMost(MAX_STALE_RADIUS_CELLS = 8)
+     * 平场栅格保证通视恒真；布位在载入后直接写运行态格 / 经纬度，首回合目睹距离可确定性留档。
+     */
+    @Test
+    fun `B9-10 记录级半径·远距离目睹：距离项 2，龄期 1/4/10 → 3/6/8 封顶`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(8, 8)
+        a1.latLng = controller.projection.toGeo(Cell(8, 8))
+        b1.position = Cell(12, 8)
+        b1.latLng = controller.projection.toGeo(Cell(12, 8))
+
+        controller.step() // turn=1：目睹落条 seenTurn=1、seenDistCells=4；age=0 → 半径 0
+        assertEquals(0, controller.reportRadiusCells("b1"))
+
+        // 移出视野：b1 拉到 col=28（octile 20 > 视野 4），此后不再目睹，报告保留旧时刻 / 旧距离。
+        b1.position = Cell(28, 8)
+        b1.latLng = controller.projection.toGeo(Cell(28, 8))
+
+        controller.step() // turn=2，age=1：距离项 4/2=2，时间项 1 → 2+1=3
+        assertEquals(3, controller.reportRadiusCells("b1"))
+
+        repeat(3) { controller.step() } // turn=5，age=4：2+4=6
+        assertEquals(6, controller.reportRadiusCells("b1"))
+
+        repeat(6) { controller.step() } // turn=11，age=10：2+10=12，封顶 8
+        assertEquals(8, controller.reportRadiusCells("b1"))
+    }
+
+    @Test
+    fun `B9-11 记录级半径·近距离目睹：距离项 1，龄期 1/4/10 → 2/5/8 封顶`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        // octile=2：目睹距离留档 2 格，距离项 2/2=1（不触发兵种视野封顶）。
+        a1.position = Cell(8, 8)
+        a1.latLng = controller.projection.toGeo(Cell(8, 8))
+        b1.position = Cell(10, 8)
+        b1.latLng = controller.projection.toGeo(Cell(10, 8))
+
+        controller.step() // turn=1，age=0 → 0
+        assertEquals(0, controller.reportRadiusCells("b1"))
+
+        b1.position = Cell(28, 8)
+        b1.latLng = controller.projection.toGeo(Cell(28, 8))
+
+        controller.step() // age=1：1+1=2
+        assertEquals(2, controller.reportRadiusCells("b1"))
+
+        repeat(3) { controller.step() } // age=4：1+4=5
+        assertEquals(5, controller.reportRadiusCells("b1"))
+
+        repeat(6) { controller.step() } // age=10：1+10=11，封顶 8
+        assertEquals(8, controller.reportRadiusCells("b1"))
+    }
+
+    @Test
+    fun `B9-12 陈旧报告位置冻结：走出视野后上报坐标仍是目睹位，不回填实时坐标`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(8, 8)
+        a1.latLng = controller.projection.toGeo(Cell(8, 8))
+        val sightCell = Cell(12, 8)
+        b1.position = sightCell
+        b1.latLng = controller.projection.toGeo(sightCell)
+        val sightGeo = controller.projection.toGeo(sightCell)
+
+        controller.step()
+        b1.position = Cell(28, 8)
+        b1.latLng = controller.projection.toGeo(Cell(28, 8))
+        repeat(4) { controller.step() } // age=4，报告已陈旧
+
+        val view = controller.snapshot().corps.first { it.id == "b1" }
+        assertFalse(view.observed)
+        assertEquals("陈旧报告纬度冻结在目睹位", sightGeo.lat, view.reportLat!!, 1e-9)
+        assertEquals("陈旧报告经度冻结在目睹位", sightGeo.lng, view.reportLng!!, 1e-9)
+        assertTrue("未观测敌军路线不下发", view.route.isEmpty())
+    }
+
+    /** 平场栅格：全域同高程，通视恒真、无水面 / 关隘，供半径用例确定性布位。 */
+    private fun flatPlainRaster(): HeightRaster =
+        HeightRaster.create(
+            CampaignController.GRID_N,
+            CampaignController.GRID_N,
+            IntArray(CampaignController.GRID_N * CampaignController.GRID_N) { 16 },
+            degradedHint = false,
+        )
+
     private companion object {
         const val TRIGGER_JSON: String = """
 {
@@ -422,6 +521,22 @@ class CampaignControllerTest {
       "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" },
     { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.002, 0.002],
       "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        /** 半径确定性用例：双 REGULAR 据守、等力；初始格位由测试体直接覆写，JSON 坐标仅作占位。 */
+        const val RADIUS_JSON: String = """
+{
+  "id": "b9-radius",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 20,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.01, 0.01],
+      "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.02, 0.02],
+      "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" }
   ]
 }
 """

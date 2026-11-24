@@ -208,6 +208,13 @@ data class CorpsView(
     /** 观测到的实时坐标；未观测时为 null（不下发旧坐标，避免透视）。 */
     val reportLat: Double? = null,
     val reportLng: Double? = null,
+    /**
+     * 情报模糊半径（格）：未观测敌军上次已知位置周围的不确定范围；null = 引擎未下发
+     * （友军 / 已观测 / 从未侦察）。壳层据此画盲区圈；缺省 null 保证旧构造点不破。
+     */
+    val reportRadiusCells: Int? = null,
+    /** 盲区占位文案：从未侦察到的敌军方位提示；null = 非盲区。缺省 null 保证旧构造点不破。 */
+    val blindZoneLabel: String? = null,
 )
 
 /** 一回合的推演快照（回放 / 分支对比消费）。 */
