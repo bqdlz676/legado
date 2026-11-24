@@ -3,6 +3,7 @@ package io.legado.app.ui.components.inkslate
 // F-73 待规格化：U7 画板 8.3 WebView 预热/JS 分片/removeView 复用/双击撤销通路已被原生位图替代但切片未同步；通路等价性、8.4 批注章节名+正文文本传递、PNG/SVG 导出口径待规格化（审计 表三#4，待重做后回填规格出处）
 
 import io.legado.app.ui.components.ComponentPalette
+import io.legado.app.ui.components.inkslate.contract.InkDerivedColors
 import kotlin.math.hypot
 
 /**
@@ -70,13 +71,17 @@ enum class InkPreset(val label: String, val argb: Long) {
     }
 }
 
-/** 画板专属国画色常数（ARGB, 0xAARRGGBB），仅花青 / 藤黄两色；其余走全站 token。 */
+/**
+ * 画板专属国画色常数（ARGB, 0xAARRGGBB），仅花青 / 藤黄两色；其余走全站 token。
+ * S-12 接线：花青 / 藤黄不再各写裸 hex，收口到 [InkDerivedColors] 派生色；
+ * 旧名 HUA_QING / TENG_HUANG 保留为转发别名，避免外部引用断裂。
+ */
 object InkSlatePalette {
-    /** 花青：传统矿物花青，深靛蓝 */
-    const val HUA_QING: Long = 0xFF2B3A55
+    /** 花青：转发 InkDerivedColors.indigo（stone-blue 提明度 6% 派生）；为什么改：裸 hex 收口颜色单源，禁止组件各处另造色值 */
+    val HUA_QING: Long = InkDerivedColors.indigo
 
-    /** 藤黄：传统藤黄，暖赭黄 */
-    const val TENG_HUANG: Long = 0xFFE0A92E
+    /** 藤黄：转发 InkDerivedColors.gamboge（brand-copper 提明度 12% 派生）；为什么改：与花青同口径走派生，不再保留本地裸 hex */
+    val TENG_HUANG: Long = InkDerivedColors.gamboge
 
     /** 线宽下限（dp 当量） */
     const val WIDTH_MIN: Float = 1f
