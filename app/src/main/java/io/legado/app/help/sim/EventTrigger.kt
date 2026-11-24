@@ -18,6 +18,11 @@ import kotlin.math.roundToInt
  *
  * 边界口径：目标缺失 / 目标已阵亡 / value 非法数字 / 重复触发均不抛异常；
  * 异常边界逐条记入 [warnings]，未知 action 走 else 告警，不静默吞掉。
+ *
+ * B15 复审结论（对照 `落文-原文-06-四渡赤水引擎.md`）：13 种补登动作逐一有显式分支，
+ * 每种都能读出可观察结果（兵力 / 士气 / 存活 / 投降 / 意图之一发生变化，且 FiredEvent 照常登记）。
+ * 规格切片未把任何一种标为「暂不实现」，故无动作被降级为纯 no-op；
+ * 仅有的两条显式不做副作用路径：① 全局事件无目标军；② 未知 action（else 告警登记）。
  */
 data class FiredEvent(val action: String, val target: String?, val reason: String)
 
@@ -81,7 +86,12 @@ object EventTrigger {
     }
 
     private fun execute(ev: EventSpec, target: SimArmy?) {
+        // 显式 no-op（非 else 兜底）：全局事件（target 为空）不作用于任何军队，
+        // 不改兵力 / 士气 / 补给 / 意图；事件仍由 [fire] 登记进 FiredEvent，供回合 notes 与回放展示。
         if (target == null) return
+        // 注册表口径：字符串字面量 when（未做枚举化）。适用条件——纯 JVM 单注册表、标签与
+        // campaign JSON 原样 camelCase 对齐；若动作数继续膨胀可改 enum + handler map，
+        // 但须同步 crossing 栈枚举表（他人域，本单不改）。保持行为等价：分支顺序不影响结果。
         when (ev.action) {
             // ── 既有 5 分支（口径不变） ──────────────────────────────
             "moraleChange" -> {
@@ -158,6 +168,8 @@ object EventTrigger {
             }
 
             // ── 意图型：只改写意图，路径规划交由 IntentResolver ──────
+            // 可观察结果 = intent / intentActive 改写 + 旧 path/hunt 清空；
+            // 下回合 IntentResolver 规则裁决与 SimEngine.applyIntent 据此选路（flank 走 flankPath）。
             "ambush" -> applyIntent(target, "ambush")
             "flank" -> applyIntent(target, "flank")
             "retreat" -> applyIntent(target, "retreat")
