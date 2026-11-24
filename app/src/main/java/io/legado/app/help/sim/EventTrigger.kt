@@ -13,8 +13,10 @@ import kotlin.math.roundToInt
  *   moraleChange / surrender / supplyCut / strengthDelta / fireAttack / siegeEngine /
  *   breakthrough / defendFall / capture / annihilate。
  * - **意图型**：改写目标军意图字符串，由 IntentResolver 后续回合消费路径——
- *   ambush / flank / retreat / escape / feignedRetreat。
- * - **混合型**：击溃士气 + 同时改溃逃意图——rout / navalRout。
+ *   ambush / flank / retreat / escape。
+ * - **混合型**：既改意图又附带士气/兵力降级——rout / navalRout（击溃 + 溃逃意图），
+ *   feignedRetreat（佯退意图 + 附带士气降级，见 [fire] 中 feignedRetreat 分支）。
+ *   之所以单列混合型：新人按"意图型=纯改意图"读会漏掉士气副作用，分类表与实现必须一一对应。
  *
  * 边界口径：目标缺失 / 目标已阵亡 / value 非法数字 / 重复触发均不抛异常；
  * 异常边界逐条记入 [warnings]，未知 action 走 else 告警，不静默吞掉。
@@ -35,6 +37,7 @@ object EventTrigger {
     val warnings: MutableList<String> = mutableListOf()
 
     // 事件型动作的默认折损比例（占当前兵力）；value 为合法 0..1 数字时按 value 覆盖。
+    // 四个值为**经验默认值，待用户校**（规格切片 06 未给数字口径）；调整时须与测试同批改，避免断言与实现错位。
     private const val LOSS_FIRE_ATTACK: Double = 0.35
     private const val LOSS_SIEGE_ENGINE: Double = 0.55
     private const val LOSS_BREAKTHROUGH: Double = 0.25
