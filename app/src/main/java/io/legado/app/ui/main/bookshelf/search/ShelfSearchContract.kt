@@ -102,6 +102,9 @@ fun searchBooks(query: String, items: List<ShelfItemLite>): SearchResult {
         SearchHit(item, rank, segments)
     }
 
+    // 排序口径：先按命中字段优先级（书名 > 作者 > 正文），同组按书名升序。
+    // "升序"明确取 Unicode 码点升序（不引拼音库，避免为排序引入第三方依赖与拼音多音字歧义）；
+    // 因此"关键词乙"（乙 U+4E59）会排在"关键词甲"（甲 U+7532）之前——这是定义问题，不是 bug（K-17）。
     val ordered = hits.sortedWith(
         compareBy<SearchHit>(
             { rankWeight(it.rank) },

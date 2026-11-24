@@ -73,7 +73,8 @@ class ShelfSearchContractTest {
         val titles = result.hits.map { it.item.title }
         assertEquals(
             "书名组在前且同组按书名升序，作者组次之，正文组垫底",
-            listOf("关键词甲", "关键词乙", "丙篇", "乙篇"),
+            // 同组按 Unicode 码点升序："乙"(U+4E59) 码点小于 "甲"(U+7532)，故乙在前（K-17，排序定义非 bug）
+            listOf("关键词乙", "关键词甲", "丙篇", "乙篇"),
             titles,
         )
         assertEquals(SearchField.TITLE, result.hits[0].rank)
