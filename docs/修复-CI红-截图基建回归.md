@@ -151,9 +151,14 @@
 
 ## 5. CI run 结论
 
-- 修复 commit：`b49de91eb95259a3f1f849f50bd8b1aa248a2799`
-- run：（轮询回填）
-- 结论：（轮询回填）
+- 修复 commit：`b49de91eb95259a3f1f849f50bd8b1aa248a2799`（已 push 到 `main`，为后续 `f24995e` / `034b42f` / `63593f6` / `08303a4` 的共同祖先）。
+- 关联 run（均含本修复）：
+  - `45442626728`（b49de91）：completed / cancelled——被同仓后续 push 经 `concurrency.cancel-in-progress` 取消。
+  - `45443498246`（f24995e）：completed / cancelled——同上。
+  - `45443966356`（034b42f）：completed / cancelled；其中 `Discover test classes (shard lists)` job 结论 **success**：`./gradlew :app:compileAppDebugUnitTestKotlin :app:compileAppDebugUnitTestJavaWithJavac` 在回退后的配置下编译通过，测试类枚举与分片产出正常；4 个单测分片在启动前被后续 push 取消，未取得执行终态。
+  - `45445370024`（63593f6）：completed / cancelled；`45445860637`（08303a4）：轮询时 in_progress。
+- 终态判定：**本轮未取得单测全绿的 success 终态**。阻塞原因不是测试失败，而是同仓并发提交触发 workflow 的 `concurrency.group: build-${{ github.ref }}` + `cancel-in-progress: true`，每个 run 在分片跑完前被新 push 取消。已取得的正向证据：回退后测试源码编译通过（Discover success）；构建三文件与 `7bb6e90` 基线逐字节一致；app/src 无 Paparazzi/截图残留。
+- 待复验：下一个不被中断的 run 需确认 4 分片 0 failures 0 errors 0 skipped、汇总 `total >= 3185`、`build-shard` 出包成功；若 Rhino 族仍红，按 §7 遗留项 1 取 JUnit XML 三级 cause 再归因。
 
 ## 6. 二阶 / 三阶推演
 
