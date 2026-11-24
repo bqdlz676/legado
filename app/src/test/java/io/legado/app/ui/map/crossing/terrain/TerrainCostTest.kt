@@ -137,7 +137,7 @@ class TerrainCostTest {
     }
 
     @Test
-    fun `天候别名与缺省口径：mud mist windy snowy 同值，null 与未知归 1.0`() {
+    fun `天候别名与缺省口径：mud mist windy snowy 同值，null 与未知归基准`() {
         // 手算：别名归一到同一折减；缺省 / 未知天气按基准 1.00，不惩罚也不加成。
         assertEquals(0.75, TerrainCost.weatherModifier("rain"), 1e-9)
         assertEquals(0.75, TerrainCost.weatherModifier("rainy"), 1e-9)

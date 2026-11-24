@@ -118,7 +118,7 @@ class CampaignJsonParserTest {
     }
 
     @Test
-    fun `B4 河流坐标非数 / 对象 / NaN / Infinity 被吃掉不抛`() {
+    fun `B4 河流坐标非数、对象、NaN、Infinity 被吃掉不抛`() {
         // "abc" 数字解析抛、{"x":1} 非数组、"NaN"/"Infinity" 经 isFinite 过滤；四类畸形点全部回落 null。
         val json = """
         {
@@ -155,7 +155,7 @@ class CampaignJsonParserTest {
     }
 
     @Test
-    fun `B4 顶层数组字段类型错位（对象 / 字符串 / 数字 / 布尔）回落空表不抛`() {
+    fun `B4 顶层数组字段类型错位（对象、字符串、数字、布尔）回落空表不抛`() {
         // sides/diplomacy/armies/events/rivers/ridges 全部写成非数组；getAsJsonArray 旧路径会抛
         // IllegalStateException，现走 jsonArray 守卫回落空表，degraded 置真。
         val json = """
