@@ -35,7 +35,7 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.22" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.22"; else bad "④索引版本" "未升版（期望 v2.22）"; fi
+if grep -q "版本：v2.23" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.23"; else bad "④索引版本" "未升版（期望 v2.23）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
@@ -103,6 +103,23 @@ if [ "$EXT_RC" -eq 0 ]; then ok "⑫扩展import" "齐全"; else bad "⑫扩展i
 TSTSRC=$(python3 data_scripts/check-test-source.py app/src 2>&1)
 TSTSRC_RC=$?
 if [ "$TSTSRC_RC" -eq 0 ]; then ok "⑬测试源码陷阱" "$(echo "$TSTSRC" | grep -F 'ERROR=')"; else bad "⑬测试源码陷阱" "$(echo "$TSTSRC" | grep -E 'R1|R2' | head -3)"; fi
+
+# ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
+#    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
+#    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**
+#    新增/修改的修复/验收报告；不拿全量历史文档当门禁，否则一上来就红。
+# core.quotepath=false：中文文件名默认被 git 转成八进制转义，不放开就匹配不到「修复-/验收-」前缀
+CHANGED_RPTS=$(git -c core.quotepath=false status --porcelain docs 2>/dev/null | awk '{
+  if ($0 ~ /->/) { sub(/^.*-> /, ""); } else { $1=""; }
+  gsub(/^ +/, ""); gsub(/^"/, ""); gsub(/"$/, "");
+  if ($0 ~ /(修复|验收)-.*\.md$/) print $0
+}')
+if [ -z "$CHANGED_RPTS" ]; then
+  ok "⑭回执证据" "本次改动无新增/修改报告"
+else
+  EV14=$(python3 data_scripts/check-evidence.py --strict $CHANGED_RPTS 2>&1)
+  if [ $? -eq 0 ]; then ok "⑭回执证据" "$(echo "$CHANGED_RPTS" | wc -l | tr -d ' ') 份报告回证齐全"; else bad "⑭回执证据" "$(echo "$EV14" | grep '→ FAIL' | head -3)"; fi
+fi
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
