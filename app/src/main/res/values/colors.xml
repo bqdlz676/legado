@@ -121,5 +121,6 @@
     <color name="reviewCardStroke">#16000000</color>
     <color name="reviewBadgeBg">#12000000</color>
     <!-- 玻璃金星盘底色（由 icon_v/apply_icon.py 从新图标采样，勿手改） -->
+    <!-- F-73 作废：启动图标无规格原文，待规格化重做（docs/审计-无规格实现清单.md 表二#1） -->
     <color name="ic_launcher_background">#3B342A</color>
 </resources>

@@ -1,5 +1,7 @@
 package io.legado.app.ui.map.replay
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#6，U11 回放，待 D17 壳吸收后定去留）
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box

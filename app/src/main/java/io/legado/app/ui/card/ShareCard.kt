@@ -57,6 +57,7 @@ enum class ShareBg { Paper, Dark, EyeCare, Rice }
  * 为什么派生而非字面量：判据 2 硬编码色值 ≤2 且例外清单不含背景色，基座 token 是唯一来源；
  * 适用：夜间 / 暗色壁纸场景，文字随之翻为纸白亮色；导出静态图，不参与五态阴影插值。
  */
+// F-73 待规格化：暗色底色值与暗色下正文/出处翻色规则无规格，0.35f 比例为写码自拟（审计 表三#1，待重做后回填规格出处）
 private val ShareDarkBg: Color = lerp(CardTokens.ink, Color.Black, 0.35f)
 
 /**
@@ -64,6 +65,7 @@ private val ShareDarkBg: Color = lerp(CardTokens.ink, Color.Black, 0.35f)
  * 为什么取石青为绿源：石青是基座既有语义色，偏色方向与护眼绿一致，不另造色相；
  * 适用：长时间阅读护眼模式下的书摘卡，不抢墨色正文；导出静态图，不参与五态阴影。
  */
+// F-73 待规格化：护眼绿色相归属与派生比例无规格，0.12f 比例为写码自拟（审计 表三#1，待重做后回填规格出处）
 private val ShareEyeCareBg: Color = lerp(CardTokens.cardPaper, CardTokens.stoneBlue, 0.12f)
 
 /**
@@ -71,6 +73,7 @@ private val ShareEyeCareBg: Color = lerp(CardTokens.cardPaper, CardTokens.stoneB
  * 为什么取暖金为暖源：暖金是基座既有强调色，微量混入只增纸感不发光；
  * 适用：宣纸纹理套，配合基座颗粒叠层呈现纸纤维感；导出静态图，不参与五态阴影。
  */
+// F-73 待规格化：宣纸暖米色值与 0.05 之外叠层口径无规格，0.10f 比例为写码自拟（审计 表三#1，待重做后回填规格出处）
 private val ShareRiceBg: Color = lerp(CardTokens.cardPaper, CardTokens.warmGold, 0.10f)
 
 /**

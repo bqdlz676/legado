@@ -90,6 +90,7 @@ object HeightMapDecoder {
      * 裸 base64 最小长度：标准 PNG 编码产物远长于此；短串即便字符集像 base64 也按资产基名兜底，
      * 避免文件名 / 短代号被误当内联栅格送 Base64 解码。
      */
+    // F-73 待规格化：内联栅格 base64 长度阈值 200 为自创规则，规格原文仅按文件名引 PNG（审计 表三#5，待重做后回填规格出处）
     private const val BASE64_MIN_LENGTH: Int = 200
 
     /**
@@ -119,6 +120,7 @@ object HeightMapDecoder {
         // 优先级①：纯 base64 字符集 + 足够长 → BASE64；此时允许串内出现 '/' 与 '+'。
         if (looksLikeBase64(s)) return SourceKind.BASE64
         // 优先级①-b：短串字符集合法且 base64 解出 PNG 签名 → 仍判 BASE64（极小内联图兜底）。
+        // F-73 待规格化：短串 PNG 八字节签名探针为自创规则，规格原文无签名探测条款（审计 表三#5，待重做后回填规格出处）
         if (isBase64Charset(s) && decodesToPngSignature(s)) return SourceKind.BASE64
         // 优先级②：路径形态。绝对路径 / file:// → LOCAL_PATH；含 '/' 的短相对路径 → ASSET。
         if (s.startsWith("/") || s.startsWith("file://")) return SourceKind.LOCAL_PATH

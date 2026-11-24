@@ -1,5 +1,7 @@
 package io.legado.app.ui.dict.rule
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#10，C2 工具页·dict 域）
+
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels

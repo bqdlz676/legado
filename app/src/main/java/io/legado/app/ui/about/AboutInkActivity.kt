@@ -1,5 +1,7 @@
 package io.legado.app.ui.about
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#9，C1 关于页，层级/字段规格缺失）
+
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity

@@ -130,6 +130,7 @@ fun SettingRowCard(
                     // 1dp 细线：规格「云灰细线分隔」；适用：组内行与行之间的弱分隔，不构成卡片边框。
                     .height(1.dp)
                     // 云灰 0.08 透明度：规格「0.08 透明度」；适用：分隔线极淡，仅近看可辨。
+                    // F-73 待规格化：分隔线透明度口径无规格出处，0.08f 为写码自拟（审计 表三#2，待重做后回填规格出处）
                     .background(CardTokens.cloudGray.copy(alpha = 0.08f)),
             )
         }
@@ -145,6 +146,7 @@ private fun SettingToggle(
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
 ) {
+    // F-73 待规格化：开关轨道 40×22dp / 拇指 16dp 尺寸无规格，为写码自拟兜底值（审计 表三#2，待重做后回填规格出处）
     // 轨道宽 40dp：规格未给具体尺寸，兜底为常见胶囊比例；适用：右侧开关触控块横向占位。
     val trackWidth = 40.dp
     // 轨道高 22dp：与宽度配成胶囊形；适用：轨道纵向高度，圆角取高度一半。
@@ -195,6 +197,7 @@ private fun SettingToggle(
  */
 @Composable
 private fun SettingChevron() {
+    // F-73 待规格化：箭头 24dp 尺寸与描边 2dp 线宽无规格，为写码自拟兜底值（审计 表三#2，待重做后回填规格出处）
     // 箭头块 24dp：规格未给箭头尺寸，兜底与常见行内图标同尺寸；适用：右侧导航提示的触控 / 视觉占位。
     Canvas(modifier = Modifier.size(24.dp)) {
         // 描边宽 2dp：与图标线宽口径一致；适用：折线不至于过细在小屏发虚。
@@ -248,6 +251,7 @@ private fun VerticalText(
                     fontFamily = FontFamily.Serif,
                     textAlign = TextAlign.Center,
                     // 行高 = 字号 × 1.25 兜底；适用：竖排字距不过挤也不过松，规格未给具体行距。
+                    // F-73 待规格化：竖排行距 ×1.25 与当前值/控件间距无规格，为写码自拟兜底值（审计 表三#2，待重做后回填规格出处）
                     lineHeight = fontSize * 1.25f,
                 ),
             )

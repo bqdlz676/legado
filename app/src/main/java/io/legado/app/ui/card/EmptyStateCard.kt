@@ -97,6 +97,7 @@ fun EmptyStateCard(
                 EmptyKind.NotFound -> {
                     // 32dp 淡暖金金点：规格「金点淡暖金」；alpha 0.55 为实心暖金在纸白上的降淡档，
                     // 介于实心与纸白之间，表达「无结果但非错误」，不抢推荐书名层级；适用：未找到变体。
+                    // F-73 待规格化：淡金 alpha 档位 0.55 无规格出处，为写码自拟降淡档（审计 表三#3，待重做后回填规格出处）
                     GoldDot(fillColor = CardTokens.warmGold.copy(alpha = 0.55f))
                     // 三行随机推荐书名：规格未给字号，对齐搜索结果卡书名档取 14sp 墨色；
                     // 候选池为组件兜底静态列表，宿主可在后续把真实推荐书单注入本槽位。
@@ -121,6 +122,7 @@ fun EmptyStateCard(
                     BasicText(
                         text = "本地已有 xx 本书可离线阅读",
                         style = TextStyle(
+                            // F-73 待规格化：淡朱砂 alpha 档位 0.35 无规格出处，为写码自拟降淡档（审计 表三#3，待重做后回填规格出处）
                             color = CardTokens.cinnabar.copy(alpha = 0.35f),
                             // 12sp：离线提示取次级字号档；「xx」为册数占位，由宿主数据注入替换。
                             fontSize = CardTokens.text12,
@@ -135,6 +137,7 @@ fun EmptyStateCard(
 }
 
 /** 未找到变体的兜底推荐书单；适用：宿主尚未接入真实推荐流时占位，三行刚好对应规格「三行随机推荐书名」。 */
+// F-73 待规格化：兜底推荐书单来源规则无规格，当前为静态占位列表（审计 表三#3，待重做后回填规格出处）
 private val fallbackRecommendations = listOf("诗经·周南", "史记·项羽本纪", "陶渊明集")
 
 /**
@@ -149,6 +152,7 @@ private fun EmptyActionButton(label: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .background(CardTokens.warmGold, RoundedCornerShape(20.dp))
             // 横向 16dp / 纵向 10dp 内边距：规格只给圆角未给按钮高，纵向 10dp 为兜底值，保证文字不贴暖金块边缘。
+            // F-73 待规格化：按钮内边距 16×10dp 无规格出处，为写码自拟兜底值（审计 表三#3，待重做后回填规格出处）
             .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -189,6 +193,7 @@ private fun BrokenRingIcon() {
     Canvas(modifier = Modifier.size(32.dp)) {
         val stroke = Stroke(
             // 1.5dp 线宽：与 ic_state_offline 描边同口径；适用：32dp 小环轮廓不糊成块、也不过细断线。
+            // F-73 待规格化：断环 stroke 宽度 1.5dp 无规格出处，为写码自拟（审计 表三#3，待重做后回填规格出处）
             width = 1.5.dp.toPx(),
             cap = StrokeCap.Round,
         )
@@ -196,6 +201,7 @@ private fun BrokenRingIcon() {
         val h = size.height
         drawArc(
             color = CardTokens.cinnabar.copy(alpha = 0.35f),
+            // F-73 待规格化：断环 6° 缺口几何（273°/354°）与淡朱砂 alpha 0.35 无规格出处，为写码自拟（审计 表三#3，待重做后回填规格出处）
             // 起角 273°：断口右缘；顺时针扫 354°，到 267° 左缘收口，正上方留 6° 缺口。
             startAngle = 273f,
             sweepAngle = 354f,

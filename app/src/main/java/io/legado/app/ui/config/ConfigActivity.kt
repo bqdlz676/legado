@@ -1,5 +1,7 @@
 package io.legado.app.ui.config
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#9，C1 设置页，字段级口径待补）
+
 import android.content.Intent
 import android.os.Bundle
 import android.net.Uri

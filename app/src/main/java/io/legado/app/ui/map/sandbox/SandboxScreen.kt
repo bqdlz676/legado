@@ -1,5 +1,7 @@
 package io.legado.app.ui.map.sandbox
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#6，U10 沙盘，待 D17 壳吸收后定去留）
+
 import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures

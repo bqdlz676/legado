@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.explore
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#8，D21 发现页手卷）
+
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity

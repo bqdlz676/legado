@@ -53,6 +53,9 @@ fun ThemeSection(actions: SectionActions) {
     var themeNameTarget by remember { mutableStateOf<String?>(null) }
     var bgImageTarget by remember { mutableStateOf<String?>(null) }
 
+    // F-73 作废：App 启动图标全套资产（mipmap 各档 ic_launcher{,_round,_fg,_monochrome}.png、
+    // mipmap-anydpi-v26/ic_launcher.xml、colors.xml 的 ic_launcher_background）无规格原文，
+    // 待规格化重做；本处图标切换暂沿用旧资产，新链路验收通过后再物理替换（审计 表二#1）。
     val iconEntries = context.resources.getStringArray(R.array.icon_names).toList()
     val iconValues = context.resources.getStringArray(R.array.icons).toList()
     val currentIcon = context.getPrefString(PreferKey.launcherIcon) ?: "ic_launcher"

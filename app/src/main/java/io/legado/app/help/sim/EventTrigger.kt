@@ -1,5 +1,7 @@
 package io.legado.app.help.sim
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#14，help/sim 旧推演引擎，先与 U12 crossing 选型归并）
+
 import kotlin.math.roundToInt
 
 /**

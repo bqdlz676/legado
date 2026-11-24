@@ -25,6 +25,7 @@
 """
 
 import argparse
+import glob
 import os
 import re
 import sys
@@ -46,6 +47,11 @@ SELECTION_PATH_RE = re.compile(r'选型：\s*([^\s；;，,]+?\.md)')
 SELECTED_RE = re.compile(r'选中第?\s*[0-9一二三四五六七八九A-Ca-c]|选中方案|选中：')
 # 选型结论：判低/淘汰/落选份数与理由
 REJECTED_RE = re.compile(r'淘汰|判低|落选')
+# 全部判低（触发双换回炉，F-73③）：须有下一轮 v2 设计/审验记录
+ALL_LOW_RE = re.compile(r'全部判低|全判低|无一符合|全部落选')
+# 下一轮产物命名：v2 规格候选（两种历史命名都认）+ v2 选型报告
+V2_DESIGN_GLOBS = ['docs/规格候选-*-v2*.md', 'docs/规格-设计-*-v2*.md']
+V2_SELECT_GLOBS = ['docs/验收-选型-*-v2*.md']
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -70,6 +76,14 @@ def check_selection_doc(report_path: str, text: str):
         missing.append('选型文档缺"选中第 N 份"结论')
     if not REJECTED_RE.search(sel_text):
         missing.append('选型文档缺判低/淘汰份数与理由')
+    # 全部判低 → 必须留得下一轮（双换后）v2 设计/审验记录，防判低后悄悄按旧稿开工（F-78）
+    if ALL_LOW_RE.search(sel_text):
+        v2_design = [f for pat in V2_DESIGN_GLOBS for f in glob.glob(os.path.join(ROOT, pat))]
+        v2_select = [f for pat in V2_SELECT_GLOBS for f in glob.glob(os.path.join(ROOT, pat))]
+        if not v2_design:
+            missing.append('全部判低后缺下一轮 v2 规格候选记录（docs/规格候选-*-v2.md）')
+        if not v2_select:
+            missing.append('全部判低后缺下一轮 v2 选型报告')
     return missing
 
 

@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.source.manage
 
+// F-73 冻结：本模块无具体规格，暂停扩写与新派单；须先出 ≥2 份候选规格→独立选型→再重做（审计 表四#11，C3 书源域）
+
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.viewModels

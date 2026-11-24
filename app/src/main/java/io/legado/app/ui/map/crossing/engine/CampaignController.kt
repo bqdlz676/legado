@@ -121,6 +121,7 @@ class CampaignController private constructor(
      * 遭遇叠加把 STEADY 连降两级到 BROKEN 当场解散（B9-7 同格 2v1 误溃散根因）。
      * 事件直接置 BROKEN（MORALE_CHANGE）不经此表，解散语义不变。
      */
+    // F-73 待规格化：士气降级每回合至多降一级的节流口径为自创规则，规格原文无回合节流条款（审计 表三#5，待重做后回填规格出处）
     private val moraleDowngradedThisRound: MutableSet<String> = mutableSetOf()
 
     /**
@@ -514,6 +515,7 @@ class CampaignController private constructor(
             enemy.copy(position = recCell, latLng = recGeo)
             // 按军 id 去重：同一敌军在感知集只落一条（B9-7 同回合多观察者 / 重复情报写入
             // 不得产生重复条目）；去重保留首条记录，不靠截断列表条数糊弄唯一性断言。
+        // F-73 待规格化：感知集按军 id 去重的唯一性口径为自创规则，规格原文无 distinct 条款（审计 表三#5，待重做后回填规格出处）
         }.distinctBy { it.id }
 
     private fun resolveIntent(corps: Corps, overrides: Map<String, Intent>?): IntentResolver.Decision {

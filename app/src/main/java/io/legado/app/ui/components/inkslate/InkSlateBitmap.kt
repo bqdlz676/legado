@@ -1,5 +1,7 @@
 package io.legado.app.ui.components.inkslate
 
+// F-73 待规格化：U7 画板 8.3 WebView 预热/JS 分片/removeView 复用/双击撤销通路已被原生位图替代但切片未同步；通路等价性、8.4 批注章节名+正文文本传递、PNG/SVG 导出口径待规格化（审计 表三#4，待重做后回填规格出处）
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
