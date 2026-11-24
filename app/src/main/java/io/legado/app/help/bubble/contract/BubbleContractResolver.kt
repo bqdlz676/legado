@@ -32,7 +32,7 @@ class BubbleContractResolver(
 
         val hits = runCatching {
             registry.filter { entry -> entry.name == token || token in entry.aliases }
-        }.getOrDefault(emptyList())
+        }.getOrElse { emptyList() } // 用 getOrElse 而非 getOrDefault：后者并非 kotlin.Result 的 stdlib API，编译期会 Unresolved reference
 
         if (hits.isEmpty()) return listOf(missCandidate(token))
 
