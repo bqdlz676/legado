@@ -53,7 +53,16 @@ E1/E2：`app/src/test/java/io/legado/app/ui/components/DesignTokenGuardTest.kt:2
 
 ## 五、结论
 
-- 通过 2 条（token 值 12/12、无双单源）；
-- 返工 2 条（6 位 hex 后门；CI 红因测试函数名非法——已修待复验）；
+- 通过 3 条（token 值 12/12、无双单源、CI 终态绿）；
+- 返工 1 条（6 位 hex 后门，落 D23）；CI 红已三次修完并终态绿（见第六节）；
 - 判废 0 条。
 - 改进点 3：①护栏正则覆盖 6 位 hex；②基线 39 文件 186 处存量必须进 D23 排期，否则"豁免=永久合法化"；③`STONE_BLUE`（石青）是 12 色外增补，须回 §1.3 正式补登，否则"12 项对得上"的判据本身有缝。
+
+## 六、CI 复验结果（2026-11-25 终态）
+
+三次修红链路（全部已推云端，逐轮取 CI 终态）：
+- `0c6c933` → run `45453607335`：**failure**（编译错：反引号测试函数名含 `:`，「Name contains illegal characters: :」，`DesignTokenGuardTest.kt:25`）。
+- `43c8086` → run `45454989707`：**failure**（单测错：护栏基线路径未拼 `io/legado/app/ui/` 前缀，`relativize` 结果与基线清单永远对不上 → 全量误报 `DesignTokenGuardTest > ui layer has no inline hex color outside the legacy baseline`）。
+- `d07e33e`（第二修后引入重复 `companion object`，随即 `baab3b1` 合并）→ run `45458972475`：**completed / success**，含新护栏单测的 777 项单测全绿。
+
+**结论更新：S-03 批 0 判"通过（CI 已证实）"**；唯一遗留为 6 位 hex 后门（已列 D23 待办，不阻塞本单）。
