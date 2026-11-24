@@ -58,6 +58,14 @@ class CampaignController private constructor(
 
     private val firedEvents: MutableSet<Int> = mutableSetOf()
     private val captureHold: MutableMap<String, Int> = mutableMapOf()
+
+    /**
+     * 据点当前归属表（据点标识 → 阵营 id；B7/M3）。
+     * 每回合由 [updateCaptureTracker] 按活军位置刷新；分支存档恢复时优先整表回写快照记录，
+     * 旧档缺字段再按恢复后的军位重建。判定层（DEFEND 失守）每回合读本成员，不再临时现算，
+     * 使回滚后的归属与存档时刻一致，不被旧时间线的活军位置污染。
+     */
+    private val pointHolders: MutableMap<String, String> = mutableMapOf()
     private val _eventLog: MutableList<String> = mutableListOf()
 
     /** 本回合每支军队的行军格数（士气推进消费）。 */
@@ -139,6 +147,8 @@ class CampaignController private constructor(
             marchCells[def.id] = 0
         }
         seedIntel()
+        // 开局即有军队驻点时，归属表先按初始军位播种；首回合 tracker 再统一刷新。
+        pointHolders.putAll(buildPointHolders())
     }
 
     /**
@@ -205,7 +215,7 @@ class CampaignController private constructor(
             turn = turn,
             duration = definition.duration,
             captureHoldTurns = captureHold,
-            pointHolders = buildPointHolders(),
+            pointHolders = pointHolders,
             alliedSideIds = alliedSidesWith(definition.victory.side),
         )
         if (outcome.finished) {
@@ -533,10 +543,13 @@ class CampaignController private constructor(
     // ── 据点 / 快照 / 分支 ────────────────────────────────────
 
     private fun updateCaptureTracker() {
+        // 归属表先清空再按本回合活军位置重算：据点易主后旧持有者不得在表中残留为死条目。
+        pointHolders.clear()
         val point = definition.victory.point ?: return
         val key = pointKey(point)
         val holder = corps.any { it.sideId == definition.victory.side && it.combatReady() && nearPoint(it.latLng, point) }
         captureHold[key] = if (holder) (captureHold[key] ?: 0) + 1 else 0
+        pointHolders.putAll(buildPointHolders())
     }
 
     /**
@@ -623,7 +636,7 @@ class CampaignController private constructor(
         corps = corps.map { it.copy() },
         firedEventIds = firedEvents.toSet(),
         captureHold = captureHold.toMap(),
-        pointHolders = buildPointHolders(),
+        pointHolders = pointHolders.toMap(),
     )
 
     /** 恢复分支：时间 / 兵力 / 已触发事件一并回滚；状态重置为进行中。 */
@@ -636,7 +649,7 @@ class CampaignController private constructor(
         firedEvents += branch.firedEventIds
         captureHold.clear()
         captureHold.putAll(branch.captureHold)
-        restorePointHolders(branch.pointHolders)
+        restorePointHolders(branch.pointHolders, branch.captureHold)
         // B9：情报随存档回滚——按恢复后的军位重新播种决策层情报；视图目睹记录清空，需重新侦察。
         // 存档兼容（DoD-4）：旧版 BranchSnapshot 不含任何情报表字段（情报是可由军位重建的派生状态），
         // 此处一律重建而非读取存档；空军队 / 缺字段旧档循环自然空转，降级为"位置未知"，不抛异常。
@@ -818,11 +831,30 @@ class CampaignController private constructor(
         reportLng = report?.lng,
     )
 
-    /** 恢复据点归属：快照里记录了"据点 id → 阵营"，恢复时重算对应军的占领计数并写回。 */
-    private fun restorePointHolders(holders: Map<String, String>) {
-        if (holders.isEmpty()) return
-        captureHold.clear()
-        for ((_, side) in holders) for (c in corps) if (c.sideId == side) captureHold[c.id] = 1
+    /**
+     * 恢复据点归属表（B7/M3）：快照记录「据点标识 → 阵营」，恢复时整表回写，不沿用旧时间线
+     * 的活军推导。据点 key 口径与 [captureHold] / [VictoryChecker] 一致（lng,lat 四位小数）。
+     *
+     * 旧档兼容（DoD-4）：旧版存档缺 [pointHolders]（甚至 [captureHold]）字段——这两类都是可由
+     * 军位重建的派生状态，故按恢复后的军位重新推导归属；若派生到当前占据方，占领计数从 1 起算
+     * （旧档无从得知此前已占几回合，不臆造历史计数）。适用条件：存档仅内存流转、不落盘；
+     * 军队列表为空或据点半径内无可战军队 → 两表自然空转，不抛异常。
+     *
+     * 为什么不再按军 id 回写 [captureHold]：计数表 key 是据点标识，按军 id 写键会形成命名空间
+     * 错配的死条目，且会清掉刚从快照回写的连续回合数（翻倍 / 串线根因）。
+     */
+    private fun restorePointHolders(holders: Map<String, String>, holdCounts: Map<String, Int>) {
+        pointHolders.clear()
+        if (holders.isNotEmpty()) {
+            pointHolders.putAll(holders)
+            return
+        }
+        val rebuilt = buildPointHolders()
+        pointHolders.putAll(rebuilt)
+        // 旧档连计数表也缺：仅对当前派生占据方补 1 回合基线，历史占回合数不臆造。
+        if (holdCounts.isEmpty()) {
+            rebuilt.forEach { (key, _) -> captureHold[key] = 1 }
+        }
     }
 
     companion object {
