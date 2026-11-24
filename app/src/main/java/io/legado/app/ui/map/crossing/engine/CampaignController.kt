@@ -82,14 +82,17 @@ class CampaignController private constructor(
      *
      * @param geo 上次已知经纬度；决策层播种后非空；视图层从未目睹为 null
      * @param cell 上次已知格（距离 / 寻路口径）；geo 非空时必有
-     * @param seenTurn 最近一次目睹回合号；0 表示开局部署情报播种
-     * @param radiusCells 模糊半径（格）：刚目睹为 0；陈旧情报按龄期放大（见 [fuzzyRadiusCells]）
+     * @param seenTurn 最近一次目睹 / 接触交战回合号；0 表示开局部署情报播种
+     * @param radiusCells 模糊半径（格）：刚目睹为 0；陈旧情报按龄期 + 目击距离放大（见 [recordRadius]）
+     * @param seenDistCells 最近一次目睹时两军距离（八向格）：距离越远方位判读越粗，
+     *        作为半径的距离项基数；开局播种取目标兵种视野半径，接触交战为 0（贴脸）
      */
     private data class IntelRecord(
         val geo: Geo?,
         val cell: io.legado.app.ui.map.crossing.model.Cell?,
         val seenTurn: Int,
         val radiusCells: Int,
+        val seenDistCells: Int,
     )
 
     /** 降级标志：JSON 残缺 / 高程图走合成兜底 / 军队为空，任一命中即明示壳层。 */
@@ -150,6 +153,7 @@ class CampaignController private constructor(
                     cell = enemy.position,
                     seenTurn = 0,
                     radiusCells = visionRadius(enemy.type),
+                    seenDistCells = visionRadius(enemy.type),
                 )
             }
         }
@@ -376,14 +380,21 @@ class CampaignController private constructor(
             val distCells = octile(corps.position, enemy.position)
             val visible = distCells <= corps.visionRadiusCells && map.visible(corps.position, enemy.position)
             val record = when {
-                // 目睹：情报刷新为真值，半径清零。
-                visible -> IntelRecord(enemy.latLng, enemy.position, turn, 0)
+                // 目睹：情报刷新为真值，时间戳记本回合，目击距离留档，半径清零。
+                visible -> IntelRecord(
+                    geo = enemy.latLng,
+                    cell = enemy.position,
+                    seenTurn = turn,
+                    radiusCells = 0,
+                    seenDistCells = distCells,
+                )
                 else -> {
-                    // 未目睹：保留上次已知位置，半径按未观测龄期放大；播种前的兜底取开局报告口径。
+                    // 未目睹：已知位置不随时间推进自动刷新为真值；保留上次已知位置 / 目睹时刻 / 目击距离，
+                    // 半径按龄期 + 距离现算（[recordRadius]）。缺历史条目的兜底为「位置未知」空记录，
+                    // 不回退敌军实时坐标——播种后正常不会命中，此处是防御性兜底。
                     val prev = table[enemy.id]
-                    val age = turn - (prev?.seenTurn ?: 0)
-                    prev?.copy(radiusCells = fuzzyRadiusCells(enemy.type, age))
-                        ?: IntelRecord(enemy.latLng, enemy.position, 0, visionRadius(enemy.type))
+                    prev?.copy(radiusCells = recordRadius(prev, enemy.type))
+                        ?: IntelRecord(geo = null, cell = null, seenTurn = turn, radiusCells = MAX_STALE_RADIUS_CELLS, seenDistCells = 0)
                 }
             }
             table[enemy.id] = record
@@ -398,14 +409,14 @@ class CampaignController private constructor(
      * 决策层敌情视图（B9）：意图裁决 / 侧翼寻路只消费本方法产出的拷贝。
      * 位置一律替换为情报表中的上次已知位置；战力等字段仍为真值。情报表开局已播种，
      * 故不存在"查无情报"的敌军；从未目睹的敌军也只有开局部署报告，不含其实时机动。
+     * 情报表缺条 / 位置为空的敌军不进感知集：宁可让决策层当作"未知"，也不回读实时坐标。
      */
     private fun perceivedEnemies(observer: Corps): List<Corps> =
-        enemiesOf(observer).map { enemy ->
-            val rec = intel[observer.id]?.get(enemy.id)
-            enemy.copy(
-                position = rec?.cell ?: enemy.position,
-                latLng = rec?.geo ?: enemy.latLng,
-            )
+        enemiesOf(observer).mapNotNull { enemy ->
+            val rec = intel[observer.id]?.get(enemy.id) ?: return@mapNotNull null
+            val recCell = rec.cell ?: return@mapNotNull null
+            val recGeo = rec.geo ?: return@mapNotNull null
+            enemy.copy(position = recCell, latLng = recGeo)
         }
 
     private fun resolveIntent(corps: Corps, overrides: Map<String, Intent>?): IntentResolver.Decision {
@@ -475,6 +486,9 @@ class CampaignController private constructor(
         }
         if (outcome.defenderRetreated && target.combatReady()) retreatFrom(target, corps.position)
 
+        // 接触交战即情报刷新（B9 DoD-2）：贴脸是物理事实，视同最近距离侦察，双方互写真值 + 时间戳。
+        refreshContactIntel(corps, target)
+
         log("遭遇战：${corps.name} 对 ${target.name}（伏击=${ambushed}，高地=${highGroundDef}）" +
             "，损 ${outcome.attackerLoss.round1()} / ${outcome.defenderLoss.round1()}")
 
@@ -490,6 +504,30 @@ class CampaignController private constructor(
             corps.position = escape
             corps.latLng = projection.toGeo(escape)
         }
+    }
+
+    /**
+     * 接触交战情报刷新（B9 DoD-2）：两军贴脸接触是物理事实，不依赖视野通视；接战后双方
+     * 决策层情报表互写当前真值，时间戳记本回合，目击距离 0（贴脸），半径清零。
+     * 视图层 [reports] 只在观察者属本方 / 盟友阵营时落条目，敌方互侦不向玩家透传。
+     * 适用条件：仅 [resolveEncounters] 确认物理相邻接战后调用；行军路过、视野瞥见走侦察口径。
+     */
+    private fun refreshContactIntel(a: Corps, b: Corps) {
+        fun write(observer: Corps, enemy: Corps) {
+            val record = IntelRecord(
+                geo = enemy.latLng,
+                cell = enemy.position,
+                seenTurn = turn,
+                radiusCells = 0,
+                seenDistCells = 0,
+            )
+            intel.getOrPut(observer.id) { mutableMapOf() }[enemy.id] = record
+            if (isFriendlySide(definition.victory.side, observer.sideId)) {
+                reports.getOrPut(observer.id) { mutableMapOf() }[enemy.id] = record
+            }
+        }
+        write(a, b)
+        write(b, a)
     }
 
     // ── 据点 / 快照 / 分支 ────────────────────────────────────
@@ -540,11 +578,16 @@ class CampaignController private constructor(
         }
         val views = corps.map { c ->
             val seen = isFriendlySide(playerSide, c.sideId) || c.id in observedIds
-            // B9：已观测给实时坐标；未观测给上次已知报告（从未目睹为 null，F8 口径不变）；
-            // 模糊半径经 [reportRadiusCells] 出口供壳层 / 单测取用（CorpsView 扩字段待总控批准）。
-            // 为什么加 ?.let：victory.side 可空，latestReport 只收非空 sideId（否则 String? → String 编译红）。
+            // B9 DoD-1/3：已观测下发实时坐标；未观测有旧报告 → 主坐标用上次已知位置（模糊）；
+            // 从未侦察 → 主坐标写 NaN 占位（情报空白区，见 [BLIND_ZONE_LABEL]），禁止回填真实坐标。
+            // 未观测敌军的规划路线一并清空：行军计划属敌方决策信息，随位置一并模糊化。
             val report = if (seen) c.latLng else playerSide?.let { latestReport(it, c.id) }
-            c.toView(observed = seen, report = report)
+            val emitGeo: Geo? = when {
+                seen -> c.latLng
+                report != null -> report
+                else -> null
+            }
+            c.toView(observed = seen, report = report, emitGeo = emitGeo, blurRoute = !seen)
         }
         return TurnSnapshot(
             turn = turn,
@@ -557,17 +600,21 @@ class CampaignController private constructor(
     }
 
     /**
-     * 汇总本方 / 盟友观察者对目标军的最新目睹报告（B9）；从未目睹返回 null。
-     * 取各观察者记录中 seenTurn 最大的一条：多支部队侦察时以最新情报为准。
+     * 汇总本方 / 盟友观察者对目标军的最新目睹 / 接触报告（B9）；从未目睹返回 null。
+     * 取各观察者记录中 seenTurn 最大的一条：多支部队侦察时以最新情报为准；
+     * 同回合多观察者重复侦察不会重复落条，later 同回合记录覆盖先写条目，时间戳仍是本回合。
      */
-    private fun latestReport(playerSide: String, targetId: String): Geo? =
+    private fun latestReportRecord(playerSide: String, targetId: String): IntelRecord? =
         reports.asSequence()
             .filter { (observerId, _) ->
                 val ob = corps.firstOrNull { it.id == observerId }
                 ob != null && isFriendlySide(playerSide, ob.sideId)
             }
             .mapNotNull { it.value[targetId] }
-            .maxByOrNull { it.seenTurn }?.geo
+            .maxByOrNull { it.seenTurn }
+
+    private fun latestReport(playerSide: String, targetId: String): Geo? =
+        latestReportRecord(playerSide, targetId)?.geo
 
     /** 保存分支存档（深拷贝运行态，避免后续回合改动污染存档）。 */
     fun saveBranch(): BranchSnapshot = BranchSnapshot(
@@ -591,6 +638,8 @@ class CampaignController private constructor(
         captureHold.putAll(branch.captureHold)
         restorePointHolders(branch.pointHolders)
         // B9：情报随存档回滚——按恢复后的军位重新播种决策层情报；视图目睹记录清空，需重新侦察。
+        // 存档兼容（DoD-4）：旧版 BranchSnapshot 不含任何情报表字段（情报是可由军位重建的派生状态），
+        // 此处一律重建而非读取存档；空军队 / 缺字段旧档循环自然空转，降级为"位置未知"，不抛异常。
         intel.clear()
         reports.clear()
         for (observer in corps) for (enemy in enemiesOf(observer)) {
@@ -599,6 +648,7 @@ class CampaignController private constructor(
                 cell = enemy.position,
                 seenTurn = branch.turn,
                 radiusCells = 0,
+                seenDistCells = 0,
             )
         }
         status = BattleStatus.ONGOING
@@ -659,20 +709,46 @@ class CampaignController private constructor(
         corps.firstOrNull { it.id == corpsId }?.let { perceivedEnemies(it) } ?: emptyList()
 
     /**
+     * 单条记录当前模糊半径（格）＝ 距离项 + 时间项，封顶 [MAX_STALE_RADIUS_CELLS]。
+     * 三因子口径（B9 DoD-1）：
+     * - 侦察：是否目睹 / 接触决定基准精度，刚目睹或贴脸接触 age=0 → 半径 0；
+     * - 距离：目击距离越远方位判读越粗，距离项取半距并封顶到兵种视野半径；
+     * - 时间：旧报告随行军逐日贬值，每回合外扩 [STALE_DRIFT_CELLS_PER_TURN] 格。
+     * 为什么放大而非恒定：恒定半径意味着十回合前的旧报告与刚目睹同样精确，违背情报贬值常识；
+     * 为什么封顶：半径涨到全图后"方位不明"即可，继续外扩无决策价值。
+     * 适用条件：决策层感知拷贝与视图层半径出口共用本口径；龄期为负（存档回滚边界）视同刚目睹。
+     */
+    private fun recordRadius(record: IntelRecord, type: ArmyType): Int {
+        val age = turn - record.seenTurn
+        if (age <= 0) return 0
+        val distanceTerm = (record.seenDistCells / 2).coerceIn(0, visionRadiusFor(type))
+        val ageTerm = age * STALE_DRIFT_CELLS_PER_TURN
+        return (distanceTerm + ageTerm).coerceAtMost(MAX_STALE_RADIUS_CELLS)
+    }
+
+    /**
      * 测试 / 壳层口径出口（B9）：目标军对本方当前的模糊半径（格）。
-     * 已目睹且本回合在视野内为 0；陈旧情报按龄期放大；从未目睹返回 null。
+     * 已目睹且本回合在视野内为 0；陈旧情报按龄期 + 目击距离放大；从未目睹返回 null。
      * 注：[CorpsView] 暂无半径字段，正式下发壳层需 model 扩字段（见交付文档"需总控批准"项）。
      */
     internal fun reportRadiusCells(targetId: String): Int? {
-        val record = reports.asSequence()
-            .filter { (observerId, _) ->
-                val ob = corps.firstOrNull { it.id == observerId }
-                ob != null && isFriendlySide(definition.victory.side, ob.sideId)
-            }
-            .mapNotNull { it.value[targetId] }
-            .maxByOrNull { it.seenTurn } ?: return null
+        val record = latestReportRecord(definition.victory.side ?: return null, targetId) ?: return null
         val target = corps.firstOrNull { it.id == targetId } ?: return record.radiusCells
-        return fuzzyRadiusCells(target.type, turn - record.seenTurn)
+        return recordRadius(record, target.type)
+    }
+
+    /**
+     * 情报空白区占位文案出口（B9 DoD-3）：目标为敌方、且本方 / 盟友从未侦察或接触过时返回
+     * [BLIND_ZONE_LABEL]；友方单位、已有报告的敌军返回 null。为什么给占位而不是整行隐藏：
+     * 玩家仍需知道"此方位有未知编制"这一存在性线索，只是不泄露坐标 / 路线；整行空白会让
+     * 壳层误以为敌军已被歼灭（F8 观察口径与存亡状态是两个维度）。
+     */
+    internal fun blindZoneLabel(targetId: String): String? {
+        val target = corps.firstOrNull { it.id == targetId } ?: return null
+        val playerSide = definition.victory.side ?: return null
+        if (isFriendlySide(playerSide, target.sideId)) return null
+        if (latestReportRecord(playerSide, targetId) != null) return null
+        return BLIND_ZONE_LABEL
     }
 
     /**
@@ -708,7 +784,19 @@ class CampaignController private constructor(
         if (_eventLog.size > LOG_CAPACITY) _eventLog.removeAt(0)
     }
 
-    private fun Corps.toView(observed: Boolean = true, report: io.legado.app.ui.map.crossing.model.Geo? = null): CorpsView = CorpsView(
+    /**
+     * 快照视图组装（B9）。
+     * @param emitGeo 下发到主坐标 [CorpsView.lat]/[CorpsView.lng] 的位置；null 表示情报空白区，
+     *        写 [Double.NaN] 占位——NaN 经投影 toInt 钳到边缘格不会崩，壳层须按 [observed]=false
+     *        且 report 为空跳过绘子（壳层门控属交接项）；禁止此处回填 [latLng] 真实坐标。
+     * @param blurRoute 为 true 时清空规划路线：未观测敌军的行军计划不随位置一起下发。
+     */
+    private fun Corps.toView(
+        observed: Boolean = true,
+        report: io.legado.app.ui.map.crossing.model.Geo? = null,
+        emitGeo: io.legado.app.ui.map.crossing.model.Geo? = null,
+        blurRoute: Boolean = false,
+    ): CorpsView = CorpsView(
         id = id,
         name = name,
         sideId = sideId,
@@ -718,13 +806,13 @@ class CampaignController private constructor(
         fatigue = fatigue,
         morale = morale,
         intent = intent,
-        lat = latLng.lat,
-        lng = latLng.lng,
+        lat = emitGeo?.lat ?: Double.NaN,
+        lng = emitGeo?.lng ?: Double.NaN,
         targetLat = target?.lat,
         targetLng = target?.lng,
         alive = alive,
         surrendered = surrendered,
-        route = route.map { projection.toGeo(it) },
+        route = if (blurRoute) emptyList() else route.map { projection.toGeo(it) },
         observed = observed,
         reportLat = report?.lat,
         reportLng = report?.lng,
@@ -765,6 +853,9 @@ class CampaignController private constructor(
         /** 模糊半径封顶（格）：超出封顶按"方位不明"处理，避免半径涨到全图。 */
         const val MAX_STALE_RADIUS_CELLS: Int = 8
 
+        /** 情报空白区占位文案（B9 DoD-3）：从未侦察 / 接触的敌军不下发坐标，壳层按此标盲区。 */
+        const val BLIND_ZONE_LABEL: String = "情报空白区：未侦察到该部，方位不明"
+
         /**
          * 各兵种视野半径（格）：引擎内单一来源；[Pathfinder.radiusFor] 为侧翼寻路侧同表镜像，
          * 两处数值须保持同步（B8R1 已登记收敛项，本单不改 Pathfinder 域）。
@@ -781,6 +872,8 @@ class CampaignController private constructor(
          * 为什么放大而不是恒定：恒定半径意味着十回合前的旧报告与刚目睹同样精确，违背情报贬值常识；
          * 放大速率取每回合 1 格（约一日行军造成的位置不确定性），基准取目标兵种视野半径，封顶防失控。
          * 龄期 0（刚目睹）半径为 0：目睹即精确到格。
+         * 注：本函数是纯时间衰减锚点（供单测 / 其它层复用）；情报表记录的三因子半径
+         * （侦察 + 距离 + 时间）走实例方法 `recordRadius`，两处口径不得混用。
          */
         internal fun fuzzyRadiusCells(type: ArmyType, ageTurns: Int): Int {
             if (ageTurns <= 0) return 0

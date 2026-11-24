@@ -1,8 +1,12 @@
 package io.legado.app.ui.map.crossing.engine
 
+import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.BattleStatus
+import io.legado.app.ui.map.crossing.model.BranchSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -171,6 +175,125 @@ class CampaignControllerTest {
         assertTrue("从未观测的敌军不给实时坐标", enemyView.reportLat == null && enemyView.reportLng == null)
     }
 
+    // ── B9 情报模糊半径（决策 / 展示双路）─────────────────────────
+
+    @Test
+    fun `B9-1 未侦察敌军：视图不泄露真实坐标，路线清空，主坐标为 NaN 占位`() {
+        val controller = CampaignController.load(FOG_JSON, null)
+        controller.step()
+        val real = controller.corps.first { it.id == "b1" }
+        val view = controller.snapshot().corps.first { it.id == "b1" }
+
+        assertFalse(view.observed)
+        assertNull(view.reportLat)
+        assertNull(view.reportLng)
+        assertTrue("盲区主坐标不得回填真实纬度", Double.isNaN(view.lat))
+        assertTrue("盲区主坐标不得回填真实经度", Double.isNaN(view.lng))
+        assertTrue("未观测敌军规划路线不下发", view.route.isEmpty())
+        assertNull("从未侦察敌军无模糊半径", controller.reportRadiusCells("b1"))
+        assertTrue("盲区占位文案不得为空", !controller.blindZoneLabel("b1").isNullOrEmpty())
+        // 真实坐标仍只存在于内部运行态，不进快照主坐标 / 上报坐标。
+        assertTrue(real.latLng.lat != view.lat || real.latLng.lng != view.lng)
+    }
+
+    @Test
+    fun `B9-2 侦察目睹：报告刷新为实时真值，模糊半径清零，盲区文案消失`() {
+        val controller = CampaignController.load(NEAR_JSON, null)
+        controller.step()
+        val view = controller.snapshot().corps.first { it.id == "b1" }
+
+        assertTrue("近距离敌军应被标记观测", view.observed)
+        assertNotNull("目睹后上报坐标非空", view.reportLat)
+        assertNotNull("目睹后上报经度非空", view.reportLng)
+        assertEquals("刚目睹半径为 0", 0, controller.reportRadiusCells("b1"))
+        assertNull("已有报告的敌军不出盲区文案", controller.blindZoneLabel("b1"))
+    }
+
+    @Test
+    fun `B9-3 模糊半径：随龄期单调放大并在封顶处持平`() {
+        val ages = listOf(0, 1, 2, 3, 4, 5, 10, 20)
+        val radii = ages.map { CampaignController.fuzzyRadiusCells(ArmyType.REGULAR, it) }
+        assertTrue("半径随龄期单调不减", radii.zipWithNext().all { (a, b) -> b >= a })
+        assertEquals(5, CampaignController.fuzzyRadiusCells(ArmyType.REGULAR, 1))
+        assertEquals(8, CampaignController.fuzzyRadiusCells(ArmyType.REGULAR, 4))
+        assertEquals("超封顶后保持上限", 8, CampaignController.fuzzyRadiusCells(ArmyType.REGULAR, 20))
+    }
+
+    @Test
+    fun `B9-4 交战接触：接触即情报刷新，本方报告落条且半径清零`() {
+        val controller = CampaignController.load(NEAR_JSON, null)
+        controller.step()
+        val view = controller.snapshot().corps.first { it.id == "b1" }
+
+        assertTrue("接战后敌军应在本方报告中", view.observed)
+        assertNotNull("接触刷新后上报坐标非空", view.reportLat)
+        assertEquals("接触视同贴脸侦察，半径为 0", 0, controller.reportRadiusCells("b1"))
+        assertNull("接战后不再标盲区", controller.blindZoneLabel("b1"))
+    }
+
+    @Test
+    fun `B9-5 空情报占位：从未侦察敌军返回盲区文案，友方不返回`() {
+        val controller = CampaignController.load(FOG_JSON, null)
+        controller.step()
+        assertEquals(CampaignController.BLIND_ZONE_LABEL, controller.blindZoneLabel("b1"))
+        assertNull("本方军队不标盲区", controller.blindZoneLabel("a1"))
+    }
+
+    @Test
+    fun `B9-6 旧存档兼容：缺情报字段的分支存档恢复后降级位置未知且不崩`() {
+        val controller = CampaignController.load(FOG_JSON, null)
+        controller.step()
+        val branch = controller.saveBranch()
+        // 模拟旧版存档：只传核心四字段，据点计数 / 归属 / 情报全部走默认空值重建。
+        val oldStyle = BranchSnapshot(
+            turn = branch.turn,
+            elapsedDays = branch.elapsedDays,
+            corps = branch.corps,
+            firedEventIds = branch.firedEventIds,
+        )
+
+        controller.restoreBranch(oldStyle)
+
+        assertEquals(oldStyle.turn, controller.turn)
+        assertNull("旧档无目睹记录，视图半径为 null", controller.reportRadiusCells("b1"))
+        assertNotNull("恢复后决策层情报按存档军位重新播种", controller.perceivedEnemiesOf("a1").firstOrNull { it.id == "b1" })
+        assertEquals(CampaignController.BLIND_ZONE_LABEL, controller.blindZoneLabel("b1"))
+    }
+
+    @Test
+    fun `B9-7 同回合多观察者侦察：目标只入感知集一次，报告不重复落条`() {
+        val controller = CampaignController.load(DUO_JSON, null)
+        controller.step()
+        val perceived = controller.perceivedEnemiesOf("a1")
+        assertEquals("感知集中敌军条目唯一", 1, perceived.count { it.id == "b1" })
+        val view = controller.snapshot().corps.first { it.id == "b1" }
+        assertTrue(view.observed)
+        assertEquals(0, controller.reportRadiusCells("b1"))
+        assertNotNull(view.reportLat)
+    }
+
+    @Test
+    fun `B9-8 半径边界：龄期 0 与负值归零，超长龄期封顶，兵种基准解耦`() {
+        assertEquals(0, CampaignController.fuzzyRadiusCells(ArmyType.REGULAR, 0))
+        assertEquals("负龄期视同刚目睹", 0, CampaignController.fuzzyRadiusCells(ArmyType.REGULAR, -3))
+        assertEquals(8, CampaignController.fuzzyRadiusCells(ArmyType.REGULAR, 10))
+        assertEquals(4, CampaignController.fuzzyRadiusCells(ArmyType.MILITIA, 1))
+        assertEquals(7, CampaignController.fuzzyRadiusCells(ArmyType.CAVALRY, 1))
+    }
+
+    @Test
+    fun `B9-9 时间推进不自动刷新：未目睹敌军感知位置仍是开局部署报告`() {
+        val controller = CampaignController.load(FOG_JSON, null)
+        controller.step()
+        controller.step()
+        val perceived = controller.perceivedEnemiesOf("a1").firstOrNull { it.id == "b1" }
+        assertNotNull(perceived)
+        assertEquals("感知经度取开局报告 0.40", 0.40, perceived!!.latLng.lng, 1e-9)
+        assertEquals("感知纬度取开局报告 0.40", 0.40, perceived.latLng.lat, 1e-9)
+        val view = controller.snapshot().corps.first { it.id == "b1" }
+        assertNull("两回合后仍未目睹，视图不下发坐标", view.reportLat)
+    }
+
     private companion object {
         const val TRIGGER_JSON: String = """
 {
@@ -237,6 +360,40 @@ class CampaignControllerTest {
       "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" },
     { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.40, 0.40],
       "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        /** 近距离用例：双方近乎同格，首回合即在视野内并触发接触交战；等力交战不致溃散。 */
+        const val NEAR_JSON: String = """
+{
+  "id": "b9-near",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 10,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.000, 0.000],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.001, 0.001],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        /** 双观察者用例：同阵营两支军队贴近同一敌军，验证同回合多侦察不重复落条。 */
+        const val DUO_JSON: String = """
+{
+  "id": "b9-duo",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 10,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.000, 0.000],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "a2", "name": "丙", "side": "a", "initialPos": [0.001, 0.001],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.002, 0.002],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" }
   ]
 }
 """
