@@ -179,7 +179,7 @@ class CampaignJsonParserTest {
     }
 
     @Test
-    fun `B4-R 河流 pts 六类畸形（对象/字符串/数字/布尔/JsonNull/空数组）逐条跳过且各记一条 warning`() {
+    fun `B4-R 河流 pts 六类畸形（对象-字符串-数字-布尔-JsonNull-空数组）逐条跳过且各记一条 warning`() {
         // 六类点列形态各占一条河流；每条跳过都必须产生一条含 rivers 的可读 warning，不静默失败。
         val json = """
         {

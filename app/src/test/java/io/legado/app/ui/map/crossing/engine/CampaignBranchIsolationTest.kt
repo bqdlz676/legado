@@ -53,9 +53,10 @@ class CampaignBranchIsolationTest {
         assertEquals("存档 A 占据方为 a", "a", branchA.pointHolders[pointKey])
 
         // 手工构造分支 B：同一批军队，归属记为敌方 b、计数记 2，模拟另一条时间线的存档。
+        // pointKey 已在上方 assertNotNull 判空；mapOf 显式类型参数对齐 BranchSnapshot 的非空键签名。
         val branchB = branchA.copy(
-            captureHold = mapOf(pointKey to 2),
-            pointHolders = mapOf(pointKey to "b"),
+            captureHold = mapOf<String, Int>(pointKey!! to 2),
+            pointHolders = mapOf<String, String>(pointKey!! to "b"),
         )
 
         controller.restoreBranch(branchB)

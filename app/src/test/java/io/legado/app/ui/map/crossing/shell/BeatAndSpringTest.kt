@@ -88,12 +88,13 @@ class BeatAndSpringTest {
     @Test
     fun `spring roles source palette constants and carry rationale`() {
         // 高亮/改写/面板三角色沿用 reveal 口径；回合淡入沿用气泡 overshoot 口径。
-        assertEquals(ComponentPalette.REVEAL_SPRING_DAMPING, springFor(SpringRole.REVEAL_HIGHLIGHT).dampingRatio, 0f)
-        assertEquals(ComponentPalette.REVEAL_SPRING_STIFFNESS, springFor(SpringRole.REVEAL_HIGHLIGHT).stiffness, 0f)
-        assertEquals(ComponentPalette.REVEAL_SPRING_DAMPING, springFor(SpringRole.INTENT_OVERRIDE).dampingRatio, 0f)
-        assertEquals(ComponentPalette.REVEAL_SPRING_STIFFNESS, springFor(SpringRole.PALETTE_CHIP).stiffness, 0f)
-        assertEquals(ComponentPalette.BUBBLE_SPRING_DAMPING, springFor(SpringRole.TURN_CROSSFADE).dampingRatio, 0f)
-        assertEquals(ComponentPalette.BUBBLE_SPRING_STIFFNESS, springFor(SpringRole.TURN_CROSSFADE).stiffness, 0f)
+        // springFor 为泛型 <T>，测试脱离 Composable 上下文无法推断 T；阻尼/刚度均为 Float，显式取 SpringSpec<Float>。
+        assertEquals(ComponentPalette.REVEAL_SPRING_DAMPING, springFor<Float>(SpringRole.REVEAL_HIGHLIGHT).dampingRatio, 0f)
+        assertEquals(ComponentPalette.REVEAL_SPRING_STIFFNESS, springFor<Float>(SpringRole.REVEAL_HIGHLIGHT).stiffness, 0f)
+        assertEquals(ComponentPalette.REVEAL_SPRING_DAMPING, springFor<Float>(SpringRole.INTENT_OVERRIDE).dampingRatio, 0f)
+        assertEquals(ComponentPalette.REVEAL_SPRING_STIFFNESS, springFor<Float>(SpringRole.PALETTE_CHIP).stiffness, 0f)
+        assertEquals(ComponentPalette.BUBBLE_SPRING_DAMPING, springFor<Float>(SpringRole.TURN_CROSSFADE).dampingRatio, 0f)
+        assertEquals(ComponentPalette.BUBBLE_SPRING_STIFFNESS, springFor<Float>(SpringRole.TURN_CROSSFADE).stiffness, 0f)
         SpringRole.entries.forEach { role ->
             assertFalse("每个弹簧角色必须写明阻尼/刚度选型理由", role.rationale.isBlank())
         }

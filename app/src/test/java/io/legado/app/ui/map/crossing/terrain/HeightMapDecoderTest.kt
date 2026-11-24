@@ -141,9 +141,9 @@ class HeightMapDecoderTest {
 
     @Test
     fun `正常灰度图解码为 0 到 1 归一化栅格`() {
-        val png = encodePng(4, 4, colorType = 0, channels = 1) { x, y ->
+        val png = encodePng(4, 4, colorType = 0, channels = 1, pixel = { x, y ->
             intArrayOf((x * 64 + y * 16).coerceIn(0, 255))
-        }
+        })
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
@@ -160,9 +160,9 @@ class HeightMapDecoderTest {
 
     @Test
     fun `RGBA 图忽略 Alpha 取 RGB 平均亮度`() {
-        val png = encodePng(2, 2, colorType = 6, channels = 4) { _, _ ->
+        val png = encodePng(2, 2, colorType = 6, channels = 4, pixel = { _, _ ->
             intArrayOf(100, 150, 200, 0) // alpha=0 不应影响高程
-        }
+        })
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
@@ -219,7 +219,7 @@ class HeightMapDecoderTest {
 
     @Test
     fun `全零图解码为全零栅格`() {
-        val png = encodePng(3, 3, colorType = 0, channels = 1) { _, _ -> intArrayOf(0) }
+        val png = encodePng(3, 3, colorType = 0, channels = 1, pixel = { _, _ -> intArrayOf(0) })
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
@@ -228,7 +228,7 @@ class HeightMapDecoderTest {
 
     @Test
     fun `1 乘 1 图解码单格高程`() {
-        val png = encodePng(1, 1, colorType = 0, channels = 1) { _, _ -> intArrayOf(200) }
+        val png = encodePng(1, 1, colorType = 0, channels = 1, pixel = { _, _ -> intArrayOf(200) })
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
@@ -241,9 +241,9 @@ class HeightMapDecoderTest {
 
     @Test
     fun `base64 内联通路往返解码成功`() {
-        val png = encodePng(4, 4, colorType = 0, channels = 1) { x, y ->
+        val png = encodePng(4, 4, colorType = 0, channels = 1, pixel = { x, y ->
             intArrayOf((x * 40 + y * 20).coerceIn(0, 255))
-        }
+        })
         val b64 = Base64.getEncoder().encodeToString(png)
         val raster = HeightMapDecoder.decodeInline(b64)
         assertNotNull(raster)
@@ -342,9 +342,9 @@ class HeightMapDecoderTest {
     fun `M2 色彩类型 2 RGB 取通道平均亮度`() {
         // 像素0 (60,120,180) → 灰度 (60+120+180)/3 = 120；
         // 像素1 (30,90,150) → 灰度 (30+90+150)/3 = 90。
-        val png = encodePng(1, 2, colorType = 2, channels = 3) { x, _ ->
+        val png = encodePng(1, 2, colorType = 2, channels = 3, pixel = { x, _ ->
             if (x == 0) intArrayOf(60, 120, 180) else intArrayOf(30, 90, 150)
-        }
+        })
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
@@ -357,9 +357,9 @@ class HeightMapDecoderTest {
         // PLTE[0]=(255,255,0) → 灰度 (255+255+0)/3 = 170；
         // PLTE[1]=(0,255,0) → 灰度 (0+255+0)/3 = 85。
         val palette = listOf(intArrayOf(255, 255, 0), intArrayOf(0, 255, 0))
-        val png = encodePng(2, 1, colorType = 3, channels = 1, palette = palette) { x, _ ->
+        val png = encodePng(2, 1, colorType = 3, channels = 1, palette = palette, pixel = { x, _ ->
             intArrayOf(x)
-        }
+        })
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!

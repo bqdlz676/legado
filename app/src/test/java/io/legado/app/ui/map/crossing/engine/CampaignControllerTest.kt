@@ -217,8 +217,8 @@ class CampaignControllerTest {
         assertFalse(view.observed)
         assertNull(view.reportLat)
         assertNull(view.reportLng)
-        assertTrue("盲区主坐标不得回填真实纬度", Double.isNaN(view.lat))
-        assertTrue("盲区主坐标不得回填真实经度", Double.isNaN(view.lng))
+        assertTrue("盲区主坐标不得回填真实纬度", view.lat.isNaN())
+        assertTrue("盲区主坐标不得回填真实经度", view.lng.isNaN())
         assertTrue("未观测敌军规划路线不下发", view.route.isEmpty())
         assertNull("从未侦察敌军无模糊半径", controller.reportRadiusCells("b1"))
         assertTrue("盲区占位文案不得为空", !controller.blindZoneLabel("b1").isNullOrEmpty())
@@ -335,7 +335,7 @@ class CampaignControllerTest {
      * 平场栅格保证通视恒真；布位在载入后直接写运行态格 / 经纬度，首回合目睹距离可确定性留档。
      */
     @Test
-    fun `B9-10 记录级半径·远距离目睹：距离项 2，龄期 1/4/10 → 3/6/8 封顶`() {
+    fun `B9-10 记录级半径·远距离目睹：距离项 2，龄期 1-4-10 → 3-6-8 封顶`() {
         val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
         val a1 = controller.corps.first { it.id == "a1" }
         val b1 = controller.corps.first { it.id == "b1" }
@@ -362,7 +362,7 @@ class CampaignControllerTest {
     }
 
     @Test
-    fun `B9-11 记录级半径·近距离目睹：距离项 1，龄期 1/4/10 → 2/5/8 封顶`() {
+    fun `B9-11 记录级半径·近距离目睹：距离项 1，龄期 1-4-10 → 2-5-8 封顶`() {
         val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
         val a1 = controller.corps.first { it.id == "a1" }
         val b1 = controller.corps.first { it.id == "b1" }
