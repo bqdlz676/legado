@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.dp
  * 本子域不引 MaterialTheme，不写 Material ripple；颜色只许从这里取，其余类只读不改。
  * 色值与阅读页 [io.legado.app.ui.book.read.ink.InkTokens]、发现页 InkExploreTokens 同口径，
  * 禁止在本目录另立独立色值。
+ *
+ * TODO(D23 收口)：12 色真值源为 io.legado.app.ui.components.ComponentPalette；本文件是搜索页副本，
+ * 本轮只留值不改引用，后续改为转发到单源后删除本副本。
  */
 object SearchTokens {
 

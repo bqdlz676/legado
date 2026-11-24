@@ -9,6 +9,9 @@ import androidx.compose.ui.unit.dp
  *
  * 12 色语义色 + 四条缓动 + 四档时长，全部与《落文-设计系统-契约.md》一一对应。
  * 本子域不引 MaterialTheme，不写 Material ripple；颜色只许从这里取。
+ *
+ * TODO(D23 收口)：12 色 / 曲线 / 时长真值源为 io.legado.app.ui.components.ComponentPalette；本文件是发现页副本，
+ * 本轮只留值不改引用，后续改为转发到单源后删除本副本。
  */
 object InkExploreTokens {
 

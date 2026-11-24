@@ -7,6 +7,9 @@ import androidx.compose.ui.graphics.Color
  *
  * 颜色取 12 色语义契约在暗底下的派生值；纪年页材质为「gradient mesh 暗底暖光渐变」，
  * 不用绢帛纸白铺满。底栏几何 / 模糊参数取微交互契约「纪年页毛玻璃底栏」原文数值。
+ *
+ * TODO(D23 收口)：12 色基色真值源为 io.legado.app.ui.components.ComponentPalette；本文件暗底派生值
+ * 后续改为「单源基色 + 暗底派生系数」表达，本轮只留值不改引用。
  */
 object ChronoTokens {
 

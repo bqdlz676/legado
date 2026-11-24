@@ -10,6 +10,9 @@ import androidx.compose.ui.graphics.Color
  *  - 《落文 · 启动动画》时间线（0–2800ms 逐段，整段编排固定 2.8s 不拆分）。
  *
  * 启动页黑底 `#0A0C14` 为启动动画原文 0ms 场景逐字指定的场景底色，非新增语义色。
+ *
+ * TODO(D23 收口)：12 色真值源为 io.legado.app.ui.components.ComponentPalette；本文件是启动页副本，
+ * 本轮只留值不改引用，后续改为转发到单源后删除本副本。
  */
 object LuowenSplash {
 

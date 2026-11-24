@@ -17,6 +17,9 @@ import androidx.compose.ui.unit.sp
  *
  * 适用条件：仅服务 [io.legado.app.ui.card.CardSurface] 及其下属 12 类具体卡片；
  * 非卡片场景（按钮 / 气泡 / Sheet）仍取各自包内 token，不要混用。
+ *
+ * TODO(D23 收口)：语义色真值源为 io.legado.app.ui.components.ComponentPalette；本对象为卡片基座副本，
+ * 本轮只留值不改引用，后续改为转发到单源后删除重复色值。
  */
 object CardTokens {
 

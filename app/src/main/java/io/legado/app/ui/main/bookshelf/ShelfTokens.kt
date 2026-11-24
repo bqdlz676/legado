@@ -11,6 +11,9 @@ import androidx.compose.ui.text.font.FontWeight
  * 颜色只允许取契约 §1 的 12 色语义 token；本文件是书架域内唯一允许出现十六进制色值的地方，
  * 卡片 / 粒子 / 按钮一律从这里取色，组件内禁止另写 hex。
  * 缓动与时长收口自切片-15《全局动效铁律》与切片-03 四层框架，值不可在组件内放宽。
+ *
+ * TODO(D23 收口)：12 色真值源为 io.legado.app.ui.components.ComponentPalette；本文件是书架域副本，
+ * 本轮只留值不改引用，后续改为转发到单源后删除本副本。
  */
 object ShelfTokens {
 

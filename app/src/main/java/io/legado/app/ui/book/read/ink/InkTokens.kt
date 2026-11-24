@@ -17,6 +17,9 @@ import io.legado.app.ui.book.read.vertical.VerticalTokens
  *  BG_PAGE / BG_SURFACE / BG_OVERLAY / TEXT_PRIMARY / TEXT_SECONDARY / TEXT_TERTIARY /
  *  TEXT_ACCENT / BRAND_GOLD / BRAND_COPPER / COLOR_LINK / COLOR_DIVIDER / COLOR_GLOW。
  *  下面同时保留 camelCase 别名，供同仓旧引用平滑过渡；二者指向同一 [Color]。
+ *
+ * TODO(D23 收口)：12 色 / 曲线 / 时长的唯一真值源是 io.legado.app.ui.components.ComponentPalette；
+ * 本对象是阅读页 Compose 侧副本，本轮只留值不改引用，后续改为转发到单源后删除本副本。
  */
 object InkTokens {
 
