@@ -22,7 +22,7 @@ import java.io.File
 class DesignTokenGuardTest {
 
     @Test
-    fun `anchor contract: 12 colors 4 easings 5 durations match frozen source`() {
+    fun `anchor contract 12 colors 4 easings 5 durations match frozen source`() {
         // 12 色主 token 数量硬判：多一项少一项都 FAIL
         assertEquals("主 token 数量必须为 12", 12, ComponentPalette.mainTokens.size)
 
