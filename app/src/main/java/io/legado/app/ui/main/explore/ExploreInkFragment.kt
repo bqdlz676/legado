@@ -37,9 +37,9 @@ class ExploreInkFragment() : BaseFragment(R.layout.fragment_explore_ink), MainFr
     private val ctx get() = requireContext()
 
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        binding.tvSearch.setOnClickListener {
-            InkSearchActivity.start(ctx, "")
-        }
+        // D25（F-13）：发现页头部独立搜索入口下线，搜索统一收口到书架页下拉浮层；
+        // 典籍 / 专题卡片的预填词检索归 D1~D7 检索流，本单不改。
+        binding.tvSearch.visibility = View.GONE
 
         val campaigns = listOf(
             Campaign("赤壁之战", "三国 · 孙刘抗曹", "火光照亮赤壁", "赤壁", 208, 29.72, 113.30, "chibi"),

@@ -3,21 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:showIn="bottom_navigation_view">
 
+    <!-- D25：底部导航固定三 Tab = 书架 · 发现 · 设置；旧画板/RSS/我的入口已下线 -->
     <item
         android:id="@+id/menu_bookshelf"
-        android:icon="@drawable/ic_bottom_books"
+        android:icon="@drawable/ic_tab_bookshelf"
         android:title="@string/bookshelf" />
     <item
         android:id="@+id/menu_discovery"
-        android:icon="@drawable/ic_bottom_explore"
+        android:icon="@drawable/ic_tab_discover"
         android:title="@string/discovery" />
     <item
         android:id="@+id/menu_my_config"
-        android:icon="@drawable/ic_bottom_person"
-        android:title="@string/my" />
-    <item
-        android:id="@+id/menu_paint"
-        android:icon="@drawable/ic_bottom_paint"
-        android:title="画板" />
+        android:icon="@drawable/ic_tab_settings"
+        android:title="@string/setting" />
 
 </menu>

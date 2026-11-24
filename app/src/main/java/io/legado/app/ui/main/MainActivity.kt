@@ -2,7 +2,6 @@
 
 package io.legado.app.ui.main
 
-import android.content.Intent
 import android.graphics.Rect
 import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
@@ -54,8 +53,8 @@ import io.legado.app.ui.association.ImportReplaceRuleDialog
 import io.legado.app.ui.association.ImportRssSourceDialog
 import io.legado.app.ui.association.ImportTxtTocRuleDialog
 import io.legado.app.ui.main.bookshelf.InkShelfFragment
-import io.legado.app.ui.main.explore.ExploreFragment
-import io.legado.app.ui.main.rss.RssFragment
+import io.legado.app.ui.main.explore.ExploreInkFragment
+import io.legado.app.ui.main.my.MyInkFragment
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.ui.widget.text.BadgeView
 import io.legado.app.utils.clearClip
@@ -89,10 +88,10 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
 
     override val binding by viewBinding(ActivityMainBinding::inflate)
     override val viewModel by viewModels<MainViewModel>()
+    // D25：底部导航固定三槽位 = 书架(0) · 发现(1) · 设置(2)；旧 RSS / 我的 / 画板槽位已下线
     private val idBookshelf = 0
     private val idExplore = 1
-    private val idRss = 2
-    private val idMy = 3
+    private val idSettings = 2
     private var exitTime: Long = 0
     private var bookshelfReselected: Long = 0
     private var exploreReselected: Long = 0
@@ -100,7 +99,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
     private val fragmentMap = hashMapOf<Int, Fragment>()
     private var bottomMenuCount = 3
     private val EXIT_INTERVAL = 2000L
-    private val realPositions = arrayOf(idBookshelf, idExplore, idMy, idMy)
+    private val realPositions = arrayOf(idBookshelf, idExplore, idSettings)
     private val menuIdToSlot = linkedMapOf(
         R.id.menu_bookshelf to "bookshelf",
         R.id.menu_discovery to "home",
@@ -192,28 +191,23 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean = binding.run {
         when (item.itemId) {
-            R.id.menu_bookshelf -> {
-                viewPagerMain.setCurrentItem(0, false)
-                true
-            }
-
-            R.id.menu_discovery -> {
-                viewPagerMain.setCurrentItem(realPositions.indexOf(idExplore), false)
-                true
-            }
-
-            R.id.menu_my_config -> {
-                viewPagerMain.setCurrentItem(realPositions.indexOf(idMy), false)
-                true
-            }
-
-            R.id.menu_paint -> {
-                startActivity(Intent(this@MainActivity, PaintActivity::class.java))
-                false
-            }
-
+            R.id.menu_bookshelf -> switchTab(0)
+            R.id.menu_discovery -> switchTab(realPositions.indexOf(idExplore))
+            R.id.menu_my_config -> switchTab(realPositions.indexOf(idSettings))
             else -> false
         }
+    }
+
+    /**
+     * 幂等切 Tab：已在目标页则不重复切换、不重复建 Fragment；
+     * 设置 Tab 只是 ViewPager 槽位切换，不向返回栈压入 Activity 条目（重复点击不重复入栈）。
+     */
+    private fun switchTab(position: Int): Boolean {
+        if (position < 0) return false
+        if (binding.viewPagerMain.currentItem != position) {
+            binding.viewPagerMain.setCurrentItem(position, false)
+        }
+        return true
     }
 
     override fun onNavigationItemReselected(item: MenuItem) {
@@ -230,7 +224,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 if (System.currentTimeMillis() - exploreReselected > 300) {
                     exploreReselected = System.currentTimeMillis()
                 } else {
-                    (fragmentMap[1] as? ExploreFragment)?.compressExplore()
+                    (fragmentMap[1] as? ExploreInkFragment)?.compressExplore()
                 }
             }
         }
@@ -331,6 +325,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
     }
 
     private fun upBottomMenu() {
+        // 发现页显隐仍走既有偏好（开关在 C1 配置域，本单不改动）；槽位集合固定为书架 / 发现 / 设置。
         val showDiscovery = AppConfig.showDiscovery
         binding.bottomNavigationView.menu.let { menu ->
             menu.findItem(R.id.menu_discovery)?.isVisible = showDiscovery
@@ -341,7 +336,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             realPositions[index] = idExplore
         }
         index++
-        realPositions[index] = idMy
+        realPositions[index] = idSettings
         bottomMenuCount = index + 1
         adapter.notifyDataSetChanged()
     }
@@ -454,7 +449,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             }
 
 
-            "my" -> binding.viewPagerMain.setCurrentItem(realPositions.indexOf(idMy), false)
+            "my" -> binding.viewPagerMain.setCurrentItem(realPositions.indexOf(idSettings), false)
         }
     }
 
@@ -470,7 +465,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             pagePosition = position
             val menuId = when (realPositions[position]) {
                 idExplore -> R.id.menu_discovery
-                idMy -> R.id.menu_my_config
+                idSettings -> R.id.menu_my_config
                 else -> R.id.menu_bookshelf
             }
             binding.bottomNavigationView.menu.findItem(menuId)?.isChecked = true
@@ -491,9 +486,8 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 ?: return POSITION_NONE
             val fragmentId = getId(position)
             if ((fragmentId == idBookshelf && any is InkShelfFragment)
-                || (fragmentId == idExplore && any is io.legado.app.ui.main.explore.ExploreInkFragment)
-                || (fragmentId == idRss && any is RssFragment)
-                || (fragmentId == idMy && any is io.legado.app.ui.main.my.MyInkFragment)
+                || (fragmentId == idExplore && any is ExploreInkFragment)
+                || (fragmentId == idSettings && any is MyInkFragment)
             ) {
                 return POSITION_UNCHANGED
             }
@@ -503,9 +497,8 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
         override fun getItem(position: Int): Fragment {
             return when (getId(position)) {
                 idBookshelf -> InkShelfFragment(position)
-                idExplore -> io.legado.app.ui.main.explore.ExploreInkFragment(position)
-                idRss -> RssFragment(position)
-                else -> io.legado.app.ui.main.my.MyInkFragment(position)
+                idExplore -> ExploreInkFragment(position)
+                else -> MyInkFragment(position)
             }
         }
 

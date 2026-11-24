@@ -33,9 +33,10 @@ class ThemeBottomNavigationVIew(context: Context, attrs: AttributeSet) :
 
     /** menu id -> 默认矢量图标; applySkin(null) 时据此还原 */
     private val defaultIcons = mapOf(
-        R.id.menu_bookshelf to R.drawable.ic_bottom_books,
-        R.id.menu_discovery to R.drawable.ic_bottom_explore,
-        R.id.menu_my_config to R.drawable.ic_bottom_person,
+        R.id.menu_bookshelf to R.drawable.ic_tab_bookshelf,
+        R.id.menu_discovery to R.drawable.ic_tab_discover,
+        // D25：第三 Tab 为设置，图标按规格切片（两竖线 + 顶端圆点），不再用人像标
+        R.id.menu_my_config to R.drawable.ic_tab_settings,
     )
 
     init {
