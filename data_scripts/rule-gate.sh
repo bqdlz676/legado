@@ -228,5 +228,10 @@ if [ $? -eq 0 ]; then ok "㉘测试函数名合法性" "$(echo "$TFN28" | grep '
 IDLE29=$(python3 data_scripts/check-no-idle.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉙停工守卫" "$(echo "$IDLE29" | grep 'NO-IDLE: PASS')"; else bad "㉙停工守卫" "$(echo "$IDLE29" | grep -E 'FAIL' | head -2 | tr '\n' ' ')"; fi
 
+# ㉚ 队首推进（F-104）：㉙ 只能发现"HEAD 不动"，但事故还有另一种形态——HEAD 在动、
+#    队列却有 PENDING 而 RUNNING=0（调度层在跑却没派单）。这条专门守那种并行空转。
+QR30=$(python3 data_scripts/check-queue-running.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉚队首推进" "$(echo "$QR30" | grep 'QUEUE-RUNNING: PASS')"; else bad "㉚队首推进" "$(echo "$QR30" | grep -E 'FAIL' | head -2 | tr '\n' ' ')"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
