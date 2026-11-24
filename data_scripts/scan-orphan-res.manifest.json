@@ -1,0 +1,1940 @@
+{
+  "first_order": [
+    {
+      "path": "app/src/main/res/anim/anim_none.xml",
+      "type": "anim",
+      "name": "anim_none",
+      "size": 52,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.anim\\.anim_none(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@anim/anim_none(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*anim_none' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'AnimNoneBinding|AnimNone' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*anim_none[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_video_chapter_item.xml",
+      "type": "drawable",
+      "name": "bg_video_chapter_item",
+      "size": 189,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_video_chapter_item(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_video_chapter_item(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_video_chapter_item' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgVideoChapterItemBinding|BgVideoChapterItem' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_video_chapter_item[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_ink_seal.xml",
+      "type": "drawable",
+      "name": "bg_ink_seal",
+      "size": 190,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_ink_seal(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_ink_seal(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_ink_seal' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgInkSealBinding|BgInkSeal' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_ink_seal[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/shape_pop_checkaddshelf_bg.xml",
+      "type": "drawable",
+      "name": "shape_pop_checkaddshelf_bg",
+      "size": 218,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.shape_pop_checkaddshelf_bg(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/shape_pop_checkaddshelf_bg(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*shape_pop_checkaddshelf_bg' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'ShapePopCheckaddshelfBgBinding|ShapePopCheckaddshelfBg' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*shape_pop_checkaddshelf_bg[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/recyclerview_divider_horizontal.xml",
+      "type": "drawable",
+      "name": "recyclerview_divider_horizontal",
+      "size": 270,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.recyclerview_divider_horizontal(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/recyclerview_divider_horizontal(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*recyclerview_divider_horizontal' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'RecyclerviewDividerHorizontalBinding|RecyclerviewDividerHorizontal' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*recyclerview_divider_horizontal[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_gradient.xml",
+      "type": "drawable",
+      "name": "bg_gradient",
+      "size": 274,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_gradient(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_gradient(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_gradient' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgGradientBinding|BgGradient' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_gradient[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/selector_btn_accent_bg.xml",
+      "type": "drawable",
+      "name": "selector_btn_accent_bg",
+      "size": 277,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.selector_btn_accent_bg(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/selector_btn_accent_bg(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*selector_btn_accent_bg' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'SelectorBtnAccentBgBinding|SelectorBtnAccentBg' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*selector_btn_accent_bg[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/shape_radius_1dp.xml",
+      "type": "drawable",
+      "name": "shape_radius_1dp",
+      "size": 279,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.shape_radius_1dp(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/shape_radius_1dp(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*shape_radius_1dp' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'ShapeRadius1dpBinding|ShapeRadius1dp' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*shape_radius_1dp[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/shape_radius_10dp.xml",
+      "type": "drawable",
+      "name": "shape_radius_10dp",
+      "size": 280,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.shape_radius_10dp(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/shape_radius_10dp(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*shape_radius_10dp' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'ShapeRadius10dpBinding|ShapeRadius10dp' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*shape_radius_10dp[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/read_record_cover_placeholder.xml",
+      "type": "drawable",
+      "name": "read_record_cover_placeholder",
+      "size": 290,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.read_record_cover_placeholder(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/read_record_cover_placeholder(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*read_record_cover_placeholder' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'ReadRecordCoverPlaceholderBinding|ReadRecordCoverPlaceholder' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*read_record_cover_placeholder[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_chapter_item_divider.xml",
+      "type": "drawable",
+      "name": "bg_chapter_item_divider",
+      "size": 292,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_chapter_item_divider(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_chapter_item_divider(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_chapter_item_divider' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgChapterItemDividerBinding|BgChapterItemDivider' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_chapter_item_divider[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_bottom_rss_feed.xml",
+      "type": "drawable",
+      "name": "ic_bottom_rss_feed",
+      "size": 305,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_bottom_rss_feed(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_bottom_rss_feed(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_bottom_rss_feed' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcBottomRssFeedBinding|IcBottomRssFeed' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_bottom_rss_feed[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_fast_forward.xml",
+      "type": "drawable",
+      "name": "ic_fast_forward",
+      "size": 316,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_fast_forward(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_fast_forward(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_fast_forward' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcFastForwardBinding|IcFastForward' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_fast_forward[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_fast_rewind.xml",
+      "type": "drawable",
+      "name": "ic_fast_rewind",
+      "size": 327,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_fast_rewind(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_fast_rewind(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_fast_rewind' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcFastRewindBinding|IcFastRewind' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_fast_rewind[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/selector_common_bg.xml",
+      "type": "drawable",
+      "name": "selector_common_bg",
+      "size": 334,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.selector_common_bg(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/selector_common_bg(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*selector_common_bg' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'SelectorCommonBgBinding|SelectorCommonBg' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*selector_common_bg[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_gradient_cover.xml",
+      "type": "drawable",
+      "name": "bg_gradient_cover",
+      "size": 342,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_gradient_cover(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_gradient_cover(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_gradient_cover' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgGradientCoverBinding|BgGradientCover' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_gradient_cover[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_ink_drop.xml",
+      "type": "drawable",
+      "name": "ic_ink_drop",
+      "size": 383,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_ink_drop(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_ink_drop(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_ink_drop' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcInkDropBinding|IcInkDrop' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_ink_drop[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/color/selector_image.xml",
+      "type": "color",
+      "name": "selector_image",
+      "size": 401,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.color\\.selector_image(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@color/selector_image(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*selector_image' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'SelectorImageBinding|SelectorImage' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*selector_image[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_storage_black_24dp.xml",
+      "type": "drawable",
+      "name": "ic_storage_black_24dp",
+      "size": 408,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_storage_black_24dp(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_storage_black_24dp(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_storage_black_24dp' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcStorageBlack24dpBinding|IcStorageBlack24dp' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_storage_black_24dp[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_ink_tabstrip.xml",
+      "type": "drawable",
+      "name": "bg_ink_tabstrip",
+      "size": 409,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_ink_tabstrip(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_ink_tabstrip(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_ink_tabstrip' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgInkTabstripBinding|BgInkTabstrip' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_ink_tabstrip[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_block.xml",
+      "type": "drawable",
+      "name": "ic_block",
+      "size": 409,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_block(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_block(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_block' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcBlockBinding|IcBlock' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_block[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/selector_tv_black.xml",
+      "type": "drawable",
+      "name": "selector_tv_black",
+      "size": 433,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.selector_tv_black(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/selector_tv_black(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*selector_tv_black' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'SelectorTvBlackBinding|SelectorTvBlack' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*selector_tv_black[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/recyclerview_divider_vertical.xml",
+      "type": "drawable",
+      "name": "recyclerview_divider_vertical",
+      "size": 443,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.recyclerview_divider_vertical(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/recyclerview_divider_vertical(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*recyclerview_divider_vertical' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'RecyclerviewDividerVerticalBinding|RecyclerviewDividerVertical' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*recyclerview_divider_vertical[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_backup.xml",
+      "type": "drawable",
+      "name": "ic_backup",
+      "size": 463,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_backup(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_backup(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_backup' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcBackupBinding|IcBackup' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_backup[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_create_folder_outline.xml",
+      "type": "drawable",
+      "name": "ic_create_folder_outline",
+      "size": 497,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_create_folder_outline(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_create_folder_outline(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_create_folder_outline' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcCreateFolderOutlineBinding|IcCreateFolderOutline' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_create_folder_outline[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_scoring.xml",
+      "type": "drawable",
+      "name": "ic_scoring",
+      "size": 556,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_scoring(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_scoring(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_scoring' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcScoringBinding|IcScoring' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_scoring[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_ink_round_btn.xml",
+      "type": "drawable",
+      "name": "bg_ink_round_btn",
+      "size": 598,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_ink_round_btn(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_ink_round_btn(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_ink_round_btn' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgInkRoundBtnBinding|BgInkRoundBtn' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_ink_round_btn[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_cfg_donate.xml",
+      "type": "drawable",
+      "name": "ic_cfg_donate",
+      "size": 604,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_cfg_donate(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_cfg_donate(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_cfg_donate' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcCfgDonateBinding|IcCfgDonate' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_cfg_donate[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_back.xml",
+      "type": "drawable",
+      "name": "ic_back",
+      "size": 654,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_back(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_back(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_back' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcBackBinding|IcBack' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_back[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_textfield_search.xml",
+      "type": "drawable",
+      "name": "bg_textfield_search",
+      "size": 677,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_textfield_search(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_textfield_search(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_textfield_search' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgTextfieldSearchBinding|BgTextfieldSearch' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_textfield_search[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_exchange_order.xml",
+      "type": "drawable",
+      "name": "ic_exchange_order",
+      "size": 898,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_exchange_order(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_exchange_order(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_exchange_order' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcExchangeOrderBinding|IcExchangeOrder' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_exchange_order[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_check_source.xml",
+      "type": "drawable",
+      "name": "ic_check_source",
+      "size": 1031,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_check_source(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_check_source(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_check_source' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcCheckSourceBinding|IcCheckSource' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_check_source[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_view_quilt.xml",
+      "type": "drawable",
+      "name": "ic_view_quilt",
+      "size": 1072,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_view_quilt(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_view_quilt(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_view_quilt' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcViewQuiltBinding|IcViewQuilt' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_view_quilt[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_cfg_source_small.xml",
+      "type": "drawable",
+      "name": "ic_cfg_source_small",
+      "size": 1205,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_cfg_source_small(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_cfg_source_small(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_cfg_source_small' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcCfgSourceSmallBinding|IcCfgSourceSmall' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_cfg_source_small[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/bg_ink_book_card.xml",
+      "type": "drawable",
+      "name": "bg_ink_book_card",
+      "size": 1220,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.bg_ink_book_card(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/bg_ink_book_card(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*bg_ink_book_card' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'BgInkBookCardBinding|BgInkBookCard' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*bg_ink_book_card[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_arrange.xml",
+      "type": "drawable",
+      "name": "ic_arrange",
+      "size": 1308,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_arrange(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_arrange(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_arrange' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcArrangeBinding|IcArrange' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_arrange[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_bubble_chart.xml",
+      "type": "drawable",
+      "name": "ic_bubble_chart",
+      "size": 1348,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_bubble_chart(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_bubble_chart(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_bubble_chart' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcBubbleChartBinding|IcBubbleChart' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_bubble_chart[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable-xxhdpi/ic_stat_ink.png",
+      "type": "drawable",
+      "name": "ic_stat_ink",
+      "size": 1354,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_stat_ink(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_stat_ink(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_stat_ink' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcStatInkBinding|IcStatInk' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_stat_ink[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_scan.xml",
+      "type": "drawable",
+      "name": "ic_scan",
+      "size": 1419,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_scan(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_scan(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_scan' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcScanBinding|IcScan' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_scan[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/raw/ink_wen.txt",
+      "type": "raw",
+      "name": "ink_wen",
+      "size": 1933,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.raw\\.ink_wen(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@raw/ink_wen(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ink_wen' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'InkWenBinding|InkWen' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ink_wen[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher1_b.xml",
+      "type": "drawable",
+      "name": "ic_launcher1_b",
+      "size": 1995,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_launcher1_b(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_launcher1_b(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_launcher1_b' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcLauncher1BBinding|IcLauncher1B' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_launcher1_b[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/layout/dialog_highlight_shadow.xml",
+      "type": "layout",
+      "name": "dialog_highlight_shadow",
+      "size": 2554,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.layout\\.dialog_highlight_shadow(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@layout/dialog_highlight_shadow(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*dialog_highlight_shadow' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'DialogHighlightShadowBinding|DialogHighlightShadow' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*dialog_highlight_shadow[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher1.xml",
+      "type": "drawable",
+      "name": "ic_launcher1",
+      "size": 4601,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_launcher1(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_launcher1(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_launcher1' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcLauncher1Binding|IcLauncher1' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_launcher1[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/raw/ink_luo.txt",
+      "type": "raw",
+      "name": "ink_luo",
+      "size": 5609,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.raw\\.ink_luo(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@raw/ink_luo(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ink_luo' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'InkLuoBinding|InkLuo' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ink_luo[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/layout/dialog_highlight_note.xml",
+      "type": "layout",
+      "name": "dialog_highlight_note",
+      "size": 5750,
+      "order": "first_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.layout\\.dialog_highlight_note(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@layout/dialog_highlight_note(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*dialog_highlight_note' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'DialogHighlightNoteBinding|DialogHighlightNote' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*dialog_highlight_note[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    }
+  ],
+  "second_order": [
+    {
+      "path": "app/src/main/res/drawable/ic_bottom_rss_feed_e.xml",
+      "type": "drawable",
+      "name": "ic_bottom_rss_feed_e",
+      "size": 784,
+      "order": "second_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_bottom_rss_feed_e(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_bottom_rss_feed_e(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_bottom_rss_feed_e' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcBottomRssFeedEBinding|IcBottomRssFeedE' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_bottom_rss_feed_e[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_bottom_rss_feed_s.xml",
+      "type": "drawable",
+      "name": "ic_bottom_rss_feed_s",
+      "size": 610,
+      "order": "second_order",
+      "counts": {
+        "R_ref": 0,
+        "at_ref": 0,
+        "tools_attr": 0,
+        "binding": 0,
+        "literal": 0
+      },
+      "evidence": {
+        "R_ref": {
+          "count": 0,
+          "cmd": "grep -rnE 'R\\.drawable\\.ic_bottom_rss_feed_s(?![A-Za-z0-9_])' app/src modules --include='*.kt' --include='*.java'",
+          "hits": []
+        },
+        "at_ref": {
+          "count": 0,
+          "cmd": "grep -rnE '@drawable/ic_bottom_rss_feed_s(?![A-Za-z0-9_])' app/src/main/res app/src/main/AndroidManifest.xml --include='*.xml'",
+          "hits": []
+        },
+        "tools_attr": {
+          "count": 0,
+          "cmd": "grep -rnE '(tools:|\\?attr/).*ic_bottom_rss_feed_s' app/src/main/res --include='*.xml'",
+          "hits": []
+        },
+        "binding": {
+          "count": 0,
+          "cmd": "grep -rnE 'IcBottomRssFeedSBinding|IcBottomRssFeedS' app/src --include='*.kt' --include='*.java' --include='*.xml'",
+          "hits": []
+        },
+        "literal": {
+          "count": 0,
+          "cmd": "grep -rnE '[\"\\'][^\"\\']*ic_bottom_rss_feed_s[^\"\\']*[\"\\']' app/src modules data_scripts --include='*.kt' --include='*.java' --include='*.xml' --include='*.py' --include='*.sh'",
+          "hits": []
+        }
+      }
+    }
+  ],
+  "kept_suspect": [],
+  "summary": {
+    "first_order": 45,
+    "second_order": 2,
+    "kept_suspect": 0,
+    "aborted": []
+  }
+}

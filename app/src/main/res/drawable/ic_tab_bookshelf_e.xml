@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 未选中：暗铜 #8B6914；三条竖线（中线 x=12 高出 1dp）+ 底部横线 y=21 -->
+  <path
+      android:strokeColor="#8B6914"
+      android:strokeWidth="1.5"
+      android:strokeLineCap="round"
+      android:pathData="M8,4 L8,20 M12,3 L12,20 M16,4 L16,20 M6,21 L18,21" />
+</vector>

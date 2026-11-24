@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- D25：设置 Tab 齿轮图标（F-24 金星玻璃版）；未选中古铜灰、选中暖金，状态由 selector 切换 -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/ic_bottom_setting_e" android:state_checked="false" />
-    <item android:drawable="@drawable/ic_bottom_setting_s" android:state_checked="true" />
-</selector>

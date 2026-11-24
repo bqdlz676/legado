@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 选中：暖金 #D4A54A -->
+  <path
+      android:strokeColor="#D4A54A"
+      android:strokeWidth="1.5"
+      android:strokeLineCap="round"
+      android:pathData="M10,8 L10,18 M15,6 L15,18" />
+  <path
+      android:fillColor="#D4A54A"
+      android:pathData="M10,7 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+  <path
+      android:fillColor="#D4A54A"
+      android:pathData="M15,5 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+</vector>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- D25 导航图标 · 书架（图标规格：三线 + 底横线，线宽 1.5 圆角端点；状态由 selector 切换铜/金） -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_tab_bookshelf_e" android:state_checked="false" />
+    <item android:drawable="@drawable/ic_tab_bookshelf_s" android:state_checked="true" />
+</selector>

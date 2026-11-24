@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- D25 导航图标 · 设置（规格指定图形：两竖线 + 顶端圆点；非齿轮） -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_tab_settings_e" android:state_checked="false" />
+    <item android:drawable="@drawable/ic_tab_settings_s" android:state_checked="true" />
+</selector>
