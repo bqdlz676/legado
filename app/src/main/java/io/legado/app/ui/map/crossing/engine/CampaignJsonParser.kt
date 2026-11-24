@@ -23,6 +23,9 @@ import io.legado.app.ui.map.crossing.model.TriggerDef
 import io.legado.app.ui.map.crossing.model.VictoryDef
 import io.legado.app.ui.map.crossing.model.VictoryType
 import io.legado.app.ui.map.crossing.model.WeatherDef
+import io.legado.app.ui.map.crossing.terrain.HeightMapDecoder
+import io.legado.app.ui.map.crossing.terrain.HeightMapRaster
+import io.legado.app.ui.map.crossing.terrain.SourceKind
 
 /**
  * 战役 JSON 解析器（纯 JVM，Gson；不引 Android 资源）。
@@ -56,6 +59,21 @@ object CampaignJsonParser {
         // B13：heightMap 统一走 strOrNull 守卫——非 primitive（对象 / 数组 / JsonNull）回落 null，
         // 空白串裁掉后回落 null；与 B4 其余字段同一兜底口径，不把类型错位抛到壳层。
         val heightMap = strOrNull(obj, "heightMap")
+        // B13 解码通路：先按三类来源（资产名 / 本地路径 / 内联 base64）分类。内联 base64 是纯 JVM
+        // 可达通路，解析期即尝试解码；失败记 warning（degraded 随之置真），栅格由确定性合成场兜底。
+        // 资产 / 本地路径需平台 reader，引擎层不引 Android 资源 API，留给壳层经既有
+        // RasterDecoder / CrossingRasterBridge API 装配；model 暂未接纳栅格字段（见复审报告交接节）。
+        val heightMapKind = HeightMapDecoder.classify(heightMap)
+        if (heightMapKind == SourceKind.BASE64) {
+            val inlineRaster = try {
+                HeightMapDecoder.decodeInline(heightMap)
+            } catch (_: Throwable) {
+                null
+            }
+            if (inlineRaster == null) {
+                warnings += "heightMap 内联 base64 解码失败：回落确定性合成高程场"
+            }
+        }
 
         val focus = parseFocus(obj, warnings)
         val duration = int(obj, "duration", DEFAULT_DURATION).coerceAtLeast(1)
@@ -343,6 +361,16 @@ object CampaignJsonParser {
         val def = fallback("推演兜底战场", mutableListOf())
         return def.copy(warnings = emptyList())
     }
+
+    /**
+     * B13 既有 API 暴露：按战役 JSON `heightMap` 值装配高程栅格。
+     *
+     * 纯 JVM 入口：内联 base64 由解码器直解；资产 / 本地路径由平台侧注入 [reader]（读 assets /
+     * 文件系统），reader 为 null 或解码失败时回落确定性合成场并置 degraded，不抛异常。
+     * model 接纳栅格字段前，壳层装配 HeightRaster 时经本函数取栅格（交接建议见复审报告）。
+     */
+    fun decodeHeightMap(raw: String?, reader: ((String) -> ByteArray?)?): HeightMapRaster =
+        HeightMapDecoder.decode(raw, reader)
 
     private fun fallback(reason: String, warnings: MutableList<String>): CampaignDefinition {
         warnings += reason
