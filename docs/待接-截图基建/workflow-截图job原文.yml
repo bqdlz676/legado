@@ -1,0 +1,84 @@
+# 存档：原 build.yml 中 screenshot-frames job 原文（自 commit 068b56a 引入，2026-11-25 因类路径污染致 CI 红而移离主 workflow）。
+# 本文件仅作重新接线时的原文对照，不参与任何 workflow 解析。
+# 提取范围：build.yml 原 318-397 行，逐字未改。
+
+  # ---------- 截图帧：Paparazzi 纯 JVM（layoutlib）真实渲染关键屏，产出 PNG + frames.json 供观感判定 ----------
+  # 门禁口径：依赖基线单测全绿后才出帧；本 job 不用 continue-on-error、不用 if:always()；
+  # record 任务 / 清单脚本 / artifact 任一环失败都会让整体 run 归 FAIL；无帧时 upload 以 if-no-files-found: error 兜底。
+  screenshot-frames:
+    name: Render screenshot frames (Paparazzi)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    needs: [discover, test-shard, test-aggregate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "distributionUrl=$DIST"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      # 清掉可能残留的旧 golden，避免把上一轮帧混进本轮 artifact。
+      - name: Clean stale Paparazzi snapshots
+        run: rm -rf app/src/test/snapshots app/build/outputs/screenshots
+
+      # record 模式：layoutlib 在 JVM 下真实渲染并落盘 PNG；--tests 只跑截图包，不碰基线单测。
+      - name: Render frames with Paparazzi (record)
+        run: ./gradlew :app:recordPaparazziAppDebug --tests "io.legado.app.ci.screenshot.*" --no-daemon --stacktrace
+
+      # golden 帧按 包_类_方法 命名落到 snapshots/images；汇总到统一产物目录供清单脚本扫描。
+      - name: Collect frames into outputs/screenshots
+        run: |
+          set -euo pipefail
+          mkdir -p app/build/outputs/screenshots
+          find app/src/test/snapshots -type f -name '*.png' -exec cp {} app/build/outputs/screenshots/ \;
+          ls -la app/build/outputs/screenshots/
+
+      - name: Generate frame manifest (frames.json + frames.md)
+        run: python3 data_scripts/frame-manifest.py --dir app/build/outputs/screenshots
+
+      - name: Upload screenshot frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-frames
+          path: |
+            app/build/outputs/screenshots/*.png
+            app/build/outputs/screenshots/frames.json
+            app/build/outputs/screenshots/frames.md
+          if-no-files-found: error

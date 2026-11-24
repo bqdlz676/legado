@@ -31,10 +31,6 @@ nanoHttpd = "2.3.1"
 okhttp = "5.4.0"
 brotli = "0.1.2"
 preference = "1.2.1"
-# Paparazzi 2.0.0-alpha05：CHANGELOG 标注支持 pre-AGP 9.0 消费者、AGP 8.13.2、Compose 1.11.2、
-# 修复 Gradle 8.x 的 HtmlWriterTools NoClassDefFoundError，要求 JDK21；与本栈 AGP 8.13.2 / Compose 1.11.4 /
-# Gradle 8.14.4 / JDK21 对齐。alpha05.1 起要求 AGP 9.0.0，不可用；1.3.x 稳定档仅测 Compose 1.7.5 / AGP 8.4.2，落差过大。
-paparazzi = "2.0.0-alpha05"
 quickChineseTransfer = "0.2.17"
 
 splitties = "3.0.0"
@@ -211,8 +207,6 @@ jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 jsoupxpath = { module = "cn.wanghaomiao:JsoupXpath", version.ref = "jsoupxpath" }
 junit = { module = "junit:junit", version = "4.13.2" }
 mockito-core = { module = "org.mockito:mockito-core", version = "5.14.2" }
-# Paparazzi 纯 JVM 截图渲染库（layoutlib 在无真机/无模拟器下出帧）；仅 testImplementation 生效。
-paparazzi = { module = "app.cash.paparazzi:paparazzi", version.ref = "paparazzi" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 
@@ -264,6 +258,3 @@ room = { id = "androidx.room", version.ref = "room" }
 #protobuf = { id = "com.google.protobuf", version = "0.9.4" }
 
 download = { id = "de.undercouch.download", version = "5.7.0" }
-
-# Paparazzi Gradle 插件：注册 recordPaparazziAppDebug / verifyPaparazziAppDebug 任务并装配 layoutlib 测试依赖。
-paparazzi = { id = "app.cash.paparazzi", version.ref = "paparazzi" }

@@ -24,6 +24,14 @@ class TestReleaseWorkflowTest {
             .replace("\r\n", "\n")
     }
 
+    // 出包上传步骤在 b285dab 抽到 composite action（.github/actions/build-apks/action.yml），
+    // 产物名断言的真值来源随之移到该文件；这里与 build.yml 合并后再判，断言本身不放宽。
+    private val compositeActionText by lazy {
+        File(repositoryRoot, ".github/actions/build-apks/action.yml")
+            .readText()
+            .replace("\r\n", "\n")
+    }
+
     private val lanzouUploaderText by lazy {
         val scriptFile = File(repositoryRoot, ".github/scripts/lzy_web.py")
         scriptFile.readText().replace("\r\n", "\n")
@@ -36,8 +44,9 @@ class TestReleaseWorkflowTest {
 
     @Test
     fun `retained build workflow publishes only debug and release apk artifacts`() {
-        assertTrue(buildWorkflowText.contains("legado-debug-apk"))
-        assertTrue(buildWorkflowText.contains("legado-release-apk"))
+        val publishedArtifacts = buildWorkflowText + compositeActionText
+        assertTrue(publishedArtifacts.contains("legado-debug-apk"))
+        assertTrue(publishedArtifacts.contains("legado-release-apk"))
         assertFalse(buildWorkflowText.contains("ncipollo/release-action"))
         assertFalse(buildWorkflowText.contains("lzy_web.py"))
         assertFalse(buildWorkflowText.contains("Telegram"))

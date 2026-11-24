@@ -12,8 +12,6 @@ plugins {
     alias libs.plugins.room
     alias libs.plugins.ksp
     alias libs.plugins.kotlin.compose
-    // Paparazzi 必须排在 Android / Compose 插件之后：它向 AGP 单元测试变体装配 layoutlib 与截图任务。
-    alias libs.plugins.paparazzi
 }
 apply from: 'download.gradle'
 apply from: 'cronet-loader.gradle'
@@ -168,12 +166,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
-    testOptions {
-        // Paparazzi 在 JVM 下通过 layoutlib 渲染，必须把主源资源 / 资产纳入单元测试类路径；
-        // 不开则 R 资源与 drawable 在截图渲染时解析不到。既有纯 JVM 单测不受此开关负面影响。
-        // 注意：Groovy DSL 属性名是 includeAndroidResources（Kotlin DSL 才是 isIncludeAndroidResources）。
-        unitTests.includeAndroidResources = true
-    }
     packaging {
         resources.excludes.add('META-INF/*')
         // R8 removes the transcode implementation; these bundled resources have no runtime reader.
@@ -236,8 +228,6 @@ dependencies {
     coreLibraryDesugaring(libs.desugar)
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)
-    // Paparazzi 截图帧渲染（插件本身也会再补一份同版本依赖，此处显式声明便于版本收口在 catalog）。
-    testImplementation(libs.paparazzi)
     add(mockitoAgent.name, libs.mockito.core)
     androidTestImplementation(libs.bundles.androidTest)
     //kotlin
