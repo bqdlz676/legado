@@ -165,7 +165,7 @@ fun BookCard(
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { dragDx = 0f },
-                    onHorizontalDragChange = { _, dx -> dragDx += dx },
+                    onHorizontalDrag = { _, dx -> dragDx += dx },
                     onDragEnd = {
                         if (dragDx > swipeThresholdPx) {
                             dismissing = true
