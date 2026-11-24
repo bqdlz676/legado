@@ -11,10 +11,22 @@ ok()  { say "$1" "ok    $2"; }
 # ① 铁律55附①：commit 前工作区自盘（不许有未提交改动被漏提）
 if [ -z "$(git status --porcelain)" ]; then ok "①工作区自盘" "干净"; else say "①工作区自盘" "有未提交改动（提交前须逐条判断是否漏提）"; fi
 
-# ② 铁律55附②：push 后远端 main == 本地 HEAD
-REMOTE=$(git ls-remote "https://bqdlz676:$(grep -o 'ghp_[A-Za-z0-9]*' ~/.git-credentials|head -1)@github.com/bqdlz676/legado.git" refs/heads/main 2>/dev/null | cut -f1)
+# ② 铁律55附②：push 前判远端同步 + 外来提交（另一 AI 同仓并行提交时先检出再 push）
+REMOTE_URL="https://bqdlz676:$(grep -o 'ghp_[A-Za-z0-9]*' ~/.git-credentials|head -1)@github.com/bqdlz676/legado.git"
+REMOTE=$(git ls-remote "$REMOTE_URL" refs/heads/main 2>/dev/null | cut -f1)
 LOCAL=$(git rev-parse HEAD)
-if [ "$REMOTE" = "$LOCAL" ]; then ok "②远端同步" "${LOCAL:0:7}"; else bad "②远端同步" "本地 ${LOCAL:0:7} ≠ 远端 ${REMOTE:0:7}"; fi
+if [ -z "$REMOTE" ]; then bad "②远端同步" "无法访问远端"
+elif [ "$REMOTE" = "$LOCAL" ]; then ok "②远端同步" "${LOCAL:0:7}"
+else
+  git fetch -q "$REMOTE_URL" main 2>/dev/null
+  if git merge-base --is-ancestor "$REMOTE" "$LOCAL" 2>/dev/null; then
+    say "②远端同步" "本地领先远端（待 push）"
+  elif git merge-base --is-ancestor "$LOCAL" "$REMOTE" 2>/dev/null; then
+    bad "②远端同步" "远端有外来提交（另一 AI 已推 ${REMOTE:0:7}），先 pull --rebase 再 push"
+  else
+    bad "②远端同步" "本地/远端分叉，先合并再 push"
+  fi
+fi
 
 # ③ 铁律54：当日对话流水文件存在且非空
 TODAY=$(date +%F)
