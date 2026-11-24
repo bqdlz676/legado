@@ -36,19 +36,14 @@ class BubbleContractResolver(
 
         if (hits.isEmpty()) return listOf(missCandidate(token))
 
-        val visible = when (year) {
-            // 年份缺失：不做区间过滤（锚点年为空不猜），全候选交上层按 tier 取舍
-            null -> hits
-            else -> hits.filter { inRange(it, year) }.ifEmpty { hits }
-        }
-        return visible.sortedWith(tierRank.thenBy { it.name })
-    }
-
-    /** 年代区间是否覆盖 [year]；起止年任一为空视为该侧不设限，不据此判出局。 */
-    private fun inRange(entry: Candidate, year: Int): Boolean {
-        val afterStart = entry.start == null || year >= entry.start
-        val beforeEnd = entry.end == null || year <= entry.end
-        return afterStart && beforeEnd
+        // 先接 S-05 纪年过滤：命中者排前、明显越代项后置；年份缺失时 filterByEra 原样回全候选。
+        val eraFiltered = filterByEra(hits, year)
+        // 回退分支（锚点卡 S-05 §三判据 4：任何情况下不返回 null、不抛异常、不留空态）：
+        // 纪年全不相交时 filterByEra 按其口径返空；规格切片-05:4 要求「时间命中优先，
+        // 其余同名收进『还有 N 个同名』让用户一键切」——filter 只做优先排序与剔除明显越代项，
+        // 不能把候选清空；故全排空时回退未过滤的 hits，避免用户点不到人。
+        if (eraFiltered.isNotEmpty()) return eraFiltered
+        return hits.sortedWith(tierRank.thenBy { it.name })
     }
 
     /** 兜底未命中条目：字段全部就位，仅置信 / 来源 / 默认位标为未命中，UI 不得据此跳转。 */

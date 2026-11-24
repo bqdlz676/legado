@@ -113,4 +113,43 @@ class BubbleContractResolverTest {
         assertEquals(1, byAlias.size)
         assertEquals("晋", byAlias.first().name)
     }
+
+    /** 越代同名种子：唐以后的晋（place，L3，区间 618~907），与春秋晋国同名不同代。 */
+    private fun seedTangJin() = Candidate(
+        id = "place-jin-tang",
+        name = "晋",
+        type = CandidateType.PLACE,
+        tier = "L3",
+        start = 618,
+        end = 907,
+        aliases = listOf(),
+        confidence = Confidence.LOW,
+        source = "孤证存疑",
+        isDefault = false,
+    )
+
+    @Test
+    fun `era mismatch on all candidates falls back to original hits`() {
+        // 锚点年 2000 与春秋晋(-1033~-376)、唐晋(618~907) 全不相交：
+        // filterByEra 返空，出口按判据 4 回退未过滤 hits，候选不清空、不为空态。
+        val resolver = BubbleContractResolver(listOf(seedJin(), seedTangJin()))
+
+        val result = resolver.resolve("晋", 2000)
+
+        assertNotNull("全不相交回退结果不得为 null", result)
+        assertTrue("全不相交回退结果不得为空", result.isNotEmpty())
+        assertEquals("回退候选数与原 hits 相同", 2, result.size)
+    }
+
+    @Test
+    fun `partial era hit returns only the matched candidate`() {
+        // 锚点年 -700 只落春秋晋区间；唐晋被纪年剔除，过滤结果非空即只回命中的那一条。
+        val resolver = BubbleContractResolver(listOf(seedJin(), seedTangJin()))
+
+        val result = resolver.resolve("晋", -700)
+
+        assertNotNull("部分命中结果不得为 null", result)
+        assertEquals("只返回纪年命中的一条", 1, result.size)
+        assertEquals("命中条 id 等于春秋晋", "place-jin", result.first().id)
+    }
 }
