@@ -7,3 +7,4 @@
 - 规范：24dp/24 viewport；坐标 x∈4.14..18.29、y∈5.0..17.66，全部落 0..24。
 - 自检：minidom 解析良构（XML_OK）；path 总数=26（fill=6，stroke=20）；grep 回证 fillColor×6、strokeWidth=1.5×20、strokeColor=#8B6914×20、lineCap=round×20。
 - 未验证项：未编译、未真机渲染；虚线分段观感未在设备上核对。
+- 修正项：补 strokeLineJoin=round ×20（strokeColor×20 与 strokeLineJoin="round"×20 一一对应；fill 路径 6 条未动；minidom 良构，坐标 4.14..18.29 落 0..24）。

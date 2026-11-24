@@ -1,5 +1,8 @@
 package io.legado.app.ui.card
 
+import android.content.res.Resources
+import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -21,8 +25,15 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import kotlin.random.Random
+import io.legado.app.R
+import java.util.Collections
 
 /**
  * 卡片交互五态（切片-25 验收判据 5：默认 / 悬浮 / 点击 / 骨架屏 / 禁用，全部在基座内实现）。
@@ -176,29 +187,58 @@ fun CardSurface(
 }
 
 /**
- * 宣纸颗粒叠层：drawBehind 按 2dp 网格撒固定种子噪点，峰值透明度 0.03。
- * 为什么不用图片资源：规格要求颗粒程序化生成，不引 png 贴图；固定种子保证滚动 / 重组时
- * 点位稳定不闪烁，也不在每帧新建 Bitmap。适用：Default / Hover / Pressed / Disabled 四态。
+ * 进程级噪点位图缓存：按资源 id 共享解码结果。为什么不只靠 remember——卡片在 LazyColumn
+ * 滚动时每个新进屏 item 都是新组合槽位，remember 只保住当前在屏槽位，跨槽位会各解码一次，
+ * 违反判据 8「滚动时无新 Bitmap 创建」；故缓存表挂在文件级单例，进程内同一 resId 只解一次。
+ * 适用：所有密度、所有屏；key 为 drawable 资源 id。
  */
-private fun Modifier.cardNoise(): Modifier = this.drawBehind {
-    val rand = Random(CardTokens.noiseSeed)
-    val grid = CardTokens.noiseGrid.toPx().coerceAtLeast(1f)
-    var y = 0f
-    while (y < size.height) {
-        var x = 0f
-        while (x < size.width) {
-            if (rand.nextFloat() < CardTokens.noiseProbability) {
-                val alpha = CardTokens.noiseAlpha * rand.nextFloat()
-                drawCircle(
-                    color = CardTokens.ink.copy(alpha = alpha),
-                    radius = 1f,
-                    center = Offset(x + grid / 2f, y + grid / 2f),
-                )
-            }
-            x += grid
+private val noiseTileCache: MutableMap<Int, ImageBitmap> =
+    Collections.synchronizedMap(mutableMapOf())
+
+/**
+ * 取进程共享的噪点位图：synchronized 段内查缓存 → 未命中才解码；runCatching 兜底，
+ * 任何异常（资源缺失 / 非位图 / 解码失败）都返回 null，由 [cardNoise] 静默降级，不崩溃。
+ */
+private fun noiseTile(res: Resources): ImageBitmap? = synchronized(noiseTileCache) {
+    noiseTileCache[R.drawable.paper_noise_tile]?.let { return@synchronized it }
+    runCatching {
+        val drawable = res.getDrawable(R.drawable.paper_noise_tile, null)
+        val bitmap = (drawable as? BitmapDrawable)?.bitmap
+            ?: throw IllegalStateException("paper_noise_tile 必须是位图资源")
+        bitmap.asImageBitmap()
+    }.onSuccess { noiseTileCache[R.drawable.paper_noise_tile] = it }
+        .getOrNull()
+}
+
+/**
+ * 宣纸颗粒叠层：单张 64×64 平铺 png（paper_noise_tile），ImageShader 按 TileMode.Repeated
+ * 重复平铺；Android 平台底层等价于 BitmapShader(bmp, REPEAT, REPEAT)。规格判据 8：不逐卡
+ * 生成、滚动不新建 Bitmap——位图由进程级 [noiseTileCache] 跨槽位共享，Brush 在 composition
+ * 级 remember，drawBehind lambda 内零分配。适用：Default / Hover / Pressed / Disabled 四态。
+ */
+@Composable
+private fun Modifier.cardNoise(): Modifier {
+    val res = LocalContext.current.resources
+    // 第一层 remember：挡重组重复取表；解码本身已由进程级缓存表兜底，跨槽位只解一次。
+    // Log.w 放进 remember lambda：仅在取图失败的那次组合打一条，后续重组不重复刷屏；
+    // 降级分支只做返回，不再触发副作用。静默降级原因：噪点只是材质装饰，缺它不影响可读性与交互。
+    val noiseBitmap: ImageBitmap? = remember(res) {
+        noiseTile(res).also {
+            if (it == null) Log.w("CardBase", "paper_noise_tile 解码失败，噪点层静默降级（不影响可读性与交互）")
         }
-        y += grid
     }
+    if (noiseBitmap == null) return this
+    // 第二层 remember：Brush 仅随 bitmap 实例变化重建；帧绘制只做 drawRect，不新建对象。
+    val noiseBrush = remember(noiseBitmap) {
+        ShaderBrush(
+            ImageShader(
+                image = noiseBitmap,
+                tileModeX = TileMode.Repeated,
+                tileModeY = TileMode.Repeated,
+            ),
+        )
+    }
+    return this.drawBehind { drawRect(brush = noiseBrush) }
 }
 
 /**

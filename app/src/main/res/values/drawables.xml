@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ic_sim_bgm 是规格声明的别名槽，实体图形与音乐图标同源（切片-24 第 80 行），
+         用官方 resource alias 让 R.drawable.ic_sim_bgm 可取，避免复制一份八分音符图形。 -->
+    <item name="ic_sim_bgm" type="drawable">@drawable/ic_music</item>
+
+    <!-- ic_sim_layers 同理指向画板图层图标（切片-24 第 79 行）。 -->
+    <item name="ic_sim_layers" type="drawable">@drawable/ic_paint_layers</item>
+
+</resources>

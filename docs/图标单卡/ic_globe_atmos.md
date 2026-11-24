@@ -6,3 +6,4 @@
 - 虚线说明：vector 原生不支持 dash 分段，故以分段小弧模拟虚线效果；全部绝对坐标在 0..24 区间（1.15~22.85）。
 - 自检：minidom 解析良构；strokeWidth/1.5、#8B6914、round 各 3 处 grep 回证命中；fillColor 0 处。
 - 未验证：未编译、未真机渲染。
+- 修正项：补 strokeLineJoin=round ×3（三条描边 path 均补，strokeColor=3 与 strokeLineJoin=3 grep 数相等；pathData、fill、缩进未动）。

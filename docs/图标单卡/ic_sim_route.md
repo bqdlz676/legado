@@ -6,3 +6,5 @@
 - 规范：24dp/24 viewport；坐标均在 0..24 内（x/y 5→19），未越界。
 - 自检：minidom 良构（XML_OK，1 path）；grep 回证 24dp/24 viewport、strokeWidth=1.5、#8B6914、round 全部命中。
 - 未验证项：未编译、未真机渲染；虚线在实机底色上的间距观感与对比度未验收。
+
+修正项：补 strokeLineJoin="round" ×1
