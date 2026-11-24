@@ -337,18 +337,20 @@ def audit_ux(src_root: str) -> int:
                                 f"UX-04 {rel}:{lineno} 交互路径 delay {m.group(1)}ms > {MAX_FEEDBACK_MS}ms，"
                                 "需人眼复核是否卡在反馈链路上（轮询/Toast 等待豁免）")
 
-            # UX-05 异步入口必须有骨架/占位/空态之一
-            if any(k in text for k in ASYNC_KW) and not any(k in text for k in PLACEHOLDER_KW):
-                findings["WARN"].add(
-                    f"UX-05 {rel} 异步入口未见骨架/占位/空态关键词，需人眼复核是否存在空白态")
-            # UX-06 错误/离线分支必须有重试或兜底文案之一
-            if any(k in text for k in ERROR_KW) and not any(k in text for k in RETRY_KW):
-                findings["WARN"].add(
-                    f"UX-06 {rel} 错误/离线分支未见重试或兜底关键词，需走查是否崩溃死页")
-            # UX-07 翻页/缩放手势区应有首访提示关键词
-            if any(k in text for k in GESTURE_AREA_KW) and not any(k in text for k in GESTURE_HINT_KW):
-                findings["WARN"].add(
-                    f"UX-07 {rel} 手势区未见首访提示关键词，需人眼/帧复核可发现性")
+            # UX-05/06/07 属 UI 层体验项；api/help/config/dict 等逻辑层不参与关键词配对，免误报。
+            if is_ui:
+                # UX-05 异步入口必须有骨架/占位/空态之一
+                if any(k in text for k in ASYNC_KW) and not any(k in text for k in PLACEHOLDER_KW):
+                    findings["WARN"].add(
+                        f"UX-05 {rel} 异步入口未见骨架/占位/空态关键词，需人眼复核是否存在空白态")
+                # UX-06 错误/离线分支必须有重试或兜底文案之一
+                if any(k in text for k in ERROR_KW) and not any(k in text for k in RETRY_KW):
+                    findings["WARN"].add(
+                        f"UX-06 {rel} 错误/离线分支未见重试或兜底关键词，需走查是否崩溃死页")
+                # UX-07 翻页/缩放手势区应有首访提示关键词
+                if any(k in text for k in GESTURE_AREA_KW) and not any(k in text for k in GESTURE_HINT_KW):
+                    findings["WARN"].add(
+                        f"UX-07 {rel} 手势区未见首访提示关键词，需人眼/帧复核可发现性")
 
     print("== UX 审计（check-visual-baseline.py --ux，九维静态 + DEFER 登记）==")
     for uid, title in UX_DIMENSIONS:
