@@ -128,8 +128,8 @@
 
 ### 3.5 `app/src/test/java/io/legado/app/ci/TestReleaseWorkflowTest.kt`（附带族修复，断言不放宽）
 
-- 新增 `compositeActionText` 懒加载，读取 `.github/actions/build-apks/action.yml`（`:26-31` 注释说明 b285dab 抽取移位）。
-- `retained build workflow publishes only debug and release apk artifacts` 用例：产物名正向断言改为对 `buildWorkflowText + compositeActionText` 合并文本判定 `legado-debug-apk` / `legado-release-apk` 仍在；三条反向断言（`ncipollo/release-action`、`lzy_web.py`、`Telegram`）仍只对 `buildWorkflowText` 判定。断言强度不变，只修正真值来源位置。
+- 新增 `compositeActionText` 懒加载，读取 `.github/actions/build-apks/action.yml`（`:27-33`，注释说明 b285dab 抽取移位）。
+- `retained build workflow publishes only debug and release apk artifacts` 用例（`:46-52`）：产物名正向断言改为对 `buildWorkflowText + compositeActionText` 合并文本判定 `legado-debug-apk` / `legado-release-apk` 仍在；三条反向断言（`ncipollo/release-action`、`lzy_web.py`、`Telegram`）仍只对 `buildWorkflowText` 判定。断言强度不变，只修正真值来源位置。
 
 ### 3.6 台账与存档文档
 
