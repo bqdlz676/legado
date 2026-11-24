@@ -18,7 +18,7 @@ echo "=== ③ 构建进程（本地禁编译，有即违规）==="
 pgrep -af 'gradle|kotlinc|assemble|aapt2' || echo "无构建进程"
 
 echo
-echo "=== ④ 在飞子代理（>40 分钟无产物应判废 kill）==="
+echo "=== ④ 在飞子代理（>15 分钟无产物应判废 kill）==="
 LEDGER=docs/派单台账.md
 if [ -f "$LEDGER" ]; then
   grep -E '^\|.*\| *在飞' "$LEDGER" || echo "无在飞条目"
