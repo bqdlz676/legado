@@ -11,6 +11,10 @@ import io.legado.app.ui.map.crossing.model.VictoryType
  *
  * 七种类型 + COMPOUND 的 AND/OR 组合；判定只读当前快照与据点占领计数，不改状态。
  * 占领回合计数由 [CampaignController] 维护，本层只消费。
+ *
+ * 纯函数 / 只读约定：本对象不修改传入的 [corps] 列表、captureHoldTurns / pointHolders 表
+ * 与 alliedSideIds 集合（仅持引用读取），调用方可在多个条件 / 多回合间安全复用同一实例；
+ * 任何占领计数与归属变更都由控制器在调用前后自行落盘。
  */
 object VictoryChecker {
 
@@ -24,10 +28,16 @@ object VictoryChecker {
 
     /**
      * @param captureHoldTurns 据点被目标 side 连续占领的回合数（key = 据点标识）
-     * @param pointHolders 据点当前占据方表（key = 据点标识，value = 占据方 sideId）；
-     *        仅 DEFEND 分支消费，用于判定目标点是否被非友方占据。
-     * @param alliedSideIds 与胜利条件方结盟的 sideId 集合；DEFEND 中盟友占据据点不算失守，
-     *        ROUT 中盟友不计入敌方 blockers。
+     * @param pointHolders 据点当前占据方表（key = 据点标识，value = 占据方 sideId）。
+     *        为什么需要：DEFEND 是「守点」而非「歼灭」，只看场上有生力量无法判断目标点是否已被
+     *        突入，引擎层又不掌握据点归属推导，故必须由调用方每回合显式传入当前占据方。
+     *        适用条件：仅 DEFEND 分支消费；其余胜利类型收到后忽略。表中缺该点视为「未被任何方
+     *        持有」，不按「未知」挂起成既不胜也不负的僵局。
+     * @param alliedSideIds 与胜利条件方结盟的 sideId 集合。
+     *        为什么需要：盟友协防据点不算失守、盟友军队不计入 ROUT 敌方 blockers，友敌身份必须
+     *        由外交关系推导后显式传入，判定层不内置阵营好恶。
+     *        适用条件：DEFEND 判占据方、ROUT 筛敌军；其余类型忽略。为空集即视为本场无盟友，
+     *        除胜利方同阵营外一律按非友方处理，谓词有空值守卫、不会崩溃。
      *        两个形参为必传项：生产调用方 [CampaignController] 与测试源集均须显式传入，
      *        不设默认值、不留旧五参重载兼容层。
      */
@@ -76,9 +86,12 @@ object VictoryChecker {
             VictoryType.DEFEND -> {
                 val defenders = corps.filter { it.sideId == def.side && it.combatReady() }
                 // 据点占据方：据点 key 与 captureHold / 测试用例同一口径（lng,lat 各四位小数）。
+                // 兜底：def.point 为 null、或 pointHolders 中查不到该 key → holder 为 null，
+                // 视为「未被任何方持有」，不按未知挂起；只有存在非友方占据记录时才判失守。
                 val holder = def.point?.let { pointHolders[pointKey(it)] }
                 // 失守判定走 B3 收口的友方谓词：己方 / 盟友占据均不算失守，仅非友方占据判负；
-                // 不在本分支另写 sideId 相异判敌的第二套口径。
+                // 不在本分支另写 sideId 相异判敌的第二套口径。alliedSideIds 为空集即无盟友，
+                // 谓词空值守卫保证此处不抛 NPE。
                 val lost = holder != null && !isFriendlySide(def.side, holder, alliedSideIds)
                 when {
                     lost -> Outcome(BattleStatus.DEFEAT, def.side, "据点已被敌方占据，防御失败")

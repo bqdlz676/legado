@@ -284,4 +284,104 @@ class VictoryCheckerTest {
         )
         assertFalse(andPartial.finished)
     }
+
+    @Test
+    fun `F4 据点 key 缺失降级：表中无该点视为未持有，中途继续推演不成僵局`() {
+        val defenders = listOf(corps("a1", "a", strength = 8.0))
+        val outcome = VictoryChecker.check(
+            def = defendDef(),
+            corps = defenders,
+            turn = 5,
+            duration = 30,
+            captureHoldTurns = emptyMap(),
+            pointHolders = emptyMap(),
+            alliedSideIds = emptySet(),
+        )
+        // 缺该点 ≠ 失守：既不立即判负，也不挂起为 ONGOING 死局，按有生力量 + 回合路径继续。
+        assertEquals(BattleStatus.ONGOING, outcome.status)
+    }
+
+    @Test
+    fun `F4 空集合兜底：空据点表 + 空盟友集，撑满回合仍判胜且不崩溃`() {
+        val defenders = listOf(corps("a1", "a", strength = 8.0))
+        val outcome = VictoryChecker.check(
+            def = defendDef(),
+            corps = defenders,
+            turn = 30,
+            duration = 30,
+            captureHoldTurns = emptyMap(),
+            pointHolders = emptyMap(),
+            alliedSideIds = emptySet(),
+        )
+        assertEquals(BattleStatus.VICTORY, outcome.status)
+    }
+
+    @Test
+    fun `互不干扰：ANNIHILATE 不读据点表，目标被歼灭即判胜，敌占据点不影响`() {
+        val def = VictoryDef(VictoryType.ANNIHILATE, "b1", "a", null, 3, "AND", emptyList())
+        val corps = listOf(
+            corps("a1", "a"),
+            corps("b1", "b", alive = false, strength = 0.0),
+        )
+        val outcome = VictoryChecker.check(
+            def = def,
+            corps = corps,
+            turn = 5,
+            duration = 30,
+            captureHoldTurns = emptyMap(),
+            // 据点被 b 占据的记录不应传染 ANNIHILATE 判据。
+            pointHolders = mapOf(pointKey to "b"),
+            alliedSideIds = emptySet(),
+        )
+        assertEquals(BattleStatus.VICTORY, outcome.status)
+    }
+
+    @Test
+    fun `互不干扰：ROUT 不读据点表，据点被敌占不影响敌方全溃判胜`() {
+        val def = VictoryDef(VictoryType.ROUT, null, "a", null, 3, "AND", emptyList())
+        val blockers = listOf(corps("b1", "b", morale = Morale.BROKEN))
+        val outcome = VictoryChecker.check(
+            def = def,
+            corps = blockers,
+            turn = 5,
+            duration = 30,
+            captureHoldTurns = emptyMap(),
+            pointHolders = mapOf(pointKey to "b"),
+            alliedSideIds = emptySet(),
+        )
+        assertEquals(BattleStatus.VICTORY, outcome.status)
+    }
+
+    @Test
+    fun `优先级：终局据点被敌占据仍判负，失守优先于撑满回合判胜`() {
+        val defenders = listOf(corps("a1", "a", strength = 8.0))
+        val outcome = VictoryChecker.check(
+            def = defendDef(),
+            corps = defenders,
+            turn = 30,
+            duration = 30,
+            captureHoldTurns = emptyMap(),
+            pointHolders = mapOf(pointKey to "b"),
+            alliedSideIds = emptySet(),
+        )
+        // 同一回合既满足「撑满 30 回合」又满足「据点失守」，失守档位优先。
+        assertEquals(BattleStatus.DEFEAT, outcome.status)
+        assertTrue(outcome.reason.contains("据点"))
+    }
+
+    @Test
+    fun `优先级：据点失守优先于防御方全灭判定，先报失守`() {
+        val outcome = VictoryChecker.check(
+            def = defendDef(),
+            corps = emptyList(),
+            turn = 5,
+            duration = 30,
+            captureHoldTurns = emptyMap(),
+            pointHolders = mapOf(pointKey to "b"),
+            alliedSideIds = emptySet(),
+        )
+        // 防御方已全灭与据点失守同时成立时，首报据点失守档位。
+        assertEquals(BattleStatus.DEFEAT, outcome.status)
+        assertTrue(outcome.reason.contains("据点"))
+    }
 }
