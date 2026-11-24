@@ -29,3 +29,20 @@ fi
 echo
 echo "=== ⑤ 孤儿 git/临时进程（多轮 kill 后残留）==="
 pgrep -af 'git|python3' | head -20 || echo "无"
+
+echo
+echo "=== ⑥ 请求率探针（各 agent 工具调用数，>500 判失控）==="
+SID=$(basename "$(cd "$(dirname "$0")/../.." && pwd)" 2>/dev/null)
+AGENTS_DIR="${1:-/home/user/.doubao/agent_mode/workspace/.sessions/$SID/agents}"
+[ -d "$AGENTS_DIR" ] || AGENTS_DIR="$(ls -dt /home/user/.doubao/agent_mode/workspace/.sessions/*/agents 2>/dev/null | head -1)"
+if [ -d "$AGENTS_DIR" ]; then
+  for t in "$AGENTS_DIR"/*/system/trajectory.jsonl; do
+    [ -f "$t" ] || continue
+    n=$(grep -c '"type":"function"' "$t" 2>/dev/null); n=${n:-0}
+    aid=$(basename "$(dirname "$(dirname "$t")")")
+    flag=""; [ "$n" -gt 500 ] && flag="  <== 失控嫌疑"
+    printf "%6s  %s%s\n" "$n" "$aid" "$flag"
+  done | sort -rn | head -20
+else
+  echo "未找到 agents 目录（可传参：bash data_scripts/watchdog.sh <agents绝对路径>）"
+fi
