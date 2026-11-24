@@ -112,10 +112,15 @@ class CampaignDiplomacyTest {
         assertFalse("盟友不得出现在敌军增援集", controller.filterEnemiesOf(a1).any { it.id == "b1" })
         assertEquals(listOf("c1"), controller.filterEnemiesOf(a1).map { it.id })
 
+        // 支援落点口径 = 决策时刻盟友所在格（规格 §6.4 第 8 条 support「朝盟友位置 A*」）。
+        // 本回合后续盟友 b1 会自行接敌进军、战败后撤移位，故先快照其决策前格位；
+        // 断言不得取 step() 后的盟友新位置，否则与本军路线规划时刻的目标格错位。
+        val allyCell = b1.position
+
         controller.step()
 
         assertEquals("盟友相邻遭攻击应转支援意图", Intent.SUPPORT, a1.intent)
-        assertEquals("支援落点应为盟友所在格", b1.position, a1.route.lastOrNull() ?: a1.position)
+        assertEquals("支援落点应为盟友所在格", allyCell, a1.route.lastOrNull() ?: a1.position)
     }
 
     // ── 行为 3：溃逃 ──────────────────────────────────────────
