@@ -1,6 +1,6 @@
 package io.legado.app.ui.card
 
-import android.annotation.RequiresApi
+import androidx.annotation.RequiresApi
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
