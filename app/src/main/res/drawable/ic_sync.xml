@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 上弧：左→右，越过环顶；圆心 (12,12) r=6.5，端点 (5.5,12)→(18.5,12)，sweep=0 走顶部 -->
+  <path
+      android:pathData="M5.5,12 A6.5,6.5 0 0 0 18.5,12"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 下弧：右→左，绕过环底；端点 (18.5,12)→(5.5,12)，sweep=1 走底部 -->
+  <path
+      android:pathData="M18.5,12 A6.5,6.5 0 0 1 5.5,12"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 右箭头尖 (18.5,12)，两翼回至 (15.5,9.8)、(15.5,14.2) -->
+  <path
+      android:pathData="M18.5,12 L15.5,9.8 M18.5,12 L15.5,14.2"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 左箭头尖 (5.5,12)，两翼回至 (8.5,9.8)、(8.5,14.2) -->
+  <path
+      android:pathData="M5.5,12 L8.5,9.8 M5.5,12 L8.5,14.2"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

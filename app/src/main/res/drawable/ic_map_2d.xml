@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2D 地图图标：细线方框 + 左上地名圆点 + 右下两条经纬斜线，仅描边无填充 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 细线方框 x=4 y=4→20→20→4 -->
+  <path
+      android:pathData="M4,4 L20,4 L20,20 L4,20 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 框内左上地名小圆点 cx=8 cy=8 r=1.5（描边圆，无填充） -->
+  <path
+      android:pathData="M6.5,8 A1.5,1.5 0 1 1 9.5,8 A1.5,1.5 0 1 1 6.5,8 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 右下经纬线暗示：斜线一 M12,18 L18,12 -->
+  <path
+      android:pathData="M12,18 L18,12"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 右下经纬线暗示：斜线二 M15,18 L18,15 -->
+  <path
+      android:pathData="M15,18 L18,15"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

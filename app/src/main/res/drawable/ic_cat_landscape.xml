@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 中峰：起(10,8) 顶点(12,4) 落(14,8) -->
+  <path
+      android:pathData="M10,8 L12,4 L14,8"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 左峰：起(7,10) 顶点(9,8) 落(11,10) -->
+  <path
+      android:pathData="M7,10 L9,8 L11,10"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 右峰：起(13,10) 顶点(15,7) 落(17,10) -->
+  <path
+      android:pathData="M13,10 L15,7 L17,10"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 地平线：x=5→19 y=15 -->
+  <path
+      android:pathData="M5,15 L19,15"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

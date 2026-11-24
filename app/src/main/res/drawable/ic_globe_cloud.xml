@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 云层开关：两个重叠的半弧横条云形状。上弧 x=5→19 y=8 波浪凸起；下弧 x=7→17 y=14 波浪凸起。无填充纯描边，线宽 1.5 圆角端点/圆角连接 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+  <!-- 上弧：x=5→19 y=8 向上凸起的半弧 -->
+  <path
+      android:pathData="M5,8 A7,3 0 0,1 19,8"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+
+  <!-- 下弧：x=7→17 y=14 向上凸起的半弧，与上弧重叠 -->
+  <path
+      android:pathData="M7,14 A5,2.5 0 0,1 17,14"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

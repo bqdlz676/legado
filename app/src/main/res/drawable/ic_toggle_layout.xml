@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 古/今切换图标：左竖线代表竖排古式，右半横线段代表横排今式；仅描边无填充 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+  <!-- 左侧竖线 x=7 y=4→20 -->
   <path
-      android:pathData="M7,4 L7,20 M10,16 L20,16"
+      android:pathData="M7,4 L7,20"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 右侧横线 x=10→20 y=16 半宽 -->
+  <path
+      android:pathData="M10,16 L20,16"
       android:strokeWidth="1.5"
       android:strokeColor="#8B6914"
       android:strokeLineCap="round"

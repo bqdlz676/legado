@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 3D沙盘：与2D同框，框内左下→右上斜线（等轴测视角暗示），左下角小三角（地形凸起），仅描边无填充 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+  <!-- 细线方框 x=4 y=4→20→20→4（同2D同框） -->
+  <path
+      android:pathData="M4,4 L20,4 L20,20 L4,20 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+
+  <!-- 框内从左下到右上的斜线（等轴测视角暗示） -->
+  <path
+      android:pathData="M6,18 L18,6"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+
+  <!-- 框左下角小三角（地形凸起） -->
+  <path
+      android:pathData="M6,17 L9,12.5 L12,17 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

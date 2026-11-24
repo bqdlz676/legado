@@ -1,39 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- D25 批B 画板工具栏 · 文字：细线圆角方框 x=6 y=8→18→18→6；框内极简"文"（点+横+撇+捺四笔，path 直绘，不引字体文件） -->
+<!-- 画板工具栏 · 文字：细线圆角方框 (6,8)→(18,8)→(18,18)→(6,18) 闭合；框内极小"文"（点+撇+捺简笔，path 直绘，全程描边、无填充色） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+  <!-- 圆角方框：x=6 y=8→18→18→6 闭合，圆角 r=2 -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
-      android:pathData="M8,6 H16 Q18,6 18,8 V16 Q18,18 16,18 H8 Q6,18 6,16 V8 Q6,6 8,6 Z" />
-  <!-- 文·点：顶部极小实心点 -->
-  <path
-      android:fillColor="#8B6914"
-      android:pathData="M12,8.6 m-0.7,0 a0.7,0.7 0 1,0 1.4,0 a0.7,0.7 0 1,0 -1.4,0" />
-  <!-- 文·横 -->
+      android:pathData="M8,8 H16 Q18,8 18,10 V16 Q18,18 16,18 H8 Q6,18 6,16 V10 Q6,8 8,8 Z" />
+  <!-- 文·点：顶部短竖画，round cap 收为点形（描边，不用填充色） -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
-      android:pathData="M9.5,10.8 H14.5" />
-  <!-- 文·撇 -->
+      android:pathData="M12,9.4 L12,10.5" />
+  <!-- 文·撇：中心向左下 -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
-      android:pathData="M12,11.2 L9.6,16" />
-  <!-- 文·捺 -->
+      android:pathData="M12,11.4 L9.8,16" />
+  <!-- 文·捺：中心向右下 -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
-      android:pathData="M12,11.2 L14.4,16" />
+      android:pathData="M12,11.4 L14.2,16" />
 </vector>

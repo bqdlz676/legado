@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- D25 批B 画板工具栏 · 画笔：竖线 x=12 y=6→19；顶部墨点 cx=12 cy=5 r=3，左侧微平（贝塞尔非正圆） -->
+<!-- D25 画板工具栏 · 画笔：竖线 x=12 y=6→19；顶部墨点 cx=12 cy=5 r=3，左侧微平（Path 贝塞尔，非正圆；原文未点名实心，不填色） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+  <!-- 笔杆竖线：x=12 y=6→19（描边） -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
       android:pathData="M12,6 L12,19" />
-  <!-- 墨点：上/右/下走贝塞尔，左侧留一小段直边微平，避免正圆刻板 -->
+  <!-- 顶部墨点：cx=12 cy=5 r=3；上/右/下贝塞尔圆弧，左侧内收微平；描边轮廓，无 fillColor -->
   <path
-      android:fillColor="#8B6914"
-      android:pathData="M12,2 C13.7,2 15,3.3 15,5 C15,6.7 13.7,8 12,8 C10.8,8 9.8,7.3 9.5,6.3 L9.5,3.7 C9.8,2.7 10.8,2 12,2 Z" />
+      android:strokeColor="#8B6914"
+      android:strokeWidth="1.5"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:pathData="M12,2 C13.66,2 15,3.34 15,5 C15,6.66 13.66,8 12,8 C11.2,8 10.4,7.7 10.1,7.2 C9.9,6 9.9,4 10.1,2.8 C10.4,2.3 11.2,2 12,2 Z" />
 </vector>

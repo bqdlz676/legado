@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- D25 批B 画板工具栏 · 箭头：直线 6,18→16,8；箭头三角 M16,8 L18,3 L20,8 Z（原文坐标照录） -->
+<!-- 画板工具栏 · 箭头：同直线 6,18→16,8；三角 Path M16,8 L18,3 L20,8 Z（切片-24 原文坐标照录；未点名实心，仅描边无 fillColor） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"

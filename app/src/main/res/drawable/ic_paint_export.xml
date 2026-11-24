@@ -1,22 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- D25 批B 画板工具栏 · 导出：方框 x=6 y=6→18→18→10 底部开口不闭合；箭头 x=12 y=14→12→20；尖三角 M9,18 L12,23 L15,18（允许到 y=23） -->
+<!-- 画板工具栏 · 导出：方框 (6,6)→(18,6)→(18,18)→(10,18)，底部开口不闭合；槽口居中对称右沿 14；箭杆 (12,14)→(12,20)；尖三角 M9,18 L12,23 L15,18（切片-24 原文坐标照录；未点名实心，仅描边无 fillColor） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+  <!-- 托盘方框：左竖边 + 顶边 + 右竖边 + 右底段；槽口 10→14 居中留空，路径不闭合（无 Z） -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
-      android:pathData="M6,14 V6 H18 V14" />
+      android:pathData="M6,18 V6 H18 V18 H14" />
+  <path
+      android:strokeColor="#8B6914"
+      android:strokeWidth="1.5"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:pathData="M6,18 H10" />
+  <!-- 箭杆：框底中间向下 12,14→12,20 -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
       android:pathData="M12,14 L12,20" />
+  <!-- 尖三角：M9,18 L12,23 L15,18 -->
   <path
       android:strokeColor="#8B6914"
       android:strokeWidth="1.5"

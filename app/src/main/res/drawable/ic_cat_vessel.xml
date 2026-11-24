@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 鼎口：开口朝上浅弧，x=6→18，y=8 -->
+  <path
+      android:pathData="M6,8 Q12,9.5 18,8"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 鼎身：两侧向下收拢至底，左 (6,8)→(10,18)，右 (18,8)→(14,18)，底边 x=10→14 y=18 -->
+  <path
+      android:pathData="M6,8 L10,18 L14,18 L18,8"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 底部三条横腿：y=20，左 7→9 / 中 11→13 / 右 15→17 -->
+  <path
+      android:pathData="M7,20 L9,20 M11,20 L13,20 M15,20 L17,20"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

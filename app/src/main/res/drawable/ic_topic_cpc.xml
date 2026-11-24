@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 党史：描边五角星（沿用书签星形，外接圆 R=10，圆心 (12,12)，左上顶点 8° 断口）+ 星右方朱砂旗杆竖线 x=19，y=4→20 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:pathData="M12.00,2.00 L14.25,8.91 L21.51,8.91 L15.63,13.18 L17.88,20.09 L12.00,15.82 L6.12,20.09 L8.37,13.18 L4.00,10.00 M4.35,8.91 L9.75,8.91 L12.00,2.00"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <path
+      android:pathData="M19.00,4.00 L19.00,20.00"
+      android:strokeWidth="2"
+      android:strokeColor="#C23B2E"
+      android:strokeLineCap="round" />
+</vector>

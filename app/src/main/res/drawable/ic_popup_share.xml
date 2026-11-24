@@ -4,17 +4,21 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+  <!-- 上点 cx=12 cy=6 r=1.5，实心 -->
   <path
       android:pathData="M10.5,6 a1.5,1.5 0 1,0 3.0,0 a1.5,1.5 0 1,0 -3.0,0 Z"
       android:fillColor="#8B6914" />
+  <!-- 左下点 cx=6 cy=14 r=1.5，实心 -->
   <path
       android:pathData="M4.5,14 a1.5,1.5 0 1,0 3.0,0 a1.5,1.5 0 1,0 -3.0,0 Z"
       android:fillColor="#8B6914" />
+  <!-- 右下点 cx=18 cy=14 r=1.5，实心 -->
   <path
       android:pathData="M16.5,14 a1.5,1.5 0 1,0 3.0,0 a1.5,1.5 0 1,0 -3.0,0 Z"
       android:fillColor="#8B6914" />
+  <!-- 两条连线：上点→左下点、上点→右下点；端点取圆心连线方向上半径 1.5 的几何外沿切点，不穿过圆心 -->
   <path
-      android:pathData="M11.1,7.2 L6.5,12.8 M12.9,7.2 L17.5,12.8"
+      android:pathData="M11.1,7.2 L6.9,12.8 M12.9,7.2 L17.1,12.8"
       android:strokeWidth="1.5"
       android:strokeColor="#8B6914"
       android:strokeLineCap="round"

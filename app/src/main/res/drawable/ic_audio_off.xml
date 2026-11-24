@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 全静：扬声器梯形 + 右侧无弧线 + 一条斜线从 x=15 y=6 到 x=9 y=18（划掉）；描边线宽 1.5，暗铜 #8B6914，端点/连接圆角，无填充 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:pathData="M5,8 L9,6 L9,18 L5,16 Z M15,6 L9,18"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

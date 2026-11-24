@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 人物类别图标：极简人形——空心圆头 + 躯干竖线 + 双臂横线，仅描边无填充 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 小圆（头）cx=12 cy=7 r=3 -->
+  <path
+      android:pathData="M9,7 A3,3 0 1 1 15,7 A3,3 0 1 1 9,7"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 竖线（身）x=12 y=10→17 -->
+  <path
+      android:pathData="M12,10 L12,17"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 横线（臂）x=8→16 y=13 -->
+  <path
+      android:pathData="M8,13 L16,13"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

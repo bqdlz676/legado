@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 战役：两把交叉的剑（左右斜线）+ 交叉点上方一颗描边小五星，仅描边无填充 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 左斜线 x=6→18 y=18→6（左下至右上） -->
+  <path
+      android:pathData="M6,18 L18,6"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 右斜线 x=18→6 y=18→6（右下至左上） -->
+  <path
+      android:pathData="M18,18 L6,6"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 交叉点 (12,12) 上方描边小五星，中心 (12,5)，外径 2.2 / 内径 0.9；线宽 1.0（次级点缀，避免 1.5 压细星臂） -->
+  <path
+      android:pathData="M12,2.8 L12.529,4.272 L14.092,4.320 L12.856,5.278 L13.293,6.780 L12,5.9 L10.707,6.780 L11.144,5.278 L9.908,4.320 L11.471,4.272 Z"
+      android:strokeWidth="1"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

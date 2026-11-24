@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- D25 批B 画板工具栏 · 橡皮：小方块 x=6→14、y=10→18（使三点 cy=14 落在方块内），整体倾斜约 15°；内三小点 cx=9/11/13 cy=14 r=0.6 -->
-<!-- 用 <group rotation="-15"> 而非手算旋转坐标：本地坐标保持规格原文数值，旋转由渲染器按 pivot 一次性施加；
-     手算三角函数易引入坐标误差，且后续调角度需重算全部顶点，group 方式可维护性更好。 -->
+<!-- 画板工具栏 · 橡皮：细线小方块 x=6→14、y=10→18（三点 cy=14 居方块内），整体倾斜约 15°；内三小点 cx=9/11/13 cy=14 r=0.6 -->
+<!-- 用 <group rotation="-15"> 包裹：本地坐标保留规格数值，旋转由渲染器按 pivot 一次性施加，避免手算三角函数引入顶点误差。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -15,13 +14,22 @@
         android:strokeLineJoin="round"
         android:pathData="M6,10 H14 V18 H6 Z" />
     <path
-        android:fillColor="#8B6914"
+        android:strokeColor="#8B6914"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:pathData="M9,14 m-0.6,0 a0.6,0.6 0 1,0 1.2,0 a0.6,0.6 0 1,0 -1.2,0" />
     <path
-        android:fillColor="#8B6914"
+        android:strokeColor="#8B6914"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:pathData="M11,14 m-0.6,0 a0.6,0.6 0 1,0 1.2,0 a0.6,0.6 0 1,0 -1.2,0" />
     <path
-        android:fillColor="#8B6914"
+        android:strokeColor="#8B6914"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:pathData="M13,14 m-0.6,0 a0.6,0.6 0 1,0 1.2,0 a0.6,0.6 0 1,0 -1.2,0" />
   </group>
 </vector>

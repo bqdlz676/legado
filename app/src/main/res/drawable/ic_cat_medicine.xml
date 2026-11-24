@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 钵口：开口朝上的浅弧，起(6,12) 控制点(12,13.5) 收(18,12) -->
+  <path
+      android:pathData="M6,12 Q12,13.5 18,12"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 钵身：两侧向下收拢，底部圆底弧，连回钵口两端 -->
+  <path
+      android:pathData="M6,12 C6,17 8,19 12,19 C16,19 18,17 18,12"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 杵：碗内极小竖线，x=12，y=8→10 -->
+  <path
+      android:pathData="M12,8 L12,10"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

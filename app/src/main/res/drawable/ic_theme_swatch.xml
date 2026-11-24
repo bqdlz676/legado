@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 主题色块：内圆实心（默认暖金 #D4A54A，运行时由 Compose Icon(tint=...) 或 ImageView app:tint 覆盖为当前主题色）；外圈细线圆环 r=10 描边 #8B6914，与内圆同心，环间留 2dp 空隙。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -6,7 +7,7 @@
     android:viewportHeight="24">
   <path
       android:pathData="M4,12 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 Z"
-      android:fillColor="#8B6914" />
+      android:fillColor="#D4A54A" />
   <path
       android:pathData="M2,12 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 Z"
       android:strokeWidth="1.5"

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 细线方框：左上(5,4)→右上(19,4)→右下(19,20)→左下(5,20) 闭合（同 EPUB/TXT 框） -->
+  <path
+      android:pathData="M5,4 L19,4 L19,20 L5,20 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 框内小圆点：cx=12 cy=14 r=3，描边空心，无填充 -->
+  <path
+      android:pathData="M15,14 A3,3 0 1 0 9,14 A3,3 0 1 0 15,14"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 点下方一条横线：x=8→16 y=18.5，圆底缘 y=17 之下、框底 y=20 之上 -->
+  <path
+      android:pathData="M8,18.5 L16,18.5"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

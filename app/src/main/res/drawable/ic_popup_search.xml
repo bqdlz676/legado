@@ -4,14 +4,16 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+  <!-- 镜片：正圆 cx=10 cy=10 r=6，描边空心，无填充 -->
   <path
       android:pathData="M4,10 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 Z"
       android:strokeWidth="1.5"
       android:strokeColor="#8B6914"
       android:strokeLineCap="round"
       android:strokeLineJoin="round" />
+  <!-- 镜柄：自圆周 45° 点 (14.24,14.24) 沿半径方向引出至 (18,18)，round cap，不穿圆心 -->
   <path
-      android:pathData="M14,14 L18,18"
+      android:pathData="M14.24,14.24 L18,18"
       android:strokeWidth="1.5"
       android:strokeColor="#8B6914"
       android:strokeLineCap="round"

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 沙盘自动旋转：弧线箭头从 4 点位置沿圆环弧线顺时针到 2 点位置，箭头尖（切片-24 原文照录；无 fillColor，仅描边） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:strokeColor="#8B6914"
+      android:strokeWidth="1.5"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:pathData="M18.9,16.0 A8,8 0 1 1 18.9,8.0" />
+  <path
+      android:strokeColor="#8B6914"
+      android:strokeWidth="1.5"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:pathData="M18.9,8.0 L21.5,10.0 L19.4,11.2 Z" />
+</vector>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 草木类别图标：竖线茎 + 顶部左右两片镜像叶，仅描边无填充 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 竖线（茎）x=12 y=10→20 -->
+  <path
+      android:pathData="M12,10 L12,20"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 左叶：从左下到右上再从右上到右下的弧 -->
+  <path
+      android:pathData="M5,12 Q8,8 11,7 Q11.5,9 11,10"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 右叶：左叶水平镜像 -->
+  <path
+      android:pathData="M19,12 Q16,8 13,7 Q12.5,9 13,10"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

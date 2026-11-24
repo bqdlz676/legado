@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 道观 · 太极：正圆 cx=12 cy=12 r=7；S 形弧线分割；左半空心、右半实心；左右各一小圆点 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 右半实心区：外右半弧(T→B) + 下半弧左鼓(B→M, 圆心12,15.5) + 上半弧右鼓(M→T, 圆心12,8.5) 闭合 -->
+  <path
+      android:pathData="M12,5 A7,7 0 0 1 12,19 A3.5,3.5 0 0 1 12,12 A3.5,3.5 0 0 0 12,5 Z"
+      android:fillColor="#8B6914" />
+  <!-- 外圈正圆描边 r=7 -->
+  <path
+      android:pathData="M5,12 A7,7 0 1 1 19,12 A7,7 0 1 1 5,12 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- S 形分割线：上半弧右鼓(圆心12,8.5)，下半弧左鼓(圆心12,15.5) -->
+  <path
+      android:pathData="M12,5 A3.5,3.5 0 0 1 12,12 A3.5,3.5 0 0 0 12,19"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 左半（空心区）鱼眼：cx=12 cy=15.5 r=1.5 实心暗铜 -->
+  <path
+      android:pathData="M10.5,15.5 A1.5,1.5 0 1 1 13.5,15.5 A1.5,1.5 0 1 1 10.5,15.5 Z"
+      android:fillColor="#8B6914" />
+  <!-- 右半（实心区）鱼眼：cx=12 cy=8.5 r=1.5，白底暗铜描边，保证在实心底上可见 -->
+  <path
+      android:pathData="M10.5,8.5 A1.5,1.5 0 1 1 13.5,8.5 A1.5,1.5 0 1 1 10.5,8.5 Z"
+      android:fillColor="#FFFFFF"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

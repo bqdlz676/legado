@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 行军路线：左下到右上一条金色虚线；VectorDrawable 无 dash 属性，按规范用分段小线段模拟虚线（每段长 2、间隔 2），沿对角线 5,19 → 19,5 均布 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:pathData="M5,19 L6.41,17.59 M7.83,16.17 L9.24,14.76 M10.66,13.34 L12.07,11.93 M13.49,10.51 L14.90,9.10 M16.31,7.69 L19,5"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round" />
+</vector>

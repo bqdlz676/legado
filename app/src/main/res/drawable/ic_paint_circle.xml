@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- D25 批B 画板工具栏 · 圆：细线正圆 cx=12 cy=12 r=8 -->
+<!-- 画板工具栏 · 圆：细线正圆 cx=12 cy=12 r=8（仅描边，无填充） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -10,5 +10,5 @@
       android:strokeWidth="1.5"
       android:strokeLineCap="round"
       android:strokeLineJoin="round"
-      android:pathData="M12,4 a8,8 0 1,0 0.001,0 Z" />
+      android:pathData="M12,4 A8,8 0 1,1 12,20 A8,8 0 1,1 12,4 Z" />
 </vector>

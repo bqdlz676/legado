@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- 细线方框：左上(5,4)→右上(19,4)→右下(19,20)→左下(5,20) 闭合 -->
+  <path
+      android:pathData="M5,4 L19,4 L19,20 L5,20 Z"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- 框内竖排小字 e：碗形椭圆弧，圆心约(11.9,12.4) rx2.1 ry2.6 -->
+  <path
+      android:pathData="M14.0,12.4 A2.1,2.6 0 1 0 13.9,12.5"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- e 横杠：(9.9,12.2)→(13.9,12.2) -->
+  <path
+      android:pathData="M9.9,12.2 L13.9,12.2"
+      android:strokeWidth="1.5"
+      android:strokeColor="#8B6914"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+</vector>

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 书签：描边五角星，外接圆 R=10，圆心 (12,12)，无填充；左上角顶点(162°)留 8° 断口（158°/166° 两射线截边，不闭合） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
   <path
-      android:pathData="M12,2 L14.25,8.91 L21.51,8.91 L15.63,13.18 L17.88,20.09 L12,15.82 L6.12,20.09 L8.37,13.18 L2.49,8.91 L9.76,8.91 Z"
+      android:pathData="M12.00,2.00 L14.25,8.91 L21.51,8.91 L15.63,13.18 L17.88,20.09 L12.00,15.82 L6.12,20.09 L8.37,13.18 L4.00,10.00 M4.35,8.91 L9.75,8.91 L12.00,2.00"
       android:strokeWidth="1.5"
       android:strokeColor="#8B6914"
       android:strokeLineCap="round"
