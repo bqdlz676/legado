@@ -20,29 +20,32 @@ object InkSpec {
 
     // ── 切片-09 §3.1 排版常量（委托 V1 冻结 token，不在此另立数值） ──
 
-    /** 正文默认字号 18sp。 */
-    const val BODY_SP: Float = VerticalTokens.BODY_SP
+    // 注：VerticalTokens 已改为转发单源的 val（非编译期常量），此处同步由 const 降级为 val，
+    // 数值口径不变；调用方只读引用，无编译期常量诉求。
 
-    /** 注音 / 批注小字字号 10sp，无衬线。 */
-    const val ANNOTATION_SP: Float = VerticalTokens.ANNOTATION_SP
+    /** 正文默认字号 sp（转发自 [VerticalTokens.BODY_SP]）。 */
+    val BODY_SP: Float = VerticalTokens.BODY_SP
 
-    /** 行距 = 字号 × 1.8。 */
-    const val LINE_HEIGHT_RATIO: Float = VerticalTokens.LINE_HEIGHT_RATIO
+    /** 注音 / 批注小字字号 sp，无衬线（转发自 [VerticalTokens.ANNOTATION_SP]）。 */
+    val ANNOTATION_SP: Float = VerticalTokens.ANNOTATION_SP
 
-    /** 列间距 = 字号 × 2.5。 */
-    const val COLUMN_GAP_RATIO: Float = VerticalTokens.COLUMN_GAP_RATIO
+    /** 行距系数（转发自 [VerticalTokens.LINE_HEIGHT_RATIO]）。 */
+    val LINE_HEIGHT_RATIO: Float = VerticalTokens.LINE_HEIGHT_RATIO
 
-    /** 正文版心宽度占屏宽比例（右侧 82%）。 */
-    const val TEXT_BLOCK_RATIO: Float = VerticalTokens.TEXT_BLOCK_RATIO
+    /** 列间距系数（转发自 [VerticalTokens.COLUMN_GAP_RATIO]）。 */
+    val COLUMN_GAP_RATIO: Float = VerticalTokens.COLUMN_GAP_RATIO
 
-    /** 左侧注音 / 批注栏占屏宽比例（18%）。 */
-    const val NOTE_BAND_RATIO: Float = VerticalTokens.NOTE_BAND_RATIO
+    /** 正文版心宽度占屏宽比例（转发自 [VerticalTokens.TEXT_BLOCK_RATIO]）。 */
+    val TEXT_BLOCK_RATIO: Float = VerticalTokens.TEXT_BLOCK_RATIO
 
-    /** 标题比正文大 2sp。 */
-    const val TITLE_SIZE_OFFSET_SP: Float = VerticalTokens.TITLE_SIZE_OFFSET_SP
+    /** 左侧注音 / 批注栏占屏宽比例（转发自 [VerticalTokens.NOTE_BAND_RATIO]）。 */
+    val NOTE_BAND_RATIO: Float = VerticalTokens.NOTE_BAND_RATIO
 
-    /** 标题列与正文列横向间距 24dp。 */
-    const val TITLE_GAP_DP: Float = VerticalTokens.TITLE_GAP_DP
+    /** 标题比正文大的字号增量 sp（转发自 [VerticalTokens.TITLE_SIZE_OFFSET_SP]）。 */
+    val TITLE_SIZE_OFFSET_SP: Float = VerticalTokens.TITLE_SIZE_OFFSET_SP
+
+    /** 标题列与正文列横向间距 dp（转发自 [VerticalTokens.TITLE_GAP_DP]）。 */
+    val TITLE_GAP_DP: Float = VerticalTokens.TITLE_GAP_DP
 
     /** 测试 / 外部显式覆盖档位；null 走 [detectLowSpec] 启发式。 */
     var overrideLowSpec: Boolean? = null

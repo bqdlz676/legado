@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.vertical
 
+import io.legado.app.ui.components.VerticalReaderParams
+
 /**
  * 落文 · 竖排阅读引擎 —— 排版常量（口径逐字来自切片-09 一、3.1 / 五）。
  *
@@ -18,32 +20,36 @@ package io.legado.app.ui.book.read.vertical
  */
 object VerticalTokens {
 
-    /** 正文默认字号 18sp（切片-09 锁定值）。 */
-    const val BODY_SP = 18f
+    // ── S-09 排版参数：本层不再自写字面值，统一一层转发到单源
+    // [VerticalReaderParams]。为什么统一：避免排版引擎、阅读页 UI、单测三处口径漂移；
+    // 旧常量名全部保留，既有调用方不改，仅做 Double→Float 适配，渲染流程与计算口径不变。 ──
 
-    /** 注音/批注小字字号 10sp，无衬线（切片-09 锁定值）。 */
-    const val ANNOTATION_SP = 10f
+    /** 正文默认字号 sp（转发自 [VerticalReaderParams.BODY_FONT_SIZE_SP]）。 */
+    val BODY_SP: Float = VerticalReaderParams.BODY_FONT_SIZE_SP.toFloat()
 
-    /** 行距 = 字号 × 1.8；竖排中该比例落在列内纵向字距 pitch 上。 */
-    const val LINE_HEIGHT_RATIO = 1.8f
+    /** 注音/批注小字字号 sp，无衬线（转发自 [VerticalReaderParams.ANNOTATION_FONT_SIZE_SP]）。 */
+    val ANNOTATION_SP: Float = VerticalReaderParams.ANNOTATION_FONT_SIZE_SP.toFloat()
 
-    /** 列间距 = 字号 × 2.5。 */
-    const val COLUMN_GAP_RATIO = 2.5f
+    /** 行距 = 字号 × 行距系数；竖排中该比例落在列内纵向字距 pitch 上。 */
+    val LINE_HEIGHT_RATIO: Float = VerticalReaderParams.LINE_HEIGHT_RATIO.toFloat()
 
-    /** 正文版心宽度占屏宽比例（右侧 82%）。 */
-    const val TEXT_BLOCK_RATIO = 0.82f
+    /** 列间距 = 字号 × 列距系数。 */
+    val COLUMN_GAP_RATIO: Float = VerticalReaderParams.COLUMN_GAP_RATIO.toFloat()
 
-    /** 左侧注音/批注栏占屏宽比例（18%）。 */
-    const val NOTE_BAND_RATIO = 0.18f
+    /** 正文版心宽度占屏宽比例（转发自 [VerticalReaderParams.COLUMN_WIDTH_RATIO]）。 */
+    val TEXT_BLOCK_RATIO: Float = VerticalReaderParams.COLUMN_WIDTH_RATIO.toFloat()
 
-    /** 标题比正文大 2sp。 */
-    const val TITLE_SIZE_OFFSET_SP = 2f
+    /** 左侧注音/批注栏比例 = 1 − 版心比例（同由单源栏宽比例派生，不另立系数）。 */
+    val NOTE_BAND_RATIO: Float = (1.0 - VerticalReaderParams.COLUMN_WIDTH_RATIO).toFloat()
 
-    /** 标题列与正文列之间的横向间距 24dp。 */
-    const val TITLE_GAP_DP = 24f
+    /** 标题比正文大的字号增量 sp（转发自 [VerticalReaderParams.TITLE_FONT_SIZE_DELTA_SP]）。 */
+    val TITLE_SIZE_OFFSET_SP: Float = VerticalReaderParams.TITLE_FONT_SIZE_DELTA_SP.toFloat()
 
-    /** 进度线宽 1dp（渲染层取用；引擎只产出 0f..1f 进度比例，不画线）。 */
-    const val PROGRESS_LINE_DP = 1f
+    /** 标题列与正文列之间的横向间距 dp（转发自 [VerticalReaderParams.TITLE_BODY_GAP_DP]）。 */
+    val TITLE_GAP_DP: Float = VerticalReaderParams.TITLE_BODY_GAP_DP.toFloat()
+
+    /** 进度线宽 dp（转发自 [VerticalReaderParams.PROGRESS_LINE_WIDTH_DP]；引擎只产出 0f..1f 进度比例，不画线）。 */
+    val PROGRESS_LINE_DP: Float = VerticalReaderParams.PROGRESS_LINE_WIDTH_DP.toFloat()
 
     /** 左右边缘翻页手势区各占屏宽 1/5，中间 3/5 为正文点字区。 */
     const val EDGE_ZONE_RATIO = 1f / 5f

@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.vertical
 
+import io.legado.app.ui.components.computeVerticalColumnMetrics
+
 /**
  * 落文 · 竖排阅读引擎 —— 版心规格（px）。所有几何量在此一次性算好，分页/命中/渲染只读不改。
  *
@@ -98,8 +100,12 @@ data class VerticalLayoutSpec(
             topPaddingPx: Float = bodySizePx,
             bottomPaddingPx: Float = bodySizePx,
         ): VerticalLayoutSpec {
-            val noteBand = viewWidthPx * VerticalTokens.NOTE_BAND_RATIO
-            val textBlock = viewWidthPx * VerticalTokens.TEXT_BLOCK_RATIO
+            // 度量口径统一：栏宽 / 行距 / 列距系数一律由单源 computeVerticalColumnMetrics 产出，
+            // 本旧函数保留签名只做一层转发装配，不再自写比例；入参为 px，纯数值比例与 dp/sp 口径一致，
+            // sp/dp→px 换算仍在 Android 工厂层完成。
+            val metrics = computeVerticalColumnMetrics(viewWidthPx.toDouble(), bodySizePx.toDouble())
+            val textBlock = metrics.columnWidthDp.toFloat()
+            val noteBand = viewWidthPx - textBlock
             return VerticalLayoutSpec(
                 viewWidthPx = viewWidthPx,
                 viewHeightPx = viewHeightPx,
@@ -109,8 +115,8 @@ data class VerticalLayoutSpec(
                 textBlockWidthPx = textBlock,
                 bodyThicknessPx = bodySizePx,
                 titleThicknessPx = titleSizePx,
-                columnGapPx = bodySizePx * VerticalTokens.COLUMN_GAP_RATIO,
-                charPitchPx = bodySizePx * VerticalTokens.LINE_HEIGHT_RATIO,
+                columnGapPx = metrics.columnGapSp.toFloat(),
+                charPitchPx = metrics.lineHeightSp.toFloat(),
                 titleGapPx = titleGapPx,
                 topPaddingPx = topPaddingPx,
                 bottomPaddingPx = bottomPaddingPx,

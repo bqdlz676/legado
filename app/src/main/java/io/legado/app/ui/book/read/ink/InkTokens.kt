@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.book.read.vertical.VerticalTokens
+import io.legado.app.ui.components.VerticalReaderParams
 
 /**
  * 落文 · 阅读页设计系统 token（冻结 v1，色值 / 曲线 / 时长不可变）。
@@ -165,8 +166,8 @@ object InkTokens {
     val PARTICLE_RADIUS_MIN_DP: Dp = 1.dp
     val PARTICLE_RADIUS_MAX_DP: Dp = 3.dp
 
-    /** 右缘进度线宽 1dp（规格 §3.1：页面最右边缘一条竖线）。 */
-    val PROGRESS_LINE_WIDTH: Dp = 1.dp
+    /** 右缘进度线宽 dp（转发自单源 [VerticalReaderParams.PROGRESS_LINE_WIDTH_DP]，规格 §3.1）。 */
+    val PROGRESS_LINE_WIDTH: Dp = VerticalReaderParams.PROGRESS_LINE_WIDTH_DP.dp
 
     /** 翻页背面墨色透印 alpha 15%（规格 §3.3；与引擎 BACK_INK_ALPHA 同口径）。 */
     const val BACK_TRANSMISSION_ALPHA: Float = VerticalTokens.BACK_INK_ALPHA
