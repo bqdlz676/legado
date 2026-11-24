@@ -163,6 +163,43 @@ class SnapshotDiffTest {
                 expectAnyDiff = false,
                 expectFields = mapOf("army-1" to emptySet()),
             ),
+            // 容差上界锁定（M1）：实现比较符为严格 `>`（CampaignModels.kt:320 兵力、324-325 坐标），
+            // 即 abs(差) > ε 才标差异、= ε 也不标。故取四个贴边值：
+            // 兵力 ε=0.05：0.051 > 0.05 应标「兵力」；0.049 ≤ 0.05 不标。
+            // 坐标 ε=0.0005 度：0.0006 > 0.0005 应标「位置」；0.0004 ≤ 0.0005 不标。
+            // 选 0.049/0.051、0.0004/0.0006 是为留出单向舍入余量，避免浮点尾差把贴边用例反推到另一侧。
+            DiffCase(
+                title = "容差上界-兵力：差 0.051 超出 ε=0.05，只标兵力",
+                left = snap(3, listOf(view(strength = 5.0))),
+                right = snap(3, listOf(view(strength = 5.051))),
+                expectMissingSide = false,
+                expectAnyDiff = true,
+                expectFields = mapOf("army-1" to setOf(DiffField.STRENGTH)),
+            ),
+            DiffCase(
+                title = "容差上界-兵力：差 0.049 在 ε=0.05 内侧，不标兵力",
+                left = snap(3, listOf(view(strength = 5.0))),
+                right = snap(3, listOf(view(strength = 5.049))),
+                expectMissingSide = false,
+                expectAnyDiff = false,
+                expectFields = mapOf("army-1" to emptySet()),
+            ),
+            DiffCase(
+                title = "容差上界-位置：纬差 0.0006 度超出 ε=0.0005，只标位置",
+                left = snap(3, listOf(view(lat = 28.3500, lng = 105.8500))),
+                right = snap(3, listOf(view(lat = 28.3506, lng = 105.8500))),
+                expectMissingSide = false,
+                expectAnyDiff = true,
+                expectFields = mapOf("army-1" to setOf(DiffField.POSITION)),
+            ),
+            DiffCase(
+                title = "容差上界-位置：纬差 0.0004 度在 ε=0.0005 内侧，不标位置",
+                left = snap(3, listOf(view(lat = 28.3500, lng = 105.8500))),
+                right = snap(3, listOf(view(lat = 28.3504, lng = 105.8500))),
+                expectMissingSide = false,
+                expectAnyDiff = false,
+                expectFields = mapOf("army-1" to emptySet()),
+            ),
         )
 
         for (case in cases) {
