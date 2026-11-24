@@ -83,5 +83,6 @@ fun spinDecay(angularVelocity: Float, elapsedMs: Long): Float {
     if (decayMs <= 0.0) return 0f
 
     val factor = (1.0 - elapsedMs.toDouble() / decayMs).coerceIn(0.0, 1.0)
-    return (angularVelocity * factor).coerceAtLeast(0f)
+    // Float 与 Double 混算会推到 Double，必须先统一量纲再钳制，否则返回类型不匹配（CI 编译红 K-16）。
+    return (angularVelocity.toDouble() * factor).coerceAtLeast(0.0).toFloat()
 }
