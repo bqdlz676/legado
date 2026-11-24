@@ -23,7 +23,7 @@ import io.legado.app.help.bubble.BubbleContent
 /**
  * 阅读页 Compose 壳（U5-A）。
  *
- * 结构（自底向上）：底层 [AndroidView] 挂竖排引擎自绘 View；其上是手势遮罩层、
+ * 结构（自底向上）：底层 [AndroidView] 挂分页引擎自绘 View；其上是手势遮罩层、
  * 气泡层；最顶层是 60dp Compose 底栏。全部 Compose 自绘，不启用 Material 默认
  * ripple / elevation / shared-axis 转场。
  *
@@ -34,7 +34,7 @@ import io.legado.app.help.bubble.BubbleContent
  *  - [detectTapGestures] 只吃 tap / longPress，不注册任何 drag 检测器，
  *    滑动不消费，必须回 View；真机若 View 收不到滑动，切 [DispatchMode.ViewBridge]。
  *
- * @param engineView 竖排引擎自绘 View，由宿主控制器创建传入。
+ * @param engineView 分页引擎自绘 View，由宿主控制器创建传入。
  * @param host 壳 ↔ 宿主桥接实现。
  * @param bubbleContent 解析出的气泡内容；null 表示无气泡（含兜底 Missing 态）。
  * @param pageTick 翻页计数：变化即关闭气泡。
@@ -115,7 +115,7 @@ fun InkReaderShell(
         val viewW = maxWidth.value
         val viewH = maxHeight.value
 
-        // 1) 竖排引擎自绘 View（底层，不动）
+        // 1) 分页引擎自绘 View（底层，不动）
         AndroidView(
             factory = { engineView },
             modifier = Modifier.fillMaxSize(),

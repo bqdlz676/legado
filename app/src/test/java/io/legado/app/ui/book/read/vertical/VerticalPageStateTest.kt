@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 落文 · 竖排引擎翻页状态机单测（交接清单 #4）。
+ * 落文 · 分页引擎翻页状态机单测（交接清单 #4）。
  *
  * 覆盖 [VerticalLayoutEngine] 的 prev/next/jumpTo 边界收敛、同文重排保页、
  * 换文归零、缓存失效复位、中间页/末页进度口径；命中与分区已有 [VerticalLayoutEngineTest] 覆盖。

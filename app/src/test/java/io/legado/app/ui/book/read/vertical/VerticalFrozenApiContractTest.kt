@@ -8,7 +8,7 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 
 /**
- * 落文 · 冻结 API 契约反射校验（契约索引 §2 竖排引擎 / 总纲三引擎冻结清单）。
+ * 落文 · 冻结 API 契约反射校验（契约索引 §2 分页引擎 / 总纲三引擎冻结清单）。
  *
  * 冻结签名（不可改）：
  * - `VerticalLayoutEngine.layout(text: String, viewWidthPx: Int, viewHeightPx: Int): VerticalPage`

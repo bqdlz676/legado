@@ -3,10 +3,10 @@ package io.legado.app.ui.book.read.vertical
 import kotlin.math.abs
 
 /**
- * 落文 · 竖排阅读引擎门面（冻结 API）。
+ * 落文 · 分页引擎（竖排模式）门面（冻结 API）。
  *
  * 下游阅读页 UI 通过本类取分页结果、逐字命中与翻页命中；测量/缓存/分页细节全部内聚在本包，
- * 不依赖 Legado 横排引擎的任何类（只保留其文本解析/分章结果作为输入）。
+ * 不依赖 Legado 分页引擎的任何类（只保留其文本解析/分章结果作为输入）。
  *
  * 冻结签名（不可改）：
  * - [layout] `(text: String, viewWidthPx: Int, viewHeightPx: Int): VerticalPage`

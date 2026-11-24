@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
  *
  * 闭环链路：
  *  1. [bindChapter]：把当前书 / 章 / 正文写入 [ContextAnchor]，先按章标题与正文前段线索
- *     猜候选年代区间；再交竖排引擎分页排版。
+ *     猜候选年代区间；再交分页引擎分页排版。
  *  2. [probeChar]：触摸点先走 [VerticalLayoutEngine.hitTest]，字命中优先于边缘翻页；
  *     命中后按字位回填气泡锚点矩形。
  *  3. [requestBubble]：把命中段的 (paragraphText, pos) 喂给 [BubbleResolver.resolve]，
@@ -110,7 +110,7 @@ class InkReadController(
 
     /**
      * 章切换接线：锚点总线写书 / 章，按标题 + 正文前段线索锚定候选年代区间，
-     * 清气泡热缓存后重排竖排引擎。
+     * 清气泡热缓存后重排分页引擎。
      *
      * @param bookId   当前书标识
      * @param chapterId 当前章标识

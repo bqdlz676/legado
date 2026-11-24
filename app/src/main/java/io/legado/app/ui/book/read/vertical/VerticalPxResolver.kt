@@ -1,7 +1,7 @@
 package io.legado.app.ui.book.read.vertical
 
 /**
- * 落文 · 竖排引擎 —— sp/dp 名义值 → px 的纯 JVM 换算结果。
+ * 落文 · 分页引擎（竖排模式）—— sp/dp 名义值 → px 的纯 JVM 换算结果。
  *
  * 为什么抽出来：`android.util.TypedValue.applyDimension` 与 `Resources.getSystem()`
  * 都是 Android 绑定，纯 JVM 单测跑不了；把“选号规则 + 比例乘法”收口在本层，

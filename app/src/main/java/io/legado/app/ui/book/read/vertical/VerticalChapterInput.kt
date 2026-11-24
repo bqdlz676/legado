@@ -1,7 +1,7 @@
 package io.legado.app.ui.book.read.vertical
 
 /**
- * 落文 · 竖排引擎 —— Legado 章节结果映射的纯 JVM 模型。
+ * 落文 · 分页引擎（竖排模式）—— Legado 章节结果映射的纯 JVM 模型。
  *
  * 为什么单独收口：[TextChapter] 是 App 重类（构造依赖 BookChapter / 协程 / 页面列表），
  * 无法在纯 JVM 单测内实例化；标题空白归一、正文透传这些与 Android 无关的规则抽到本文件，

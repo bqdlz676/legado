@@ -33,7 +33,7 @@ class TextPaintVerticalMetrics(
 }
 
 /**
- * 竖排引擎 Android 工厂：sp/dp → px 在此取系统密度后交给纯 JVM 解析器
+ * 分页引擎（竖排模式）Android 工厂：sp/dp → px 在此取系统密度后交给纯 JVM 解析器
  * [VerticalPxResolver]，核心排版层只吃 px 数值，保持 JVM 可单测。
  *
  * 测试边界（交接清单 #4）：本对象读取 [Resources] 系统密度并构造 [TextPaintVerticalMetrics]，

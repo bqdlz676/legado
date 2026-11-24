@@ -8,14 +8,14 @@ import io.legado.app.ui.book.read.vertical.CharHit as VerticalCharHit
  *
  * 气泡内容 / 动作 / 候选统一复用模块⑥ `io.legado.app.help.bubble` 的
  * [io.legado.app.help.bubble.BubbleContent]，本目录不另建并行数据模型。
- * 逐字命中信息复用竖排引擎 [VerticalCharHit]，壳侧只补气泡定位用的外接矩形。
+ * 逐字命中信息复用分页引擎 [VerticalCharHit]，壳侧只补气泡定位用的外接矩形。
  */
 
-/** 命中字符的屏幕信息（相对阅读壳坐标，px）。宿主通过桥接接口从竖排引擎取到后回填。 */
+/** 命中字符的屏幕信息（相对阅读壳坐标，px）。宿主通过桥接接口从分页引擎取到后回填。 */
 data class CharHit(
     /** 原字外接矩形（px），气泡箭头对准其水平中心 */
     val anchor: Rect,
-    /** 竖排引擎逐字命中结果（字符 / 流内偏移 / 段落原文 / 段内下标）。 */
+    /** 分页引擎逐字命中结果（字符 / 流内偏移 / 段落原文 / 段内下标）。 */
     val engineHit: VerticalCharHit,
 ) {
     /** 命中的单字原文。 */

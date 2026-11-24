@@ -12,7 +12,7 @@ import io.legado.app.help.chrono.ContextAnchor
 /**
  * 阅读页闭环入口（U5-A 对外 Compose 面）。
  *
- * 把 [InkReadController]（竖排引擎 / 气泡引擎 / 时空锚接线宿主）与 [InkReaderShell]
+ * 把 [InkReadController]（分页引擎 / 气泡引擎 / 时空锚接线宿主）与 [InkReaderShell]
  * （手势遮罩 + 气泡层 + 底栏壳）组装到一起：
  *
  * 打开书 → [InkReadController.bindChapter] 锚定书 / 章与候选年代区间、竖排分页 →
@@ -55,7 +55,7 @@ fun InkReaderBook(
     val candidateHandler: (BubbleCandidate) -> Unit =
         onCandidateSelect ?: controller::switchCandidate
 
-    // 书 / 章 / 正文变化时重锚时空总线并重排竖排引擎；空文本由引擎与渲染层兜底。
+    // 书 / 章 / 正文变化时重锚时空总线并重排分页引擎；空文本由引擎与渲染层兜底。
     LaunchedEffect(bookId, chapterId, title, body) {
         controller.bindChapter(bookId, chapterId, title, body)
     }

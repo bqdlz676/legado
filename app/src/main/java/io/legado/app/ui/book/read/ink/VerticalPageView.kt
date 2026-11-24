@@ -28,7 +28,7 @@ import kotlin.random.Random
 /**
  * 竖排正文自绘 View（U5-A 渲染层，规格切片-09 §3.1~3.3）。
  *
- * 只吃竖排引擎产出的 [VerticalPage]：逐字按 [CharCell] 的 x / y / 宽高绘制，
+ * 只吃分页引擎产出的 [VerticalPage]：逐字按 [CharCell] 的 x / y / 宽高绘制，
  * 列从右到左、列内字从上到下；拉丁字母 / 数字 / 年份 90° 侧排。
  * 本 View 不做测量与分页——几何全部来自引擎，渲染层只负责把字画到字位上。
  *
@@ -52,7 +52,7 @@ class VerticalPageView @JvmOverloads constructor(
     var page: VerticalPage? = null
         private set
 
-    /** 尺寸变化回调：宿主据此重排竖排引擎（宽高 px）。 */
+    /** 尺寸变化回调：宿主据此重排分页引擎（宽高 px）。 */
     var onSizeChanged: ((widthPx: Int, heightPx: Int) -> Unit)? = null
 
     /** 翻页动画结束回调：宿主据此复位动画中屏蔽位。 */
