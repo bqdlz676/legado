@@ -14,13 +14,13 @@ class VerticalReaderParamsTest {
     private val delta = 1e-9
 
     @Test
-    fun `屏宽1080dp时栏宽 = 885.6`() {
+    fun `屏宽1080dp时栏宽885点6dp`() {
         val metrics = computeVerticalColumnMetrics(screenWidthDp = 1080.0, fontSizeSp = 18.0)
         assertEquals(885.6, metrics.columnWidthDp, delta)
     }
 
     @Test
-    fun `字号18sp时行距 = 32.4sp`() {
+    fun `字号18sp时行距32点4sp`() {
         val metrics = computeVerticalColumnMetrics(screenWidthDp = 1080.0, fontSizeSp = 18.0)
         assertEquals(32.4, metrics.lineHeightSp, delta)
     }

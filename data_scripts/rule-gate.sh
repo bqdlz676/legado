@@ -217,5 +217,11 @@ if [ $? -eq 0 ]; then ok "㉑组合验收覆盖" "$(echo "$COMBO21" | grep 'COMB
 LIVE27=$(python3 data_scripts/check-agent-liveness.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉗子代理存活" "$(echo "$LIVE27" | grep 'AGENT-LIVENESS: PASS')"; else bad "㉗子代理存活" "$(echo "$LIVE27" | grep -E 'FAIL' | head -4 | tr '\n' ' ')"; fi
 
+# ㉘ 测试函数名合法性（F-100）：Kotlin 反引号函数名含 `. : [ ] / ; < >` 会让
+#    `compileAppDebugUnitTestKotlin` 直接 FAIL（run 45453607335 冒号 / 45465010171 点号），
+#    而这属于"代码看着没问题却红"，只能在 CI 花 15 分钟证实——所以在本地先机械拦住。
+TFN28=$(python3 data_scripts/check-test-fun-names.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉘测试函数名合法性" "$(echo "$TFN28" | grep 'TEST-FUN-NAME: PASS')"; else bad "㉘测试函数名合法性" "$(echo "$TFN28" | grep -E '非法字符|FAIL' | head -4 | tr '\n' ' ')"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
