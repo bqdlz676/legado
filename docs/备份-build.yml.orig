@@ -1,0 +1,99 @@
+name: Build Debug APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      # versionCode 的唯一权威是仓库根 .versioncode（gradle 与本地同读），这里先把它打出来并入 summary，
+      # 低于硬地板 38000 直接 fail —— 否则产出的包在手机上会 INSTALL_FAILED_VERSION_DOWNGRADE 盖不上去。
+      - name: Resolve versionCode (.versioncode single source)
+        run: |
+          VC="$(tr -d '[:space:]' < .versioncode)"
+          echo "versionCode=$VC" | tee -a "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$VC" =~ ^[0-9]+$ ]] || (( VC < 38000 )); then
+            echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
+          fi
+
+      - name: Clean (full rebuild, no incremental)
+        run: ./gradlew clean --no-daemon --stacktrace
+
+      - name: Run all module unit tests and benches
+        run: ./gradlew testAppDebugUnitTest --no-daemon --stacktrace
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: List APK outputs
+        run: find app/build/outputs/apk -name "*.apk" -type f
+
+      # 实证断言：直接从产出的 APK 二进制里读 versionCode，与 .versioncode 比对。
+      # 为什么：光看 gradle 读文件不算验证，只有包里的号对上，才证明"能覆盖安装"这条路真的通了。
+      - name: Assert APK versionCode matches .versioncode
+        run: |
+          VC="$(tr -d '[:space:]' < .versioncode)"
+          AAPT="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+          for apk in $(find app/build/outputs/apk -name "*.apk" -type f); do
+            GOT="$("$AAPT" dump badging "$apk" 2>/dev/null | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)"
+            echo "$apk -> versionCode=$GOT (期望 $VC)"
+            [ "$GOT" = "$VC" ] || { echo "::error::$apk versionCode=$GOT 与 .versioncode=$VC 不一致"; exit 1; }
+          done
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: legado-debug-apk
+          path: app/build/outputs/apk/**/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: legado-release-apk
+          path: app/build/outputs/apk/**/release/*.apk
+          if-no-files-found: error

@@ -6,14 +6,30 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      baseline_full_test:
+        description: 'baseline 模式：单 job 跑全量单测对照（默认 false 走 4 分片并行）'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# 口径与护栏（改动前先读）：
+# - 基线测试数 3185 的权威来源：docs/台账-CI转绿登记.md 与 docs/复盘-CI连红到全绿-根因清单.md
+#   （success run 45404217394 / commit a978f15，3185 tests 0 failed）。
+# - 汇总 job 硬断言：各分片 JUnit XML 的 tests= 求和不得低于 3185；少于即 FAIL 并打印差值（防分片漏测的唯一保险）。
+# - 全程不使用 continue-on-error、不用 if: always() 掩盖失败、不 exclude 任何测试类；
+#   任一/shard 失败都会阻断汇总与出包。
+# - 缓存未命中时 actions/cache 自动跳过 restore，Gradle 正常走网络下载；任何位置都不加 --offline。
+
 jobs:
-  build:
+  # ---------- 分片 0：编译测试源码，枚举测试类并切成 4 份确定性清单 ----------
+  discover:
+    name: Discover test classes (shard lists)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,20 +51,32 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
+      # 缓存 key 第一部分：wrapper distributionUrl 指纹（换 Gradle 版本必然换 key）
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "distributionUrl=$DIST"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
       - name: Cache Gradle wrapper and modules
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: gradle-
+          # key = distributionUrl 指纹 + 全部 build.gradle* / 版本目录 / wrapper 配置 hash；
+          # restore-keys 先同 Gradle 版本前缀回退，再裸前缀回退，保证依赖变更后可部分复用。
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
 
       - name: Grant execute permission to gradlew
         run: chmod +x gradlew
 
-      # versionCode 的唯一权威是仓库根 .versioncode（gradle 与本地同读），这里先把它打出来并入 summary，
-      # 低于硬地板 38000 直接 fail —— 否则产出的包在手机上会 INSTALL_FAILED_VERSION_DOWNGRADE 盖不上去。
+      # versionCode 的唯一权威是仓库根 .versioncode；低于硬地板 38000 直接 fail。
       - name: Resolve versionCode (.versioncode single source)
         run: |
           VC="$(tr -d '[:space:]' < .versioncode)"
@@ -57,11 +85,339 @@ jobs:
             echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
           fi
 
-      - name: Clean (full rebuild, no incremental)
-        run: ./gradlew clean --no-daemon --stacktrace
+      - name: Compile unit test sources
+        run: ./gradlew :app:compileAppDebugUnitTestKotlin :app:compileAppDebugUnitTestJavaWithJavac --no-daemon --stacktrace
 
-      - name: Run all module unit tests and benches
+      # 枚举编译产物中的顶层类，按排序后 round-robin 切成 4 份；
+      # 并集必须 == 全量清单、两两不得重叠——这是"分片并集=全集"的第一道机制保证。
+      - name: Enumerate compiled test classes and split into 4 shards
+        run: |
+          python3 - <<'PY'
+          import glob, os, json, sys
+          # 兼容 Kotlin/Java 两种编译产物根目录的实际落盘位置（变体名漂移时用通配兜底）
+          roots = glob.glob('app/build/tmp/kotlin-classes/*UnitTest*') + \
+                  glob.glob('app/build/intermediates/javac/*UnitTest*/classes')
+          SKIP_BASE = {'R.class', 'BuildConfig.class', 'module-info.class'}
+          classes = set()
+          for root in roots:
+              for path in glob.glob(os.path.join(root, '**', '*.class'), recursive=True):
+                  rel = os.path.relpath(path, root)
+                  base = os.path.basename(rel)
+                  if '$' in base:        # 内部/嵌套类随外层类一起跑，不单独分片
+                      continue
+                  if base in SKIP_BASE:  # 生成类不是测试类，剔除后 --tests 清单更干净
+                      continue
+                  classes.add(rel[:-6].replace(os.sep, '.'))
+          if not classes:
+              sys.exit('::error::未枚举到任何测试类（编译产物目录缺失？），拒绝生成空分片清单')
+          cls = sorted(classes)
+          shards = [sorted(cls[i::4]) for i in range(4)]
+          union = set().union(*map(set, shards))
+          if union != set(cls):
+              sys.exit('::error::分片并集 != 全量测试类清单')
+          for a in range(4):
+              for b in range(a + 1, 4):
+                  overlap = set(shards[a]) & set(shards[b])
+                  if overlap:
+                      sys.exit(f'::error::分片 {a+1} 与 {b+1} 存在重叠类: {sorted(overlap)[:5]}')
+          for i, shard in enumerate(shards, start=1):
+              with open(f'shard-{i}.txt', 'w') as f:
+                  f.write('\n'.join(shard) + '\n')
+          json.dump({'total': len(cls), 'classes': cls}, open('manifest.json', 'w'), ensure_ascii=False, indent=1)
+          print(f'测试类总数={len(cls)}，分片大小={[len(s) for s in shards]}')
+          PY
+
+      - name: Upload test class lists
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-class-lists
+          path: |
+            shard-*.txt
+            manifest.json
+          if-no-files-found: error
+
+  # ---------- 4 个分片并行跑单测；fail-fast=false 保证任一失败时其余分片仍跑完留证 ----------
+  test-shard:
+    name: Unit tests shard ${{ matrix.shard }}/4
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Download class lists
+        uses: actions/download-artifact@v4
+        with:
+          name: test-class-lists
+          path: class-lists
+
+      # 只跑本分片清单内的类；--tests 是包含式过滤，清单来自编译产物全量枚举，不做任何 exclude。
+      - name: Run shard unit tests and benches
+        run: |
+          set -euo pipefail
+          mapfile -t CLASSES < "class-lists/shard-${{ matrix.shard }}.txt"
+          if [ ${#CLASSES[@]} -eq 0 ]; then
+            echo "::error::分片 ${{ matrix.shard }} 清单为空，拒绝空跑"; exit 1
+          fi
+          ARGS=()
+          for c in "${CLASSES[@]}"; do ARGS+=(--tests "$c"); done
+          echo "shard ${{ matrix.shard }}/4: ${#CLASSES[@]} classes"
+          ./gradlew :app:testAppDebugUnitTest --no-daemon --stacktrace "${ARGS[@]}"
+
+      - name: Upload shard JUnit XML results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-shard-${{ matrix.shard }}
+          path: app/build/test-results/testAppDebugUnitTest/*.xml
+          if-no-files-found: warn
+
+  # ---------- 汇总：needs 全部分片，求和 XML tests= 并硬断言基线 ----------
+  test-aggregate:
+    name: Aggregate & assert test totals
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    needs: [discover, test-shard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download shard JUnit XML results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-shard-*
+          path: results
+
+      - name: Download class manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: test-class-lists
+          path: class-lists
+
+      - name: Sum JUnit XML tests and assert baseline
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys, json
+          import xml.etree.ElementTree as ET
+          # 基线 3185：来源 docs/台账-CI转绿登记.md / docs/复盘-CI连红到全绿-根因清单.md，
+          # success run 45404217394 (commit a978f15)，3185 tests 0 failed 0 skipped。
+          BASELINE = 3185
+          xmls = sorted(glob.glob('results/**/*.xml', recursive=True))
+          if not xmls:
+              sys.exit('::error::未找到任何分片 JUnit XML 报告')
+          total = failures = errors = skipped = 0
+          per_shard = {}
+          owner = {}
+          dup = []
+          for x in xmls:
+              m = re.search(r'shard-(\d+)', x)
+              shard = m.group(1) if m else '?'
+              root = ET.parse(x).getroot()
+              suites = [root] if root.tag == 'testsuite' else root.findall('testsuite')
+              for s in suites:
+                  t = int(s.get('tests', 0)); f = int(s.get('failures', 0))
+                  e = int(s.get('errors', 0)); sk = int(s.get('skipped', 0))
+                  total += t; failures += f; errors += e; skipped += sk
+                  per_shard[shard] = per_shard.get(shard, 0) + t
+                  for tc in s.findall('testcase'):
+                      cn = tc.get('classname') or tc.get('class') or ''
+                      if cn:
+                          if cn in owner and owner[cn] != shard:
+                              dup.append((cn, owner[cn], shard))
+                          owner[cn] = shard
+          print(f'基线(台账)={BASELINE}  执行总条数={total}  failures={failures}  errors={errors}  skipped={skipped}')
+          print('各分片条数:', dict(sorted(per_shard.items())))
+          print(f'去重后测试类数={len(owner)}，XML 报告数={len(xmls)}')
+          if dup:
+              for cn, a, b in dup[:20]:
+                  print(f'::error::类 {cn} 同时出现在分片 {a} 与 {b}（重复执行）')
+              sys.exit(1)
+          # 交叉核对：报告里出现的每个测试类都必须来自 discover 清单（嵌套类按外层归属）
+          manifest_path = 'class-lists/manifest.json'
+          if os.path.exists(manifest_path):
+              manifest = set(json.load(open(manifest_path))['classes'])
+              unknown = []
+              for cn in owner:
+                norm = cn.replace('$', '.')
+                if not any(norm == m or norm.startswith(m + '.') or cn.startswith(m + '$') for m in manifest):
+                  unknown.append(cn)
+              if unknown:
+                  sys.exit(f'::error::报告中的类不在分片清单内: {sorted(unknown)[:10]}')
+          if failures + errors > 0:
+              sys.exit(f'::error::单测失败 failures={failures} errors={errors}，请查看对应分片日志')
+          if skipped > 0:
+              sys.exit(f'::error::skipped={skipped}（不允许跳过任何测试）')
+          if total < BASELINE:
+              sys.exit(f'::error::测试总条数 {total} < 基线 {BASELINE}，差值 {BASELINE - total}（疑似分片漏测）')
+          if total > BASELINE:
+              print(f'::notice::总数较基线新增 {total - BASELINE} 条（允许：新增测试需在台账登记）')
+          summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary:
+              with open(summary, 'a') as fh:
+                  fh.write(f'- 测试总条数：{total}（基线 {BASELINE}）；failures={failures} errors={errors} skipped={skipped}\n')
+                  fh.write(f'- 各分片条数：{dict(sorted(per_shard.items()))}\n')
+          PY
+
+  # ---------- baseline 对照模式：workflow_dispatch 勾选 baseline_full_test 时单 job 跑全量 ----------
+  test-baseline:
+    name: Baseline full unit tests (single job)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline_full_test == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Run all module unit tests and benches (baseline full)
         run: ./gradlew testAppDebugUnitTest --no-daemon --stacktrace
+
+      - name: Upload baseline JUnit XML results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-baseline
+          path: app/build/test-results/testAppDebugUnitTest/*.xml
+          if-no-files-found: warn
+
+  # ---------- 出包：分片模式由 test-aggregate 放行，baseline 模式由 test-baseline 放行 ----------
+  build:
+    name: Build & verify APKs
+    needs: [discover, test-shard, test-aggregate, test-baseline]
+    if: |
+      (github.event_name == 'workflow_dispatch' && inputs.baseline_full_test == true && needs.test-baseline.result == 'success') ||
+      (github.event_name != 'workflow_dispatch' && needs.test-aggregate.result == 'success') ||
+      (github.event_name == 'workflow_dispatch' && inputs.baseline_full_test != true && needs.test-aggregate.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Resolve versionCode (.versioncode single source)
+        run: |
+          VC="$(tr -d '[:space:]' < .versioncode)"
+          echo "versionCode=$VC" | tee -a "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$VC" =~ ^[0-9]+$ ]] || (( VC < 38000 )); then
+            echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
+          fi
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
@@ -73,7 +429,6 @@ jobs:
         run: find app/build/outputs/apk -name "*.apk" -type f
 
       # 实证断言：直接从产出的 APK 二进制里读 versionCode，与 .versioncode 比对。
-      # 为什么：光看 gradle 读文件不算验证，只有包里的号对上，才证明"能覆盖安装"这条路真的通了。
       - name: Assert APK versionCode matches .versioncode
         run: |
           VC="$(tr -d '[:space:]' < .versioncode)"
