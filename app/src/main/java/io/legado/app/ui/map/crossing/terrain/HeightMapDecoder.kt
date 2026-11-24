@@ -100,12 +100,17 @@ object HeightMapDecoder {
      * | 空 / 空白串 | [SourceKind.NONE] |
      * | `data:` 前缀 | [SourceKind.BASE64] |
      * | 长度 ≥ [BASE64_MIN_LENGTH] 且全部字符属 base64 字母表（`=` 仅作尾部填充） | [SourceKind.BASE64]（即便含 `/` 或 `+`） |
+     * | 短串但字符集合法、base64 解出后命中 PNG 八字节签名 | [SourceKind.BASE64]（极小内联图签名探针） |
      * | 以 `/` 或 `file://` 开头 | [SourceKind.LOCAL_PATH] |
      * | 含 `/` 且长度 <200（如 `assets/map/x.png`） | [SourceKind.ASSET] |
      * | 其余（短串 / 无分隔符 / 字符集不合法） | [SourceKind.ASSET] 兜底桶（INLINE/UNKNOWN 待 model 接纳栅格字段时再细分） |
      *
      * 为什么字符集判定必须在前：标准 base64 字母表本身含 `/` 与 `+`；旧实现先用 `!contains('/')`
      * 排除路径，导致含 `/` 的裸标准 base64 被误判为 ASSET，内联通路被跳过。
+     *
+     * 为什么短串还要过签名探针：1×1 等极小内联 PNG 的 base64 天然不足 200 字符，纯长度阈值会把
+     * 合法内联图误判成资产名，reader 为 null 时错误回落合成场并置 degraded；探针直接验 PNG 签名，
+     * 比按长度猜测更贴近「内联栅格」的真实语义，验不出签名仍落 ASSET 兜底。
      */
     fun classify(raw: String?): SourceKind {
         val s = raw?.trim().orEmpty()
@@ -113,14 +118,18 @@ object HeightMapDecoder {
         if (s.startsWith("data:")) return SourceKind.BASE64
         // 优先级①：纯 base64 字符集 + 足够长 → BASE64；此时允许串内出现 '/' 与 '+'。
         if (looksLikeBase64(s)) return SourceKind.BASE64
+        // 优先级①-b：短串字符集合法且 base64 解出 PNG 签名 → 仍判 BASE64（极小内联图兜底）。
+        if (isBase64Charset(s) && decodesToPngSignature(s)) return SourceKind.BASE64
         // 优先级②：路径形态。绝对路径 / file:// → LOCAL_PATH；含 '/' 的短相对路径 → ASSET。
         if (s.startsWith("/") || s.startsWith("file://")) return SourceKind.LOCAL_PATH
         if (s.contains('/') && s.length < BASE64_MIN_LENGTH) return SourceKind.ASSET
         return SourceKind.ASSET
     }
 
-    private fun looksLikeBase64(s: String): Boolean {
-        if (s.length < BASE64_MIN_LENGTH) return false
+    private fun looksLikeBase64(s: String): Boolean =
+        s.length >= BASE64_MIN_LENGTH && isBase64Charset(s)
+
+    private fun isBase64Charset(s: String): Boolean {
         val tailEquals = s.count { it == '=' }
         if (tailEquals > 2) return false
         // base64 填充位 `=` 只能出现在串尾；中段出现 `=` 判非法字符集。
@@ -128,6 +137,20 @@ object HeightMapDecoder {
         if (padStart >= 0 && padStart < s.length - 2) return false
         return s.all { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '+' || it == '/' || it == '=' }
     }
+
+    /**
+     * 短串兜底探针：base64 解出的前 8 字节命中 PNG 签名（`89 50 4E 47 0D 0A 1A 0A`）才认内联图；
+     * 解码异常 / 长度不足 / 签名不符一律 false，按非内联串走 ASSET 兜底，不抛异常到装配链。
+     */
+    private fun decodesToPngSignature(s: String): Boolean = try {
+        val bytes = Base64.getDecoder().decode(s)
+        // 按无符号 Int 比对，避免 Byte 与 Int 字面量 == 走 equals 类型不符而恒为 false。
+        bytes.size >= 8 &&
+            (bytes[0].toInt() and 0xFF) == 0x89 && (bytes[1].toInt() and 0xFF) == 0x50 &&
+            (bytes[2].toInt() and 0xFF) == 0x4E && (bytes[3].toInt() and 0xFF) == 0x47 &&
+            (bytes[4].toInt() and 0xFF) == 0x0D && (bytes[5].toInt() and 0xFF) == 0x0A &&
+            (bytes[6].toInt() and 0xFF) == 0x1A && (bytes[7].toInt() and 0xFF) == 0x0A
+    } catch (_: Throwable) { false }
 
     // ── 装配入口 ──────────────────────────────────────────────
 

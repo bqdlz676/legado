@@ -108,7 +108,7 @@ private fun MetaRow(
     bookshelfCount: Int,
 ) {
     val badges = mutableListOf<String>()
-    if (source.hasJs) badges += "JS"
+    if (source.hasJs) badges += stringResource(R.string.js_source_badge)
     if (source.hasExploreUrl) {
         badges += if (source.enabledExplore) {
             stringResource(R.string.tag_explore_enabled)

@@ -75,7 +75,11 @@ object IntentResolver {
         }
 
         // 7. 兵力三倍于最近敌军 → 进军压迫。
-        if (nearestEnemy != null && corps.strength >= nearestEnemy.strength * STRENGTH_SUPERIORITY) {
+        // 持原地据守（HOLD）建制不被机会主义进军拖离防地：ADVANCE 是机动兵种的主动压迫，
+        // 据守军只有在相邻接敌 / 溃散 / 被围等生存威胁下才易地（见规则 1/2/3）。
+        if (corps.intent != Intent.HOLD && nearestEnemy != null &&
+            corps.strength >= nearestEnemy.strength * STRENGTH_SUPERIORITY
+        ) {
             return Decision(Intent.ADVANCE, nearestEnemy.position, "兵力优势，进军压迫")
         }
 
@@ -89,7 +93,11 @@ object IntentResolver {
         }
 
         // 9. 未持关隘 + 敌军较远 + 有关隘空着 → 抢占关隘。
-        if (corps.position !in chokeCells && nearestEnemyDist > SEIZE_ENEMY_RANGE) {
+        // HOLD 据守军不主动抢占远处关隘：否则驻点守军首回合即被 SEIZE 路径拖离胜利点，
+        // 据点归属表 / 占领计数在快照里落空（B7 空表根因）；关隘抢占只属机动建制。
+        if (corps.intent != Intent.HOLD &&
+            corps.position !in chokeCells && nearestEnemyDist > SEIZE_ENEMY_RANGE
+        ) {
             val freeChoke = chokeCells
                 .filter { c -> allies.none { it.combatReady() && it.position == c } }
                 .minByOrNull { octile(corps.position, it) }

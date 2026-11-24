@@ -63,8 +63,8 @@ class BookSourcePartHasJsTest {
 
     @Test
     fun `adapter refreshes js badge without leaving hidden spacing`() {
-        // Compose 行按 hasJs 条件把 JS 角标追加进 badges 列表；无角标时不预留占位槽位。
-        assertTrue(rowSource.contains("if (source.hasJs) badges += \"JS\""))
+        // Compose 行按 hasJs 条件把 JS 角标（走字符串资源）追加进 badges 列表；无角标时不预留占位槽位。
+        assertTrue(rowSource.contains("if (source.hasJs) badges += stringResource(R.string.js_source_badge)"))
         assertTrue(rowSource.contains("val badges = mutableListOf<String>()"))
         // 名称列占满剩余权重，角标只在有内容时随 badges 渲染（旧 gone() 隐藏间距关注点的新落点）。
         assertTrue(rowSource.contains("modifier = Modifier.weight(1f)"))
@@ -75,7 +75,7 @@ class BookSourcePartHasJsTest {
     fun `source name is constrained through an initially gone js badge`() {
         // 角标文案资源保留；行内条件拼装即旧“初始 gone、有 JS 才显示”的 Compose 等价物。
         assertTrue(stringsSource.contains("<string name=\"js_source_badge\">JS</string>"))
-        val badgeAppend = rowSource.indexOf("if (source.hasJs) badges += \"JS\"")
+        val badgeAppend = rowSource.indexOf("if (source.hasJs) badges += stringResource(R.string.js_source_badge)")
         assertTrue("js badge must be gated by hasJs", badgeAppend >= 0)
         // 名称列权重在前、角标列表在后，名称不被固定角标宽度挤压。
         assertTrue(rowSource.indexOf("weight(1f)") in 0..<badgeAppend)

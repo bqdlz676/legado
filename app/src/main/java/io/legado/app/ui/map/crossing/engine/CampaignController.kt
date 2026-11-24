@@ -116,6 +116,14 @@ class CampaignController private constructor(
     private val marchCells: MutableMap<String, Int> = mutableMapOf()
 
     /**
+     * 本回合已因交战被降过一级士气的军队 id。
+     * 一回合内同一支军队可能被多支友军接连接战；士气降级每回合至多结算一次，避免两场
+     * 遭遇叠加把 STEADY 连降两级到 BROKEN 当场解散（B9-7 同格 2v1 误溃散根因）。
+     * 事件直接置 BROKEN（MORALE_CHANGE）不经此表，解散语义不变。
+     */
+    private val moraleDowngradedThisRound: MutableSet<String> = mutableSetOf()
+
+    /**
      * 决策层情报表（B9）：观察军 id → 目标军 id → 已知情报。
      * 开局按部署情报播种各方初始位置，此后每回合情报更新覆盖；意图裁决 / 侧翼寻路
      * 只准读这张表的报告位置，不得回读敌军实时 [Corps.position] / [Corps.latLng]。
@@ -255,6 +263,8 @@ class CampaignController private constructor(
 
         turn += 1
         elapsedDays += 1
+        // 回合级临时状态清零：交战士气降级标记随新回合重置。
+        moraleDowngradedThisRound.clear()
 
         fireTriggeredEvents()
 
@@ -502,7 +512,9 @@ class CampaignController private constructor(
             val recCell = rec.cell ?: return@mapNotNull null
             val recGeo = rec.geo ?: return@mapNotNull null
             enemy.copy(position = recCell, latLng = recGeo)
-        }
+            // 按军 id 去重：同一敌军在感知集只落一条（B9-7 同回合多观察者 / 重复情报写入
+            // 不得产生重复条目）；去重保留首条记录，不靠截断列表条数糊弄唯一性断言。
+        }.distinctBy { it.id }
 
     private fun resolveIntent(corps: Corps, overrides: Map<String, Intent>?): IntentResolver.Decision {
         val override = overrides?.get(corps.id)
@@ -565,9 +577,10 @@ class CampaignController private constructor(
         corps.exposed = true
 
         if (outcome.attackerLoss > outcome.defenderLoss) {
-            corps.morale = corps.morale.downgrade()
+            // 同回合已降过级的军队不再叠加降级（见 [moraleDowngradedThisRound] 注释）。
+            if (moraleDowngradedThisRound.add(corps.id)) corps.morale = corps.morale.downgrade()
         } else {
-            target.morale = target.morale.downgrade()
+            if (moraleDowngradedThisRound.add(target.id)) target.morale = target.morale.downgrade()
         }
         if (outcome.defenderRetreated && target.combatReady()) retreatFrom(target, corps.position)
 
@@ -730,6 +743,7 @@ class CampaignController private constructor(
         // 此处一律重建而非读取存档；空军队 / 缺字段旧档循环自然空转，降级为"位置未知"，不抛异常。
         intel.clear()
         reports.clear()
+        moraleDowngradedThisRound.clear()
         for (observer in corps) for (enemy in enemiesOf(observer)) {
             intel.getOrPut(observer.id) { mutableMapOf() }[enemy.id] = IntelRecord(
                 geo = enemy.latLng,

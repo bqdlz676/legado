@@ -340,10 +340,11 @@ class HeightMapDecoderTest {
 
     @Test
     fun `M2 色彩类型 2 RGB 取通道平均亮度`() {
-        // 像素0 (60,120,180) → 灰度 (60+120+180)/3 = 120；
-        // 像素1 (30,90,150) → 灰度 (30+90+150)/3 = 90。
-        val png = encodePng(1, 2, colorType = 2, channels = 3, pixel = { x, _ ->
-            if (x == 0) intArrayOf(60, 120, 180) else intArrayOf(30, 90, 150)
+        // 宽 1 高 2：两像素分属两行，必须按行坐标 y 区分（x 恒为 0，按 x 取值两行会同色）。
+        // 行0 (60,120,180) → 灰度 (60+120+180)/3 = 120；
+        // 行1 (30,90,150) → 灰度 (30+90+150)/3 = 90。
+        val png = encodePng(1, 2, colorType = 2, channels = 3, pixel = { _, y ->
+            if (y == 0) intArrayOf(60, 120, 180) else intArrayOf(30, 90, 150)
         })
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
@@ -381,6 +382,18 @@ class HeightMapDecoderTest {
     @Test
     fun `M4 含斜杠的短相对路径判 ASSET`() {
         assertEquals(SourceKind.ASSET, HeightMapDecoder.classify("assets/map/gaixia.png"))
+    }
+
+    @Test
+    fun `M5 短 base64 极小 PNG 凭签名探针判 BASE64 不被长度阈值误拒`() {
+        // 1×1 灰度 PNG 的 base64 不足 200 字符；仅凭长度会误落 ASSET，探针验 PNG 签名后应判 BASE64。
+        val png = encodePng(1, 1, colorType = 0, channels = 1, pixel = { _, _ -> intArrayOf(128) })
+        val b64 = Base64.getEncoder().encodeToString(png)
+        // 阈值 200 对应解码器私有常量 BASE64_MIN_LENGTH；此处用字面量，不引用私有成员。
+        assertTrue("极小 PNG base64 应低于 200 字符阈值", b64.length < 200)
+        assertEquals(SourceKind.BASE64, HeightMapDecoder.classify(b64))
+        // 对照：同字符集但解不出 PNG 签名的短串仍落 ASSET（不被探针放宽）。
+        assertEquals(SourceKind.ASSET, HeightMapDecoder.classify("YWJjZGVmZw"))
     }
 
     @Test
