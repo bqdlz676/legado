@@ -2,7 +2,7 @@
 
 > 清单编号：**A12**（`docs/问题清单.md:30`）
 > 一手证据：云端 CI run `45206888778`（commit `741b1e1`），`:app:compileAppDebugUnitTestKotlin` 失败，4 条全部落在 `ReplayBenchTest.kt`。
-> 备案锚点：`docs/落文-全规格备案.md` §4.2（回放链 `ReplayDirector` 契约）、§1.1（三布尔现状）。
+> 备案锚点：`docs/落文-全规格备案.md` §4.2（回放链 `ReplayDirector` 契约）、§1.1（三布尔现状）。⚠️已作废：以 F-01（`docs/口径冻结-2026-11-24-15点后.md:8`，两布尔：HEAD commit / CI 绿红）为准（2026-11-25 清理）。
 
 ## 1. 任务与范围
 
@@ -169,7 +169,7 @@ $ git diff --stat -- app/src/test/java/io/legado/app/ui/map/replay/ReplayBenchTe
 - **未经云端 CI 编译验证**：沙箱禁 gradle / kotlinc，未本地编译；4 条报错是否在云端 run 中消失，需总控提交后由下一次 `:app:compileAppDebugUnitTestKotlin` 确认。
 - **未经单测运行**：bench 的 warmup / loops / 阈值实际耗时未在本环境跑过；4ms / 2ms / 1ms / 0.5ms 红线是否在真机达标，仍待真机压测（与本单编译修复无关，属既有待验证项）。
 - **未经真机**：无任何设备验证。
-- 三布尔现状（HEAD commit / CI 绿红 / 有无 APK）以备案 §1.1 与总控轮询为准，本单不报百分比。
+- 三布尔现状（HEAD commit / CI 绿红 / 有无 APK）以备案 §1.1 与总控轮询为准，本单不报百分比。⚠️已作废：本条"三布尔含 APK"旧口径作废，以 F-01 / F1（`docs/落文-规矩总纲.md:198`）两布尔为准（2026-11-25 清理）。
 
 ## 9. 交接（发现但未改的跨模块问题）
 

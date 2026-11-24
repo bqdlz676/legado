@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+# 同一 ref 上后推的 commit 自动取消旧 run：避免 4~5 个 run 同时抢 runner，压一轮红灯的等待与额度成本。
+# 注意：cancel-in-progress 只取消排队/在跑的旧 run，不会跳过任何测试，也不削弱汇总断言。
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 # 口径与护栏（改动前先读）：
 # - 基线测试数 3185 的权威来源：docs/台账-CI转绿登记.md 与 docs/复盘-CI连红到全绿-根因清单.md
 #   （success run 45404217394 / commit a978f15，3185 tests 0 failed）。

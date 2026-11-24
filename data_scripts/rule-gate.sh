@@ -35,7 +35,7 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.32" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.32"; else bad "④索引版本" "未升版（期望 v2.32）"; fi
+if grep -q "版本：v2.34" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.34"; else bad "④索引版本" "未升版（期望 v2.34）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
@@ -190,6 +190,20 @@ fi
 #    命中须在 docs/台账-缝合怪.md 在册，未在册判 FAIL；留档豁免必须能回查到台账条目，防自报豁免。
 FRANK=$(python3 data_scripts/check-frankenstein.py 2>&1)
 if [ $? -eq 0 ]; then ok "⑳缝合怪" "$(echo "$FRANK" | grep -E 'FRANKENSTEIN: PASS')"; else bad "⑳缝合怪" "$(echo "$FRANK" | grep 'FRANKENSTEIN: FAIL')"; fi
+
+# ㉖ 接手链守卫（F-91）：钥匙可解析 / 快照新鲜度 / 棒次六段齐全 / 接力棒只增不改 / 当日流水非空；
+#    接手链＝总账(入口+接力棒)+门禁(本项)+溯源(快照与棒次行)；跨轮次长跑项目每棒收口必刷快照与棒次行。
+HAND26=$(python3 data_scripts/check-handover.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉖接手链" "$(echo "$HAND26" | grep 'HANDOVER: PASS')"; else bad "㉖接手链" "$(echo "$HAND26" | grep 'FAIL' | head -4)"; fi
+
+# ㉓ 规则总账（F-89/F-90）：总账结构 / F 编号覆盖 / 冲突裁决与替代指向 / 否决串裸奔扫描；
+#    为什么：规则靠记忆维持必然漏，总账是唯一事实源，门禁机械判账在册、冲突已裁、旧口径不裸奔。
+LED23=$(python3 data_scripts/check-rule-ledger.py --check ledger 2>&1)
+if [ $? -eq 0 ]; then ok "㉓规则总账" "$(echo "$LED23" | grep 'RULE-LEDGER: PASS')"; else bad "㉓规则总账" "$(echo "$LED23" | grep -E '·|FAIL' | head -5)"; fi
+
+# ㉔ 三件缺项台账（F-89 §3）：缺项在册且无超期；补齐前限权，逾期升级阻断。
+GAP24=$(python3 data_scripts/check-rule-ledger.py --check gap 2>&1)
+if [ $? -eq 0 ]; then ok "㉔缺项台账" "$(echo "$GAP24" | grep 'RULE-LEDGER: PASS')"; else bad "㉔缺项台账" "$(echo "$GAP24" | grep -E '·|FAIL' | head -5)"; fi
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }

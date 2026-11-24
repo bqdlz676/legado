@@ -1,0 +1,20 @@
+=== 反射资源类型 === ['dimen', 'id', 'integer', 'string']
+=== 反射命中 string/array/plurals（全局存疑闸）=== 无
+
+=== 分语言统计 ===
+values             总 1578  删    0  保留 1578  存疑   0
+values-en          总   12  删    0  保留    0  存疑   0
+values-es-rES      总  902  删    0  保留    0  存疑   0
+values-ja-rJP      总  893  删    0  保留    0  存疑   0
+values-night       总    0  删    0  保留    0  存疑   0
+values-pt-rBR      总  902  删    0  保留    0  存疑   0
+values-vi          总  902  删    0  保留    0  存疑   0
+values-zh          总 1389  删    0  保留    0  存疑   0
+values-zh-rHK      总 1022  删    0  保留    0  存疑   0
+values-zh-rTW      总 1031  删    0  保留    0  存疑   0
+
+=== A 类（基准零引用，基准+变体同删）=== 0
+
+=== B 类（变体孤儿翻译）=== 0
+
+JSON 清单: data_scripts/scan-orphan-strings.json

@@ -45,13 +45,21 @@ TOKEN = os.environ.get('CI_TOKEN', '')
 REPO = os.environ['CI_REPO']
 API = f'https://api.github.com/repos/{REPO}'
 
+# 日志接口 302 到 results-receiver.actions.githubusercontent.com 的签名 URL：
+# 签名凭证已在 query 里，继续带 GitHub Authorization 头会被 403。跨主机跳转时剥离该头。
+class _NoAuthRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return urllib.request.Request(newurl, headers={'User-Agent': 'ci-log-attribution'})
+
+_OPENER = urllib.request.build_opener(_NoAuthRedirect)
+
 def api(path, raw=False):
     req = urllib.request.Request(API + path, headers={
         'Authorization': f'token {TOKEN}',
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'ci-log-attribution',
     })
-    body = urllib.request.urlopen(req, timeout=60).read()
+    body = _OPENER.open(req, timeout=60).read()
     return body if raw else json.loads(body)
 
 # 1. 解析 run_id（latest-failure 取最近一次 failure）
@@ -95,8 +103,14 @@ for n in chosen:
         lines.append((n, TIMESTAMP.sub('', raw)))
 
 # 4. 三类归因正则
+# Kotlin/Java 编译错：兼容 file:/// 绝对路径、/ 开头绝对路径与仓库相对路径（e: app/src/.../Foo.kt:109:36 ...）
 RE_COMPILE = re.compile(r'e:\s+(?:file://)?(/\S+\.(?:kt|java)|\S+\.(?:kt|java)):(\d+):(\d+)\s*(.*)')
 RE_COMPILE_TASK = re.compile(r'> Task :app:compile\S* FAILED')
+# 编译任务整体失败 / Gradle "What went wrong" 段头：Discover 编译炸时先于 e: 行出现，必须能抓到
+RE_TASK_FAIL = re.compile(r"Execution failed for task '(:app:\S+)'")
+RE_WHAT_WRONG = re.compile(r'^\*\s*What went wrong:')
+# 异常堆栈行（类名开头 / Caused by）不重复计入任务失败行
+RE_STACK = re.compile(r'^(org\.gradle\.|java\.|kotlin\.|sun\.|jdk\.|Caused by:)')
 RE_TEST_FAIL = re.compile(r'^([A-Za-z0-9_$.]+)\s+>\s+(.*?)\s+FAILED\s*$')
 RE_TEST_SUMMARY = re.compile(r'(\d+)\s+tests completed,\s*(\d+)\s+failed')
 RE_TEST_TASK = re.compile(r'> Task :app:testAppDebugUnitTest FAILED')
@@ -118,17 +132,50 @@ RE_CONFIG_SKIP = re.compile(r'^\s*at |^\s*\.\.\. \d+ more|DirectMethodHandle|sun
 
 compiles, test_fails, pack_hits, config_hits, seen = [], [], [], [], set()
 test_summary = None
+pending_wrong = False  # What went wrong 段头缓存，等下一条 Execution failed 行决定归编译类还是单测类
+pending_wrong_line = ''
 for name, line in lines:
     if not line.strip():
         continue
-    if RE_COMPILE_TASK.search(line):
+    if RE_WHAT_WRONG.search(line):
+        pending_wrong = True
+        pending_wrong_line = line
+        continue
+    m_task = RE_TASK_FAIL.search(line)
+    if pending_wrong and (line.lstrip().startswith('>') or m_task):
+        pending_wrong = False
+        tname = m_task.group(1) if m_task else ''
+        # 编译任务归编译错；测试任务归单测失败；段头与摘要行同桶
+        bucket = compiles if tname.startswith(':app:compile') else test_fails
+        for ln in (pending_wrong_line, line.strip()):
+            key = ('ww', ln)
+            if key in seen:
+                continue
+            seen.add(key)
+            if bucket is compiles:
+                compiles.append((name, 'task', '-', '-', ln))
+            else:
+                test_fails.append((name, 'task', ln))
+        continue
+    pending_wrong = False
+    if RE_COMPILE_TASK.search(line) and not RE_STACK.search(line):
         key = ('ctask', line)
         if key not in seen:
             seen.add(key); compiles.append((name, 'task', '-', '-', line))
         continue
+    if m_task and not RE_STACK.search(line):
+        tname = m_task.group(1)
+        key = ('ttask2', tname)
+        if key not in seen:
+            seen.add(key)
+            if tname.startswith(':app:compile'):
+                compiles.append((name, 'task', '-', '-', line))
+            else:
+                test_fails.append((name, 'task', line))
+        continue
     m = RE_COMPILE.search(line)
     if m:
-        key = ('e', m.group(1), m.group(2), m.group(3))
+        key = ('e', m.group(1), m.group(2), m.group(3), m.group(4).strip())
         if key not in seen:
             seen.add(key); compiles.append((name, m.group(1), m.group(2), m.group(3), m.group(4).strip()))
         continue
