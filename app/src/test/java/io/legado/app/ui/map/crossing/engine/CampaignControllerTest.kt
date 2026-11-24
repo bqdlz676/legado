@@ -75,6 +75,17 @@ class CampaignControllerTest {
     }
 
     @Test
+    fun `B4-R load 顶层兜底：畸形输入返回降级空战役，warning 文案可读且快照不留白`() {
+        val controller = CampaignController.load("{不是合法 json", null)
+        assertTrue(controller.degraded)
+        assertTrue(controller.corps.isEmpty())
+        assertTrue("warning 必须能被界面读取", controller.warnings.isNotEmpty())
+        val snapshot = controller.snapshot()
+        assertEquals(0, snapshot.corps.size)
+        assertTrue("降级态快照事件日志可读", snapshot.events.isNotEmpty() || controller.warnings.isNotEmpty())
+    }
+
+    @Test
     fun `空高程图走合成兜底场并置降级标志`() {
         val controller = CampaignController.load(DemoCampaigns.CHISHUI_JSON, null)
         assertTrue(controller.raster.degraded)

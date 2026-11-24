@@ -265,24 +265,32 @@ object CampaignJsonParser {
                 }
             }
             val rivers = mutableListOf<RiverDef>()
-            // rivers 类型错位（对象 / 字符串 / 数字 / JsonNull）回落空河流表；守卫见 jsonArray。
+            // rivers 字段类型错位（对象 / 字符串 / 数字 / 布尔 / JsonNull）由 jsonArray 守卫回落空表；
+            // 非空且非数组时补一条字段级 warning，避免整组河流静默丢失（B4 验收 4.3 粒度缺口）。
+            val riversEl = t.get("rivers")
+            if (riversEl != null && !riversEl.isJsonNull && !riversEl.isJsonArray) {
+                warnings += "terrain.rivers 类型错位，已忽略全部河流"
+            }
             jsonArray(t, "rivers")?.forEachIndexed { index, rv ->
                 if (!rv.isJsonObject) {
                     warnings += "terrain.rivers[$index] 不是对象，已跳过"
                     return@forEachIndexed
                 }
                 val ptsEl = rv.asJsonObject.get("pts")
-                if (ptsEl == null || !ptsEl.isJsonArray) {
-                    warnings += "terrain.rivers[$index].pts 不是数组，已跳过"
-                    return@forEachIndexed
+                when {
+                    ptsEl == null -> warnings += "terrain.rivers[$index].pts 缺失，已跳过"
+                    ptsEl.isJsonNull -> warnings += "terrain.rivers[$index].pts 为 null，已跳过"
+                    !ptsEl.isJsonArray -> warnings += "terrain.rivers[$index].pts 不是数组（对象 / 字符串 / 数字 / 布尔），已跳过"
+                    else -> {
+                        val pts = mutableListOf<Geo>()
+                        ptsEl.asJsonArray.forEach { p ->
+                            val geo = guardedPoint(p)
+                            if (geo != null) pts += geo
+                        }
+                        if (pts.size >= 2) rivers += RiverDef(pts)
+                        else warnings += "terrain.rivers[$index] 有效点列不足 2 个，已跳过"
+                    }
                 }
-                val pts = mutableListOf<Geo>()
-                ptsEl.asJsonArray.forEach { p ->
-                    val geo = guardedPoint(p)
-                    if (geo != null) pts += geo
-                }
-                if (pts.size >= 2) rivers += RiverDef(pts)
-                else warnings += "terrain.rivers[$index] 有效点列不足 2 个，已跳过"
             }
             TerrainDef(
                 // procedural 被素材写成字符串 / 数字时 asBoolean 会抛；走 boolPrimitive 守卫回落 true，

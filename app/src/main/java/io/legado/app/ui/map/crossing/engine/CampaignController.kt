@@ -4,6 +4,7 @@ import io.legado.app.ui.map.crossing.model.ArmyDef
 import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.BattleStatus
 import io.legado.app.ui.map.crossing.model.BranchSnapshot
+import io.legado.app.ui.map.crossing.model.CampaignDefinition
 import io.legado.app.ui.map.crossing.model.Corps
 import io.legado.app.ui.map.crossing.model.CorpsView
 import io.legado.app.ui.map.crossing.model.EventAction
@@ -12,6 +13,8 @@ import io.legado.app.ui.map.crossing.model.Geo
 import io.legado.app.ui.map.crossing.model.Intent
 import io.legado.app.ui.map.crossing.model.Morale
 import io.legado.app.ui.map.crossing.model.Relation
+import io.legado.app.ui.map.crossing.model.TerrainDef
+import io.legado.app.ui.map.crossing.model.TerrainFocus
 import io.legado.app.ui.map.crossing.model.TurnSnapshot
 import io.legado.app.ui.map.crossing.terrain.GeoProjection
 import io.legado.app.ui.map.crossing.terrain.HeightRaster
@@ -792,7 +795,28 @@ class CampaignController private constructor(
          * @param ownSideId 己方阵营 id；缺省取第一支军队所在阵营
          */
         fun load(json: String?, raster: HeightRaster? = null, ownSideId: String? = null): CampaignController {
+            // parser 自身契约永不抛；此处顶层兜底覆盖投影 / 栅格 / 地形 / 寻路 / 实例化任一环节抛出。
             val definition = CampaignJsonParser.parse(json)
+            return try {
+                assemble(definition, raster, ownSideId)
+            } catch (t: Throwable) {
+                // 降级空战役：错误文案进 warnings 供壳层读取；不崩、不留空白战场。
+                // assembleDegraded 输入全部为常量空表，不依赖原始残缺 definition 再次装配。
+                val degradedDef = definition.copy(
+                    degraded = true,
+                    warnings = definition.warnings +
+                        "战役载入失败：${t.javaClass.simpleName}${t.message?.let { "（$it）" } ?: ""}，已进入空战场降级态",
+                )
+                assembleDegraded(degradedDef, ownSideId)
+            }
+        }
+
+        /** 正常装配链：栅格兜底 → 投影 → 地形 → 寻路 → 控制器实例化。 */
+        private fun assemble(
+            definition: CampaignDefinition,
+            raster: HeightRaster?,
+            ownSideId: String?,
+        ): CampaignController {
             val effectiveRaster = raster ?: HeightRaster.synthetic(seed = SEED_FALLBACK, gridN = GRID_N, degraded = true)
             val projection = GeoProjection(definition.focus, GRID_N)
             val map = TerrainMap(
@@ -805,6 +829,29 @@ class CampaignController private constructor(
             val fallbackSide = definition.armies.firstOrNull()?.sideId ?: definition.sides.firstOrNull()?.id ?: "own"
             val side = ownSideId ?: fallbackSide
             return CampaignController(definition, effectiveRaster, projection, map, pathfinder, side)
+        }
+
+        /** 顶层兜底装配：原点聚焦 + 合成高程场 + 空地形空军队，保证降级态可建、可出快照。 */
+        private fun assembleDegraded(definition: CampaignDefinition, ownSideId: String?): CampaignController {
+            val emptyDef = definition.copy(
+                focus = TerrainFocus(Geo(0.0, 0.0), 50.0),
+                sides = emptyList(),
+                diplomacy = emptyList(),
+                armies = emptyList(),
+                events = emptyList(),
+                terrain = TerrainDef(procedural = true, ridges = emptyList(), rivers = emptyList()),
+                weather = null,
+            )
+            val raster = HeightRaster.synthetic(seed = SEED_FALLBACK, gridN = GRID_N, degraded = true)
+            val projection = GeoProjection(emptyDef.focus, GRID_N)
+            val map = TerrainMap(
+                raster = raster,
+                projection = projection,
+                rivers = emptyList(),
+                ridges = emptyList(),
+            )
+            val pathfinder = Pathfinder(map, null)
+            return CampaignController(emptyDef, raster, projection, map, pathfinder, ownSideId ?: "own")
         }
 
         /** 内置演示：四渡赤水。 */

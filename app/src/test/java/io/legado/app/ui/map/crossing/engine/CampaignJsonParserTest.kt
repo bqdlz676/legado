@@ -179,6 +179,66 @@ class CampaignJsonParserTest {
     }
 
     @Test
+    fun `B4-R 河流 pts 六类畸形（对象/字符串/数字/布尔/JsonNull/空数组）逐条跳过且各记一条 warning`() {
+        // 六类点列形态各占一条河流；每条跳过都必须产生一条含 rivers 的可读 warning，不静默失败。
+        val json = """
+        {
+          "id": "six-malformed-pts",
+          "terrain": { "rivers": [
+            { "pts": { "x": 0.1 } },
+            { "pts": "not-an-array" },
+            { "pts": 123 },
+            { "pts": true },
+            { "pts": null },
+            { "pts": [] }
+          ] }
+        }
+        """
+        val def = CampaignJsonParser.parse(json)
+        assertTrue("六类畸形点列不得抛穿解析层", def.terrain.rivers.isEmpty())
+        assertEquals("每条畸形河流各记一条 warning", 6, def.warnings.count { it.contains("rivers") })
+        assertTrue(def.degraded)
+    }
+
+    @Test
+    fun `B4-R 部分合法混合：两条合法河流保留，四条畸形河流各记一条 warning`() {
+        val json = """
+        {
+          "id": "mixed-rivers",
+          "terrainFocus": { "center": [105.8, 28.3], "radius": 50 },
+          "armies": [ { "id": "a1", "side": "red" } ],
+          "victory": { "type": "defend", "side": "red" },
+          "terrain": { "rivers": [
+            { "pts": [[0.1, 0.2], [0.3, 0.4]] },
+            { "pts": [[0.5, 0.6], [0.7, 0.8]] },
+            { "pts": { "x": 0.1 } },
+            { "pts": "not-an-array" },
+            { "pts": 5 },
+            { "pts": null }
+          ] }
+        }
+        """
+        val def = CampaignJsonParser.parse(json)
+        assertEquals("两条合法河流必须保留", 2, def.terrain.rivers.size)
+        assertEquals(2, def.terrain.rivers.first().pts.size)
+        assertEquals("四条畸形河流各记一条 warning", 4, def.warnings.count { it.contains("rivers") })
+        assertTrue(def.degraded)
+    }
+
+    @Test
+    fun `B4-R rivers 字段整体类型错位时记字段级 warning 且回落空表`() {
+        val json = """
+        {
+          "id": "rivers-misplaced",
+          "terrain": { "rivers": "not-an-array" }
+        }
+        """
+        val def = CampaignJsonParser.parse(json)
+        assertTrue(def.terrain.rivers.isEmpty())
+        assertTrue(def.warnings.any { it.contains("rivers 类型错位") })
+    }
+
+    @Test
     fun `B4 合法最小战役：两点河流保留且不降级`() {
         // 对照基线：字段齐全、河流两点合法，不得记 warning、degraded 为假。
         val json = """
