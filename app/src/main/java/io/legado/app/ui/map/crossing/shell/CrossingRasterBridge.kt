@@ -36,7 +36,8 @@ object CrossingRasterBridge {
      *
      * 兜底口径（不空白、不崩溃、置降级标志）：
      * - decoder 缺失 / 资产名空白 / 解码返回 null / 解码抛异常，任一命中即回落合成兜底场；
-     * - 解码成功但栅格尺寸 / 内容退化，由 [HeightRaster.create] 内部再兜一层合成场；
+     * - 解码器也可能返回非 null 但宽高 ≤0 / data 长度不符的畸形栅格；本层在重采样前
+     *   按与 [HeightRaster.create] 同一口径收口，畸形即回落合成兜底场，不把它带进 resample；
      * - 成功栅格统一重采样到 [gridN]×[gridN]，与推演网格对齐。
      *
      * @param decoder 平台解码器；null 表示当前壳层未接入解码能力，直接走合成场
@@ -52,6 +53,12 @@ object CrossingRasterBridge {
             // 平台解码器任何异常都不允许抛到 UI；按无图处理，降级标志随合成场置真。
             null
         } ?: return syntheticFallback(gridN)
+        // 畸形收口：decoder 通路不经 HeightRaster.create 守卫，此处按同一口径独立校验宽高与
+        // data 长度；0 维源若进 resample，coerceIn(0, sh-1)=coerceIn(0,-1) 抛 IAE，长度不符
+        // 会在像素索引处 AIOOBE，故畸形栅格一律回落合成兜底场并置降级标志，不抛任何异常。
+        val malformed = raster.width <= 0 || raster.height <= 0 ||
+            raster.data.size != raster.width * raster.height
+        if (malformed) return syntheticFallback(gridN)
         return resample(raster, gridN)
     }
 

@@ -109,6 +109,30 @@ class CrossingRasterBridgeTest {
     }
 
     @Test
+    fun `解码器返回 0 乘 0 畸形栅格时回落合成场且不抛穿`() {
+        // 绕过 HeightRaster.create 守卫直接构造 0×0 栅格，模拟解码器返回畸形结果。
+        val zeroDims = HeightRaster(0, 0, IntArray(0), degraded = false)
+        val out = CrossingRasterBridge.fromDecoder(FakeDecoder(zeroDims), "zero.png", gridN)
+
+        assertTrue("0 维畸形栅格必须降级", out.degraded)
+        assertTrue("兜底栅格边长必须为正", out.width > 0 && out.height > 0)
+        assertEquals(gridN, out.width)
+        assertEquals(gridN, out.height)
+    }
+
+    @Test
+    fun `解码器返回长度不符畸形栅格时回落合成场且不抛穿`() {
+        // 声明 64×64 但 data 仅 100 像素；进 resample 会在索引处 AIOOBE，桥接层须先收口。
+        val wrongSize = HeightRaster(64, 64, IntArray(100) { 128 }, degraded = false)
+        val out = CrossingRasterBridge.fromDecoder(FakeDecoder(wrongSize), "truncated.png", gridN)
+
+        assertTrue("长度不符畸形栅格必须降级", out.degraded)
+        assertTrue("兜底栅格边长必须为正", out.width > 0 && out.height > 0)
+        assertEquals(gridN, out.width)
+        assertEquals(gridN, out.height)
+    }
+
+    @Test
     fun `内嵌像素尺寸不符或为空时回落合成场并降级`() {
         val wrongSize = CrossingRasterBridge.fromInlinePixels(
             96, 96, IntArray(100) { 128 }, gridN,
