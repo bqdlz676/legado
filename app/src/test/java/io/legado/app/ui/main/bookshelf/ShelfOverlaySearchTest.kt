@@ -23,8 +23,12 @@ import java.io.File
  * 2. 有历史 → 空闲面板落历史/热门区且历史行非空；
  * 3. 历史与高频双空 → 热门经既有 [SearchHotResolver] 单源落到 SEED 兜底档并标记兜底；
  * 4. 结果第二批叠加而非覆盖（复用既有 [SearchReducer] 翻页归约，不复制翻页逻辑）；
- * 5. 源码回证：浮层复用既有面板 / 列表单源，未复制热门三元回落，结果列无 260dp 硬限高；
- * 6. 源码回证：Fragment 回调直连既有搜索 ViewModel 入口（联网 / 历史 / 热门 / 翻页同源）。
+ * 5. 【兜底回证，非主锁】源码文本检查：浮层复用既有面板 / 列表单源，未复制热门三元回落，
+ *    结果列无 260dp 硬限高。组件族归属的结构主锁见 ShelfOverlayBodyBehaviorTest 注册表断言；
+ *    本子串断言对折行 / 改名脆弱，仅作源码存在性兜底，不承担行为契约。
+ * 6. 【兜底回证，非主锁】源码文本检查：Fragment 回调直连既有搜索 ViewModel 入口
+ *    （联网 / 历史 / 热门 / 翻页同源）。回调签名对账属接线静态复核；结构级主锁见
+ *    ShelfOverlayBodyBehaviorTest。
  *
  * 口径说明：热门三元回落（USAGE→HISTORY→SEED）与分页追加 / 收口的唯一实现仍在
  * `ui/main/search` 包内；本文件只经既有公开入口驱动与断言，不在书架包另立副本。
@@ -132,8 +136,9 @@ class ShelfOverlaySearchTest {
         assertTrue("还有更多时回到空闲可翻页", appended.paging is SearchPagingState.Idle)
     }
 
-    // 5. 源码回证：浮层复用既有历史面板与结果列表单源；书架包不得复制热门三元回落词表；
-    //    结果列不得保留 260dp 硬限高（超视区由列表内部滚动承接）。
+    // 5.【兜底回证，非主锁】源码文本检查：浮层复用既有历史面板与结果列表单源；书架包不得
+    //    复制热门三元回落词表；结果列不得保留 260dp 硬限高。组件族归属的结构主锁在
+    //    ShelfOverlayBodyBehaviorTest 的 sharedComponents 注册表断言；本子串匹配仅兜底。
     @Test
     fun `overlay reuses shared search stack without copied fallback or height cap`() {
         val screen = File(
@@ -152,11 +157,13 @@ class ShelfOverlaySearchTest {
             .filter { it.extension == "kt" }
             .map { it.readText() }
             .filter { it.contains("USAGE") && it.contains("HISTORY") && it.contains("SEED") }
-        assertTrue("书架包不得复制热门三档回落枚举", copied.isEmpty())
+        // Sequence 没有 isEmpty()（Kotlin 只在 Collection 上提供），必须用 count() 判空。
+        assertTrue("书架包不得复制热门三档回落枚举", copied.count() == 0)
     }
 
-    // 6. 源码回证：Fragment 把浮层回调直连既有搜索 ViewModel 入口——联网检索、历史增删清、
-    //    提交 / 重试 / 翻页 / 翻页重试同源旧 Activity 栈，不另建检索出口。
+    // 6.【兜底回证，非主锁】源码文本检查：Fragment 把浮层回调直连既有搜索 ViewModel 入口
+    //    ——联网检索、历史增删清、提交 / 重试 / 翻页 / 翻页重试同源旧 Activity 栈，不另建
+    //    检索出口。签名对账以静态逐行比对为准；本子串匹配对折行 / 具名参数改写脆弱，仅兜底。
     @Test
     fun `fragment wires overlay callbacks to shared search view model`() {
         val fragment = File(
