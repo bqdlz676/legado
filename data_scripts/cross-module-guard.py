@@ -91,6 +91,25 @@ def main():
         if hits:
             fails.append(f"F1 删除 {os.path.basename(path)} 后仍被引用：{', '.join(hits[:4])}")
 
+    # F4：测试里的"字面串断言"——形如 "attach(null, null)" 的标记，签名一改就静默失效。
+    # 2026-11-26 实测踩过：跨页接线后 InkShelfFragment 改 attach(key, scope)，测试仍在找旧字面串，
+    # 这条断言会直接 CI 红。所以只要被测函数名出现在测试的字面串里，就提示人工核一眼。
+    for path in modified:
+        full = os.path.join(ROOT, path)
+        if not os.path.isfile(full):
+            continue
+        try:
+            with open(full, encoding="utf-8", errors="ignore") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        for name in sorted(set(re.findall(r"^\s*(?:@\w+\s*)*fun\s+(\w+)\s*\(", text, re.M))):
+            if len(name) < 4:
+                continue
+            hits = run("grep", "-rn", f'"{name}(', "app/src/test").splitlines()
+            for h in hits[:2]:
+                warns.append(f"F4 测试里按字面串锁 `{name}(` 调用形态：{h.split(':')[0].split('/')[-1]}，核对是否已跟新签名")
+
     # F2/F3：改动文件的声明名是否出现在其它编译单元。
     for path in modified:
         full = os.path.join(ROOT, path)
@@ -102,8 +121,12 @@ def main():
         except OSError:
             continue
         funcs = set(re.findall(r"^\s*(?:@\w+\s*)*fun\s+(\w+)\s*\(", text, re.M))
+        # 降噪：常见通用标识符（current/results/state 之类）在其它单元出现属正常撞名，
+        # 全报会把真正需要核的行淹掉——预检一旦变成噪音，人就不看了，等于没有。
+        noisy = {"current", "results", "normalized", "state", "item", "items", "index",
+                 "title", "text", "scope", "key", "name", "value", "data", "list", "type"}
         for name in sorted(declarations(text) | funcs):
-            if len(name) < 4 or name in {"when", "this", "Unit"}:
+            if len(name) < 4 or name in {"when", "this", "Unit"} or name in noisy:
                 continue
             if name in other_text:
                 warns.append(f"F2 {os.path.basename(path)} 的 `{name}` 在 screenshot/modules 出现，核对调用点是否跟了签名")
