@@ -246,20 +246,25 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
         }
 
     /**
-     * 热门词双路流接线器；仅在 `attach()` 首次初始化时创建，随 `viewModelScope` 取消。
-     * 流收集、双路缓存快照与热门档回填全部归 [SearchHotBinder]，本类不另持跨协程缓存。
+     * 热门词双路流接线：构造 [SearchHotBinder] 并启动两路收集；仅在 `attach()` 首次
+     * 初始化分支调用一次，重复进入不重建、不重复订阅。
+     *
+     * 生命周期与持有说明（验收 N1 收口）：两路收集协程挂在 [viewModelScope] 上，
+     * `onCleared()` 走 `super.onCleared()` 取消作用域时，子协程随之取消，不存在脱离
+     * VM 生命周期的泄漏收集。因此本类**不持有 binder 字段、也不另存取消句柄**：binder
+     * 只是本函数的临时构造对象，其存活由两路收集协程的闭包（捕获 binder 实例调用
+     * `snapshot` / `publishHot`）保证，作用域取消后闭包释放、binder 一并回收。
+     * 热门档由 binder 内部收集循环经 `publishHot` 原子回填到 [_uiState]，VM 从不回读
+     * binder 引用；旧版 `hotBinder` 字段创建赋值后无任何读取点，是写-only 死字段，本单
+     * 删除（hot 不依赖该字段，仅依赖 binder 内部收集逻辑，删字段不影响热路径）。
      */
-    private var hotBinder: SearchHotBinder? = null
-
     private fun observeHistory() {
-        val binder = SearchHotBinder(
+        SearchHotBinder(
             uiState = _uiState,
             timeFlow = appDb.searchKeywordDao.flowByTime(),
             usageFlow = appDb.searchKeywordDao.flowByUsage(),
             scope = viewModelScope,
-        )
-        hotBinder = binder
-        binder.start()
+        ).start()
     }
 
     private fun saveSearchKey(key: String) {
