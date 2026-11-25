@@ -68,11 +68,13 @@ import kotlinx.coroutines.launch
  *   禁 Material 默认组件与 elevation。
  *
  * 铁律（§5.4）：关闭后阅读位置、滚动位置、下划线状态一字不差——本组件只叠一层覆盖，
- * 不读写宿主滚动 / 选中 / 高亮状态；宿主内容槽原样透传。开合前后快照比对见
- * [HalfSheetHostSnapshot]，JVM 单测可断言。
+ * 不读写宿主滚动 / 选中 / 高亮状态；宿主内容槽原样透传。开合前后快照比对走
+ * [ReaderSnapshot] + [isRestoredExactly]；若在场的是旧 [HalfSheetHostSnapshot]，
+ * 先经 compat 单向适配（旧→新，不反向映射）成 [ReaderSnapshot] 再逐字段比对，JVM 单测可断言。
  *
  * 统一规范：不包裹 MaterialTheme、不取 Material colorScheme；全站不用 Material ripple，
- * 遮罩点击走墨触手势；颜色 / 尺寸 / 曲线全部来自 [ComponentTokens] / [HalfSheetAnchors]。
+ * 遮罩点击走墨触手势；颜色 / 容器参数来自 [ComponentTokens] / [ComponentPalette] /
+ * [HalfSheetParams]；动画时长、模糊基准、拖拽阈值、横杠宽与点径仍由 [HalfSheetAnchors] 持有。
  *
  * @param dialog 独立窗口覆盖层模式：气泡详情等场景宿主页在自身窗口内，Sheet 需跨窗口
  *               铺满全屏而不被气泡小尺寸父 Box 裁剪；此模式下不渲染 [host] 槽，
@@ -182,7 +184,8 @@ private fun HalfSheetRoot(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val maxHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
         val sinkDp = with(LocalDensity.current) {
-            HalfSheetAnchors.hostSinkDp(progress).toDp()
+            // S-11 接线：下沉量收口 HalfSheetParams.HOST_SINK_DP（8dp）；进度缩放口径同旧 helper
+            (HalfSheetParams.HOST_SINK_DP * progress.coerceIn(0f, 1f)).toDp()
         }
 
         // ── 宿主阅读页：随弹起下沉 8dp，上覆茶玻暗化 40%（内嵌模式；独立窗口模式不重排宿主） ──
@@ -201,7 +204,8 @@ private fun HalfSheetRoot(
                     .blur(HalfSheetAnchors.MASK_BLUR_DP.dp)
                     .background(
                         ComponentTokens.bgOverlay.copy(
-                            alpha = HalfSheetAnchors.maskAlpha(maskProgress),
+                            // S-11 接线：暗化上限收口 HalfSheetParams.DIM_ALPHA（0.4），随遮罩进度回落
+                            alpha = HalfSheetParams.DIM_ALPHA * maskProgress.coerceIn(0f, 1f),
                         ),
                     ),
             )
@@ -215,7 +219,8 @@ private fun HalfSheetRoot(
         )
 
         // ── Sheet 本体：最大高度 = 屏高 × 60%，超出由内部竖滑滚动，不截断丢内容 ──
-        val maxSheetHeightPx = maxHeightPx * HalfSheetAnchors.MAX_HEIGHT_FRACTION
+        // S-11 接线：最大高 = 屏高 × 中段 60%；三段 detent 单源在 ComponentPalette（中段）
+        val maxSheetHeightPx = maxHeightPx * ComponentPalette.SHEET_DETENT_MID
         val maxSheetHeightDp = with(LocalDensity.current) { maxSheetHeightPx.toDp() }
 
         val draggableState = rememberDraggableState { delta ->
@@ -347,7 +352,8 @@ private fun HalfSheetGrabber(modifier: Modifier = Modifier) {
         HalfSheetAnchors.GRABBER_BAR_WIDTH_DP.dp.toPx()
     }
     val barHeight = with(LocalDensity.current) {
-        HalfSheetAnchors.GRABBER_BAR_HEIGHT_DP.dp.toPx()
+        // S-11 接线：横杠高收口 HalfSheetParams.GRABBER_BAR_HEIGHT_DP（4dp）
+        HalfSheetParams.GRABBER_BAR_HEIGHT_DP.dp.toPx()
     }
     val dotRadius = with(LocalDensity.current) {
         HalfSheetAnchors.GRABBER_DOT_RADIUS_DP.dp.toPx()
