@@ -37,7 +37,19 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.36" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.36"; else bad "④索引版本" "未升版（期望 v2.36）"; fi
+# ④ 索引版本≥阈值：阈值是"本轮至少升到"，索引可能被并行单多升几版（v2.37 属超额完成），
+#    故按语义比较大小而非字符串精确匹配——否则超额升版反被判 FAIL（2026-11-26 实踩）
+IDX_VER=$(grep -o '版本：v[0-9.]*' docs/落文-模块契约索引.md | head -1 | sed 's/版本：v//')
+VER_OK=0
+if [ -n "$IDX_VER" ]; then
+  VER_OK=$(python3 -c "
+import sys
+cur=tuple(int(x) for x in '$IDX_VER'.split('.'))
+base=tuple(int(x) for x in '2.36'.split('.'))
+print(1 if cur>=base else 0)
+")
+fi
+if [ "$VER_OK" = "1" ]; then ok "④索引版本" "v$IDX_VER≥v2.36"; else bad "④索引版本" "未升版（当前 v$IDX_VER，期望≥v2.36）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
