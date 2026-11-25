@@ -18,7 +18,14 @@ WINDOW_SEC=$((WINDOW_MIN * 60))
 
 # 1) 真阻断：工作区不干净。给了 message 就先提交；没给则不许推，避免漏文件。
 if [ -n "$(git status --porcelain)" ]; then
-  if [ -n "${1:-}" ]; then git add -A && git commit -q -m "$1" || exit 1; else echo "有未提交改动：先 commit（或把 commit message 作参数传入），本次不推"; exit 1; fi
+  if [ -n "${1:-}" ]; then
+    # 不再代跑 git add -A：F-112/F-116 要求逐路径 add。E-05 事故就是这么来的——
+    # 代 add 会把在飞子代理未收口的代码扫进结单 commit，之后无法按单号回源。
+    echo "检出未提交改动：请逐路径 git add 后自行 commit（本脚本不再代 add，见 F-112/F-116），本次不推"
+    exit 1
+  else
+    echo "有未提交改动：先 commit（或把 commit message 作参数传入），本次不推"; exit 1
+  fi
 fi
 
 # 2) 节拍窗口判定
