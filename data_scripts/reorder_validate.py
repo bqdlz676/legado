@@ -12,7 +12,8 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = "/home/user/Doubao/chats/38454122521460994/legado"
+# 仓库根 = 脚本所在目录(data_scripts)的上一级；基于 __file__ 推导，换检出路径/换机均可跑，不写死绝对路径
+REPO = os.path.dirname(HERE)
 SRC_DIR = os.path.join(REPO, "docs", "落文-原文")
 REORDERED = os.path.join(REPO, "docs", "落文-原文-重排版.md")
 
