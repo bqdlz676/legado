@@ -74,7 +74,8 @@ class B18EmptyCardStateTest {
         // 包移动、类改名、内部掏空而名字串原样保留都会在此暴露，不再只匹配源码子串。
         val kindClass = Class.forName("io.legado.app.ui.card.EmptyKind")
         assertTrue("EmptyKind 必须是编译产物中的枚举类", kindClass.isEnum)
-        val constantNames = kindClass.enumConstants?.map { it.name }.orEmpty().toSet()
+        // Class<*> 的 enumConstants 是 Array<out Any>，元素需按 Enum<*> 取 name，否则类型推断失败
+        val constantNames = kindClass.enumConstants?.map { (it as Enum<*>).name }.orEmpty().toSet()
         assertTrue(
             "EmptyKind 必须保留 EmptyShelf NotFound Offline 三变体",
             constantNames == setOf("EmptyShelf", "NotFound", "Offline"),
