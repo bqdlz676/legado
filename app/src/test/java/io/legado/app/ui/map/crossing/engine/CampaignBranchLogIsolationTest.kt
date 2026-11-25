@@ -36,7 +36,7 @@ class CampaignBranchLogIsolationTest {
             again.eventLog.size,
         )
         assertEquals("存档时刻日志往返一致", branchA.eventLog, again.eventLog.dropLast(1))
-        assertTrue("末行为分支恢复标记", again.eventLog.last().contains("已恢复分支存档"))
+        assertTrue("末行为分支恢复标记", again.eventLog.last().text.contains("已恢复分支存档"))
     }
 
     @Test
@@ -45,19 +45,19 @@ class CampaignBranchLogIsolationTest {
         controller.step()
         val branchA = controller.saveBranch()
         val markerFirst = "首回合时间线标记"
-        assertTrue("存档 A 应含首回合标记", branchA.eventLog.any { it.contains(markerFirst) })
+        assertTrue("存档 A 应含首回合标记", branchA.eventLog.any { it.text.contains(markerFirst) })
 
         repeat(3) { controller.step() } // turn 2..4：turn 3 点燃后续回合标记
         val branchB = controller.saveBranch()
         val markerLater = "后续回合时间线标记"
-        assertTrue("推进后应产生新时间线日志（否则断言空转，M2）", branchB.eventLog.any { it.contains(markerLater) })
+        assertTrue("推进后应产生新时间线日志（否则断言空转，M2）", branchB.eventLog.any { it.text.contains(markerLater) })
         assertTrue("新时间线日志不得与 A 完全相同", branchB.eventLog != branchA.eventLog)
 
         controller.restoreBranch(branchA)
         val restored = controller.saveBranch()
 
-        assertFalse("恢复 A 后不得残留被丢弃时间线的后续回合标记", restored.eventLog.any { it.contains(markerLater) })
-        assertTrue("恢复 A 后首回合标记仍在", restored.eventLog.any { it.contains(markerFirst) })
+        assertFalse("恢复 A 后不得残留被丢弃时间线的后续回合标记", restored.eventLog.any { it.text.contains(markerLater) })
+        assertTrue("恢复 A 后首回合标记仍在", restored.eventLog.any { it.text.contains(markerFirst) })
         assertEquals("恢复后日志（除恢复标记）与 A 逐字一致", branchA.eventLog, restored.eventLog.dropLast(1))
     }
 
@@ -78,7 +78,7 @@ class CampaignBranchLogIsolationTest {
 
         // 恢复路径至多追加一条恢复标记；不得残留上一时间线条目，条目不得为 null / 空白。
         assertTrue("空日志往返后条目数不超过 1 条恢复标记", reopened.eventLog.size <= 1)
-        assertTrue("日志条目不得为 null / 空白", reopened.eventLog.all { it.isNotBlank() })
+        assertTrue("日志条目不得为 null / 空白", reopened.eventLog.all { it.text.isNotBlank() })
         controller.step()
         controller.runToEnd(2)
     }

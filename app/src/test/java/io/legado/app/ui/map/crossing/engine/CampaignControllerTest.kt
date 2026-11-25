@@ -4,6 +4,7 @@ import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.BattleStatus
 import io.legado.app.ui.map.crossing.model.BranchSnapshot
 import io.legado.app.ui.map.crossing.model.Cell
+import io.legado.app.ui.map.crossing.model.EventAttribution
 import io.legado.app.ui.map.crossing.model.Intent
 import io.legado.app.ui.map.crossing.terrain.HeightRaster
 import org.junit.Assert.assertEquals
@@ -140,7 +141,7 @@ class CampaignControllerTest {
     fun `条件触发器在首回合点燃并写入日志`() {
         val controller = CampaignController.load(TRIGGER_JSON, null)
         val snapshot = controller.step()
-        assertTrue(snapshot.events.any { it.contains("测试点燃") })
+        assertTrue(snapshot.events.any { it.text.contains("测试点燃") })
         val target = controller.corps.first { it.id == "a1" }
         assertFalse("被击溃事件作用后军队应退出战场", target.alive)
     }
@@ -423,12 +424,63 @@ class CampaignControllerTest {
         val snapshot = controller.step(mapOf("a1" to Intent.FLANK))
 
         assertTrue("全图视野封锁侧翼应置降级标志", a1.routeDegraded)
-        assertTrue("被迫暴露路线应置暴露姿态", a1.exposed)
+        assertTrue("穿越视野环的降级路线应置暴露姿态", a1.exposed)
         val ownView = snapshot.corps.first { it.id == "a1" }
         assertTrue("快照应向本方下发降级标识", ownView.routeDegraded)
-        assertTrue("事件日志应留档降级口径", snapshot.events.any { it.contains("降级") })
+        val degradeEntry = snapshot.events.first { it.text.contains("降级") }
+        assertTrue("事件日志应留档降级口径", degradeEntry.text.contains("降级"))
+        assertEquals("本方绕行条目应标注我方归属", EventAttribution.FRIENDLY, degradeEntry.attribution)
         val enemyView = snapshot.corps.first { it.id == "b1" }
         assertFalse("未观测敌军不下发我方降级标识", enemyView.routeDegraded)
+    }
+
+    @Test
+    fun `B8R6 纯地形兜底降级不置暴露 视线穿越事实与降级标志分级`() {
+        // 厚水带横断全图且无渡口，无敌军视线参与（b1 远在视野半径外）；侧翼严格 / 加价 A*
+        // 均被地形堵死，落到直线折线兜底。旧口径把这种纯地形绕行一并置 exposed，属过度标记。
+        val controller = CampaignController.load(BAND_JSON, blockedBandRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(2, 5)
+        a1.latLng = controller.projection.toGeo(Cell(2, 5))
+        b1.position = Cell(28, 26)
+        b1.latLng = controller.projection.toGeo(Cell(28, 26))
+        a1.target = controller.projection.toGeo(Cell(2, 26))
+
+        val snapshot = controller.step(mapOf("a1" to Intent.FLANK))
+
+        assertTrue("地形封锁侧翼仍应挂降级绕行标识", a1.routeDegraded)
+        assertFalse("纯地形兜底不含视线穿越事实，不得废掉伏击隐蔽姿态", a1.exposed)
+        val ownView = snapshot.corps.first { it.id == "a1" }
+        assertTrue("本方降级标识照常下发", ownView.routeDegraded)
+        val degradeEntry = snapshot.events.first { it.text.contains("降级") }
+        assertEquals("本方地形绕行条目标注我方归属", EventAttribution.FRIENDLY, degradeEntry.attribution)
+    }
+
+    @Test
+    fun `B8R6 未观测敌军掩码：已置降级的未观测敌军视图清空标识坐标路线`() {
+        // N2 正向断言：夹具内 b1 近距被目睹、b2 远距未观测；两支敌军运行态都人为置 routeDegraded，
+        // 若掩码分支失效（未观测也透传），b2 视图的 routeDegraded / 路线 / 坐标断言会变红。
+        val controller = CampaignController.load(MASK_JSON, flatPlainRaster())
+        controller.step()
+        val b1 = controller.corps.first { it.id == "b1" }
+        val b2 = controller.corps.first { it.id == "b2" }
+        b1.routeDegraded = true
+        b2.routeDegraded = true
+
+        val snapshot = controller.snapshot()
+        val observed = snapshot.corps.first { it.id == "b1" }
+        val unseen = snapshot.corps.first { it.id == "b2" }
+
+        assertTrue("近距敌军应被本方目睹", observed.observed)
+        assertNotNull("已观测敌军下发上报纬度", observed.reportLat)
+        assertTrue("已观测敌军保留降级标识", observed.routeDegraded)
+
+        assertFalse("远距敌军不应被标记观测", unseen.observed)
+        assertNull("未观测敌军不下上报纬度", unseen.reportLat)
+        assertNull("未观测敌军不下上报经度", unseen.reportLng)
+        assertTrue("未观测敌军规划路线不下发", unseen.route.isEmpty())
+        assertFalse("未观测敌军即使运行态降级，视图也必须清空降级标识", unseen.routeDegraded)
     }
 
     @Test
@@ -463,6 +515,13 @@ class CampaignControllerTest {
             IntArray(CampaignController.GRID_N * CampaignController.GRID_N) { 16 },
             degradedHint = false,
         )
+
+    /** 厚水带栅格：rows 10..21 零高程全域为非渡口水面，横断全图，供纯地形兜底用例布位。 */
+    private fun blockedBandRaster(): HeightRaster {
+        val n = CampaignController.GRID_N
+        val data = IntArray(n * n) { i -> if (i / n in 10..21) 0 else 128 }
+        return HeightRaster.create(n, n, data, degradedHint = false)
+    }
 
     private companion object {
         const val TRIGGER_JSON: String = """
@@ -580,6 +639,40 @@ class CampaignControllerTest {
       "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" },
     { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.02, 0.02],
       "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        /** 纯地形兜底用例：双 REGULAR；厚水带栅格由测试体注入，JSON 坐标仅作占位。 */
+        const val BAND_JSON: String = """
+{
+  "id": "b8r6-band",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 20,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.01, 0.01],
+      "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.02, 0.02],
+      "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        /** 掩码对比用例：a1 本方，b1 近距被目睹，b2 远距未观测；双敌军对照快照口径。 */
+        const val MASK_JSON: String = """
+{
+  "id": "b8r6-mask",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 10,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.000, 0.000],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.001, 0.001],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b2", "name": "丙", "side": "b", "initialPos": [0.40, 0.40],
+      "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" }
   ]
 }
 """

@@ -96,7 +96,7 @@ class CampaignDiplomacyTest {
         assertEquals(0.0, b1.losses, 1e-6)
         assertFalse(
             "同格盟友之间不得写入遭遇战日志",
-            controller.snapshot().events.any { it.contains("遭遇战") },
+            controller.snapshot().events.any { it.text.contains("遭遇战") },
         )
     }
 

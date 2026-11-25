@@ -73,6 +73,7 @@ class PathfinderTest {
         val route = finder.flankRoute(Cell(2, 5), Cell(28, 26), ArmyType.REGULAR, listOf(enemy), radius)
         assertTrue(route.path.isNotEmpty())
         assertTrue("视野可绕开时不应退化：${route.reason}", !route.degraded)
+        assertFalse("严格避视野通路不含视线穿越事实", route.crossedSight)
         assertTrue(enemy !in route.path)
         route.path.forEach { cell ->
             assertTrue(
@@ -97,6 +98,7 @@ class PathfinderTest {
         val route = finder.flankRoute(Cell(2, 5), Cell(28, 26), ArmyType.REGULAR, listOf(enemy), visionRadiusCells = 30)
         assertTrue("退化路径也必须非空", route.path.isNotEmpty())
         assertTrue("严格无路时应置降级标志", route.degraded)
+        assertTrue("全图视野封锁的加价路径实际穿越视野环", route.crossedSight)
         assertTrue(enemy !in route.path)
     }
 
@@ -201,6 +203,7 @@ class PathfinderTest {
         )
         assertTrue("退化路径也必须非空", route.path.isNotEmpty())
         assertTrue("全图封锁应置降级标志", route.degraded)
+        assertTrue("骑兵半径 30 覆盖全图，兜底路径仍穿越视野环", route.crossedSight)
         assertTrue(cavalry !in route.path)
         assertTrue(militia !in route.path)
     }
@@ -238,6 +241,7 @@ class PathfinderTest {
         )
         assertTrue("第三级折线兜底也必须非空", route.path.isNotEmpty())
         assertTrue("双封锁应置降级标志", route.degraded)
+        assertFalse("无敌军参与的纯地形折线兜底不构成视线穿越事实", route.crossedSight)
         assertTrue("降级理由应标明直线折线兜底", route.reason.contains("直线折线"))
         assertEquals("折线兜底首格为出发格", Cell(2, 5), route.path.first())
         route.path.forEach { cell ->

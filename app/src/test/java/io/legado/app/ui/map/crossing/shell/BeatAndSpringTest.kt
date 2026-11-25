@@ -1,6 +1,8 @@
 package io.legado.app.ui.map.crossing.shell
 
 import io.legado.app.ui.components.ComponentPalette
+import io.legado.app.ui.map.crossing.model.EventAttribution
+import io.legado.app.ui.map.crossing.model.EventEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,10 +17,11 @@ import org.junit.Test
  */
 class BeatAndSpringTest {
 
-    private val combatLine = listOf("遭遇战：红军 对 黔军（伏击=false，高地=false）")
-    private val marchLine = listOf("红一团 转入侧翼包抄")
-    private val eventLine = listOf("事件「四面楚歌」：楚军 士气变为 wavering")
-    private val mixedLine = listOf("遭遇战：甲 对 乙", "乙 转入撤退")
+    private val neutral = EventAttribution.NEUTRAL
+    private val combatLine = listOf(EventEntry(neutral, "遭遇战：红军 对 黔军（伏击=false，高地=false）"))
+    private val marchLine = listOf(EventEntry(neutral, "红一团 转入侧翼包抄"))
+    private val eventLine = listOf(EventEntry(neutral, "事件「四面楚歌」：楚军 士气变为 wavering"))
+    private val mixedLine = listOf(EventEntry(neutral, "遭遇战：甲 对 乙"), EventEntry(neutral, "乙 转入撤退"))
 
     @Test
     fun `combat events resolve to combat beat`() {
