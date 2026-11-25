@@ -125,7 +125,9 @@ QUE18=$(python3 data_scripts/check-dispatch-queue.py 2>&1)
 if [ $? -eq 0 ]; then ok "⑱队列满槽" "$(echo "$QUE18" | grep -E 'PASS' | tail -1)"; else bad "⑱队列满槽" "$(echo "$QUE18" | grep 'FAIL' | head -3 | tr '\n' ' ')"; fi
 echo "$QUE18" | grep 'WARN' | while read -r w; do say "⑱队列满槽(提示)" "$w（不影响 GATE 结论）"; done
 
-# ⑲ 锚点卡（F-85）：写码回执须带存在的锚点卡；验收报告须逐字对照锚点卡；
+# ⑲ 锚点卡（F-85 + M-08 编号↔卡反查）：写码回执须带存在的锚点卡；验收报告须逐字对照锚点卡；
+#    M-08 扩展：写码报告主对象缺陷号必须能在 docs/锚点/ 按前缀编号反查到卡（否则 FAIL）；
+#    次要提及缺卡仅 WARN；孤儿卡仅 WARN（新卡先落卡后写单，不判红）。
 #    机械改动 / F-73 退回设计 / 验收-选型（F-73 第二段，候选规格即锚点）豁免。
 #    边界同 ⑭/⑮：只校验本次 git status 新增/修改的写码/验收报告，历史留档不追改。
 CHANGED_ANCHOR=$(git -c core.quotepath=false status --porcelain docs 2>/dev/null | awk '{
@@ -139,6 +141,9 @@ else
   ANC19=$(python3 data_scripts/check-anchor-card.py --strict $CHANGED_ANCHOR 2>&1)
   if [ $? -eq 0 ]; then ok "⑲锚点卡" "$(echo "$CHANGED_ANCHOR" | wc -l | tr -d ' ') 份报告锚点齐全"; else bad "⑲锚点卡" "$(echo "$ANC19" | grep '→ FAIL' | head -3)"; fi
 fi
+# M-08 R3：仓库级孤儿卡扫描（WARN 不判红）；引用来源＝报告 + 派单队列 + 派单台账。
+ORPH19=$(python3 data_scripts/check-anchor-card.py --orphan 2>&1)
+echo "$ORPH19" | grep '^WARN' | while read -r w; do say "⑲锚点卡(孤儿提示)" "$w（不影响 GATE 结论）"; done
 
 # ⑩ 铁律30/88（本地禁编译）：本地构建能力必须=0
 BUILD_CAP=0
@@ -323,6 +328,13 @@ if [ $? -eq 0 ]; then ok "㊶队列台账一致" "$(echo "$QL41" | grep 'QUEUE-L
 #    状态词不在五态白名单 FAIL。为什么：报告落盘没人回写清单，103 个 🔴 无法机械区分僵尸。
 LS42=$(python3 data_scripts/check-ledger-status.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊷清单状态词" "$(echo "$LS42" | grep 'LEDGER-STATUS: PASS')"; else bad "㊷清单状态词" "$(echo "$LS42" | grep 'FAIL' | head -6 | tr '\n' ' ')"; fi
+
+# ㊸ 验收积压深度（M-09）：统计"已修·待验证 / 已判·待验证"积压行数与最老一条时长，
+#    双阈值（>10 条 或 最老 >48h）判红，逼调度层先清验收再发新写码单；
+#    待 CI 阻塞单单列不计入积压；阈值理由见 docs/台账-机制缺陷.md M-09 行。
+BL43=$(python3 data_scripts/check-backlog-depth.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊸验收积压深度" "$(echo "$BL43" | grep 'BACKLOG-DEPTH: PASS')"; else bad "㊸验收积压深度" "$(echo "$BL43" | grep 'FAIL' | head -3 | tr '\n' ' ')"; fi
+echo "$BL43" | grep -E '^(INFO|WARN)' | while read -r w; do say "㊸验收积压深度(提示)" "$w（不影响 GATE 结论）"; done
 
 echo
 
