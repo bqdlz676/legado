@@ -1,5 +1,6 @@
 package io.legado.app.help.artifact
 
+import io.legado.app.help.artifact.policy.ArtifactLoadStrategy
 import io.legado.app.help.artifact.policy.CacheStatus
 import io.legado.app.help.artifact.store.LandscapeStore
 import io.legado.app.help.artifact.store.PlaceStore
@@ -99,20 +100,37 @@ class ArtifactContractTest {
     }
 
     @Test
-    fun `同名多候选返回候选列表空候选退化为空壳`() {
-        val content = ArtifactFallback.ambiguous(
-            "庐山",
-            ArtifactCategory.LANDSCAPE,
-            listOf("庐山 · 江西", "庐山 · 安徽别称"),
-            defaultIndex = 0,
-        )
+    fun `同名多候选候选顺序与入参一致空候选退化为空壳`() {
+        // B22 收口：构造器不接收默认下标；候选只保顺序与裸串，默认项由接线层 Candidate.isDefault 展开。
+        val candidates = listOf("庐山 · 江西", "庐山 · 安徽别称")
+        val content = ArtifactFallback.ambiguous("庐山", ArtifactCategory.LANDSCAPE, candidates)
+        assertEquals(candidates, content.candidates)
         assertEquals(2, content.candidates.size)
         assertTrue(content.actions.isEmpty())
         assertEquals(MISSING_SOURCE, content.source)
 
-        val degraded = ArtifactFallback.ambiguous("无名", ArtifactCategory.LANDSCAPE, emptyList(), null)
+        val degraded = ArtifactFallback.ambiguous("无名", ArtifactCategory.LANDSCAPE, emptyList())
         assertTrue(degraded.candidates.isEmpty())
         assertEquals(MISSING_SOURCE, degraded.source)
+    }
+
+    @Test
+    fun `加载超时走兜底气泡非null且标记超时态`() {
+        // B23 收口：纯 JVM 直接构造超时态，断言走兜底而非 null / 异常。
+        assertEquals(CacheStatus.TIMEOUT, CacheStatus.valueOf("TIMEOUT"))
+        assertEquals(FallbackState.TIMEOUT, FallbackState.valueOf("TIMEOUT"))
+
+        val content = ArtifactFallback.timeout("龙泉剑", ArtifactCategory.SWORD)
+        assertNotNull(content)
+        assertEquals("龙泉剑", content.token)
+        assertEquals(MISSING_SOURCE, content.source)
+        assertTrue(content.actions.isEmpty())
+        assertTrue(content.candidates.isEmpty())
+        assertNotNull(content.body)
+        assertNotNull(content.detail)
+
+        // 阈值单点：全包唯一超时阈值常量，值可回读，实现层不得另立第二份。
+        assertEquals(5_000L, ArtifactLoadStrategy.LOAD_TIMEOUT_MS)
     }
 
     @Test
