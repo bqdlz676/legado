@@ -27,6 +27,8 @@ import androidx.core.view.get
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.size
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.lifecycleScope
 import com.jaredrummler.android.colorpicker.ColorPickerDialog
@@ -128,6 +130,7 @@ import io.legado.app.ui.book.read.page.InkView
 import io.legado.app.ui.book.read.page.ReadView
 import io.legado.app.ui.book.read.ink.ReaderSheetOverlay
 import io.legado.app.ui.book.read.ink.ReaderSheetState
+import io.legado.app.ui.components.HalfSheetAnchors
 import io.legado.app.ui.components.ReaderSnapshot
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
 import io.legado.app.ui.book.read.page.entities.PageDirection
@@ -316,6 +319,22 @@ class ReadBookActivity : BaseReadBookActivity(),
      * 不滚动正文、不改写选中 / 下划线。Compose 覆盖层在 [onActivityCreated] 挂载。
      */
     private val readerSheetState = ReaderSheetState()
+
+    /**
+     * B30 宿主级批注弹窗离场闸：弹窗在场（OPEN）或离场动画段（EXITING）内，宿主再次发起
+     * 打开一律拒收，不叠第二个 Fragment 节点。阶段机复用 B26 [NoteDialogExitGate]
+     * （B30 起继承纯 JVM 基类 [io.legado.app.ui.book.read.ink.SheetExitPhaseGate]），
+     * 与弹窗实例内守卫同口径；阶段镜像由 onCreate 注册的 Fragment 生命周期回调维护。
+     */
+    private val noteEntryGate = NoteDialogExitGate()
+
+    /** 批注弹窗离场收束延时：与弹窗内离场动画两段时长同源（遮罩回亮 + Sheet 下降）。 */
+    private val noteEntryExitMs =
+        (HalfSheetAnchors.MASK_DURATION_MS + HalfSheetAnchors.RISE_DURATION_MS).toLong()
+
+    /** 离场段收束回调：复位宿主闸到 REMOVED，放行下一次打开；Activity 销毁时随 handler 消息一并清除。 */
+    private val noteEntryExitRunnable = Runnable { noteEntryGate.finishExit() }
+
     private val popupAction: PopupAction by lazy {
         PopupAction(this)
     }
@@ -512,6 +531,32 @@ class ReadBookActivity : BaseReadBookActivity(),
     override fun onCreate(savedInstanceState: Bundle?) {
         editingHighlight = savedInstanceState?.getParcelable(STATE_EDITING_HIGHLIGHT)
         super.onCreate(savedInstanceState)
+        registerNoteEntryGateMirror()
+    }
+
+    /**
+     * B30 宿主闸阶段镜像：批注 Fragment 恢复在场时把宿主闸同步到 OPEN（覆盖配置重建后
+     * Activity 重建、Fragment 被系统保留而宿主闸复位的场景）；Fragment 摘除时先进离场段，
+     * 等效离场时长后收束复位。回调只认 [HighlightNoteDialog] 类型，不串其他弹窗阶段。
+     */
+    private fun registerNoteEntryGateMirror() {
+        supportFragmentManager.registerFragmentLifecycleCallbacks(
+            object : FragmentManager.FragmentLifecycleCallbacks() {
+                override fun onFragmentResumed(fm: FragmentManager, f: Fragment) {
+                    if (f is HighlightNoteDialog && !noteEntryGate.isComposed) {
+                        noteEntryGate.open()
+                    }
+                }
+
+                override fun onFragmentDestroyed(fm: FragmentManager, f: Fragment) {
+                    if (f !is HighlightNoteDialog) return
+                    noteEntryGate.beginExit()
+                    handler.removeCallbacks(noteEntryExitRunnable)
+                    handler.postDelayed(noteEntryExitRunnable, noteEntryExitMs)
+                }
+            },
+            false,
+        )
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -1520,7 +1565,7 @@ class ReadBookActivity : BaseReadBookActivity(),
                     showDialogFragment(dialog)
                 }
 
-                ACTION_HIGHLIGHT_NOTE -> showDialogFragment(HighlightNoteDialog(highlight))
+                ACTION_HIGHLIGHT_NOTE -> openHighlightNoteDialog(highlight)
                 ACTION_HIGHLIGHT_CREATE_RULE -> showDialogFragment(
                     HighlightRuleEditDialog.create(
                         pattern = highlight.bookText,
@@ -1535,6 +1580,17 @@ class ReadBookActivity : BaseReadBookActivity(),
                 }
             }
         }
+    }
+
+    /**
+     * B30 宿主级离场闸接线：批注弹窗的唯一宿主打开点。先过 [noteEntryGate] 的
+     * [NoteDialogExitGate.tryOpen]——节点在场（OPEN）或离场动画段（EXITING）第二次发起
+     * 打开直接拒收，不新建第二个 Fragment 节点；判闸通过才 show。阶段镜像见
+     * [registerNoteEntryGateMirror]。对照 B21 `openReaderSheet` 的 `isOpen || isExiting` 双闸口径。
+     */
+    private fun openHighlightNoteDialog(highlight: BookHighlight) {
+        if (!noteEntryGate.tryOpen()) return
+        showDialogFragment(HighlightNoteDialog(highlight))
     }
 
     override fun onHighlightClick(highlight: BookHighlight, x: Float, y: Float) {

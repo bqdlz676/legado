@@ -218,7 +218,9 @@ class HighlightNoteDialog() : DialogFragment() {
         submitted = true
         if (commit) commitAction?.invoke()
         // B26 两段式第一段：子树保留、visible=false；收束摘 Fragment 见 setContent 内
-        // LaunchedEffect(exitingState)。离场段 [exitGate.canOpen] 为 false，不叠新弹窗。
+        // LaunchedEffect(exitingState)。离场段 [exitGate.canOpen] 为 false，不叠新弹窗；
+        // B30 起宿主打开点（ReadBookActivity.openHighlightNoteDialog）另持一道宿主闸
+        // 先过 tryOpen 再 show，弹窗在场 / 离场段内的二次打开在宿主侧即被拒收。
         exitGate.beginExit()
         exitingState.value = true
     }

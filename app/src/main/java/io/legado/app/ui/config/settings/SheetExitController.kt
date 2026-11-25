@@ -14,10 +14,11 @@ import kotlinx.coroutines.delay
  * B29 设置域弹层两段式离场控制器（Compose 层接线；阶段机复用 B26 [NoteDialogExitGate]）。
  *
  * 〔复用口径〕
- * 阶段枚举 `ReaderSheetExitPhase`（OPEN / EXITING / REMOVED）与迁移规则直接复用 B26
- * 批注弹窗守卫 [NoteDialogExitGate]（该守卫本身复用 B21 `ReaderSheetExitPhase`）；本控制器
- * 不另造第二份枚举，也不另写一套在场 → 离场中 → 已摘除的迁移规则。设置域弹层无会话请求
- * 需要缓存，与 B26 无负载守卫同形态，故直接复用其公开守卫，不再复制第三份守卫实现。
+ * 阶段枚举 `ReaderSheetExitPhase`（OPEN / EXITING / REMOVED）、迁移规则与
+ * `visible` / `isComposed` / `canOpen` 派生口径复用 B30 纯 JVM 基类
+ * [io.legado.app.ui.book.read.ink.SheetExitPhaseGate]；本控制器包装 B26
+ * 批注弹窗守卫 [NoteDialogExitGate]（该守卫同继承 B30 基类），不另造枚举、不另写迁移规则、
+ * 不另写派生判断。设置域弹层无会话请求需要缓存，与 B26 无负载守卫同形态。
  *
  * 〔两段式关闭〕
  * 第一段：[beginExit] 交守卫进入 EXITING 段，派生 [visible] 翻 false，弹层子树保留组合，
