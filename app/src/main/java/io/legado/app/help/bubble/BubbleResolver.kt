@@ -1,5 +1,6 @@
 package io.legado.app.help.bubble
 
+import io.legado.app.help.allusion.AllusionAnchorProvider
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.dict.ChineseDict
@@ -146,6 +147,8 @@ object BubbleResolver {
         runCatching { Chronology.ensureLoaded(context) }
         // 预热后显式重绑人物消歧入口：防止遗留扁平层后注册把共享总线的 personProvider 覆盖掉。
         runCatching { PersonProvider.bindAnchorProvider() }
+        // 预热后显式重绑典故消歧入口：与人物路同口径，防对象初始化时序晚于首查导致总线空缺。
+        runCatching { AllusionAnchorProvider.bindAnchorProvider() }
         // D2 / D3 / D4 为纯内存种子，首次查询时惰性建索引；此处仅占位便于后续资产预载扩展。
     }
 
