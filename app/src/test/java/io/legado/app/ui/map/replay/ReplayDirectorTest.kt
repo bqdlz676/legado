@@ -90,7 +90,9 @@ class ReplayDirectorTest {
         director.seek(22.0)
         director.update(0)
         val zhaokuo = director.armies().first { it.id == "zhaokuo" }
-        assertEquals(Morale.WAVERING, zhaokuo.morale)
+        // 断粮清补给，不降士气（D2 语义修正：旧实现错把 supplyCut 写成士气动摇）。
+        assertEquals(0, zhaokuo.supply)
+        assertEquals(Morale.STEADY, zhaokuo.morale)
 
         director.seek(28.0)
         director.update(0)
