@@ -1,7 +1,5 @@
 package io.legado.app.ui.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,11 +17,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import io.legado.app.ui.components.compat.toVisualState
 import io.legado.app.lib.dialogs.SelectItem
 
 /**
@@ -49,14 +49,16 @@ fun HandleFileSheet(
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(actions) { item ->
+                    // B18：动作行点击走墨触闸，不再裸 clickable；许可由契约 eventsAllowed 裁决。
+                    // 当前动作表无禁用 / 离线档，enabled 恒 true；后续若加禁用动作，沿同一闸传入即可。
+                    val gesture = rememberInkGesture(enabled = true, onClick = { onAction(item) })
+                    val visual = gesture.interaction.resolve().toVisualState()
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .heightInkRow()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { onAction(item) }
+                            .then(gesture.gestureModifier)
+                            .alpha(visual.contentAlpha)
                             .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

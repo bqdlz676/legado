@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,9 +56,85 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.rememberInkGesture
+import io.legado.app.ui.components.resolveEventsAllowed
+import io.legado.app.ui.components.compat.toVisualState
 import io.legado.app.ui.main.bookshelf.search.HitSegment
 import io.legado.app.ui.main.bookshelf.search.SearchField
 import kotlin.math.roundToInt
+
+/**
+ * B18：书架业务态 [ShelfState] → 墨触闸快照（纯函数，无副作用，普通 JVM 单测可断言）。
+ *
+ * 〔为什么书架不再自持第二套「能不能点」〕旧实现 ShelfState 不读契约 contentAlpha / eventsAllowed，
+ * 按钮裸手势直达回调；本快照把业务态翻译成 [rememberInkGesture] 的入参，事件许可统一由手势闸 +
+ * 契约枚举裁决，书架域不另立布尔。
+ *
+ * 口径对齐契约六态与 B17 分闸：
+ *  - [ShelfState.INIT_LOADING] / [ShelfState.REFRESHING]：加载硬闸，禁点；
+ *  - [ShelfState.DISABLED]：禁用硬闸，禁点；
+ *  - [ShelfState.OFFLINE]：离线闸，容器本体禁点（契约 OFFLINE.eventsAllowed=false）；
+ *  - [ShelfState.EMPTY]：空数据沿用旧口径可点（契约 EMPTY.eventsAllowed=true）；
+ *  - [ShelfState.ERROR]：重试是错误恢复入口，[recoveryEntry] 时按 B17 独立入口放行自身点击；
+ *  - [ShelfState.CONTENT]：常态放行。
+ */
+internal data class ShelfGate(
+    val enabled: Boolean,
+    val loading: Boolean,
+    val empty: Boolean,
+    val offline: Boolean,
+    val standaloneInteractive: Boolean,
+)
+
+internal fun shelfGateOf(state: ShelfState, recoveryEntry: Boolean): ShelfGate = when (state) {
+    ShelfState.INIT_LOADING, ShelfState.REFRESHING -> ShelfGate(
+        enabled = false,
+        loading = true,
+        empty = false,
+        offline = false,
+        standaloneInteractive = false,
+    )
+
+    ShelfState.ERROR -> ShelfGate(
+        enabled = true,
+        loading = false,
+        empty = false,
+        offline = false,
+        standaloneInteractive = recoveryEntry,
+    )
+
+    ShelfState.DISABLED -> ShelfGate(
+        enabled = false,
+        loading = false,
+        empty = false,
+        offline = false,
+        standaloneInteractive = false,
+    )
+
+    ShelfState.OFFLINE -> ShelfGate(
+        enabled = true,
+        loading = false,
+        empty = false,
+        offline = true,
+        standaloneInteractive = false,
+    )
+
+    ShelfState.EMPTY -> ShelfGate(
+        enabled = true,
+        loading = false,
+        empty = true,
+        offline = false,
+        standaloneInteractive = false,
+    )
+
+    ShelfState.CONTENT -> ShelfGate(
+        enabled = true,
+        loading = false,
+        empty = false,
+        offline = false,
+        standaloneInteractive = false,
+    )
+}
 
 /**
  * 落文 · U4 书架页入口 Composable（切片-10）。
@@ -119,6 +196,7 @@ fun BookshelfScreen(
                 sub = "书架数据没能取回来，可重试一次",
                 actionText = "重试",
                 onAction = onRetry,
+                gate = shelfGateOf(ShelfState.ERROR, recoveryEntry = true),
             )
 
             ShelfState.DISABLED -> StateFallback(
@@ -126,6 +204,7 @@ fun BookshelfScreen(
                 sub = "权限或存储尚未就绪，稍后再试",
                 actionText = "",
                 onAction = {},
+                gate = shelfGateOf(ShelfState.DISABLED, recoveryEntry = false),
             )
 
             ShelfState.OFFLINE -> OfflineShelf(
@@ -439,7 +518,11 @@ private fun RefreshingIndicator(modifier: Modifier = Modifier) {
 
 /** 空书架：墨滴 + 案上无书 + 导入入口，不允许空白态。 */
 @Composable
-private fun EmptyShelf(onImport: () -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyShelf(
+    onImport: () -> Unit,
+    offline: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -473,7 +556,13 @@ private fun EmptyShelf(onImport: () -> Unit, modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center,
             ),
         )
-        ShelfInkButton(text = "导入书卷", accent = true, onClick = onImport)
+        ShelfInkButton(
+            text = "导入书卷",
+            accent = true,
+            onClick = onImport,
+            empty = true,
+            offline = offline,
+        )
     }
 }
 
@@ -515,7 +604,7 @@ private fun OfflineShelf(
             )
         }
         if (books.isEmpty()) {
-            EmptyShelf(onImport = onImport, modifier = Modifier.padding(top = 24.dp))
+            EmptyShelf(onImport = onImport, offline = true, modifier = Modifier.padding(top = 24.dp))
         } else {
             ShelfGrid(
                 listState = listState,
@@ -541,6 +630,7 @@ private fun StateFallback(
     sub: String,
     actionText: String,
     onAction: () -> Unit,
+    gate: ShelfGate,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -571,7 +661,16 @@ private fun StateFallback(
         )
         if (actionText.isNotEmpty()) {
             Spacer(Modifier.height(18.dp))
-            ShelfInkButton(text = actionText, accent = true, onClick = onAction)
+            ShelfInkButton(
+                text = actionText,
+                accent = true,
+                onClick = onAction,
+                enabled = gate.enabled,
+                loading = gate.loading,
+                empty = gate.empty,
+                offline = gate.offline,
+                standaloneInteractive = gate.standaloneInteractive,
+            )
         }
     }
 }
@@ -610,31 +709,56 @@ private fun SkeletonCard(alpha: Float, modifier: Modifier = Modifier) {
 /**
  * 墨触按钮（InkButton 基类的 Compose 自绘版）：
  * 按下泛朱砂 0→8%、120ms 回落；不用 Material ripple。
+ *
+ * B18：点击一律走 [rememberInkGesture] 墨触闸，不再裸 [detectTapGestures]；
+ * 许可由契约 [io.legado.app.ui.components.contract.ComponentVisualState.eventsAllowed]
+ * 与 [resolveEventsAllowed] 裁决。不可点时底 / 字切云灰档并按 contentAlpha 压淡，
+ * 不允许「看起来能点、点不动」的静默失效。
  */
 @Composable
 private fun ShelfInkButton(
     text: String,
     accent: Boolean,
     onClick: () -> Unit,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    empty: Boolean = false,
+    offline: Boolean = false,
+    standaloneInteractive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    var pressed by remember { mutableStateOf(false) }
-    val bg = if (accent) ShelfTokens.textAccent else ShelfTokens.bgSurface
-    val fg = if (accent) ShelfTokens.bgPage else ShelfTokens.textPrimary
+    val gesture = rememberInkGesture(
+        enabled = enabled,
+        loading = loading,
+        empty = empty,
+        offline = offline,
+        standaloneInteractive = standaloneInteractive,
+        onClick = onClick,
+    )
+    val visual = gesture.interaction.resolve().toVisualState()
+    val eventsAllowed = resolveEventsAllowed(
+        visual = visual,
+        standaloneInteractive = standaloneInteractive,
+        enabled = enabled,
+        loading = loading,
+    )
+    val pressed = gesture.interaction.pressed
+    val bg = when {
+        !eventsAllowed -> ShelfTokens.bgSurface
+        accent -> ShelfTokens.textAccent
+        else -> ShelfTokens.bgSurface
+    }
+    val fg = when {
+        !eventsAllowed -> ShelfTokens.textTertiary
+        accent -> ShelfTokens.bgPage
+        else -> ShelfTokens.textPrimary
+    }
     Box(
         modifier = modifier
+            .then(gesture.gestureModifier)
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        tryAwaitRelease()
-                        pressed = false
-                    },
-                    onTap = { onClick() },
-                )
-            }
+            .alpha(visual.contentAlpha)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {

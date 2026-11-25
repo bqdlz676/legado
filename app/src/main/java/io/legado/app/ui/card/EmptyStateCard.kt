@@ -2,7 +2,6 @@ package io.legado.app.ui.card
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +13,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -25,18 +26,48 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import io.legado.app.ui.components.rememberInkGesture
+import io.legado.app.ui.components.contract.ComponentVisualState
 
 /**
  * 空状态卡变体（切片-25「十一、空状态卡」三分支逐字落地，口径已按规格原文纠正）。
  *
  * - [EmptyShelf]：暖金实心点 32dp 居中 + 「还没有书」竖排 18sp 墨色 + 12sp 云灰引导 + 暖金按钮「去发现页看看」圆角 20。
  * - [NotFound]：淡暖金金点 + 三行随机推荐书名；适用：检索无结果时给替代出口。
- * - [Offline]：极淡朱砂断环（顶部 6° 断口，描边不闭合）+ 「本地已有 xx 本书可离线阅读」；适用：断网但本地有缓存。
+ * - [Offline]：朱砂断环（顶部 6° 断口，描边不闭合）+ 「本地已有 xx 本书可离线阅读」；适用：断网但本地有缓存。
  *
  * 外形 / 阴影 / 圆角 / 颗粒全部走 [CardSurface] 基座，色值只取 [CardTokens]；
  * 图标为 [Canvas] 自绘金点 / 断环，不引位图资源。
+ *
+ * B18 状态口径：legacy [CardState] 只承担阴影 / 抬升 / 骨架等视觉档位；「能不能点」不另立第二套布尔，
+ * 由 [emptyCardVisualState] 统一映射到契约六态，事件许可取 [ComponentVisualState.eventsAllowed]。
  */
 enum class EmptyKind { EmptyShelf, NotFound, Offline }
+
+/**
+ * B18：空态卡（变体 × legacy 基座态）→ 契约六态映射（纯函数，普通 JVM 单测可断言）。
+ *
+ * 优先级：禁用 > 离线 > 空变体 > 加载 > 默认。
+ *  - [CardState.Disabled] → [ComponentVisualState.DISABLED]：整卡压淡且禁点；
+ *  - [EmptyKind.Offline] → [ComponentVisualState.OFFLINE]：契约口径不压淡（contentAlpha=1f）、禁点；
+ *  - [EmptyKind.NotFound] → [ComponentVisualState.EMPTY]：不压淡、允许事件；
+ *  - [CardState.Loading] → [ComponentVisualState.LOADING]：不压淡、阻止事件；
+ *  - 其余 → [ComponentVisualState.DEFAULT]。
+ *
+ * 〔0.35 裁决，B18 判据 5〕契约 OFFLINE.contentAlpha=1f 是整组件唯一透明度口径，枚举语义不得改动；
+ * 旧实现把离线朱砂文字 / 断环另压 0.35f，属于与契约并存的第二套压淡来源，已移除。离线不可交互性
+ * 只由事件闸表达，不再靠局部文字透明度暗示；「极淡」观感改由 1.5dp 细描边与小环几何承担。
+ */
+internal fun emptyCardVisualState(
+    kind: EmptyKind,
+    state: CardState,
+): ComponentVisualState = when {
+    state == CardState.Disabled -> ComponentVisualState.DISABLED
+    kind == EmptyKind.Offline -> ComponentVisualState.OFFLINE
+    kind == EmptyKind.NotFound -> ComponentVisualState.EMPTY
+    state == CardState.Loading -> ComponentVisualState.LOADING
+    else -> ComponentVisualState.DEFAULT
+}
 
 /**
  * 空状态卡：三变体共用同一居中竖向排版，金点 / 断环槽位 32dp，元素间距 16dp。
@@ -53,6 +84,8 @@ fun EmptyStateCard(
     state: CardState = CardState.Default,
     modifier: Modifier = Modifier,
 ) {
+    // B18：唯一事件许可来源——legacy 基座态 + 变体映射到契约六态，卡片内不再另立「能不能点」布尔。
+    val visual = emptyCardVisualState(kind, state)
     CardSurface(
         state = state,
         modifier = modifier.fillMaxWidth(),
@@ -90,6 +123,7 @@ fun EmptyStateCard(
                     // 暖金按钮「去发现页看看」圆角 20；适用：唯一可点的空态出口，回调由 [onAction] 注入。
                     EmptyActionButton(
                         label = "去发现页看看",
+                        visual = visual,
                         onClick = { onAction?.invoke() },
                     )
                 }
@@ -117,13 +151,14 @@ fun EmptyStateCard(
                 }
 
                 EmptyKind.Offline -> {
-                    // 32dp 极淡朱砂断环：规格「极淡朱砂断环」；alpha 0.35 压淡，断口 6° 对齐 ic_state_offline 口径。
+                    // 32dp 朱砂断环：规格「极淡朱砂断环」；B18 裁决：不再另压 0.35f 透明度（契约 OFFLINE=1f 单源），
+                    // 极淡观感由 1.5dp 细描边 + 小环几何承担；断口 6° 对齐 ic_state_offline 口径。
                     BrokenRingIcon()
                     BasicText(
                         text = "本地已有 xx 本书可离线阅读",
                         style = TextStyle(
-                            // F-73 待规格化：淡朱砂 alpha 档位 0.35 无规格出处，为写码自拟降淡档（审计 表三#3，待重做后回填规格出处）
-                            color = CardTokens.cinnabar.copy(alpha = 0.35f),
+                            // B18：离线文字不再局部压淡；整组件透明度统一读契约 OFFLINE.contentAlpha=1f。
+                            color = CardTokens.cinnabar,
                             // 12sp：离线提示取次级字号档；「xx」为册数占位，由宿主数据注入替换。
                             fontSize = CardTokens.text12,
                             fontFamily = FontFamily.Serif,
@@ -144,13 +179,27 @@ private val fallbackRecommendations = listOf("诗经·周南", "史记·项羽�
  * 暖金行动按钮：圆角 20dp，纸白字压暖金底。
  * 为什么实心暖金而非描边：空态出口需一眼可点，实心比描边更有召唤感；
  * 圆角 20dp 沿用规格空态按钮口径，区别于卡片 16dp 大圆角。
+ *
+ * B18：点击一律走 [rememberInkGesture] 墨触闸，许可来自契约 [visual]；
+ * 不可点时底 / 字切云灰档并按 [ComponentVisualState.contentAlpha] 压淡，
+ * 不允许「看起来能点、点不动」的静默失效。
  */
 @Composable
-private fun EmptyActionButton(label: String, onClick: () -> Unit) {
+private fun EmptyActionButton(
+    label: String,
+    visual: ComponentVisualState,
+    onClick: () -> Unit,
+) {
+    val eventsAllowed = visual.eventsAllowed
+    val gesture = rememberInkGesture(enabled = eventsAllowed, onClick = onClick)
+    val background = if (eventsAllowed) CardTokens.warmGold else CardTokens.cloudGray
+    val foreground = if (eventsAllowed) CardTokens.cardPaper else CardTokens.ink
     Box(
         modifier = Modifier
-            .clickable(onClick = onClick)
-            .background(CardTokens.warmGold, RoundedCornerShape(20.dp))
+            .then(gesture.gestureModifier)
+            .clip(RoundedCornerShape(20.dp))
+            .background(background)
+            .alpha(visual.contentAlpha)
             // 横向 16dp / 纵向 10dp 内边距：规格只给圆角未给按钮高，纵向 10dp 为兜底值，保证文字不贴暖金块边缘。
             // F-73 待规格化：按钮内边距 16×10dp 无规格出处，为写码自拟兜底值（审计 表三#3，待重做后回填规格出处）
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -159,7 +208,7 @@ private fun EmptyActionButton(label: String, onClick: () -> Unit) {
         BasicText(
             text = label,
             style = TextStyle(
-                color = CardTokens.cardPaper,
+                color = foreground,
                 // 12sp：按钮内文字取次级字号，避免与 18sp 竖排主标题争抢层级；适用：暖金块上的标签。
                 fontSize = CardTokens.text12,
                 fontFamily = FontFamily.Serif,
@@ -186,7 +235,7 @@ private fun GoldDot(fillColor: Color) {
 /**
  * 极淡朱砂断环：32dp [Canvas] 描边圆环，顶部居中 6° 断口，不闭合、不填充。
  * 断口口径对齐 `ic_state_offline.xml`：缺口位于正上方（θ=270°）半宽 3°，
- * 即起角 273°、扫过 354°，余 6° 留空；stroke 1.5dp、圆头端点，朱砂 alpha 0.35 极淡。
+ * 即起角 273°、扫过 354°，余 6° 留空；stroke 1.5dp、圆头端点，朱砂全色，极淡观感由细描边几何承担。
  */
 @Composable
 private fun BrokenRingIcon() {
@@ -200,8 +249,8 @@ private fun BrokenRingIcon() {
         val w = size.width
         val h = size.height
         drawArc(
-            color = CardTokens.cinnabar.copy(alpha = 0.35f),
-            // F-73 待规格化：断环 6° 缺口几何（273°/354°）与淡朱砂 alpha 0.35 无规格出处，为写码自拟（审计 表三#3，待重做后回填规格出处）
+            color = CardTokens.cinnabar,
+            // B18：断环不再另压 0.35f；6° 缺口几何（273°/354°）为写码自拟兜底（F-73 待规格化）。
             // 起角 273°：断口右缘；顺时针扫 354°，到 267° 左缘收口，正上方留 6° 缺口。
             startAngle = 273f,
             sweepAngle = 354f,

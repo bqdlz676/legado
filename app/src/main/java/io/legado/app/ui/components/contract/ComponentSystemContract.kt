@@ -50,25 +50,14 @@ enum class ComponentVisualState(
 }
 
 /**
- * 由业务三布尔快照解析唯一可视态（纯函数，无副作用，非法组合归禁用、不抛异常）。
+ * 〔B18 处置：原 `componentStateOf(enabled, pressed, selected)` 已删除，不留零消费假契约〕
  *
- * 优先级：禁用 > 按下 > 选中 > 默认。
- *  - [enabled] = false 时一律归 [ComponentVisualState.DISABLED]，即便 [pressed] / [selected]
- *    同时为 true（禁用与按压 / 选中互斥，非法组合不抛异常，压到禁用态）；
- *  - 可用且按压中 → [ComponentVisualState.PRESSED]；
- *  - 可用且选中 → [ComponentVisualState.SELECTED]；
- *  - 其余 → [ComponentVisualState.DEFAULT]。
+ * 为什么删：三布尔快照不足以表达六态——加载中 / 空数据 / 离线三档无法由
+ * enabled / pressed / selected 推出；原函数只覆盖 默认 / 按下 / 选中 / 禁用 子集，
+ * 在 main 渲染源码无任何调用点（仅旧单测引用），属于与手势层重复的第二套解析。
  *
- * 〔边界〕悬停由指针层写入、加载由数据层写入，不在本三布尔快照内；这两态的外观面
- * （透明度 / 事件许可）已在 [ComponentVisualState] 枚举上单源登记，接线层按指针 / 数据状态直取。
+ * 唯一解析口径：交互快照 `io.legado.app.ui.components.InkInteraction` 经
+ * `resolve()` 得到旧七态，再由 `compat.toVisualState()` 单向映射到本契约枚举；
+ * 事件许可与透明度一律读 [ComponentVisualState.contentAlpha] / [ComponentVisualState.eventsAllowed]，
+ * 不再新增三布尔解析函数。
  */
-fun componentStateOf(
-    enabled: Boolean,
-    pressed: Boolean,
-    selected: Boolean,
-): ComponentVisualState {
-    if (!enabled) return ComponentVisualState.DISABLED
-    if (pressed) return ComponentVisualState.PRESSED
-    if (selected) return ComponentVisualState.SELECTED
-    return ComponentVisualState.DEFAULT
-}

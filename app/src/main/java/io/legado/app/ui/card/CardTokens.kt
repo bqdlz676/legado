@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.ComponentPalette
 
 /**
  * 落文 · 卡片基座 Token 唯一来源（切片-25「通用卡片 Token」表逐字落地）。
@@ -20,6 +21,9 @@ import androidx.compose.ui.unit.sp
  *
  * TODO(D23 收口)：语义色真值源为 io.legado.app.ui.components.ComponentPalette；本对象为卡片基座副本，
  * 本轮只留值不改引用，后续改为转发到单源后删除重复色值。
+ *
+ * B18 已收口子集：禁用压淡系数不再在本对象另写 0.30f，[disabledAlpha] 转发
+ * [ComponentPalette.DISABLED_OPACITY]，全仓禁用压淡数值单源；色值副本仍归 D23。
  */
 object CardTokens {
 
@@ -105,8 +109,12 @@ object CardTokens {
 
     // ─────────────────────────── 禁用态 / 弹簧 ───────────────────────────
 
-    /** 禁用态整体透明度 30%；适用：Disabled 态整卡压淡，表达不可点；与组件库禁用口径一致。 */
-    const val disabledAlpha: Float = 0.30f
+    /**
+     * 禁用态整体透明度 30%；适用：Disabled 态整卡压淡，表达不可点。
+     * B18 单源收口：真值只在 [ComponentPalette.DISABLED_OPACITY]，本常量仅转发，
+     * 禁止在卡片域另写 0.30f 字面量，避免两处系数日后漂移。
+     */
+    const val disabledAlpha: Float = ComponentPalette.DISABLED_OPACITY
 
     /** 基座状态弹簧阻尼比 0.80；适用：阴影 / 抬升在五态间切换的 spring，略欠阻尼，到位留一丝回弹。 */
     const val cardSpringDamping: Float = 0.80f

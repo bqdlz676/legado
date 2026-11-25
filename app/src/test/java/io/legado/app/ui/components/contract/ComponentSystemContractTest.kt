@@ -12,17 +12,16 @@ import org.junit.Test
  *
  * 覆盖本单断言：
  *  ① 默认态；② 悬停态；③ 按下态；④ 选中态；⑤ 禁用态；⑥ 加载中态；⑦ 空数据态；⑧ 离线态；
- *  ⑨ 非法组合（禁用且按下 / 选中）归禁用，不抛异常；
- *  ⑩ 禁用态禁止事件；⑪ 按下态允许事件；
- *  ⑫ 最小点击区 ≥48dp；⑬ 圆角三档单调递减（按钮 > 卡片 > 浮层）。
+ *  ⑨ 禁用态禁止事件；⑩ 按下态允许事件；
+ *  ⑪ 最小点击区 ≥48dp；⑫ 圆角三档单调递减（按钮 > 卡片 > 浮层）。
+ * B18：原 ⑨ 非法组合归并断言随 componentStateOf 一并移除，归并口径见 ComponentStateTest。
  */
 class ComponentSystemContractTest {
 
     @Test
-    fun `default face when enabled and idle`() {
-        val state = componentStateOf(enabled = true, pressed = false, selected = false)
+    fun `default face keeps full opacity and allows events`() {
+        val state = ComponentVisualState.DEFAULT
 
-        assertEquals(ComponentVisualState.DEFAULT, state)
         assertEquals(1f, state.contentAlpha, 1e-6f)
         assertTrue(state.eventsAllowed)
     }
@@ -37,7 +36,7 @@ class ComponentSystemContractTest {
 
     @Test
     fun `pressed face allows events`() {
-        val state = componentStateOf(enabled = true, pressed = true, selected = false)
+        val state = ComponentVisualState.PRESSED
 
         assertEquals(ComponentVisualState.PRESSED, state)
         assertTrue(state.eventsAllowed)
@@ -53,7 +52,7 @@ class ComponentSystemContractTest {
 
     @Test
     fun `disabled face blocks events and dims opacity`() {
-        val state = componentStateOf(enabled = false, pressed = false, selected = false)
+        val state = ComponentVisualState.DISABLED
 
         assertEquals(ComponentVisualState.DISABLED, state)
         assertFalse(state.eventsAllowed)
@@ -87,21 +86,8 @@ class ComponentSystemContractTest {
         assertFalse(ComponentVisualState.OFFLINE.contentAlpha == ComponentPalette.DISABLED_OPACITY)
     }
 
-    @Test
-    fun `illegal combo disabled with pressed falls back to disabled`() {
-        assertEquals(
-            ComponentVisualState.DISABLED,
-            componentStateOf(enabled = false, pressed = true, selected = false),
-        )
-        assertEquals(
-            ComponentVisualState.DISABLED,
-            componentStateOf(enabled = false, pressed = true, selected = true),
-        )
-        assertEquals(
-            ComponentVisualState.DISABLED,
-            componentStateOf(enabled = false, pressed = false, selected = true),
-        )
-    }
+    // B18：原 `componentStateOf` 三布尔解析函数已删除（三布尔快照不足以表达加载 / 空 / 离线六态，
+    // 且渲染零消费）；非法组合归并口径由 InkInteraction.resolve() 优先级承担，见 ComponentStateTest。
 
     @Test
     fun `disabled state forbids events`() {
