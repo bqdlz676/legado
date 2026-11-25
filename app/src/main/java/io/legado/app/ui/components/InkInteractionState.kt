@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import io.legado.app.ui.components.compat.toVisualState
 
 /**
  * 墨触手势结果：[interaction] 是当前七态快照，[gestureModifier] 绑定按压 / 悬停监听。
@@ -50,7 +51,10 @@ internal fun rememberInkGesture(
         offline = offline,
     )
 
-    val gestureModifier = Modifier.pointerInput(interaction.clickEnabled) {
+    // S-04 接线：可点口径改读新契约 eventsAllowed（旧七态经 Compat 单向映射，旧模型不删）
+    val visual = interaction.resolve().toVisualState()
+
+    val gestureModifier = Modifier.pointerInput(visual.eventsAllowed) {
         awaitPointerEventScope {
             while (true) {
                 val event = awaitPointerEvent()
@@ -63,12 +67,12 @@ internal fun rememberInkGesture(
                         pressed = false
                     }
                     PointerEventType.Press -> {
-                        if (interaction.clickEnabled) pressed = true
+                        if (visual.eventsAllowed) pressed = true
                     }
                     PointerEventType.Release -> {
                         if (pressed) {
                             pressed = false
-                            if (interaction.clickEnabled) onClick()
+                            if (visual.eventsAllowed) onClick()
                         }
                     }
                     else -> {

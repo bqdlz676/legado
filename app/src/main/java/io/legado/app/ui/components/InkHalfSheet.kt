@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.legado.app.ui.components.compat.toVisualState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -283,12 +284,8 @@ private fun HalfSheetRoot(
                 )
             }
 
-            // 正文区：竖滑滚动；禁用态整体压到 30% 透明度；悬停 / 点击泛金辉。
-            val contentAlpha = if (state == ComponentVisualState.DISABLED) {
-                ComponentTokens.disabledAlpha
-            } else {
-                1f
-            }
+            // 正文区：竖滑滚动；压淡口径改读新契约 contentAlpha（旧七态经 Compat 单向映射）；悬停 / 点击泛金辉。
+            val contentAlpha = state.toVisualState().contentAlpha
             Box(
                 Modifier
                     .fillMaxWidth()

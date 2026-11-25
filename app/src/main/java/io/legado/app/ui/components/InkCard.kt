@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.compat.toVisualState
 
 /**
  * InkCard 绢帛卡片。
@@ -94,7 +95,7 @@ fun InkCard(
             .clip(shape)
             .background(container)
             .border(1.dp, borderColor, shape)
-            .alpha(interaction.contentAlpha * dissolve)
+            .alpha(state.toVisualState().contentAlpha * dissolve)
             .scale(0.96f + 0.04f * dissolve)
             .padding(16.dp),
     ) {

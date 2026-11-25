@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.compat.toVisualState
 
 /**
  * InkButton 墨触按钮（组件基类，ListItem / Tab 沿用同一套墨触反馈）。
@@ -145,7 +146,7 @@ fun InkButton(
             .then(
                 if (border != null) Modifier.border(1.dp, border, shape) else Modifier,
             )
-            .alpha(interaction.contentAlpha)
+            .alpha(state.toVisualState().contentAlpha)
             .heightIn(min = 44.dp)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
