@@ -32,9 +32,14 @@ pgrep -af 'git|python3' | head -20 || echo "无"
 
 echo
 echo "=== ⑥ 请求率探针（各 agent 工具调用数，>500 判失控）==="
-SID=$(basename "$(cd "$(dirname "$0")/../.." && pwd)" 2>/dev/null)
-AGENTS_DIR="${1:-/home/user/.doubao/agent_mode/workspace/.sessions/$SID/agents}"
-[ -d "$AGENTS_DIR" ] || AGENTS_DIR="$(ls -dt /home/user/.doubao/agent_mode/workspace/.sessions/*/agents 2>/dev/null | head -1)"
+# 会话根目录：默认沿用现状（本机 $HOME/.doubao/.../sessions）；换机/换会话目录时用环境变量 SESSIONS_ROOT 覆盖，不写死绝对路径。
+SESSIONS_ROOT="${SESSIONS_ROOT:-$HOME/.doubao/agent_mode/workspace/.sessions}"
+# 会话 ID：优先环境变量 SID；否则从脚本位置推导（仓库所在 chats 目录名）；取不到留空走兜底。
+SID="${SID:-$(basename "$(cd "$(dirname "$0")/../.." && pwd)" 2>/dev/null)}"
+# 解析顺序：位置参数 $1 > 环境变量 AGENTS_DIR > 按 SID 推导路径 > SESSIONS_ROOT 下最新会话兜底。
+AGENTS_DIR="${1:-${AGENTS_DIR:-$SESSIONS_ROOT/${SID:+$SID/}agents}}"
+[ -d "$AGENTS_DIR" ] || AGENTS_DIR="$(ls -dt "$SESSIONS_ROOT"/*/agents 2>/dev/null | head -1)"
+echo "解析出的 agents 目录: ${AGENTS_DIR:-（未命中）}"
 if [ -d "$AGENTS_DIR" ]; then
   for t in "$AGENTS_DIR"/*/system/trajectory.jsonl; do
     [ -f "$t" ] || continue
@@ -44,7 +49,7 @@ if [ -d "$AGENTS_DIR" ]; then
     printf "%6s  %s%s\n" "$n" "$aid" "$flag"
   done | sort -rn | head -20
 else
-  echo "未找到 agents 目录（可传参：bash data_scripts/watchdog.sh <agents绝对路径>）"
+  echo "未找到 agents 目录（可传参 bash data_scripts/watchdog.sh <agents绝对路径>，或用环境变量 AGENTS_DIR / SESSIONS_ROOT / SID 覆盖）"
 fi
 
 echo
