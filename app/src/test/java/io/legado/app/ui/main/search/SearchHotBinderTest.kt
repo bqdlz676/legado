@@ -2,7 +2,6 @@ package io.legado.app.ui.main.search
 
 import io.legado.app.data.entities.SearchKeyword
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -200,8 +199,10 @@ class SearchHotBinderTest {
         val closedSnapshot = state.value
         timeFlow.value = emptyList()
         usageFlow.value = emptyList()
-        // 留出余量：若收集协程未被取消，Unconfined 会同步回放空快照回填状态。
-        delay(200)
+        // 确定性冻结断言（验收 N4 收口，替代原 delay(200) 时序余量）：测试注入
+        // Dispatchers.Unconfined，收集协程在调用线程内联执行；close() 取消句柄后，
+        // 若 Job 未被取消，流重发会在 setter 线程同步回放空快照并回填状态，下面的
+        // 相等性断言立即变红；若已取消，状态冻结为关闭前快照，无需任何等待余量。
         assertEquals("关闭后流更新不得再回填 UI 状态", closedSnapshot, state.value)
 
         // 重开浮层：VM.attach 幂等分支重建 binder 重新收集，流更新再次回填。
