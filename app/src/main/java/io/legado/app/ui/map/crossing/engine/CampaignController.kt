@@ -756,6 +756,7 @@ class CampaignController private constructor(
         firedEventIds = firedEvents.toSet(),
         captureHold = captureHold.toMap(),
         pointHolders = pointHolders.toMap(),
+        eventLog = _eventLog.toList(),
     )
 
     /** 恢复分支：时间 / 兵力 / 已触发事件一并回滚；状态重置为进行中。 */
@@ -769,12 +770,20 @@ class CampaignController private constructor(
         captureHold.clear()
         captureHold.putAll(branch.captureHold)
         restorePointHolders(branch.pointHolders, branch.captureHold)
+        // D-1：事件日志随存档整表回滚。先清空运行态日志再回写快照全表，杜绝被丢弃时间线的
+        // 条目残留在恢复后的面板（面板 snapshot().events 取尾 8 条上送，残留条目会与回滚后的
+        // 兵力 / 归属 / 回合对不上）。恢复路径末尾另补一条「已恢复分支存档」系统行，不在本表内。
+        _eventLog.clear()
+        _eventLog += branch.eventLog
         // B9：情报随存档回滚——按恢复后的军位重新播种决策层情报；视图目睹记录清空，需重新侦察。
         // 存档兼容（DoD-4）：旧版 BranchSnapshot 不含任何情报表字段（情报是可由军位重建的派生状态），
         // 此处一律重建而非读取存档；空军队 / 缺字段旧档循环自然空转，降级为"位置未知"，不抛异常。
         intel.clear()
         reports.clear()
         moraleDowngradedThisRound.clear()
+        // D-2：行军格数表是回合级临时状态，恢复时清零——移动部队出发前会先置 0，残留值只会
+        // 波及本回合不移动的部队；不清零则下一回合士气推进可能沿用上一时间线的格数误判疲劳。
+        marchCells.clear()
         for (observer in corps) for (enemy in enemiesOf(observer)) {
             intel.getOrPut(observer.id) { mutableMapOf() }[enemy.id] = IntelRecord(
                 geo = enemy.latLng,

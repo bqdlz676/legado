@@ -267,6 +267,9 @@ data class BranchSnapshot(
     /** 据点当前归属（据点标识 → 阵营 id）：B7 要求快照回滚全部可变量；恢复路径整表回写本表，
      *  缺字段旧档再由控制器按恢复后军位重建（见 CampaignController.restorePointHolders）。 */
     val pointHolders: Map<String, String> = emptyMap(),
+    /** 事件日志全表（D-1）：恢复分支时先清空运行态日志再整表回写，避免被丢弃时间线的条目
+     *  残留到恢复后的面板；默认空表兼容旧构造点（旧五参构造不传本字段可直接编译）。 */
+    val eventLog: List<String> = emptyList(),
 )
 
 // ── B10 分支并列对比：逐回合差异（纯 JVM，不依赖 Compose） ─────────────────────
