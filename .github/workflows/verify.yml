@@ -45,11 +45,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21 (temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
+      # 不用 actions/setup-java：4 个分片并发下载同一份 temurin 包时，Adoptium 下载接口会限流，
+      # 实测 verify #1/#2 都是"discover（先跑、单路下载）绿、4 个分片全部红在 Set up JDK 这一步"。
+      # runner 镜像本身预装 Temurin 21（JAVA_HOME_21_X64），本地可取、零网络；
+      # 仅镜像缺 21 时才回落下拉，三次重试仍失败才红——红灯因此只会来自真实缺 JDK，而不是并发限流。
+      - name: Set up JDK 21 (preinstalled, no network)
+        run: |
+          set -euo pipefail
+          for H in "${JAVA_HOME_21_X64:-}" "${JAVA_HOME_21_ARM64:-}"; do
+            if [ -n "$H" ] && [ -x "$H/bin/java" ]; then
+              echo "JAVA_HOME=$H" >> "$GITHUB_ENV"
+              echo "$H/bin" >> "$GITHUB_PATH"
+              "$H/bin/java" -version 2>&1 | head -3
+              echo "using preinstalled JDK21 at $H"
+              exit 0
+            fi
+          done
+          echo "::warning::runner 未预装 JDK21，回落下拉 temurin"
+          for i in 1 2 3; do
+            if curl -fsSL -o /tmp/jdk21.tar.gz \
+              "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"; then
+              mkdir -p /opt/jdk21
+              tar -xzf /tmp/jdk21.tar.gz -C /opt/jdk21 --strip-components=1
+              echo "JAVA_HOME=/opt/jdk21" >> "$GITHUB_ENV"
+              echo "/opt/jdk21/bin" >> "$GITHUB_PATH"
+              /opt/jdk21/bin/java -version 2>&1 | head -3
+              exit 0
+            fi
+            echo "::warning::jdk download attempt $i failed"; sleep 15
+          done
+          echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
       - name: Install SDK components (platform 36 / build-tools 36.0.0)
         run: |
@@ -188,11 +213,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21 (temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
+      # 不用 actions/setup-java：4 个分片并发下载同一份 temurin 包时，Adoptium 下载接口会限流，
+      # 实测 verify #1/#2 都是"discover（先跑、单路下载）绿、4 个分片全部红在 Set up JDK 这一步"。
+      # runner 镜像本身预装 Temurin 21（JAVA_HOME_21_X64），本地可取、零网络；
+      # 仅镜像缺 21 时才回落下拉，三次重试仍失败才红——红灯因此只会来自真实缺 JDK，而不是并发限流。
+      - name: Set up JDK 21 (preinstalled, no network)
+        run: |
+          set -euo pipefail
+          for H in "${JAVA_HOME_21_X64:-}" "${JAVA_HOME_21_ARM64:-}"; do
+            if [ -n "$H" ] && [ -x "$H/bin/java" ]; then
+              echo "JAVA_HOME=$H" >> "$GITHUB_ENV"
+              echo "$H/bin" >> "$GITHUB_PATH"
+              "$H/bin/java" -version 2>&1 | head -3
+              echo "using preinstalled JDK21 at $H"
+              exit 0
+            fi
+          done
+          echo "::warning::runner 未预装 JDK21，回落下拉 temurin"
+          for i in 1 2 3; do
+            if curl -fsSL -o /tmp/jdk21.tar.gz \
+              "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"; then
+              mkdir -p /opt/jdk21
+              tar -xzf /tmp/jdk21.tar.gz -C /opt/jdk21 --strip-components=1
+              echo "JAVA_HOME=/opt/jdk21" >> "$GITHUB_ENV"
+              echo "/opt/jdk21/bin" >> "$GITHUB_PATH"
+              /opt/jdk21/bin/java -version 2>&1 | head -3
+              exit 0
+            fi
+            echo "::warning::jdk download attempt $i failed"; sleep 15
+          done
+          echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
       - name: Install SDK components (platform 36 / build-tools 36.0.0)
         run: |
@@ -378,11 +428,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21 (temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
+      # 不用 actions/setup-java：4 个分片并发下载同一份 temurin 包时，Adoptium 下载接口会限流，
+      # 实测 verify #1/#2 都是"discover（先跑、单路下载）绿、4 个分片全部红在 Set up JDK 这一步"。
+      # runner 镜像本身预装 Temurin 21（JAVA_HOME_21_X64），本地可取、零网络；
+      # 仅镜像缺 21 时才回落下拉，三次重试仍失败才红——红灯因此只会来自真实缺 JDK，而不是并发限流。
+      - name: Set up JDK 21 (preinstalled, no network)
+        run: |
+          set -euo pipefail
+          for H in "${JAVA_HOME_21_X64:-}" "${JAVA_HOME_21_ARM64:-}"; do
+            if [ -n "$H" ] && [ -x "$H/bin/java" ]; then
+              echo "JAVA_HOME=$H" >> "$GITHUB_ENV"
+              echo "$H/bin" >> "$GITHUB_PATH"
+              "$H/bin/java" -version 2>&1 | head -3
+              echo "using preinstalled JDK21 at $H"
+              exit 0
+            fi
+          done
+          echo "::warning::runner 未预装 JDK21，回落下拉 temurin"
+          for i in 1 2 3; do
+            if curl -fsSL -o /tmp/jdk21.tar.gz \
+              "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"; then
+              mkdir -p /opt/jdk21
+              tar -xzf /tmp/jdk21.tar.gz -C /opt/jdk21 --strip-components=1
+              echo "JAVA_HOME=/opt/jdk21" >> "$GITHUB_ENV"
+              echo "/opt/jdk21/bin" >> "$GITHUB_PATH"
+              /opt/jdk21/bin/java -version 2>&1 | head -3
+              exit 0
+            fi
+            echo "::warning::jdk download attempt $i failed"; sleep 15
+          done
+          echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
       - name: Install SDK components (platform 36 / build-tools 36.0.0)
         run: |
