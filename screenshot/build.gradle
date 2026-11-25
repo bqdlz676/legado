@@ -1,0 +1,66 @@
+// 路径 A 独立截图模块（docs/待接-截图基建/README.md §3 路径 A）。
+// 为什么独立成模块：Paparazzi 插件会把 layoutlib / kotlin-reflect 等注入测试运行类路径；
+// 装在 :app 会污染基线 3185 条纯 JVM 单测（run 45437003104，11 类红，详见存档 README §2）。
+// 本模块只承担出帧：record/verify 任务与截图测试都在本模块类路径内闭环；:app 不反向依赖本模块。
+plugins {
+    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.android
+    alias libs.plugins.kotlin.compose
+    // Paparazzi 必须排在 Android / Compose 插件之后：它向 AGP 单元测试变体装配 layoutlib 与截图任务。
+    alias libs.plugins.paparazzi
+}
+
+android {
+    compileSdk = compile_sdk_version
+    namespace = 'io.legado.app.ci.screenshot'
+    kotlin {
+        jvmToolchain {
+            languageVersion.set(JavaLanguageVersion.of(21))
+        }
+    }
+
+    defaultConfig {
+        // :app 有 mode 维度 flavor（app）；本模块不设 flavor，显式声明回退到 app flavor 做变体匹配。
+        missingDimensionStrategy 'mode', 'app'
+        minSdk 26
+        targetSdk 36
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    compileOptions {
+        // 与仓库 :app 同档：JDK21，禁止在本模块另起 toolchain（F-107 本地不改 toolchain）。
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    testOptions {
+        // 仅截图模块开启：layoutlib 渲染需要主源资源 / 资产进单测类路径；
+        // :app 基线模块不开此开关，纯 JVM 单测类路径保持绿基线状态。
+        // Groovy DSL 属性名是 includeAndroidResources（Kotlin DSL 才是 isIncludeAndroidResources，commit 4df70b8 教训留档）。
+        unitTests.includeAndroidResources = true
+    }
+
+    lint {
+        checkDependencies = true
+    }
+}
+
+dependencies {
+    // 被截图的展示组件 / 模型目前仍在 :app 源码内；编译期只取其 public 签名，
+    // 运行时不起 app 的 Application / Room / 网络，夹具见 ScreenshotFixtures。
+    implementation(project(":app"))
+
+    testImplementation(libs.junit)
+    // Paparazzi 截图帧渲染（插件本身也会再补一份同版本依赖，此处显式声明便于版本收口在 catalog）。
+    testImplementation(libs.paparazzi)
+
+    // 测试源码内直接调用 Compose 布局 DSL（Box/Column/Modifier/dp 等）；版本由 BOM 与 :app 同一档收口。
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui)
+    testImplementation(libs.compose.foundation)
+    testImplementation(libs.compose.runtime)
+}

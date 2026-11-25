@@ -31,6 +31,8 @@ plugins {
     alias libs.plugins.room apply false
 
     alias libs.plugins.download apply false
+    # 版本收口在目录；仅 :screenshot 模块实际 apply，此处不向任何子工程装配。
+    alias libs.plugins.paparazzi apply false
 }
 
 tasks.register('clean', Delete) {

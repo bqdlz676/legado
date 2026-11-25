@@ -68,3 +68,6 @@ rootProject.name = 'legado'
 include ':app'
 include ':modules:book'
 include ':modules:rhino'
+# 路径 A：独立截图模块。Paparazzi 插件 / layoutlib / includeAndroidResources 只装在本模块，
+# :app 基线单测类路径不被污染（历史红因见 docs/待接-截图基建/README.md §2）。
+include ':screenshot'

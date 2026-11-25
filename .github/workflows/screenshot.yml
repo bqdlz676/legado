@@ -1,0 +1,103 @@
+# ---------- 截图帧：Paparazzi 纯 JVM（layoutlib）真实渲染关键屏，产出 PNG + frames.json 供观感判定 ----------
+# 路径 A 独立模块（docs/待接-截图基建/README.md §3 路径 A）：截图能力整体落在 :screenshot 模块，
+# 本 workflow 与 build.yml 物理拆分——独立 concurrency group，互不 cancel-in-progress；
+# 本 job 不挂 needs、不 gate 主 run（主 run 的 discover / test-shard / test-aggregate / build-shard 链路不引用本 job）。
+#
+# 门禁口径（沿用存档 job 原文）：不用 continue-on-error、不用 if:always()；
+# record 任务 / 清单脚本 / artifact 任一环失败都会让本 run 归 FAIL；无帧时 upload 以 if-no-files-found: error 兜底。
+# frame-manifest.py 现签名：`python3 data_scripts/frame-manifest.py --dir <帧目录> [--json frames.json] [--md frames.md]`，
+# 脚本退出码 1 = 目录缺失 / 无 PNG / 读取异常，CI 据此判失败，不许空传。
+name: Screenshot frames (Paparazzi, independent)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 独立并发组：与 build.yml 的 build-${{ github.ref }} 分组隔离，避免两个 workflow 互相 cancel-in-progress。
+concurrency:
+  group: screenshot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshot-frames:
+    name: Render screenshot frames (Paparazzi, :screenshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "distributionUrl=$DIST"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      # 清掉可能残留的旧 golden，避免把上一轮帧混进本轮 artifact。
+      - name: Clean stale Paparazzi snapshots
+        run: rm -rf screenshot/src/test/snapshots screenshot/build/outputs/screenshots
+
+      # record 模式：layoutlib 在 JVM 下真实渲染并落盘 PNG；--tests 只跑截图包，不碰 :app 基线单测。
+      # 库模块无 flavor，任务名为 recordPaparazziDebug（:app 带 app flavor 时才是 recordPaparazziAppDebug）。
+      - name: Render frames with Paparazzi (record)
+        run: ./gradlew :screenshot:recordPaparazziDebug --tests "io.legado.app.ci.screenshot.*" --no-daemon --stacktrace
+
+      # golden 帧按 包_类_方法 命名落到 snapshots/images；汇总到统一产物目录供清单脚本扫描。
+      - name: Collect frames into outputs/screenshots
+        run: |
+          set -euo pipefail
+          mkdir -p screenshot/build/outputs/screenshots
+          find screenshot/src/test/snapshots -type f -name '*.png' -exec cp {} screenshot/build/outputs/screenshots/ \;
+          ls -la screenshot/build/outputs/screenshots/
+
+      - name: Generate frame manifest (frames.json + frames.md)
+        run: python3 data_scripts/frame-manifest.py --dir screenshot/build/outputs/screenshots
+
+      - name: Upload screenshot frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-frames
+          path: |
+            screenshot/build/outputs/screenshots/*.png
+            screenshot/build/outputs/screenshots/frames.json
+            screenshot/build/outputs/screenshots/frames.md
+          if-no-files-found: error
