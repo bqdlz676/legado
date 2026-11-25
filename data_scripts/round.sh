@@ -6,3 +6,5 @@ cd "$(dirname "$0")/.." || exit 2
 python3 data_scripts/progress-meter.py 24
 echo ---
 python3 data_scripts/queue-sync.py "$@"
+echo ---
+python3 data_scripts/debt-ratchet.py | tail -2

@@ -82,7 +82,11 @@ def main():
         elif status.startswith("PENDING") and hours is not None and hours > args.age:
             alerts.append(f"{qid} 已挂 {hours:.0f} 小时（> {args.age:.0f}），派或作废，不许继续挂")
         elif status.startswith("RUNNING") and not exists:
-            alerts.append(f"{qid} 标 RUNNING 但交付物 {path or '未登记'} 不在盘，核对代理是否已挂")
+            # 带 agent id 的 RUNNING 属正常在飞（报告还没写出来）；没 agent id 的才是"忘了派"。
+            if re.search(r"s_\w+", status):
+                print(f"在飞 {qid}：代理 {re.search(r's_\w+', status).group(0)} 运行中，报告未落盘")
+            else:
+                alerts.append(f"{qid} 标 RUNNING 但无 agent id、交付物 {path or '未登记'} 不在盘，核对代理是否已挂")
 
     for idx, qid, old, path in changed:
         print(f"{'已改' if args.apply else '可改'}: {qid} {old.split('（')[0]} -> DONE（报告在盘：{path}）")

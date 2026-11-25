@@ -8,7 +8,8 @@
 #   2) 刷新交接快照（㉖ 的 b 新鲜度）
 #   3) 批量证据检查（⑭ 的 E1/E2/E3 三件套）
 #   4) 跨模块编译面预检（F1/F2/F3，见 cross-module-guard.py）
-#   5) 总门禁 rule-gate.sh（末行 GATE: PASS/FAIL 为准）
+#   5) 债务棘轮（缝合怪在册数只许减不许增）
+#   6) 总门禁 rule-gate.sh（末行 GATE: PASS/FAIL 为准）
 #
 # 用法：bash data_scripts/pre-push-check.sh [--strict]
 # 退出码：0 才允许 push；非 0 就地修，不推。
@@ -52,7 +53,12 @@ if ! python3 data_scripts/cross-module-guard.py $STRICT | tail -6; then
   echo "[4/5] 跨模块预检未过"; FAILED=1
 fi
 
-# 5) 总门禁
+# 5) 债务棘轮：缝合怪在册债务只许减不许增（L8）
+if ! python3 data_scripts/debt-ratchet.py | tail -2; then
+  FAILED=1
+fi
+
+# 6) 总门禁
 bash data_scripts/rule-gate.sh 2>&1 | tail -1
 bash data_scripts/rule-gate.sh >/tmp/pre-push-gate.log 2>&1 || { grep -E "FAIL" /tmp/pre-push-gate.log | head -5; FAILED=1; }
 
