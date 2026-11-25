@@ -220,9 +220,14 @@ data class CorpsView(
     val strength: Double,
     val fatigue: Double,
     val morale: Morale,
-    val intent: Intent,
+    /**
+     * 规则意图；null = 未观测敌军（情报雾）：敌方决策意图属机密，数据层随位置一并掩码，
+     * 不下发缺省意图冒充情报；壳层据此显示未探明态。已观测本方 / 盟友 / 敌军为真实意图。
+     */
+    val intent: Intent? = null,
     val lat: Double,
     val lng: Double,
+    /** 行军目标点；未观测敌军随意图一并掩码为 null，不以假坐标冒充未探明方位。 */
     val targetLat: Double?,
     val targetLng: Double?,
     val alive: Boolean,

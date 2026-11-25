@@ -711,7 +711,8 @@ class CampaignController private constructor(
 
     fun snapshot(): TurnSnapshot {
         // 情报雾（F8）：只有"本方军 / 盟友"或"被任一可见本方军看到"的敌方军才算 observed；
-        // 未观测的敌军不下发实时坐标（reportLat/Lng = null），避免玩家透视全图。
+        // 未观测的敌军不下发实时坐标（reportLat/Lng = null），决策意图与目标点一并掩码
+        // （toView 内 intent=null、targetLat/Lng=null），避免玩家透视全图或读敌方决策。
         // 友敌划分统一走 [isFriendlySide]（B3 收口）：盟友不进敌方侦察集，也不误标为未观测敌军。
         val playerSide = definition.victory.side
         val observers = corps.filter { it.sideId == playerSide && it.combatReady() }
@@ -876,10 +877,17 @@ class CampaignController private constructor(
     private fun recordRadius(record: IntelRecord, type: ArmyType): Int {
         val age = turn - record.seenTurn
         if (age <= 0) return 0
-        val distanceTerm = (record.seenDistCells / 2).coerceIn(0, type.visionRadiusCells)
+        val distanceTerm = distanceTermCells(record.seenDistCells, type)
         val ageTerm = age * STALE_DRIFT_CELLS_PER_TURN
         return (distanceTerm + ageTerm).coerceAtMost(MAX_STALE_RADIUS_CELLS)
     }
+
+    /**
+     * 距离项：目击距离取半并封顶到兵种视野半径（internal 供单测直断言封顶口径）。
+     * 封顶真源为 model 层 [ArmyType.visionRadiusCells]，本层不另建字面量表；负值 / 0 钳到 0。
+     */
+    internal fun distanceTermCells(seenDistCells: Int, type: ArmyType): Int =
+        (seenDistCells / 2).coerceIn(0, type.visionRadiusCells)
 
     /**
      * 测试 / 壳层口径出口（B9）：目标军对本方当前的模糊半径（格）。
@@ -963,7 +971,10 @@ class CampaignController private constructor(
      * @param emitGeo 下发到主坐标 [CorpsView.lat]/[CorpsView.lng] 的位置；null 表示情报空白区，
      *        写 [Double.NaN] 占位——NaN 经投影 toInt 钳到边缘格不会崩，壳层须按 [observed]=false
      *        且 report 为空跳过绘子（壳层门控属交接项）；禁止此处回填 [latLng] 真实坐标。
-     * @param blurRoute 为 true 时清空规划路线：未观测敌军的行军计划不随位置一起下发。
+     * @param blurRoute 为 true 时清空规划路线 / 降级标识，并掩码敌方意图与目标点：未观测敌军的
+     *        行军计划、决策意图、objective 方位都属机密，不随位置一起下发；意图置 null（未知态）、
+     *        目标点置 null，不以缺省意图或假坐标冒充情报。判定「未观测」沿用 [snapshot] 单一闸门
+     *        （`observed` / `blurRoute` 同源），本方法不另建视野判断。
      */
     private fun Corps.toView(
         observed: Boolean = true,
@@ -979,11 +990,11 @@ class CampaignController private constructor(
         strength = strength,
         fatigue = fatigue,
         morale = morale,
-        intent = intent,
+        intent = if (blurRoute) null else intent,
         lat = emitGeo?.lat ?: Double.NaN,
         lng = emitGeo?.lng ?: Double.NaN,
-        targetLat = target?.lat,
-        targetLng = target?.lng,
+        targetLat = if (blurRoute) null else target?.lat,
+        targetLng = if (blurRoute) null else target?.lng,
         alive = alive,
         surrendered = surrendered,
         route = if (blurRoute) emptyList() else route.map { projection.toGeo(it) },

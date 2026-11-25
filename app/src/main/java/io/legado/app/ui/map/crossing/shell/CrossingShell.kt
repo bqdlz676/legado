@@ -669,6 +669,8 @@ private fun CorpsRoster(
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         aliveCorps.take(6).forEach { corps ->
             val override = overrides[corps.id]
+            // 数据层口径：未观测敌军 intent 已掩码为 null（见 CampaignController.toView）；
+            // 壳层不另建一套视野 / 情报判断，只按 `observed` 单一分支渲染未探明态或真实意图。
             val current = override ?: corps.intent
             val spec = IntentGestureMap.entries[current]
             val dialPreview = dragVector?.let { dialIntent(it.x, it.y) }
@@ -683,9 +685,15 @@ private fun CorpsRoster(
                     .fillMaxWidth()
                     .semantics {
                         contentDescription = buildString {
-                            append("${corps.name}，当前意图${current.label()}。")
-                            if (corps.routeDegraded) append("本回合侧翼路线被迫降级绕行。")
-                            if (spec != null) append("上下左右拖拽调整方向，长按展开意图面板。")
+                            append("${corps.name}，")
+                            if (!corps.observed) {
+                                // 未探明态：数据层已不下发意图，无障碍描述同样只读盲区占位文案。
+                                append(corps.blindZoneLabel ?: DEFAULT_BLIND_ZONE_LABEL)
+                            } else {
+                                append("当前意图${current?.label() ?: "未知"}。")
+                                if (corps.routeDegraded) append("本回合侧翼路线被迫降级绕行。")
+                                if (spec != null) append("上下左右拖拽调整方向，长按展开意图面板。")
+                            }
                         }
                     }
                     // 长按通道：静止按住展开意图面板（不改写意图）。
@@ -740,7 +748,8 @@ private fun CorpsRoster(
                     modifier = Modifier.weight(1f),
                 )
                 if (!corps.observed) {
-                    // 盲区单位不列敌方意图（决策信息不随雾透传），改挂盲区占位文案。
+                    // 单一展示分支：数据层已把未观测敌军的 intent / 目标点掩码为 null，此处只渲染
+                    // 未探明占位文案；不再在壳层二次推断敌方意图，避免两层遮罩互相打架。
                     BasicText(
                         text = corps.blindZoneLabel ?: DEFAULT_BLIND_ZONE_LABEL,
                         style = TextStyle(
@@ -750,7 +759,7 @@ private fun CorpsRoster(
                     )
                 } else {
                     BasicText(
-                        text = (dialPreview ?: current).label(),
+                        text = (dialPreview ?: current)?.label() ?: "未知",
                         style = TextStyle(
                             color = Color(CrossingTokens.brandGold),
                             fontSize = 11.sp,
