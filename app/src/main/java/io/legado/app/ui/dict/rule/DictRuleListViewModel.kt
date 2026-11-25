@@ -182,7 +182,8 @@ class DictRuleListViewModel(application: Application) : BaseViewModel(applicatio
         }.onError { error ->
             context.toastOnUi("保存字典规则出错\n${error.localizedMessage}")
         }
-        dismissEdit()
+        // B29：入库副作用在决策时刻执行；槽位摘除交 HalfSheetExitHost 离场收束回调
+        // （dismissEdit），不再在此直清 editTarget 跳过离场动画。
     }
 
     // ─────────────────────────── 批量 / 导入 ───────────────────────────

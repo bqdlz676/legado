@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -29,6 +30,8 @@ import io.legado.app.ui.components.ToolAction
 import io.legado.app.ui.components.ToolPageScaffold
 import io.legado.app.ui.components.ToolSectionLabel
 import io.legado.app.ui.components.ToolTextField
+import io.legado.app.ui.config.settings.rememberSheetExitController
+import io.legado.app.ui.sheet.HalfSheetExitHost
 
 /**
  * 落文 · 替换规则编辑页（Compose 自绘）。
@@ -54,6 +57,11 @@ fun ReplaceEditScreen(
     onDismissHelp: () -> Unit,
 ) {
     val rule = state.rule
+    // B29：帮助半屏两段式离场控制器；程序化入口先过 canOpen 闸再 open()。
+    val helpExit = rememberSheetExitController()
+    LaunchedEffect(state.helpText) {
+        if (state.helpText != null && helpExit.canOpen) helpExit.open()
+    }
     ToolPageScaffold(
         title = if (rule.id > 0) "编辑替换规则" else "新建替换规则",
         onBack = onRequestExit,
@@ -178,19 +186,26 @@ fun ReplaceEditScreen(
     }
 
     state.helpText?.let { md ->
-        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助", content = {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                androidx.compose.foundation.text.BasicText(
-                    md,
-                    style = TextStyle(
-                        color = ComponentTokens.textSecondary,
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Serif,
-                        lineHeight = 20.sp,
-                    ),
-                )
-            }
-        })
+        HalfSheetExitHost(helpExit, onFinished = { onDismissHelp() }) {
+            InkHalfSheet(
+                visible = helpExit.visible,
+                onDismiss = { helpExit.beginExit() },
+                title = "帮助",
+                content = {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        androidx.compose.foundation.text.BasicText(
+                            md,
+                            style = TextStyle(
+                                color = ComponentTokens.textSecondary,
+                                fontSize = 13.sp,
+                                fontFamily = FontFamily.Serif,
+                                lineHeight = 20.sp,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
     }
 }
 

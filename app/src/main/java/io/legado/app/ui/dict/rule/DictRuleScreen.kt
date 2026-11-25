@@ -39,6 +39,8 @@ import io.legado.app.ui.components.ToolRow
 import io.legado.app.ui.components.ToolSectionLabel
 import io.legado.app.ui.components.ToolTextField
 import io.legado.app.ui.components.toolListArrangement
+import io.legado.app.ui.config.settings.rememberSheetExitController
+import io.legado.app.ui.sheet.HalfSheetExitHost
 
 /**
  * 落文 · 词典规则管理页（Compose 自绘，切片-03 / 切片-04 / 切片-15）。
@@ -81,6 +83,15 @@ fun DictRuleScreen(
     onDismissHelp: () -> Unit,
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
+    // B29：编辑半屏 / 帮助半屏各持一份两段式离场控制器；程序化入口先过 canOpen 闸再 open()。
+    val editExit = rememberSheetExitController()
+    val helpExit = rememberSheetExitController()
+    LaunchedEffect(state.editTarget) {
+        if (state.editTarget != null && editExit.canOpen) editExit.open()
+    }
+    LaunchedEffect(state.helpText) {
+        if (state.helpText != null && helpExit.canOpen) helpExit.open()
+    }
 
     ToolPageScaffold(
         title = "词典规则",
@@ -135,14 +146,17 @@ fun DictRuleScreen(
 
     // 编辑 / 新建 Sheet
     state.editTarget?.let { draft ->
-        EditSheet(
-            initial = draft,
-            creating = state.creating,
-            onSave = onSaveEdit,
-            onDismiss = onDismissEdit,
-            onCopy = onCopyEdit,
-            onPaste = onPasteEdit,
-        )
+        HalfSheetExitHost(editExit, onFinished = onDismissEdit) {
+            EditSheet(
+                initial = draft,
+                creating = state.creating,
+                visible = editExit.visible,
+                onSave = onSaveEdit,
+                onDismiss = { editExit.beginExit() },
+                onCopy = onCopyEdit,
+                onPaste = onPasteEdit,
+            )
+        }
     }
 
     // 在线导入 URL
@@ -158,7 +172,9 @@ fun DictRuleScreen(
 
     // 帮助文档
     state.helpText?.let { md ->
-        HelpSheet(mdText = md, onDismiss = onDismissHelp)
+        HalfSheetExitHost(helpExit, onFinished = onDismissHelp) {
+            HelpSheet(mdText = md, visible = helpExit.visible, onDismiss = { helpExit.beginExit() })
+        }
     }
 }
 
@@ -361,6 +377,7 @@ private fun ConfirmDialog(
 private fun EditSheet(
     initial: DictRuleUi,
     creating: Boolean,
+    visible: Boolean,
     onSave: (DictRuleUi) -> Unit,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
@@ -374,7 +391,7 @@ private fun EditSheet(
         urlRule = initial.urlRule
         showRule = initial.showRule
     }
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = if (creating) "新建词典规则" else "编辑词典规则", content = {
+    InkHalfSheet(visible = visible, onDismiss = onDismiss, title = if (creating) "新建词典规则" else "编辑词典规则", content = {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ToolTextField("规则名称", name, { name = it })
             ToolTextField("URL 规则", urlRule, { urlRule = it }, multiLine = true)
@@ -386,6 +403,7 @@ private fun EditSheet(
                     onSave(
                         initial.copy(name = name.trim(), urlRule = urlRule, showRule = showRule),
                     )
+                    onDismiss()
                 }, variant = InkButtonVariant.PRIMARY)
             }
         }
@@ -412,8 +430,8 @@ private fun ImportUrlDialog(
 }
 
 @Composable
-private fun HelpSheet(mdText: String, onDismiss: () -> Unit) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = "帮助", content = {
+private fun HelpSheet(mdText: String, visible: Boolean, onDismiss: () -> Unit) {
+    InkHalfSheet(visible = visible, onDismiss = onDismiss, title = "帮助", content = {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             androidx.compose.foundation.text.BasicText(
                 mdText,

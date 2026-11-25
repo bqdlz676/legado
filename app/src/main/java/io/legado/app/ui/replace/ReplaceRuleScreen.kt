@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,8 @@ import io.legado.app.ui.components.ToolRow
 import io.legado.app.ui.components.ToolSectionLabel
 import io.legado.app.ui.components.ToolTextField
 import io.legado.app.ui.components.toolListArrangement
+import io.legado.app.ui.config.settings.rememberSheetExitController
+import io.legado.app.ui.sheet.HalfSheetExitHost
 
 /**
  * 落文 · 替换规则管理页（Compose 自绘）。
@@ -99,6 +102,15 @@ fun ReplaceRuleScreen(
 ) {
     var batchGroupAction by remember { mutableStateOf<BatchGroup?>(null) }
     var groupEditTarget by remember { mutableStateOf<String?>(null) }
+    // B29：分组管理半屏 / 帮助半屏各持一份两段式离场控制器；程序化入口先过 canOpen 闸再 open()。
+    val groupExit = rememberSheetExitController()
+    val helpExit = rememberSheetExitController()
+    LaunchedEffect(state.groupManageOpen) {
+        if (state.groupManageOpen && groupExit.canOpen) groupExit.open()
+    }
+    LaunchedEffect(state.helpText) {
+        if (state.helpText != null && helpExit.canOpen) helpExit.open()
+    }
 
     ToolPageScaffold(
         title = "替换规则",
@@ -164,14 +176,17 @@ fun ReplaceRuleScreen(
     }
 
     if (state.groupManageOpen) {
-        GroupManageSheet(
-            groups = state.groups,
-            onAdd = onGroupAdd,
-            onRename = { old, new -> onGroupRename(old, new) },
-            onDelete = onGroupDelete,
-            onEditTarget = { groupEditTarget = it },
-            onDismiss = onCloseGroupManage,
-        )
+        HalfSheetExitHost(groupExit, onFinished = onCloseGroupManage) {
+            GroupManageSheet(
+                groups = state.groups,
+                visible = groupExit.visible,
+                onAdd = onGroupAdd,
+                onRename = { old, new -> onGroupRename(old, new) },
+                onDelete = onGroupDelete,
+                onEditTarget = { groupEditTarget = it },
+                onDismiss = { groupExit.beginExit() },
+            )
+        }
     }
 
     batchGroupAction?.let { action ->
@@ -195,19 +210,26 @@ fun ReplaceRuleScreen(
     }
 
     state.helpText?.let { md ->
-        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助", content = {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                androidx.compose.foundation.text.BasicText(
-                    md,
-                    style = TextStyle(
-                        color = ComponentTokens.textSecondary,
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Serif,
-                        lineHeight = 20.sp,
-                    ),
-                )
-            }
-        })
+        HalfSheetExitHost(helpExit, onFinished = { onDismissHelp() }) {
+            InkHalfSheet(
+                visible = helpExit.visible,
+                onDismiss = { helpExit.beginExit() },
+                title = "帮助",
+                content = {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        androidx.compose.foundation.text.BasicText(
+                            md,
+                            style = TextStyle(
+                                color = ComponentTokens.textSecondary,
+                                fontSize = 13.sp,
+                                fontFamily = FontFamily.Serif,
+                                lineHeight = 20.sp,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -490,6 +512,7 @@ private fun ConfirmDialog(
 @Composable
 private fun GroupManageSheet(
     groups: List<String>,
+    visible: Boolean,
     onAdd: (String) -> Unit,
     onRename: (String, String) -> Unit,
     onDelete: (String) -> Unit,
@@ -497,7 +520,7 @@ private fun GroupManageSheet(
     onDismiss: () -> Unit,
 ) {
     var newName by remember { mutableStateOf("") }
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = "分组管理", content = {
+    InkHalfSheet(visible = visible, onDismiss = onDismiss, title = "分组管理", content = {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             ToolTextField("新分组名", newName, { newName = it }, placeholder = "分组名称")
             Row(horizontalArrangement = Arrangement.End) {

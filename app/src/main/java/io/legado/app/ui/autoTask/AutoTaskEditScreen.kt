@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -20,6 +21,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import io.legado.app.data.entities.AutoTaskRule
 import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.config.settings.rememberSheetExitController
+import io.legado.app.ui.sheet.HalfSheetExitHost
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.components.InkHalfSheet
@@ -57,6 +60,11 @@ fun AutoTaskEditScreen(
     onDismissHelp: () -> Unit,
 ) {
     val rule = state.draft
+    // B29：帮助半屏两段式离场控制器；程序化入口先过 canOpen 闸再 open()。
+    val helpExit = rememberSheetExitController()
+    LaunchedEffect(state.helpText) {
+        if (state.helpText != null && helpExit.canOpen) helpExit.open()
+    }
     ToolPageScaffold(
         title = if (state.origin == null) "新建自动任务" else "编辑自动任务",
         onBack = onRequestExit,
@@ -148,19 +156,26 @@ fun AutoTaskEditScreen(
     }
 
     state.helpText?.let { md ->
-        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助", content = {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                androidx.compose.foundation.text.BasicText(
-                    md,
-                    style = TextStyle(
-                        color = ComponentTokens.textSecondary,
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Serif,
-                        lineHeight = 20.sp,
-                    ),
-                )
-            }
-        })
+        HalfSheetExitHost(helpExit, onFinished = { onDismissHelp() }) {
+            InkHalfSheet(
+                visible = helpExit.visible,
+                onDismiss = { helpExit.beginExit() },
+                title = "帮助",
+                content = {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        androidx.compose.foundation.text.BasicText(
+                            md,
+                            style = TextStyle(
+                                color = ComponentTokens.textSecondary,
+                                fontSize = 13.sp,
+                                fontFamily = FontFamily.Serif,
+                                lineHeight = 20.sp,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
     }
 }
 

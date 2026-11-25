@@ -107,9 +107,10 @@ class AutoTaskListViewModel(application: Application) : BaseViewModel(applicatio
     fun showLog(rule: AutoTaskUi) = _uiState.update { it.copy(logTarget = rule) }
     fun dismissLog() = _uiState.update { it.copy(logTarget = null) }
 
+    // B29：清除日志副作用在决策时刻执行；槽位摘除交 HalfSheetExitHost 离场收束回调
+    // （dismissLog），不再在此直清 logTarget 跳过离场动画。
     fun clearLog(id: String) {
         execute { AutoTask.clearRunLog(id) }
-        _uiState.update { it.copy(logTarget = null) }
     }
 
     fun move(rule: AutoTaskUi, down: Boolean) {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,8 @@ import io.legado.app.ui.components.ToolRow
 import io.legado.app.ui.components.ToolSectionLabel
 import io.legado.app.ui.components.ToolTextField
 import io.legado.app.ui.components.toolListArrangement
+import io.legado.app.ui.config.settings.rememberSheetExitController
+import io.legado.app.ui.sheet.HalfSheetExitHost
 
 /**
  * 落文 · 自动任务管理页（Compose 自绘）。
@@ -88,6 +91,15 @@ fun AutoTaskScreen(
     onClearLog: (String) -> Unit,
     onDismissLog: () -> Unit,
 ) {
+    // B29：帮助半屏 / 运行日志半屏各持一份两段式离场控制器；程序化入口先过 canOpen 闸再 open()。
+    val helpExit = rememberSheetExitController()
+    val logExit = rememberSheetExitController()
+    LaunchedEffect(state.helpText) {
+        if (state.helpText != null && helpExit.canOpen) helpExit.open()
+    }
+    LaunchedEffect(state.logTarget) {
+        if (state.logTarget != null && logExit.canOpen) logExit.open()
+    }
     ToolPageScaffold(
         title = "自动任务",
         onBack = onBack,
@@ -143,11 +155,14 @@ fun AutoTaskScreen(
     }
 
     state.logTarget?.let { target ->
-        LogSheet(
-            task = target,
-            onClear = { onClearLog(target.id) },
-            onDismiss = onDismissLog,
-        )
+        HalfSheetExitHost(logExit, onFinished = onDismissLog) {
+            LogSheet(
+                task = target,
+                visible = logExit.visible,
+                onClear = { onClearLog(target.id) },
+                onDismiss = { logExit.beginExit() },
+            )
+        }
     }
 
     if (state.batchCronOpen) {
@@ -165,19 +180,26 @@ fun AutoTaskScreen(
     }
 
     state.helpText?.let { md ->
-        InkHalfSheet(visible = true, onDismiss = onDismissHelp, title = "帮助", content = {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                androidx.compose.foundation.text.BasicText(
-                    md,
-                    style = TextStyle(
-                        color = ComponentTokens.textSecondary,
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Serif,
-                        lineHeight = 20.sp,
-                    ),
-                )
-            }
-        })
+        HalfSheetExitHost(helpExit, onFinished = { onDismissHelp() }) {
+            InkHalfSheet(
+                visible = helpExit.visible,
+                onDismiss = { helpExit.beginExit() },
+                title = "帮助",
+                content = {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        androidx.compose.foundation.text.BasicText(
+                            md,
+                            style = TextStyle(
+                                color = ComponentTokens.textSecondary,
+                                fontSize = 13.sp,
+                                fontFamily = FontFamily.Serif,
+                                lineHeight = 20.sp,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -398,9 +420,14 @@ private fun ConfirmDialog(
 }
 
 @Composable
-private fun LogSheet(task: AutoTaskUi, onClear: () -> Unit, onDismiss: () -> Unit) {
+private fun LogSheet(
+    task: AutoTaskUi,
+    visible: Boolean,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val message = task.lastLog ?: task.lastError ?: task.lastResult
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = task.name, content = {
+    InkHalfSheet(visible = visible, onDismiss = onDismiss, title = task.name, content = {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             androidx.compose.foundation.text.BasicText(
                 message ?: "暂无运行日志",
@@ -412,7 +439,7 @@ private fun LogSheet(task: AutoTaskUi, onClear: () -> Unit, onDismiss: () -> Uni
                 ),
             )
             Row(horizontalArrangement = Arrangement.End) {
-                InkButton("清除日志", onClear, variant = InkButtonVariant.GHOST)
+                InkButton("清除日志", { onClear(); onDismiss() }, variant = InkButtonVariant.GHOST)
             }
         }
     })

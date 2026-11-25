@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,8 @@ import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.InkHalfSheet
 import io.legado.app.ui.components.ToolRow
+import io.legado.app.ui.config.settings.rememberSheetExitController
+import io.legado.app.ui.sheet.HalfSheetExitHost
 import io.legado.app.utils.GSON
 
 /**
@@ -78,6 +81,11 @@ class ImportAutoTaskDialog() : DialogFragment() {
             setContent {
                 val state = viewModel.uiState.collectAsState().value
                 var jsonTarget by remember { mutableStateOf<AutoTaskRule?>(null) }
+                // B29：JSON 预览半屏两段式离场控制器；程序化入口先过 canOpen 闸再 open()。
+                val jsonExit = rememberSheetExitController()
+                LaunchedEffect(jsonTarget) {
+                    if (jsonTarget != null && jsonExit.canOpen) jsonExit.open()
+                }
                 ImportContent(
                     state = state,
                     onToggle = viewModel::toggle,
@@ -95,19 +103,26 @@ class ImportAutoTaskDialog() : DialogFragment() {
                     },
                 )
                 jsonTarget?.let { task ->
-                    InkHalfSheet(visible = true, onDismiss = { jsonTarget = null }, title = task.name, content = {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                            androidx.compose.foundation.text.BasicText(
-                                GSON.toJson(task),
-                                style = TextStyle(
-                                    color = ComponentTokens.textSecondary,
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Serif,
-                                    lineHeight = 18.sp,
-                                ),
-                            )
-                        }
-                    })
+                    HalfSheetExitHost(jsonExit, onFinished = { jsonTarget = null }) {
+                        InkHalfSheet(
+                            visible = jsonExit.visible,
+                            onDismiss = { jsonExit.beginExit() },
+                            title = task.name,
+                            content = {
+                                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                                    androidx.compose.foundation.text.BasicText(
+                                        GSON.toJson(task),
+                                        style = TextStyle(
+                                            color = ComponentTokens.textSecondary,
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Serif,
+                                            lineHeight = 18.sp,
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
