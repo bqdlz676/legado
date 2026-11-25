@@ -134,6 +134,36 @@ class ReplayDispatchTest {
     }
 
     @Test
+    fun `setIntent 非法标签记告警并保留原意图，不静默回落 ADVANCE`() {
+        val director = director(
+            armies = listOf(army("a1")),
+            events = listOf(
+                BattleEvent(turn = 1, targetId = "a1", action = EventAction.SET_INTENT,
+                    value = "pincer", reason = "代号钳击"),
+                BattleEvent(turn = 1, targetId = "a1", action = EventAction.SET_INTENT,
+                    value = null, reason = "空标签"),
+            ),
+        )
+
+        director.seek(1.0)
+        director.update(0)
+
+        val piece = director.armies().first { it.id == "a1" }
+        assertEquals("非法标签不得改写意图字段", Intent.ADVANCE, piece.intent)
+        assertEquals("未知标签与空标签各记一条告警", 2, director.warnings.size)
+        assertTrue(
+            "未知标签告警必须写明动作与非法 value：${director.warnings}",
+            director.warnings.any {
+                it.contains("SET_INTENT") && it.contains("pincer") && it.contains("未生效")
+            },
+        )
+        assertTrue(
+            "空标签告警必须进台账：${director.warnings}",
+            director.warnings.any { it.contains("SET_INTENT") && it.contains("value=null") },
+        )
+    }
+
+    @Test
     fun `setTarget 写入目标经纬度`() {
         val director = director(
             armies = listOf(army("a1")),
@@ -285,5 +315,38 @@ class ReplayDispatchTest {
             "告警必须写明显式拒绝理由：${director.warnings}",
             director.warnings.all { it.contains("显式拒绝") },
         )
+    }
+
+    @Test
+    fun `缺字段拒绝告警逐条写明 alive surrendered exposed 缺位名`() {
+        // 行为锁：按动作名从告警台账反查对应条目，逐条锁该条目写明的缺位字段名；
+        // 不读源码，只断言可观测的告警文案（台账即调用记录）。
+        val expectedField = mapOf(
+            EventAction.DEFEND_FALL to "alive",
+            EventAction.CAPTURE to "surrendered",
+            EventAction.ANNIHILATE to "alive",
+            EventAction.FEIGNED_RETREAT to "exposed",
+        )
+        val director = director(
+            armies = listOf(army("a1")),
+            events = expectedField.keys.map {
+                BattleEvent(turn = 1, targetId = "a1", action = it, reason = "缺位名锁定")
+            },
+        )
+
+        director.seek(1.0)
+        director.update(0)
+
+        expectedField.forEach { (action, field) ->
+            val warning = director.warnings.single { it.contains(action.name) }
+            assertTrue(
+                "${action} 告警必须写明缺位 $field：$warning",
+                warning.contains(field),
+            )
+            assertTrue(
+                "${action} 告警必须走显式拒绝口径：$warning",
+                warning.contains("显式拒绝"),
+            )
+        }
     }
 }
