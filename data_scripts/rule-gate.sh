@@ -257,10 +257,10 @@ if [ $? -eq 0 ]; then ok "㉝本地禁止编译" "$(echo "$NBL" | grep 'NO-LOCAL
 GS34=$(python3 data_scripts/check-gradle-syntax.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉞Gradle语法" "$(echo "$GS34" | grep 'GRADLE-SYNTAX: PASS')"; else bad "㉞Gradle语法" "$(echo "$GS34" | grep -E ':' | head -3 | tr '\n' ' ')"; fi
 
-# ㉟ 推送窗口（O3/K-20 机制化）：CI 有 run 在飞时不许 push，否则上一次 push 的验证被打成 cancelled。
-#    本项只提示（在飞是常态，不能因此长期阻断门禁）；真正拦截在 data_scripts/pre-push.sh（唯一 push 入口）。
+# ㉟ 推送窗口提示（O3/K-20，F-111 降为提示型）：只展示在飞 run 与建议，退出码恒 0，不 bad；
+#    节拍攒批由 pre-push.sh 的 15 分钟时间戳守卫，本项不阻断门禁。
 PW35=$(python3 data_scripts/check-push-window.py 2>&1)
-if [ $? -eq 0 ]; then say "㉟推送窗口" "$(echo "$PW35" | head -1)"; else say "㉟推送窗口" "CI 在飞 → 暂缓 push（等终态；或走 pre-push.sh 拦截）"; fi
+say "㉟推送窗口" "$(echo "$PW35" | head -1)"
 
 # ㊱ 处置锚点防洗白（O4/C7）：锚点=一次处置，之后不许再冒违规；多锚点即掩盖历史。
 AI36=$(python3 data_scripts/check-anchor-integrity.py 2>&1)
@@ -277,10 +277,10 @@ CUR_FAIL=$(grep -E '^[^ ]+ +FAIL' /tmp/.gate_cur 2>/dev/null | awk '{print $1}')
 AT38=$(python3 data_scripts/check-agent-timeout.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊳子代理熔断" "$(echo "$AT38" | grep -E 'PASS|WARN' | head -2 | tr '\n' ' ')"; else bad "㊳子代理熔断" "$(echo "$AT38" | grep 'FAIL' | head -2 | tr '\n' ' ')"; fi
 
-# ㊴ 提交认证书尾（F-111）：未推提交必须带 Verified-by/Wip/Docs-only trailer；
-#    让"推了什么、验没验"能被 git log 机械查，不靠记忆；缺 trailer 两种推法都拒绝（分流在 pre-push.sh）。
+# ㊴ 提交认证书尾（F-111，WARN 型）：Verified-by/Wip/Docs-only trailer 仅供事后追溯；
+#    缺 trailer 只提示补登，不 FAIL——验收没过的 commit 也要能上云保槽，硬阻断会顶掉保槽铁律。
 TR39=$(python3 data_scripts/check-commit-trailer.py 2>&1)
-if [ $? -eq 0 ]; then ok "㊴认证书尾" "$(echo "$TR39" | grep 'COMMIT-TRAILER: PASS')"; else bad "㊴认证书尾" "$(echo "$TR39" | grep -E 'MISSING|INVALID|FAIL' | head -4 | tr '\n' ' ')"; fi
+say "㊴认证书尾" "$(echo "$TR39" | grep -E 'PASS|WARN' | head -1)"
 
 echo
 

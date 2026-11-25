@@ -2,8 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    # main 全量验证；wip/** 只跑编译+单测留证（F-111 分流承载未验收提交），不出包、不跑截图。
-    branches: [ main, 'wip/**' ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -17,10 +16,9 @@ permissions:
   contents: read
 
 # 同一 ref 上后推的 commit 自动取消旧 run：避免 4~5 个 run 同时抢 runner，压一轮红灯的等待与额度成本。
-# 取值取舍（F-111 §六.2）：cancel-in-progress: true 取"红反馈快"——旧 run 排队/在跑即取消，
-# 最新一轮红最先出、runner 不堆积；代价是会打断在飞验证（K-20 实证 push 会 cancelled 在飞 run）。
-# 该代价由 push 侧兜底：pre-push.sh 的 CI 窗口守卫 + trailer 分流保证不在飞时才推、未验证不进 main；
-# workflow 内不为"保在飞"而关闭取消。cancel-in-progress 只取消旧 run，不跳过测试、不削弱汇总断言。
+# 取值取舍：cancel-in-progress: true 取"红反馈快"——旧 run 排队/在跑即取消，最新一轮红最先出、runner 不堆积；
+# 代价是会打断在飞验证（K-20 实证 push 会 cancelled 在飞 run）。push 侧由 pre-push.sh 的 15 分钟节拍攒批兜底，
+# 减少连环触发；workflow 内不为"保在飞"而关闭取消。cancel-in-progress 只取消旧 run，不跳过测试、不削弱汇总断言。
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -373,8 +371,7 @@ jobs:
   # ---------- 出包（分片路径）：needs 只挂分片链路上的 job，不引用 baseline job，避免 skipped 级联 ----------
   build-shard:
     name: Build & verify APKs (shard path)
-    # 出包只在 main / PR / 手动触发；push 到 wip/** 只跑编译+单测留证，不出包（省 runner 分钟；main 验证范围与 3185 基线不变）。
-    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && (github.ref == 'refs/heads/main' || github.event_name != 'push') }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
     needs: [discover, test-shard, test-aggregate]
     runs-on: ubuntu-latest
     timeout-minutes: 60

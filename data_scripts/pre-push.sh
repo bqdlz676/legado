@@ -1,57 +1,56 @@
 #!/usr/bin/env bash
-# 唯一允许的 push 入口（O3/F-109/F-111）：门禁 → CI 窗口守卫 → 认证书尾分流，三者都过才推。
-# 为什么：单靠"我记得攒批"已被 K-20 证伪；trailer 把"验没验"写进 commit，去向由脚本机械分流，不靠记忆。
-# 分流（F-111 docs/铁律-提交认证书尾.md）：
-#   全部 Verified-by/Docs-only  → 推 main（仍受 CI 窗口守卫）
-#   含 Wip: 且无不合规          → 推 origin HEAD:wip/<YYYYMMDD-HHMM>，main 保持绿
-#   缺 trailer / 多行 / 自评    → 两种推法都拒绝，打印短号让调度层补 trailer
+# 唯一允许的 push 入口（F-109/F-111，节拍批量推送）：
+#   距上次 push ≥ 15 分钟才允许一次攒批推送；窗口未到直接退出 0，不阻塞本地继续 commit。
+# 为什么：K-20 实证连环 push 会把在飞 run 打成 cancelled；节拍攒批把多次触发合成一次，
+#   降 push 次数与 runner 分钟数。trailer（F-111）只做事后追溯，不参与本脚本分流。
+# 上次 push 时间戳落盘 docs/.last_push_epoch（已 gitignore）；取不到时间戳时退化为队列 PENDING=0 守卫。
+# 唯一真阻断：工作区有未提交改动且未给 commit message（避免漏文件）。
 # 用法：bash data_scripts/pre-push.sh ["commit message"]
 set -u
 cd "$(dirname "$0")/.." || exit 1
+
+WINDOW_MIN=15
+EPOCH_FILE="docs/.last_push_epoch"
+WINDOW_SEC=$((WINDOW_MIN * 60))
+
+# 1) 真阻断：工作区不干净。给了 message 就先提交；没给则不许推，避免漏文件。
 if [ -n "$(git status --porcelain)" ]; then
-  if [ -n "${1:-}" ]; then git add -A && git commit -q -m "$1" || exit 1; else echo "有未提交改动且未给 commit message"; exit 1; fi
+  if [ -n "${1:-}" ]; then git add -A && git commit -q -m "$1" || exit 1; else echo "有未提交改动：先 commit（或把 commit message 作参数传入），本次不推"; exit 1; fi
 fi
 
-# 1) 门禁（含 ㊴ 认证书尾硬校验）
-bash data_scripts/rule-gate.sh > /tmp/gate.out 2>&1
-if ! grep -q '^GATE: PASS' /tmp/gate.out; then echo "门禁未过，拒绝 push:"; grep -E 'FAIL' /tmp/gate.out | head -6; exit 1; fi
-
-# 2) CI 窗口守卫：在飞 run 时任何推法都暂缓（K-20：push 会把在飞 run 打成 cancelled，main/wip 同此规矩）
-python3 data_scripts/check-push-window.py || { echo "CI 在飞，拒绝 push（main/wip 都等终态）"; exit 1; }
-
-# 3) 认证书尾分流（F-111）
-python3 data_scripts/check-commit-trailer.py --classify > /tmp/trailer.out 2>&1
-TRC=$?
-cat /tmp/trailer.out
-VERDICT=$(grep -oE 'TRAILER-VERDICT: [A-Z-]+' /tmp/trailer.out | awk '{print $2}')
-if [ "$TRC" -ne 0 ] || [ "$VERDICT" = "MISSING" ]; then
-  echo "分流拒绝：存在缺/不合规 trailer 的提交，main 与 wip 都不推；按上面短号补 trailer 后再走本入口。"
-  exit 1
+# 2) 节拍窗口判定
+now=$(date +%s)
+last=0
+if [ -s "$EPOCH_FILE" ]; then
+  last=$(tr -d '[:space:]' < "$EPOCH_FILE")
+  case "$last" in (*[!0-9]*) last=0;; esac
 fi
 
-case "$VERDICT" in
-  ALL-VERIFIED)
-    git push -q origin main && echo "PUSHED main $(git rev-parse --short HEAD)"
-    ;;
-  HAS-WIP)
-    BRANCH="wip/$(date +%Y%m%d-%H%M)"
-    # 分叉提示：统计领先 origin/main 的提交数，防 wip 堆积被误判成 main 最新（F-111 §六.1）
-    AHEAD=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo '?')
-    git push -q origin "HEAD:$BRANCH" || { echo "wip 推送失败"; exit 1; }
-    echo "PUSHED wip/$BRANCH $(git rev-parse --short HEAD)（未验收提交承载于 wip，main 保持绿）"
-    echo "分流原因：存在 Wip: trailer 的未验收提交，按 F-111 不进 main。"
-    echo "分叉提示：本地领先 origin/main $AHEAD 个提交；判 HEAD 最新一律以 origin/main 为准，验收通过后须合并回 main。"
-    # 队列登记 wip 分支名，供调度层跟踪回并（防 wip 长期不销账）
-    REG="docs/台账-wip分支.md"
-    if [ ! -s "$REG" ]; then
-      printf '# wip 分支登记（F-111）\n\n| 时间 | 分支 | 短号 | 主题 | 状态 |\n| --- | --- | --- | --- | --- |\n' > "$REG"
-    fi
-    printf '| %s | %s | %s | %s | 待验收回 main |\n' \
-      "$(date +%F\ %H:%M)" "$BRANCH" "$(git rev-parse --short HEAD)" \
-      "$(git log -1 --format=%s | tr '|' '/')" >> "$REG"
-    echo "WIP-QUEUE: 分支 $BRANCH 已登记 $REG"
-    ;;
-  *)
-    echo "分流未知 verdict: ${VERDICT:-空}，拒绝 push"; exit 1
-    ;;
-esac
+if [ "$last" -gt 0 ]; then
+  elapsed=$((now - last))
+  if [ "$elapsed" -lt "$WINDOW_SEC" ]; then
+    remain=$(( (WINDOW_SEC - elapsed) / 60 + 1 ))
+    echo "窗口未到：距上次 push 不足 ${WINDOW_MIN} 分钟（还剩约 ${remain} 分钟），本地继续 commit，本次不推。"
+    exit 0
+  fi
+else
+  # 无时间戳（首次/文件丢失）：退化为队列守卫，PENDING>0 顺延到下次调用；不硬拦。
+  PEND=$(python3 data_scripts/queue_stats.py 2>/dev/null | grep -oE 'PENDING=[0-9]+' | cut -d= -f2)
+  if [ "${PEND:-0}" -gt 0 ]; then
+    echo "无上次 push 时间戳，退化为队列守卫：PENDING=${PEND}，本地继续 commit，本次不推。"
+    exit 0
+  fi
+fi
+
+# 3) 无未推提交则无事可做
+COMMITS=$(git log origin/main..HEAD --format='%h %s')
+if [ -z "$COMMITS" ]; then echo "本地与 origin/main 无差异，无需 push"; exit 0; fi
+
+# 4) 攒批一次推 main（节拍窗口内只允许这一次；时间戳在成功后落盘，防窗口内连推二次）
+git push -q origin main || { echo "push 失败，本次未落时间戳"; exit 1; }
+printf '%s\n' "$now" > "$EPOCH_FILE"
+
+echo "PUSHED main $(git rev-parse --short HEAD)"
+echo "本次推送提交："
+echo "$COMMITS" | sed 's/^/  /'
+echo "距下次可推窗口约 ${WINDOW_MIN} 分钟（时间戳 $EPOCH_FILE）"

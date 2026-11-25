@@ -18,3 +18,5 @@ package-lock.json
 .kotlin/
 .cxx
 .vscode
+# 推送节拍时间戳（F-111/pre-push.sh 本地状态，不入库；入库会让工作区永远不干净）
+docs/.last_push_epoch

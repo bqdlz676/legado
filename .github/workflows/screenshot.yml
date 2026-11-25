@@ -27,8 +27,8 @@ concurrency:
 jobs:
   screenshot-frames:
     name: Render screenshot frames (Paparazzi, :screenshot)
-    # 截图只在 main / 手动触发跑；wip/** 不触发本 workflow，此 if 为双保险（防分支名单漏配，F-111）。
-    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+    # 截图只在 main 跑；其他 ref（分支/PR）不跑截图省分钟（手动触发默认 ref 即 main）。
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
