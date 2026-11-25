@@ -1,5 +1,6 @@
 package io.legado.app.ui.welcome
 
+import io.legado.app.ui.splash.contract.SplashParams
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -155,7 +156,7 @@ class SplashChoreography(
      * @param density 屏幕密度（dp → px）
      */
     fun update(tMs: Long, widthPx: Float, heightPx: Float, density: Float) {
-        elapsedMs = tMs.coerceIn(0L, LuowenSplash.TOTAL_MS)
+        elapsedMs = tMs.coerceIn(0L, SplashParams.TOTAL_MS.toLong())
         val w = widthPx.coerceAtLeast(1f)
         val h = heightPx.coerceAtLeast(1f)
         val cx = w * 0.5f
@@ -243,7 +244,7 @@ class SplashChoreography(
         }
 
         // —— 远山 1200–1600 淡入，雾横向缓移 ——
-        hillAlpha = LuowenSplash.HILL_MAX_ALPHA * progress(elapsedMs, 1200L, LuowenSplash.HILL_END_MS)
+        hillAlpha = SplashParams.HILL_MAX_ALPHA * progress(elapsedMs, 1200L, LuowenSplash.HILL_END_MS)
         mistOffset = ((elapsedMs % 2600L) / 2600f) * w * 0.12f
 
         // —— 暖金线 1400–1800 顿挫扫过 ——
@@ -276,9 +277,9 @@ class SplashChoreography(
 
     /** 当前主导相位（测试用） */
     fun phaseAt(tMs: Long): Phase {
-        val t = tMs.coerceIn(0L, LuowenSplash.TOTAL_MS)
+        val t = tMs.coerceIn(0L, SplashParams.TOTAL_MS.toLong())
         return when {
-            t >= LuowenSplash.TOTAL_MS -> Phase.DONE
+            t >= SplashParams.TOTAL_MS -> Phase.DONE
             t >= LuowenSplash.FADE_IN_MS -> Phase.FADE
             t >= LuowenSplash.SLOGAN_IN_MS -> Phase.SLOGAN
             // 1200–1600 远山为主导段；1600 山脊成形后暖金线扫过转主导（扫线 1400 起与山段重叠）。

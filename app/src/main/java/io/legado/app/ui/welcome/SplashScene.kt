@@ -18,13 +18,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
+import io.legado.app.ui.splash.contract.SplashParams
 import kotlin.math.cos
 import kotlin.math.sin
 
 /**
  * 落文 · 启动动画场景（ui/welcome 独占）。
  *
- * 纯 Compose 自绘，不引入 MaterialTheme / Material ripple；视觉 token 全部来自 [LuowenSplash]。
+ * 纯 Compose 自绘，不引入 MaterialTheme / Material ripple；拍板外观 / 时序值取 [SplashParams]，
+ * 场景专属色与编排时间线取 [LuowenSplash]。
  * 编排由纯 JVM [SplashChoreography] 推进，本层只取状态绘制，便于单测与 bench 剥离。
  *
  * 整段编排固定 2800ms：到点必回调 [onFinish] 进书架，不等待后台初始化；
@@ -47,9 +49,9 @@ fun SplashScene(
             withFrameNanos {
                 val now = android.os.SystemClock.elapsedRealtimeNanos()
                 val elapsed = (now - start) / 1_000_000L
-                ms = elapsed.coerceAtMost(LuowenSplash.TOTAL_MS)
+                ms = elapsed.coerceAtMost(SplashParams.TOTAL_MS.toLong())
             }
-            if (ms >= LuowenSplash.TOTAL_MS) break
+            if (ms >= SplashParams.TOTAL_MS.toLong()) break
         }
         onFinish()
     }
@@ -223,7 +225,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSweep(
     val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = LuowenSplash.colorGlow.copy(alpha = engine.sweepGlow * 0.5f).toArgb()
         setShadowLayer(
-            LuowenSplash.GOLD_GLOW_DP * density,
+            SplashParams.GLOW_RADIUS_DP * density,
             0f, 0f,
             LuowenSplash.brandGold.toArgb(),
         )
@@ -252,7 +254,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGlyphs(
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = android.graphics.Typeface.SERIF
         textAlign = Paint.Align.CENTER
-        textSize = 52f * density
+        textSize = SplashParams.TITLE_FONT_SIZE_SP * density
     }
     val lineHeight = 64f * density
     if (engine.glyphLuoAlpha > 0.01f) {
@@ -300,8 +302,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSlogan(
     density: Float,
 ) {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = LuowenSplash.textTertiary.copy(alpha = engine.sloganAlpha).toArgb()
-        textSize = LuowenSplash.SLOGAN_SP * density
+        color = Color(SplashParams.textTertiary).copy(alpha = engine.sloganAlpha).toArgb()
+        textSize = SplashParams.SLOGAN_FONT_SIZE_SP * density
         textAlign = Paint.Align.CENTER
         letterSpacing = 0.06f
     }

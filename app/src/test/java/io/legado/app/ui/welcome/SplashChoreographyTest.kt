@@ -1,5 +1,6 @@
 package io.legado.app.ui.welcome
 
+import io.legado.app.ui.splash.contract.SplashParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -117,7 +118,7 @@ class SplashChoreographyTest {
     @Test
     fun `elapsed clamps to total duration`() {
         val e = engineAt(9999)
-        assertEquals(LuowenSplash.TOTAL_MS, e.elapsedMs)
+        assertEquals(SplashParams.TOTAL_MS.toLong(), e.elapsedMs)
         assertEquals(0f, e.fadeAlpha, 1e-6f)
     }
 

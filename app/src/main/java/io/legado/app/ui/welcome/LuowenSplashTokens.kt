@@ -22,7 +22,7 @@ object LuowenSplash {
     val bgOverlay: Color = Color(0x731A1410)       // --bg-overlay rgba(26,20,16,.45)
     val textPrimary: Color = Color(0xFF1A1410)     // --text-primary 墨色
     val textSecondary: Color = Color(0xFF5C4F3A)   // --text-secondary
-    val textTertiary: Color = Color(0xFF9B9687)    // --text-tertiary 云灰（落款）
+    // 标语落款云灰已单源到 splash.contract.SplashParams.textTertiary（TEXT_TERTIARY），本副本不再留第二份。
     val textAccent: Color = Color(0xFFC23B2E)      // --text-accent 朱砂
     val brandGold: Color = Color(0xFFD4A54A)       // --brand-gold 暖金
     val brandCopper: Color = Color(0xFF8B6914)     // --brand-copper 古铜
@@ -37,7 +37,7 @@ object LuowenSplash {
     val glyphPaper: Color = Color(0xFFF2EADB)
 
     // —— 时间线（启动动画原文，ms；整段编排固定 2800ms，不拆分）——
-    const val TOTAL_MS: Long = 2800L
+    // 总时长单源到 splash.contract.SplashParams.TOTAL_MS（转发 DURATION_BOOT），本副本不再留第二份。
 
     /** 0–400 墨滴坠落（重力加速，边缘撕裂） */
     const val DROP_END_MS: Long = 400L
@@ -76,14 +76,8 @@ object LuowenSplash {
     /** 粒子飞散半径上限（dp，原文 60dp） */
     const val BURST_RADIUS_DP: Float = 60f
 
-    /** 远山存在感上限（原文 opacity 最高 0.25） */
-    const val HILL_MAX_ALPHA: Float = 0.25f
-
-    /** 扫光背后金色辉光半径（dp，原文 40dp） */
-    const val GOLD_GLOW_DP: Float = 40f
-
-    /** 落款字号（sp，原文 12sp） */
-    const val SLOGAN_SP: Float = 12f
+    // 远山浓度 / 辉光半径 / 落款字号已单源到 splash.contract.SplashParams
+    // （HILL_MAX_ALPHA / GLOW_RADIUS_DP / SLOGAN_FONT_SIZE_SP），本副本不再留第二份。
 
     /** 帧率底线（原文 55fps）；引擎帧循环只做确定性推进，不做分配 */
     const val FPS_FLOOR: Int = 55
