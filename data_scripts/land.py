@@ -109,17 +109,18 @@ def main():
         print(f"[台账] {args.q} -> DONE（{args.conclusion}）")
         return 0
 
+    # 预检必须在提交之前跑：提交完工作树就干净了，预检会误报"无代码改动"（本脚本初版就这么错过一次）。
+    guard = sh([sys.executable, "data_scripts/cross-module-guard.py"])
+    print(guard.stdout.strip().splitlines()[-1] if guard.stdout.strip() else "GUARD: 无输出")
+    if "FAIL" in guard.stdout:
+        print("停在预检未过，不提交也不推")
+        return 1
+
     for kind, msg, paths in steps:
         if not commit(paths, msg):
             return 1
     patch_queue(args.q, args.conclusion, args.report)
     if not commit(["docs/派单队列.md", "docs/派单台账.md"], f"台账：{args.q} 收口"):
-        return 1
-
-    guard = sh([sys.executable, "data_scripts/cross-module-guard.py"])
-    print(guard.stdout.strip().splitlines()[-1] if guard.stdout.strip() else "GUARD: 无输出")
-    if "FAIL" in guard.stdout:
-        print("停在预检未过，不推")
         return 1
 
     token = re.sub(r"\s", "", subprocess.run("grep -o 'ghp_[A-Za-z0-9]*' ~/.git-credentials | head -1",
