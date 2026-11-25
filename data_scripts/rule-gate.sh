@@ -35,7 +35,7 @@ if [ -s "$LOG" ]; then ok "③当日流水" "$LOG"; else bad "③当日流水" "
 
 # ④ 铁律51：规矩总纲与契约索引含最新口令（整合版后以"反思文件交接 + 并发上限2"为最新标记）
 if grep -q "D8 反思文件交接" docs/落文-规矩总纲.md; then ok "④规矩随口令" "反思交接+并发动态 在册"; else bad "④规矩随口令" "D8 缺失（规矩未随口令更新）"; fi
-if grep -q "版本：v2.35" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.35"; else bad "④索引版本" "未升版（期望 v2.35）"; fi
+if grep -q "版本：v2.36" docs/落文-模块契约索引.md; then ok "④索引版本" "v2.36"; else bad "④索引版本" "未升版（期望 v2.36）"; fi
 
 # ⑤ 铁律57：派单台账每行只能一个缺陷号（>1 即打包违规）
 LEDGER=docs/派单台账.md
@@ -242,6 +242,11 @@ if [ $? -eq 0 ]; then ok "㉛事故清单完整性" "$(echo "$IR31" | grep 'INCI
 #    return 声明 Float 或不带 toFloat() 就编译红。这条把这些行机械抓出来。
 FD32=$(python3 data_scripts/check-float-double-mix.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉜FloatDouble混算" "$(echo "$FD32" | grep 'FLOAT-DOUBLE-MIX: PASS')"; else bad "㉜FloatDouble混算" "$(echo "$FD32" | grep -E 'FAIL|:' | head -3 | tr '\n' ' ')"; fi
+
+# ㉝ 本地禁止编译（F-107，用户原话"本地禁止编译"）：沙箱无 JDK21/SDK，本地跑 gradle
+#    只会产出假绿假红并留下 GradleDaemon 常驻；唯一可信编译验证是 CI。
+NBL=$(python3 data_scripts/check-no-local-build.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉝本地禁止编译" "$(echo "$NBL" | grep 'NO-LOCAL-BUILD: PASS')"; else bad "㉝本地禁止编译" "$(echo "$NBL" | grep -E 'FAIL|Gradle|gradle|build' | head -3 | tr '\n' ' ')"; fi
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
