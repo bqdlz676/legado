@@ -458,6 +458,76 @@ class CampaignControllerTest {
     }
 
     @Test
+    fun `B8R7 上回合佯退暴露 本回合纯地形兜底 暴露姿态复位不残留`() {
+        // O1 回归：暴露是回合级姿态。回合 1 佯退事件置暴露；回合 2 水带纯地形兜底、敌军在视野
+        // 半径外。旧粘性口径下 exposed 仍残留 true；复位口径下应洗清为未暴露。
+        val controller = CampaignController.load(BAND_FEIGN_JSON, blockedBandRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(2, 5)
+        a1.latLng = controller.projection.toGeo(Cell(2, 5))
+        b1.position = Cell(28, 26)
+        b1.latLng = controller.projection.toGeo(Cell(28, 26))
+        b1.visionRadiusCells = 1
+        a1.target = controller.projection.toGeo(Cell(2, 26))
+
+        controller.step() // 回合 1：佯退诱出事件在复位之后点燃，置 exposed=true。
+        assertTrue("回合 1 佯退诱出应置暴露姿态", a1.exposed)
+
+        controller.step(mapOf("a1" to Intent.FLANK)) // 回合 2：水带折线兜底，未穿越视线环。
+
+        assertTrue("地形封锁侧翼仍应挂降级绕行标识", a1.routeDegraded)
+        assertFalse("回合 2 无视线穿越事实，上回合暴露不得粘性残留", a1.exposed)
+    }
+
+    @Test
+    fun `B8R7 上回合暴露 本回合仍穿越视野环 暴露由本回合事实重算为真`() {
+        // 反向锁定：复位只清旧姿态，不误置本回合新事实。两回合全图视野封锁，加价路径必然入境，
+        // 两回合都应置暴露；回合 2 开头先复位、再由本回合 crossedSight 重新置真。
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(2, 5)
+        a1.latLng = controller.projection.toGeo(Cell(2, 5))
+        b1.position = Cell(28, 26)
+        b1.latLng = controller.projection.toGeo(Cell(28, 26))
+        a1.target = controller.projection.toGeo(Cell(28, 26))
+        b1.visionRadiusCells = 30
+
+        controller.step(mapOf("a1" to Intent.FLANK))
+        assertTrue("回合 1 穿越视野环应置暴露", a1.exposed)
+
+        // 回合 2 前重新钉住敌军位与半径，避免敌军自主机动放大几何前提的偶发性。
+        b1.position = Cell(28, 26)
+        b1.latLng = controller.projection.toGeo(Cell(28, 26))
+        b1.visionRadiusCells = 30
+        controller.step(mapOf("a1" to Intent.FLANK))
+
+        assertTrue("回合 2 仍穿越视野环，暴露应按本回合事实重新置真", a1.exposed)
+    }
+
+    @Test
+    fun `B8R7 连续两回合无视线接触 双方保持未暴露 无粘性无误置`() {
+        val controller = CampaignController.load(BAND_JSON, blockedBandRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(2, 5)
+        a1.latLng = controller.projection.toGeo(Cell(2, 5))
+        b1.position = Cell(28, 26)
+        b1.latLng = controller.projection.toGeo(Cell(28, 26))
+        b1.visionRadiusCells = 1
+        a1.target = controller.projection.toGeo(Cell(2, 26))
+
+        controller.step(mapOf("a1" to Intent.FLANK))
+        assertFalse("回合 1 纯地形兜底不得置暴露", a1.exposed)
+        assertFalse("回合 1 敌军未接战不得被置暴露", b1.exposed)
+
+        controller.step(mapOf("a1" to Intent.FLANK))
+        assertFalse("回合 2 仍无视线穿越，不得沿用上回合状态误置", a1.exposed)
+        assertFalse("回合 2 敌军保持未暴露", b1.exposed)
+    }
+
+    @Test
     fun `B8R6 未观测敌军掩码：已置降级的未观测敌军视图清空标识坐标路线`() {
         // N2 正向断言：夹具内 b1 近距被目睹、b2 远距未观测；两支敌军运行态都人为置 routeDegraded，
         // 若掩码分支失效（未观测也透传），b2 视图的 routeDegraded / 路线 / 坐标断言会变红。
@@ -655,6 +725,26 @@ class CampaignControllerTest {
       "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" },
     { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.02, 0.02],
       "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        /** 佯退 + 水带用例：回合 1 触发器点燃 feignedRetreat 暴露 a1；回合 2 走纯地形兜底，
+         *  供 B8R7 回合复位回归用例验证旧暴露不跨回合残留。 */
+        const val BAND_FEIGN_JSON: String = """
+{
+  "id": "b8r7-band-feign",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 20,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.01, 0.01],
+      "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.02, 0.02],
+      "strength": 5, "type": "regular", "morale": "steady", "intent": "hold" }
+  ],
+  "events": [
+    { "trigger": { "turn": 1 }, "action": "feignedRetreat", "target": "a1", "reason": "佯退诱敌" }
   ]
 }
 """
