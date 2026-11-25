@@ -97,8 +97,8 @@ fun BookshelfScreen(
     var bannerDismissed by remember { mutableStateOf(false) }
     // D25：书架页下拉搜索浮层状态（F-13）；输入即查本地书架，不起独立搜索页。
     var searchState by remember { mutableStateOf(ShelfSearch.closed) }
-    val filteredBooks by remember(books, searchState.query) {
-        derivedStateOf { ShelfSearch.filter(books, searchState.query) }
+    val searchOutcome by remember(books, searchState.query) {
+        derivedStateOf { ShelfSearch.search(books, searchState.query) }
     }
 
     Box(
@@ -155,7 +155,8 @@ fun BookshelfScreen(
         if (searchState.isOpen) {
             ShelfSearchOverlay(
                 query = searchState.query,
-                results = filteredBooks,
+                results = searchOutcome.results,
+                hint = searchOutcome.hint,
                 onQueryChange = { searchState = ShelfSearch.updateQuery(searchState, it) },
                 onClose = { searchState = ShelfSearch.close(searchState) },
                 onPick = { book ->
@@ -657,12 +658,13 @@ private fun ShelfInkButton(
  * D25 · 书架页下拉搜索浮层（F-13）。
  *
  * 触发点：页眉放大镜；收起手势：点遮罩 / 面板下滑超阈值 / 选中结果；
- * 输入即查（本地书名 + 作者），空关键词与无命中均给可读占位，不留白、不崩。
+ * 输入即查（本地书名 / 作者 / 正文片段三路命中，归 S-13 纯函数），空关键词与无命中均给可读占位，不留白、不崩。
  */
 @Composable
 private fun ShelfSearchOverlay(
     query: String,
     results: List<ShelfBookUi>,
+    hint: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
     onPick: (ShelfBookUi) -> Unit,
@@ -739,7 +741,7 @@ private fun ShelfSearchOverlay(
             Spacer(Modifier.height(10.dp))
             when {
                 query.isBlank() -> OverlayHint("输入书名或作者，查找本地书卷")
-                results.isEmpty() -> OverlayHint("未找到相关书卷，换个词试试")
+                results.isEmpty() -> OverlayHint(hint.ifBlank { "未找到相关书卷，换个词试试" })
                 else -> Column(
                     modifier = Modifier.heightIn(max = 260.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
