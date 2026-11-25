@@ -5,9 +5,6 @@ import io.legado.app.ui.map.crossing.model.Corps
 import io.legado.app.ui.map.crossing.model.Intent
 import io.legado.app.ui.map.crossing.model.Morale
 import io.legado.app.ui.map.crossing.terrain.TerrainMap
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
 /**
  * 规则意图裁决器（纯 JVM，§三 规则意图轮询 + §五 手动干预可覆盖）。
@@ -38,7 +35,7 @@ object IntentResolver {
 
         val aliveEnemies = enemies.filter { it.combatReady() }
         val nearestEnemy = aliveEnemies.minByOrNull { octile(corps.position, it.position) }
-        val nearestEnemyDist = nearestEnemy?.let { octile(corps.position, it.position) } ?: Int.MAX_VALUE
+        val nearestEnemyDist = nearestEnemy?.let { octile(corps.position, it.position) } ?: Double.MAX_VALUE
 
         // 1. 相邻格有敌军 → 应战（遭遇战优先级最高）。
         if (nearestEnemy != null && nearestEnemyDist <= ADJACENT_CELLS) {
@@ -140,18 +137,14 @@ object IntentResolver {
         if (options.isEmpty()) return null
         return options.maxByOrNull { c ->
             if (enemies.isEmpty()) Double.MAX_VALUE
-            else enemies.minOf { octile(c, it.position) }.toDouble()
+            else enemies.minOf { octile(c, it.position) }
         }
     }
 
     private fun mapCellOf(geo: io.legado.app.ui.map.crossing.model.Geo, map: TerrainMap): Cell? =
         map.projection.toCell(geo)
 
-    private fun octile(a: Cell, b: Cell): Int {
-        val dc = abs(a.col - b.col)
-        val dr = abs(a.row - b.row)
-        return max(dc, dr) + min(dc, dr)
-    }
+    // 八向格距统一走顶层单源 [octile]（B8R3）；本裁决器不再私建曼哈顿公式。
 
     /** 相邻判定半径（格）。 */
     const val ADJACENT_CELLS: Int = 1

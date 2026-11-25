@@ -478,7 +478,7 @@ class CampaignController private constructor(
                     cell = enemy.position,
                     seenTurn = turn,
                     radiusCells = 0,
-                    seenDistCells = distCells,
+                    seenDistCells = octileCells(corps.position, enemy.position),
                 )
                 else -> {
                     // 未目睹：已知位置不随时间推进自动刷新为真值；保留上次已知位置 / 目睹时刻 / 目击距离，
@@ -881,11 +881,8 @@ class CampaignController private constructor(
         return Math.hypot(dLat, dLng) <= VictoryChecker.REACH_RADIUS_KM
     }
 
-    private fun octile(a: io.legado.app.ui.map.crossing.model.Cell, b: io.legado.app.ui.map.crossing.model.Cell): Int {
-        val dc = kotlin.math.abs(a.col - b.col)
-        val dr = kotlin.math.abs(a.row - b.row)
-        return maxOf(dc, dr) + minOf(dc, dr)
-    }
+    // 八向格距统一走顶层单源 [octile]（B8R3）；本类不再私建距离公式。
+    // Int 存档字段用 [octileCells] 取整，半径闸门 / 最近目标比较直接用双精度 [octile]。
 
     private fun Double.round1(): Double = (this * 10).roundToInt() / 10.0
 

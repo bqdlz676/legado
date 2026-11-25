@@ -6,8 +6,10 @@ import io.legado.app.ui.map.crossing.model.visionRadiusCells
 import io.legado.app.ui.map.crossing.terrain.TerrainCost
 import io.legado.app.ui.map.crossing.terrain.TerrainMap
 import java.util.PriorityQueue
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * 寻路器（纯 JVM，§二 `AStar(from, to, armyType)` / `flankPath`）。
@@ -71,9 +73,9 @@ class Pathfinder(
      * 侧翼路径（带降级标志，逐敌半径，B8R2）：A* 基础上**强制避开**任一敌军自身可见半径内的格；
      * 敌军所在格绝对不入路。
      *
-     * 视线口径（与 `CampaignController.updateIntelligence` 的情报口径一致，§三）：
+     * 视线口径（与 `CampaignController.updateIntelligence` 的情报口径一致，§三；B8R3 起两侧距离度量同为顶层单源 [octile]）：
      * - [TerrainMap.visible] 只判两点之间有无山脊遮挡（两点 LOS），**本身不携带半径**；
-     * - 半径闸门用八向格距 [cellDist] ≤ 该敌 [EnemySight.radiusCells]，两点同时满足才算「被敌军看见」；
+     * - 半径闸门用八向格距 [cellDist]（= [octile]）≤ 该敌 [EnemySight.radiusCells]，两点同时满足才算「被敌军看见」；
      * - 每条敌军半径取自其自身 `Corps.visionRadiusCells`，混编时不得用本方兵种半径统一套用。
      *
      * 退化口径（绕不开视野封锁时的三级兜底，逐级放宽，绝不返回空路径）：
@@ -187,7 +189,7 @@ class Pathfinder(
         val diagonal = from.col != next.col && from.row != next.row
         val base = TerrainCost.enterCost(next, type, map, weatherCondition)
         if (base >= TerrainCost.BLOCKED_COST) return TerrainCost.BLOCKED_COST
-        var cost = base * (if (diagonal) DIAGONAL_FACTOR else 1.0)
+        var cost = base * (if (diagonal) OCTILE_DIAGONAL_FACTOR else 1.0)
         if (watched) {
             // 仅退化（非严格）模式到达这里：被发现不等于不能走，加价诱导绕路但不堵死。
             cost *= VISIBILITY_PENALTY
@@ -195,12 +197,7 @@ class Pathfinder(
         return cost
     }
 
-    private fun heuristic(a: Cell, b: Cell): Double {
-        val dc = abs(a.col - b.col)
-        val dr = abs(a.row - b.row)
-        val octile = max(dc, dr) + (DIAGONAL_FACTOR - 1.0) * min(dc, dr)
-        return octile * MIN_TERRAIN_FACTOR
-    }
+    private fun heuristic(a: Cell, b: Cell): Double = octile(a, b) * MIN_TERRAIN_FACTOR
 
     /** 目标格不可通行时，取周边最近可通行格作为落点。 */
     private fun nearestPassable(target: Cell, type: ArmyType): Cell? {
@@ -244,12 +241,8 @@ class Pathfinder(
         return path
     }
 
-    /** 八向格距（启发式与兜底共用）。 */
-    fun cellDist(a: Cell, b: Cell): Double {
-        val dc = abs(a.col - b.col)
-        val dr = abs(a.row - b.row)
-        return max(dc, dr) + (DIAGONAL_FACTOR - 1.0) * min(dc, dr)
-    }
+    /** 八向格距（启发式、兜底与侧翼闸门共用）；实现委托顶层单源 [octile]。 */
+    fun cellDist(a: Cell, b: Cell): Double = octile(a, b)
 
     private fun reconstruct(cameFrom: Map<Long, Long>, endKey: Long, n: Int): List<Cell> {
         val reversed = ArrayList<Cell>()
@@ -267,12 +260,7 @@ class Pathfinder(
 
     private data class Node(val key: Long, val f: Double)
 
-    private fun abs(v: Int): Int = if (v < 0) -v else v
-
     companion object {
-        /** 对角步长系数（√2 近似）。 */
-        const val DIAGONAL_FACTOR: Double = 1.41421356
-
         /** 启发式用最低路况系数（平地 1.0），保证 A* 可采纳。 */
         const val MIN_TERRAIN_FACTOR: Double = 1.0
 
@@ -303,3 +291,30 @@ data class FlankRoute(
     val degraded: Boolean,
     val reason: String,
 )
+
+// ── 八向格距度量（B8R3 单源）─────────────────────────────────
+// 全 crossing 引擎只有这一处距离公式：寻路启发式、直线兜底、侧翼闸门、情报 / 意图裁决
+// 全部委托 [octile]；禁止在其它文件再写 max+min（曼哈顿）或第二份根号二系数。
+
+/** 对角步长系数（根号二近似）。移动代价与 octile 度量共用本常数，不得另立副本。 */
+const val OCTILE_DIAGONAL_FACTOR: Double = 1.41421356
+
+/**
+ * 真八向（octile）格距：`max(dx,dy) + (根号二 − 1)·min(dx,dy)`。
+ * 横 / 纵一步计 1.0，对角一步计根号二；等价于八方向栅格上最少步长 × 单位步代价。
+ * 不要退回曼哈顿 `dx + dy`：那会把斜向一步当成两格，导致贴墙 / 绕路行为偏离真实八向寻路。
+ * 本函数是纯几何度量，不判地形可通行性、不做越界钳制；越界由调用方的 neighbors8 /
+ * inBounds 闸门负责。
+ */
+fun octile(a: Cell, b: Cell): Double {
+    val dc = abs(a.col - b.col)
+    val dr = abs(a.row - b.row)
+    return max(dc, dr) + (OCTILE_DIAGONAL_FACTOR - 1.0) * min(dc, dr)
+}
+
+/**
+ * 整数格距近似：octile 四舍五入到整格。仅供必须落 Int 的存档字段（如 `seenDistCells`）
+ * 存储使用；半径闸门 / 最近目标比较一律用 [octile] 双精度值，不得先取整再比半径。
+ * 误差上界：`|octile − octileCells| ≤ 0.5` 格；下游半距情报项误差 ≤ 0.25 格。
+ */
+fun octileCells(a: Cell, b: Cell): Int = octile(a, b).roundToInt()
