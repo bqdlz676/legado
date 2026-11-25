@@ -540,7 +540,14 @@ class CampaignController private constructor(
         if (target == null) return emptyList()
         return when (intent) {
             // B9：侧翼避敌视野只用感知位置；真实敌军位置不进寻路层。
-            Intent.FLANK -> pathfinder.flankPath(corps.position, target, corps.type, perceivedEnemies(corps).map { it.position })
+            // B8R2：逐敌传「感知位置 + 敌军自身 visionRadiusCells」，不再只取 position 把半径丢掉；
+            // 混编兵种时高视野 / 低视野敌军各按自身半径被闸门。
+            Intent.FLANK -> pathfinder.flankPath(
+                corps.position,
+                target,
+                corps.type,
+                perceivedEnemies(corps).map { EnemySight(it.position, it.visionRadiusCells) },
+            )
             Intent.AMBUSH, Intent.HOLD -> emptyList()
             else -> pathfinder.find(corps.position, target, corps.type)
         }

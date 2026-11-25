@@ -102,7 +102,8 @@ class PathfinderTest {
     @Test
     fun `无敌军时侧翼路径不退化`() {
         val finder = Pathfinder(plainMap(), "clear")
-        val route = finder.flankRoute(Cell(2, 5), Cell(28, 26), ArmyType.REGULAR, emptyList())
+        // 显式标注 List<Cell>：与逐敌条目重载 List<EnemySight> 区分，避免空列表重载歧义（B8R2）。
+        val route = finder.flankRoute(Cell(2, 5), Cell(28, 26), ArmyType.REGULAR, emptyList<Cell>())
         assertTrue(route.path.isNotEmpty())
         assertFalse(route.degraded)
     }
@@ -148,5 +149,58 @@ class PathfinderTest {
         assertTrue(path.isNotEmpty())
         val end = path.last()
         assertTrue(map.passable(end, ArmyType.REGULAR))
+    }
+
+    @Test
+    fun `混编兵种逐敌闸门骑兵六格环内不入路且民兵三格外可通行`() {
+        // B8R2：高视野骑兵（半径 6）与低视野民兵（半径 3）混编，闸门必须各按自身半径，
+        // 不能统一套本方兵种半径给骑兵留暴露环、也不能按骑兵半径对民兵过度绕行。
+        val cavalry = Cell(9, 23)
+        val militia = Cell(23, 9)
+        val finder = Pathfinder(plainMap(), "clear")
+        val route = finder.flankRoute(
+            Cell(2, 5),
+            Cell(28, 26),
+            ArmyType.REGULAR,
+            listOf(EnemySight(cavalry, 6), EnemySight(militia, 3)),
+        )
+        assertTrue("混编侧翼路径必须非空", route.path.isNotEmpty())
+        assertTrue("路径不得踏上骑兵所在格", cavalry !in route.path)
+        assertTrue("路径不得踏上民兵所在格", militia !in route.path)
+        route.path.forEach { cell ->
+            // 骑兵 6 格视野环：路径一格都不得进入。
+            assertTrue(
+                "路径格 $cell 闯入骑兵视野环（格距 ${finder.cellDist(cell, cavalry)} ≤ 6）",
+                finder.cellDist(cell, cavalry) > 6,
+            )
+            assertFalse(finder.watchedBy(cavalry, cell, 6))
+            // 民兵 3 格视野环：逐敌按其自身半径 3 闸门。
+            assertTrue(
+                "路径格 $cell 闯入民兵视野环（格距 ${finder.cellDist(cell, militia)} ≤ 3）",
+                finder.cellDist(cell, militia) > 3,
+            )
+            assertFalse(finder.watchedBy(militia, cell, 3))
+        }
+        // 民兵半径小：路径可走到其 3 格环之外的开阔地，证明没有被按骑兵 6 格过度挤离走廊。
+        assertTrue("路径应行经民兵 3 格环之外的格", route.path.any { finder.cellDist(it, militia) > 3 })
+    }
+
+    @Test
+    fun `混编全图封锁时退化路径仍返回非空且不抛异常`() {
+        // B8R2 退化兜底：骑兵半径 30 覆盖全图 + 民兵半径 3，严格无路后走加价 / 折线兜底；
+        // 三级退化链条对逐敌条目同样成立，不得抛异常、不得返回空路径。
+        val cavalry = Cell(15, 15)
+        val militia = Cell(20, 20)
+        val finder = Pathfinder(plainMap(), "clear")
+        val route = finder.flankRoute(
+            Cell(2, 5),
+            Cell(28, 26),
+            ArmyType.REGULAR,
+            listOf(EnemySight(cavalry, 30), EnemySight(militia, 3)),
+        )
+        assertTrue("退化路径也必须非空", route.path.isNotEmpty())
+        assertTrue("全图封锁应置降级标志", route.degraded)
+        assertTrue(cavalry !in route.path)
+        assertTrue(militia !in route.path)
     }
 }

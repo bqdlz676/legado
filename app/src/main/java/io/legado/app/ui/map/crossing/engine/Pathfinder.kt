@@ -27,12 +27,13 @@ class Pathfinder(
     fun find(from: Cell, to: Cell, type: ArmyType, avoid: Set<Cell> = emptySet()): List<Cell> {
         if (from == to) return listOf(from)
         val target = nearestPassable(to, type) ?: return straightPath(from, to, type)
-        val path = astar(from, target, type, avoid, emptyList(), viewRadius = 0, strictView = false)
+        val path = astar(from, target, type, avoid, emptyList(), strictView = false)
         return if (path.isEmpty()) straightPath(from, to, type) else path
     }
 
     /**
-     * 侧翼路径（List 形态入口，保留给现有调用方）：等价于 [flankRoute] 的 `path` 字段。
+     * 侧翼路径（List 形态入口，旧版兼容）：敌军半径统一取 [visionRadiusCells]
+     * （缺省回退为本方兵种半径 [radiusFor(type)]）；新代码请使用逐敌半径重载 [enemies]。
      * 需要判断本次侧翼是否被迫退化（视野封锁绕不开）时，请直接用 [flankRoute] 读 `degraded`。
      */
     fun flankPath(
@@ -41,14 +42,38 @@ class Pathfinder(
         type: ArmyType,
         enemyPositions: List<Cell>,
         visionRadiusCells: Int = radiusFor(type),
-    ): List<Cell> = flankRoute(from, to, type, enemyPositions, visionRadiusCells).path
+    ): List<Cell> = flankRoute(from, to, type, enemyPositions.map { EnemySight(it, visionRadiusCells) }).path
 
     /**
-     * 侧翼路径（带降级标志）：A* 基础上**强制避开**任一敌军可见半径内的格；敌军所在格绝对不入路。
+     * 侧翼路径（List 形态入口，逐敌半径，B8R2）：[enemies] 每条携带敌军自身 `visionRadiusCells`，
+     * 混编兵种时闸门按各敌自身半径计算，不再套用本方兵种统一半径。
+     */
+    fun flankPath(
+        from: Cell,
+        to: Cell,
+        type: ArmyType,
+        enemies: List<EnemySight>,
+    ): List<Cell> = flankRoute(from, to, type, enemies).path
+
+    /**
+     * 侧翼路径（带降级标志，旧版兼容）：敌军半径统一取 [visionRadiusCells]，内部折算为逐敌条目后走核心链路。
+     */
+    fun flankRoute(
+        from: Cell,
+        to: Cell,
+        type: ArmyType,
+        enemyPositions: List<Cell>,
+        visionRadiusCells: Int = radiusFor(type),
+    ): FlankRoute = flankRoute(from, to, type, enemyPositions.map { EnemySight(it, visionRadiusCells) })
+
+    /**
+     * 侧翼路径（带降级标志，逐敌半径，B8R2）：A* 基础上**强制避开**任一敌军自身可见半径内的格；
+     * 敌军所在格绝对不入路。
      *
      * 视线口径（与 `CampaignController.updateIntelligence` 的情报口径一致，§三）：
      * - [TerrainMap.visible] 只判两点之间有无山脊遮挡（两点 LOS），**本身不携带半径**；
-     * - 半径闸门用八向格距 [cellDist] ≤ [visionRadiusCells]，两点同时满足才算「被敌军看见」。
+     * - 半径闸门用八向格距 [cellDist] ≤ 该敌 [EnemySight.radiusCells]，两点同时满足才算「被敌军看见」；
+     * - 每条敌军半径取自其自身 `Corps.visionRadiusCells`，混编时不得用本方兵种半径统一套用。
      *
      * 退化口径（绕不开视野封锁时的三级兜底，逐级放宽，绝不返回空路径）：
      * 1. 严格模式 A*：视野内格直接剪枝；搜到通路 → [FlankRoute.degraded] = false；
@@ -61,21 +86,20 @@ class Pathfinder(
         from: Cell,
         to: Cell,
         type: ArmyType,
-        enemyPositions: List<Cell>,
-        visionRadiusCells: Int = radiusFor(type),
+        enemies: List<EnemySight>,
     ): FlankRoute {
         if (from == to) return FlankRoute(listOf(from), degraded = false, reason = "起点即终点")
         val target = nearestPassable(to, type)
         if (target == null) {
             return FlankRoute(
-                straightPath(from, to, type, enemyPositions.toSet()),
+                straightPath(from, to, type, enemies.map { it.position }.toSet()),
                 degraded = true,
                 reason = "目标周边无可通行落点，已退化为直线折线兜底",
             )
         }
-        val strict = astar(from, target, type, emptySet(), enemyPositions, visionRadiusCells, strictView = true)
+        val strict = astar(from, target, type, emptySet(), enemies, strictView = true)
         if (strict.isNotEmpty()) return FlankRoute(strict, degraded = false, reason = "")
-        val penalized = astar(from, target, type, emptySet(), enemyPositions, visionRadiusCells, strictView = false)
+        val penalized = astar(from, target, type, emptySet(), enemies, strictView = false)
         if (penalized.isNotEmpty()) {
             return FlankRoute(
                 penalized,
@@ -84,7 +108,7 @@ class Pathfinder(
             )
         }
         return FlankRoute(
-            straightPath(from, to, type, enemyPositions.toSet()),
+            straightPath(from, to, type, enemies.map { it.position }.toSet()),
             degraded = true,
             reason = "视野与地形双重封锁，已退化为朝目标钳制的直线折线兜底",
         )
@@ -97,8 +121,7 @@ class Pathfinder(
         to: Cell,
         type: ArmyType,
         avoid: Set<Cell>,
-        enemyPositions: List<Cell>,
-        viewRadius: Int,
+        enemies: List<EnemySight>,
         strictView: Boolean,
     ): List<Cell> {
         val n = map.gridN
@@ -108,7 +131,8 @@ class Pathfinder(
         val open = PriorityQueue<Node>(compareBy { it.f })
         open += Node(startKey, heuristic(from, to))
         val closed = HashSet<Long>()
-        val enemySet = enemyPositions.toSet()
+        // 敌军所在格集合只用于排阵；半径闸门走 [enemies] 每条自身半径，不能再合并成单一 viewRadius。
+        val enemySet = enemies.map { it.position }.toSet()
 
         while (open.isNotEmpty()) {
             val current = open.poll()
@@ -125,7 +149,8 @@ class Pathfinder(
                 // 敌军所在格任何模式下都不入路（§包抄：避开敌方视野，更不得踏上敌军阵地）。
                 if (next in enemySet) continue
 
-                val watched = enemyPositions.any { watchedBy(it, next, viewRadius) }
+                // 逐敌闸门：每条敌军用其自身半径判定，混编时高视野 / 低视野各算各的（B8R2）。
+                val watched = enemies.any { watchedBy(it.position, next, it.radiusCells) }
                 // 严格侧翼模式：视野内格剪枝（等价 BLOCKED），而不是加价放行。
                 if (strictView && watched) continue
 
@@ -143,6 +168,7 @@ class Pathfinder(
 
     /**
      * 纯函数：[enemy] 能否看见 [cell]。口径 = 八向格距 ≤ [viewRadius] 且 [map.visible] 两点通视；
+     * [viewRadius] 由调用方按该敌军自身 `visionRadiusCells` 传入（逐敌闸门，B8R2）。
      * 抽出为公共纯函数以便单测直接断言视野判定，不依赖 A* 搜索结果。
      */
     fun watchedBy(enemy: Cell, cell: Cell, viewRadius: Int): Boolean {
@@ -267,6 +293,16 @@ class Pathfinder(
         }
     }
 }
+
+/**
+ * 侧翼寻路的单条敌军视野条目：[position] 为敌军所在格（感知位置），
+ * [radiusCells] 为该敌军自身 `visionRadiusCells`。混编兵种时各敌半径不同，
+ * 闸门必须逐敌取自身半径（B8R2），不得退回本方兵种统一半径。
+ */
+data class EnemySight(
+    val position: Cell,
+    val radiusCells: Int,
+)
 
 /**
  * 侧翼寻路结果。[path] 全程非空（三级兜底保证）；[degraded] = true 表示严格避视野无路、
