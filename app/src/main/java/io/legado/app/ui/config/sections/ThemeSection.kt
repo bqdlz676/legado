@@ -30,8 +30,10 @@ import io.legado.app.ui.config.settings.ColorSwatchRow
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
 import io.legado.app.ui.config.settings.SectionActions
+import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.config.settings.SwitchRow
 import io.legado.app.ui.config.settings.TextEditSheet
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.ui.config.settings.ValueRow
 import io.legado.app.utils.getPrefInt
 import io.legado.app.utils.getPrefString
@@ -52,6 +54,11 @@ fun ThemeSection(actions: SectionActions) {
     var colorTarget by remember { mutableStateOf<ColorTarget?>(null) }
     var themeNameTarget by remember { mutableStateOf<String?>(null) }
     var bgImageTarget by remember { mutableStateOf<String?>(null) }
+    // B29：各弹层槽位各持一份两段式离场控制器；离场段拒收重复打开。
+    val numberExit = rememberSheetExitController()
+    val colorExit = rememberSheetExitController()
+    val nameExit = rememberSheetExitController()
+    val bgExit = rememberSheetExitController()
 
     // F-73 作废：App 启动图标全套资产（mipmap 各档 ic_launcher{,_round,_fg,_monochrome}.png、
     // mipmap-anydpi-v26/ic_launcher.xml、colors.xml 的 ic_launcher_background）无规格原文，
@@ -75,11 +82,17 @@ fun ThemeSection(actions: SectionActions) {
                 SwitchRow(PreferKey.transparentStatusBar, stringRes(R.string.immersion_status_bar), stringRes(R.string.status_bar_immersion), true),
                 SwitchRow(PreferKey.immNavigationBar, stringRes(R.string.imm_navigation_bar), stringRes(R.string.imm_navigation_bar_s), true),
                 ValueRow(stringRes(R.string.bar_elevation), AppConfig.elevation.toString()) {
-                    numberTarget = NumberTarget(R.string.bar_elevation, 0, 32, AppConfig.elevation) { AppConfig.elevation = it }
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.bar_elevation, 0, 32, AppConfig.elevation) { AppConfig.elevation = it }
+                        numberExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.font_scale), stringRes(R.string.font_scale_summary)) {
                     val scale = context.getPrefInt(PreferKey.fontScale, 0).takeIf { it > 0 } ?: 10
-                    numberTarget = NumberTarget(R.string.font_scale, 8, 16, scale) { context.putPrefInt(PreferKey.fontScale, it) }
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.font_scale, 8, 16, scale) { context.putPrefInt(PreferKey.fontScale, it) }
+                        numberExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.cover_config), stringRes(R.string.cover_config_summary)) {
                     actions.openConfig(ConfigTag.COVER_CONFIG)
@@ -98,25 +111,49 @@ fun ThemeSection(actions: SectionActions) {
         SettingGroup(
             stringRes(R.string.day),
             listOf(
-                ColorSwatchRow(PreferKey.cPrimary, stringRes(R.string.primary), stringRes(R.string.day_color_primary), context.getPrefInt(PreferKey.cPrimary, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cPrimary, it) },
-                ColorSwatchRow(PreferKey.cAccent, stringRes(R.string.accent), stringRes(R.string.day_color_accent), context.getPrefInt(PreferKey.cAccent, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cAccent, it) },
-                ColorSwatchRow(PreferKey.cBackground, stringRes(R.string.background_color), stringRes(R.string.day_background_color), context.getPrefInt(PreferKey.cBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cBackground, it) },
-                ColorSwatchRow(PreferKey.cBBackground, stringRes(R.string.navbar_color), stringRes(R.string.day_navbar_color), context.getPrefInt(PreferKey.cBBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cBBackground, it) },
-                ValueRow(stringRes(R.string.background_image)) { bgImageTarget = PreferKey.bgImage },
+                ColorSwatchRow(PreferKey.cPrimary, stringRes(R.string.primary), stringRes(R.string.day_color_primary), context.getPrefInt(PreferKey.cPrimary, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cPrimary, it); colorExit.open() }
+                },
+                ColorSwatchRow(PreferKey.cAccent, stringRes(R.string.accent), stringRes(R.string.day_color_accent), context.getPrefInt(PreferKey.cAccent, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cAccent, it); colorExit.open() }
+                },
+                ColorSwatchRow(PreferKey.cBackground, stringRes(R.string.background_color), stringRes(R.string.day_background_color), context.getPrefInt(PreferKey.cBackground, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cBackground, it); colorExit.open() }
+                },
+                ColorSwatchRow(PreferKey.cBBackground, stringRes(R.string.navbar_color), stringRes(R.string.day_navbar_color), context.getPrefInt(PreferKey.cBBackground, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cBBackground, it); colorExit.open() }
+                },
+                ValueRow(stringRes(R.string.background_image)) {
+                    if (bgExit.canOpen) { bgImageTarget = PreferKey.bgImage; bgExit.open() }
+                },
                 SwitchRow(PreferKey.tNavBar, stringRes(R.string.immersion_nav_bar), stringRes(R.string.day_nav_bar_immersion), false),
-                ValueRow(stringRes(R.string.save_theme_config), stringRes(R.string.save_day_theme_summary)) { themeNameTarget = "saveDayTheme" },
+                ValueRow(stringRes(R.string.save_theme_config), stringRes(R.string.save_day_theme_summary)) {
+                    if (nameExit.canOpen) { themeNameTarget = "saveDayTheme"; nameExit.open() }
+                },
             ),
         ),
         SettingGroup(
             stringRes(R.string.night),
             listOf(
-                ColorSwatchRow(PreferKey.cNPrimary, stringRes(R.string.primary), stringRes(R.string.night_primary), context.getPrefInt(PreferKey.cNPrimary, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNPrimary, it) },
-                ColorSwatchRow(PreferKey.cNAccent, stringRes(R.string.accent), stringRes(R.string.night_accent), context.getPrefInt(PreferKey.cNAccent, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNAccent, it) },
-                ColorSwatchRow(PreferKey.cNBackground, stringRes(R.string.background_color), stringRes(R.string.night_background_color), context.getPrefInt(PreferKey.cNBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNBackground, it) },
-                ColorSwatchRow(PreferKey.cNBBackground, stringRes(R.string.navbar_color), stringRes(R.string.night_navbar_color), context.getPrefInt(PreferKey.cNBBackground, Color.BLACK)) { colorTarget = ColorTarget(PreferKey.cNBBackground, it) },
-                ValueRow(stringRes(R.string.background_image)) { bgImageTarget = PreferKey.bgImageN },
+                ColorSwatchRow(PreferKey.cNPrimary, stringRes(R.string.primary), stringRes(R.string.night_primary), context.getPrefInt(PreferKey.cNPrimary, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cNPrimary, it); colorExit.open() }
+                },
+                ColorSwatchRow(PreferKey.cNAccent, stringRes(R.string.accent), stringRes(R.string.night_accent), context.getPrefInt(PreferKey.cNAccent, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cNAccent, it); colorExit.open() }
+                },
+                ColorSwatchRow(PreferKey.cNBackground, stringRes(R.string.background_color), stringRes(R.string.night_background_color), context.getPrefInt(PreferKey.cNBackground, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cNBackground, it); colorExit.open() }
+                },
+                ColorSwatchRow(PreferKey.cNBBackground, stringRes(R.string.navbar_color), stringRes(R.string.night_navbar_color), context.getPrefInt(PreferKey.cNBBackground, Color.BLACK)) {
+                    if (colorExit.canOpen) { colorTarget = ColorTarget(PreferKey.cNBBackground, it); colorExit.open() }
+                },
+                ValueRow(stringRes(R.string.background_image)) {
+                    if (bgExit.canOpen) { bgImageTarget = PreferKey.bgImageN; bgExit.open() }
+                },
                 SwitchRow(PreferKey.tNavBarN, stringRes(R.string.immersion_nav_bar), stringRes(R.string.night_nav_bar_immersion), false),
-                ValueRow(stringRes(R.string.save_theme_config), stringRes(R.string.save_night_theme_summary)) { themeNameTarget = "saveNightTheme" },
+                ValueRow(stringRes(R.string.save_theme_config), stringRes(R.string.save_night_theme_summary)) {
+                    if (nameExit.canOpen) { themeNameTarget = "saveNightTheme"; nameExit.open() }
+                },
             ),
         ),
     )
@@ -124,34 +161,44 @@ fun ThemeSection(actions: SectionActions) {
     SettingList(groups)
 
     numberTarget?.let { t ->
-        NumberPickerSheet(true, stringRes(t.titleRes), t.min, t.max, t.current,
-            onConfirm = t.apply, onDismiss = { numberTarget = null })
+        SheetExitHost(numberExit, onFinished = { numberTarget = null }) {
+            NumberPickerSheet(numberExit.visible, stringRes(t.titleRes), t.min, t.max, t.current,
+                onConfirm = t.apply, onDismiss = { numberExit.beginExit() })
+        }
     }
 
     colorTarget?.let { target ->
-        ColorPickerSheet(
-            title = target.title,
-            current = context.getPrefInt(target.key, Color.BLACK),
-            onPick = { context.putPrefInt(target.key, it) },
-            onDismiss = { colorTarget = null },
-        )
+        SheetExitHost(colorExit, onFinished = { colorTarget = null }) {
+            ColorPickerSheet(
+                visible = colorExit.visible,
+                title = target.title,
+                current = context.getPrefInt(target.key, Color.BLACK),
+                onPick = { context.putPrefInt(target.key, it) },
+                onDismiss = { colorExit.beginExit() },
+            )
+        }
     }
 
     themeNameTarget?.let { mode ->
-        TextEditSheet(true, stringRes(R.string.theme_name), "", "name", onConfirm = { name ->
-            if (name.isNotBlank()) {
-                if (mode == "saveDayTheme") ThemeConfig.saveDayTheme(context, name)
-                else ThemeConfig.saveNightTheme(context, name)
-            }
-        }, onDismiss = { themeNameTarget = null })
+        SheetExitHost(nameExit, onFinished = { themeNameTarget = null }) {
+            TextEditSheet(nameExit.visible, stringRes(R.string.theme_name), "", "name", onConfirm = { name ->
+                if (name.isNotBlank()) {
+                    if (mode == "saveDayTheme") ThemeConfig.saveDayTheme(context, name)
+                    else ThemeConfig.saveNightTheme(context, name)
+                }
+            }, onDismiss = { nameExit.beginExit() })
+        }
     }
 
     bgImageTarget?.let { key ->
-        BackgroundImageSheet(
-            onPickImage = { actions.pickImage { uri -> uri?.let { context.putPrefString(key, it.toString()) } } },
-            onClear = { context.removePref(key) },
-            onDismiss = { bgImageTarget = null },
-        )
+        SheetExitHost(bgExit, onFinished = { bgImageTarget = null }) {
+            BackgroundImageSheet(
+                visible = bgExit.visible,
+                onPickImage = { actions.pickImage { uri -> uri?.let { context.putPrefString(key, it.toString()) } } },
+                onClear = { context.removePref(key) },
+                onDismiss = { bgExit.beginExit() },
+            )
+        }
     }
 }
 
@@ -160,6 +207,7 @@ private data class ColorTarget(val key: String, val title: String)
 
 @Composable
 private fun ColorPickerSheet(
+    visible: Boolean,
     title: String,
     current: Int,
     onPick: (Int) -> Unit,
@@ -169,7 +217,7 @@ private fun ColorPickerSheet(
         runCatching { com.jaredrummler.android.colorpicker.ColorPickerDialog.MATERIAL_COLORS.toList() }
             .getOrDefault(emptyList())
     }
-    io.legado.app.ui.config.settings.InkBottomSheetHost(title = title, onDismiss = onDismiss) {
+    io.legado.app.ui.config.settings.InkBottomSheetHost(visible = visible, title = title, onDismiss = onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 presets.take(12).forEach { c ->
@@ -188,11 +236,12 @@ private fun ColorPickerSheet(
 
 @Composable
 private fun BackgroundImageSheet(
+    visible: Boolean,
     onPickImage: () -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    io.legado.app.ui.config.settings.InkBottomSheetHost(title = stringRes(R.string.background_image), onDismiss = onDismiss) {
+    io.legado.app.ui.config.settings.InkBottomSheetHost(visible = visible, title = stringRes(R.string.background_image), onDismiss = onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             io.legado.app.ui.components.InkButton(stringRes(R.string.select_image), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY, onClick = onPickImage)
             io.legado.app.ui.components.InkButton(stringRes(R.string.delete), variant = io.legado.app.ui.components.InkButtonVariant.GHOST, onClick = onClear)

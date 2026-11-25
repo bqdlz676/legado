@@ -28,6 +28,8 @@ import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.config.settings.ConfirmSheet
+import io.legado.app.ui.config.settings.SheetExitHost
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.utils.GSON
 import io.legado.app.utils.getClipText
 import io.legado.app.utils.share
@@ -53,6 +55,8 @@ class ThemeListDialog : DialogFragment() {
         val context = LocalContext.current
         var items by remember { mutableStateOf(ThemeConfig.configList.toList()) }
         var deleteIndex by remember { mutableStateOf<Int?>(null) }
+        // B29：删除确认弹层两段式离场控制器；离场段拒收重复打开。
+        val exit = rememberSheetExitController()
 
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -90,7 +94,10 @@ class ThemeListDialog : DialogFragment() {
                             context.share(GSON.toJson(config), "主题分享")
                         }
                         InkButton(context.getString(R.string.delete), variant = InkButtonVariant.GHOST) {
-                            deleteIndex = index
+                            if (exit.canOpen) {
+                                deleteIndex = index
+                                exit.open()
+                            }
                         }
                     }
                 }
@@ -98,17 +105,19 @@ class ThemeListDialog : DialogFragment() {
         }
 
         deleteIndex?.let { index ->
-            ConfirmSheet(
-                visible = true,
-                title = context.getString(R.string.delete),
-                message = context.getString(R.string.sure_del),
-                danger = true,
-                onConfirm = {
-                    ThemeConfig.delConfig(index)
-                    items = ThemeConfig.configList.toList()
-                },
-                onDismiss = { deleteIndex = null },
-            )
+            SheetExitHost(exit, onFinished = { deleteIndex = null }) {
+                ConfirmSheet(
+                    visible = exit.visible,
+                    title = context.getString(R.string.delete),
+                    message = context.getString(R.string.sure_del),
+                    danger = true,
+                    onConfirm = {
+                        ThemeConfig.delConfig(index)
+                        items = ThemeConfig.configList.toList()
+                    },
+                    onDismiss = { exit.beginExit() },
+                )
+            }
         }
     }
 

@@ -22,9 +22,12 @@ import io.legado.app.ui.config.sections.CoverSection
 import io.legado.app.ui.config.sections.OtherSection
 import io.legado.app.ui.config.sections.ThemeSection
 import io.legado.app.ui.config.sections.WelcomeSection
+import io.legado.app.ui.book.read.NoteDialogExitGate
 import io.legado.app.ui.config.settings.ListPickSheet
 import io.legado.app.ui.config.settings.SectionActions
 import io.legado.app.ui.config.settings.SettingScaffold
+import io.legado.app.ui.config.settings.SheetExitController
+import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.utils.showDialogFragment
@@ -42,6 +45,9 @@ class ConfigActivity : AppCompatActivity() {
 
     /** 启动图标选择弹层状态（跨动作回调与 Compose 状态桥接）。 */
     private var iconPickerState by mutableStateOf<IconPickerState?>(null)
+
+    /** B29：图标选择弹层两段式离场控制器（Activity 字段，跨动作回调桥接，口径同 [iconPickerState]）。 */
+    private val iconExit = SheetExitController(NoteDialogExitGate(), mutableStateOf(false))
 
     private var folderResult: ((String?) -> Unit)? = null
     private var imageResult: ((Uri?) -> Unit)? = null
@@ -80,7 +86,11 @@ class ConfigActivity : AppCompatActivity() {
                 startActivity(Intent(this, ConfigActivity::class.java).putExtra("configTag", tag))
             },
             showIconPicker = { entries, values, current, onPick ->
-                iconPickerState = IconPickerState(entries, values, current, onPick)
+                // B29：离场段拒收重复打开；放行后登记在场段。
+                if (iconExit.canOpen) {
+                    iconPickerState = IconPickerState(entries, values, current, onPick)
+                    iconExit.open()
+                }
             },
             showDialog = { clazz -> showConfigDialog(clazz) },
             showVideoSettings = {
@@ -125,15 +135,17 @@ class ConfigActivity : AppCompatActivity() {
             }
 
             iconPickerState?.let { picker ->
-                ListPickSheet(
-                    visible = true,
-                    title = getString(R.string.change_icon),
-                    entries = picker.entries,
-                    values = picker.values,
-                    current = picker.current,
-                    onPick = picker.onPick,
-                    onDismiss = { iconPickerState = null },
-                )
+                SheetExitHost(iconExit, onFinished = { iconPickerState = null }) {
+                    ListPickSheet(
+                        visible = iconExit.visible,
+                        title = getString(R.string.change_icon),
+                        entries = picker.entries,
+                        values = picker.values,
+                        current = picker.current,
+                        onPick = picker.onPick,
+                        onDismiss = { iconExit.beginExit() },
+                    )
+                }
             }
         }
     }

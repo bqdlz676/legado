@@ -45,6 +45,8 @@ import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.config.settings.ConfirmSheet
 import io.legado.app.ui.config.settings.InkBottomSheetHost
 import io.legado.app.ui.config.settings.SettingScaffold
+import io.legado.app.ui.config.settings.SheetExitHost
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.utils.FileDoc
 import io.legado.app.utils.inputStream
@@ -175,6 +177,9 @@ private fun SkinList(
     var active by remember { mutableStateOf(BottomBarSkinManager.active) }
     var menuName by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf<String?>(null) }
+    // B29：菜单宿主与删除确认各持一份两段式离场控制器，离场段拒收重复打开。
+    val menuExit = rememberSheetExitController()
+    val confirmExit = rememberSheetExitController()
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val loaded = withContext(Dispatchers.IO) { BottomBarSkinManager.list() }
@@ -216,31 +221,48 @@ private fun SkinList(
                     active = name
                     postEvent(EventBus.BOTTOM_BAR_SKIN, "")
                 },
-                onLongClick = { menuName = name },
+                onLongClick = {
+                    if (menuExit.canOpen) {
+                        menuName = name
+                        menuExit.open()
+                    }
+                },
             )
         }
     }
 
     menuName?.let { name ->
-        InkBottomSheetHost(title = name, onDismiss = { menuName = null }) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                io.legado.app.ui.components.InkButton(context.getString(R.string.edit), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) { menuName = null; onEdit(name) }
-                io.legado.app.ui.components.InkButton(context.getString(R.string.export), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) { menuName = null; onExport(name) }
-                io.legado.app.ui.components.InkButton(context.getString(R.string.share), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) { menuName = null; onShare(name) }
-                io.legado.app.ui.components.InkButton(context.getString(R.string.delete), variant = io.legado.app.ui.components.InkButtonVariant.GHOST) { menuName = null; confirmDelete = name }
+        SheetExitHost(menuExit, onFinished = { menuName = null }) {
+            InkBottomSheetHost(visible = menuExit.visible, title = name, onDismiss = { menuExit.beginExit() }) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // 动作按钮为同屏导航切换（关闭菜单后跳转编辑 / 导出 / 分享 / 确认框），沿用旧直摘口径；
+                    // 遮罩点击 / 拖拽关闭走上方 [menuExit] 两段式离场。
+                    io.legado.app.ui.components.InkButton(context.getString(R.string.edit), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) { menuName = null; onEdit(name) }
+                    io.legado.app.ui.components.InkButton(context.getString(R.string.export), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) { menuName = null; onExport(name) }
+                    io.legado.app.ui.components.InkButton(context.getString(R.string.share), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) { menuName = null; onShare(name) }
+                    io.legado.app.ui.components.InkButton(context.getString(R.string.delete), variant = io.legado.app.ui.components.InkButtonVariant.GHOST) {
+                        menuName = null
+                        if (confirmExit.canOpen) {
+                            confirmDelete = name
+                            confirmExit.open()
+                        }
+                    }
+                }
             }
         }
     }
 
     confirmDelete?.let { name ->
-        ConfirmSheet(
-            visible = true,
-            title = context.getString(R.string.delete),
-            message = context.getString(R.string.bottom_bar_skin_delete_confirm),
-            danger = true,
-            onConfirm = { onDelete(name) },
-            onDismiss = { confirmDelete = null },
-        )
+        SheetExitHost(confirmExit, onFinished = { confirmDelete = null }) {
+            ConfirmSheet(
+                visible = confirmExit.visible,
+                title = context.getString(R.string.delete),
+                message = context.getString(R.string.bottom_bar_skin_delete_confirm),
+                danger = true,
+                onConfirm = { onDelete(name) },
+                onDismiss = { confirmExit.beginExit() },
+            )
+        }
     }
 }
 

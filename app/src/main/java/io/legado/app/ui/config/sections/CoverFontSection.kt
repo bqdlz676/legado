@@ -24,8 +24,10 @@ import io.legado.app.ui.config.settings.NumberPickerSheet
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
 import io.legado.app.ui.config.settings.SectionActions
+import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.config.settings.SwitchRow
 import io.legado.app.ui.config.settings.ValueRow
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.utils.getPrefInt
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefInt
@@ -40,6 +42,8 @@ import io.legado.app.utils.putPrefInt
 fun CoverFontSection(actions: SectionActions) {
     val context = LocalContext.current
     var sizeTarget by remember { mutableStateOf<SizeTarget?>(null) }
+    // B29：字号盘两段式离场控制器；离场段拒收重复打开。
+    val sizeExit = rememberSheetExitController()
 
     val sizeRows = listOf(
         PreferKey.coverTitleLargeSize to R.string.cover_title_large_size,
@@ -61,7 +65,10 @@ fun CoverFontSection(actions: SectionActions) {
                 SwitchRow(PreferKey.coverCustomFontSize, stringRes(R.string.cover_custom_font_size), stringRes(R.string.cover_custom_font_size_summary), false),
             ) + sizeRows.map { (key, titleRes) ->
                 ValueRow(stringRes(titleRes), context.getPrefInt(key, 100).toString()) {
-                    sizeTarget = SizeTarget(key, titleRes, context.getPrefInt(key, 100).coerceIn(50, 200))
+                    if (sizeExit.canOpen) {
+                        sizeTarget = SizeTarget(key, titleRes, context.getPrefInt(key, 100).coerceIn(50, 200))
+                        sizeExit.open()
+                    }
                 }
             },
         ),
@@ -71,15 +78,17 @@ fun CoverFontSection(actions: SectionActions) {
     CoverPreviewCard()
 
     sizeTarget?.let { t ->
-        NumberPickerSheet(
-            visible = true,
-            title = stringRes(t.titleRes),
-            min = 50,
-            max = 200,
-            current = t.current,
-            onConfirm = { context.putPrefInt(t.key, it) },
-            onDismiss = { sizeTarget = null },
-        )
+        SheetExitHost(sizeExit, onFinished = { sizeTarget = null }) {
+            NumberPickerSheet(
+                visible = sizeExit.visible,
+                title = stringRes(t.titleRes),
+                min = 50,
+                max = 200,
+                current = t.current,
+                onConfirm = { context.putPrefInt(t.key, it) },
+                onDismiss = { sizeExit.beginExit() },
+            )
+        }
     }
 }
 

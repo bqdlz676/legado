@@ -15,8 +15,10 @@ import io.legado.app.ui.config.settings.NumberTarget
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
 import io.legado.app.ui.config.settings.SectionActions
+import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.config.settings.SwitchRow
 import io.legado.app.ui.config.settings.TextEditSheet
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.ui.config.settings.ValueRow
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefString
@@ -34,6 +36,9 @@ fun OtherSection(actions: SectionActions) {
     val vm = actions.vm
 
     var numberTarget by remember { mutableStateOf<NumberTarget?>(null) }
+    // B29：数字盘 / 文本编辑各持一份两段式离场控制器，离场段拒收重复打开。
+    val numberExit = rememberSheetExitController()
+    val textExit = rememberSheetExitController()
 
     // 文本编辑弹层目标（回调回写型；与 BackupSection 按偏好键回写的 PrefTextTarget 包内唯一名，避免同名 Redeclaration）
     var textTarget by remember { mutableStateOf<TextEditTarget?>(null) }
@@ -88,13 +93,19 @@ fun OtherSection(actions: SectionActions) {
             stringRes(R.string.other_setting),
             listOf(
                 ValueRow(stringRes(R.string.user_agent), summary = AppConfig.userAgent) {
-                    textTarget = TextEditTarget(R.string.user_agent, AppConfig.userAgent) { v ->
-                        if (v.isBlank()) context.removePref(PreferKey.userAgent) else context.putPrefString(PreferKey.userAgent, v)
+                    if (textExit.canOpen) {
+                        textTarget = TextEditTarget(R.string.user_agent, AppConfig.userAgent) { v ->
+                            if (v.isBlank()) context.removePref(PreferKey.userAgent) else context.putPrefString(PreferKey.userAgent, v)
+                        }
+                        textExit.open()
                     }
                 },
                 ValueRow(stringRes(R.string.custom_hosts), stringRes(R.string.custom_hosts_summary)) {
-                    textTarget = TextEditTarget(R.string.custom_hosts, AppConfig.customHosts) { v ->
-                        context.putPrefString(PreferKey.customHosts, v)
+                    if (textExit.canOpen) {
+                        textTarget = TextEditTarget(R.string.custom_hosts, AppConfig.customHosts) { v ->
+                            context.putPrefString(PreferKey.customHosts, v)
+                        }
+                        textExit.open()
                     }
                 },
                 SwitchRow(PreferKey.webServiceWakeLock, stringRes(R.string.web_service_wake_lock), stringRes(R.string.web_service_wake_lock_summary), false),
@@ -102,8 +113,11 @@ fun OtherSection(actions: SectionActions) {
                     actions.pickFolder { uri -> if (uri != null) AppConfig.defaultBookTreeUri = uri }
                 },
                 ValueRow(stringRes(R.string.source_edit_text_max_line), AppConfig.sourceEditMaxLine.toString()) {
-                    numberTarget = NumberTarget(R.string.source_edit_text_max_line, 10, Int.MAX_VALUE, AppConfig.sourceEditMaxLine) {
-                        AppConfig.sourceEditMaxLine = it
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.source_edit_text_max_line, 10, Int.MAX_VALUE, AppConfig.sourceEditMaxLine) {
+                            AppConfig.sourceEditMaxLine = it
+                        }
+                        numberExit.open()
                     }
                 },
                 ValueRow(stringRes(R.string.check_source_config), io.legado.app.model.CheckSource.summary) {
@@ -115,18 +129,27 @@ fun OtherSection(actions: SectionActions) {
                 SwitchRow(PreferKey.cronet, "Cronet", stringRes(R.string.pref_cronet_summary), false),
                 SwitchRow(PreferKey.antiAlias, stringRes(R.string.anti_alias), stringRes(R.string.pref_anti_alias_summary), false),
                 ValueRow(stringRes(R.string.bitmap_cache_size), AppConfig.bitmapCacheSize.toString()) {
-                    numberTarget = NumberTarget(R.string.bitmap_cache_size, 1, 1024, AppConfig.bitmapCacheSize) {
-                        AppConfig.bitmapCacheSize = it
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.bitmap_cache_size, 1, 1024, AppConfig.bitmapCacheSize) {
+                            AppConfig.bitmapCacheSize = it
+                        }
+                        numberExit.open()
                     }
                 },
                 ValueRow(stringRes(R.string.image_retain_number), AppConfig.imageRetainNum.toString()) {
-                    numberTarget = NumberTarget(R.string.image_retain_number, 0, 999, AppConfig.imageRetainNum) {
-                        AppConfig.imageRetainNum = it
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.image_retain_number, 0, 999, AppConfig.imageRetainNum) {
+                            AppConfig.imageRetainNum = it
+                        }
+                        numberExit.open()
                     }
                 },
                 ValueRow(stringRes(R.string.pre_download), AppConfig.preDownloadNum.toString()) {
-                    numberTarget = NumberTarget(R.string.pre_download, 0, 9999, AppConfig.preDownloadNum) {
-                        AppConfig.preDownloadNum = it
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.pre_download, 0, 9999, AppConfig.preDownloadNum) {
+                            AppConfig.preDownloadNum = it
+                        }
+                        numberExit.open()
                     }
                 },
                 SwitchRow(PreferKey.replaceEnableDefault, stringRes(R.string.replace_enable_default_t), stringRes(R.string.replace_enable_default_s), true),
@@ -142,22 +165,34 @@ fun OtherSection(actions: SectionActions) {
                     actions.showVideoSettings()
                 },
                 ValueRow(stringRes(R.string.web_port_title), AppConfig.webPort.toString()) {
-                    numberTarget = NumberTarget(R.string.web_port_title, 1024, 60000, AppConfig.webPort) { AppConfig.webPort = it }
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.web_port_title, 1024, 60000, AppConfig.webPort) { AppConfig.webPort = it }
+                        numberExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.mcp_port_title), AppConfig.mcpPort.toString()) {
-                    numberTarget = NumberTarget(R.string.mcp_port_title, 1024, 65530, AppConfig.mcpPort) { AppConfig.mcpPort = it }
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.mcp_port_title, 1024, 65530, AppConfig.mcpPort) { AppConfig.mcpPort = it }
+                        numberExit.open()
+                    }
                 },
                 SwitchRow(PreferKey.jsSourceApiTokenRequired, stringRes(R.string.js_source_api_token_required_title), stringRes(R.string.js_source_api_token_required_summary), true),
                 ValueRow(stringRes(R.string.js_source_api_token_title), stringRes(R.string.js_source_api_token_summary)) {
-                    textTarget = TextEditTarget(R.string.js_source_api_token_title, context.getPrefString(PreferKey.jsSourceApiToken)) { v ->
-                        context.putPrefString(PreferKey.jsSourceApiToken, v)
+                    if (textExit.canOpen) {
+                        textTarget = TextEditTarget(R.string.js_source_api_token_title, context.getPrefString(PreferKey.jsSourceApiToken)) { v ->
+                            context.putPrefString(PreferKey.jsSourceApiToken, v)
+                        }
+                        textExit.open()
                     }
                 },
                 ValueRow(stringRes(R.string.clear_cache), stringRes(R.string.clear_cache_summary), danger = true) { vm.clearCache() },
                 ValueRow(stringRes(R.string.clear_webview_data), stringRes(R.string.clear_webview_data_summary), danger = true) { vm.clearWebViewData() },
                 ValueRow(stringRes(R.string.shrink_database), stringRes(R.string.shrink_database_summary), danger = true) { vm.shrinkDatabase() },
                 ValueRow(stringRes(R.string.threads_num_title), AppConfig.threadCount.toString()) {
-                    numberTarget = NumberTarget(R.string.threads_num_title, 1, 999, AppConfig.threadCount) { AppConfig.threadCount = it }
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.threads_num_title, 1, 999, AppConfig.threadCount) { AppConfig.threadCount = it }
+                        numberExit.open()
+                    }
                 },
                 SwitchRow(PreferKey.processText, stringRes(R.string.add_to_text_context_menu_t), stringRes(R.string.add_to_text_context_menu_s), true),
                 SwitchRow(PreferKey.recordLog, stringRes(R.string.record_log), stringRes(R.string.record_debug_log), false),
@@ -170,25 +205,29 @@ fun OtherSection(actions: SectionActions) {
     SettingList(groups)
 
     numberTarget?.let { target ->
-        NumberPickerSheet(
-            visible = true,
-            title = stringRes(target.titleRes),
-            min = target.min,
-            max = target.max,
-            current = target.current,
-            onConfirm = target.apply,
-            onDismiss = { numberTarget = null },
-        )
+        SheetExitHost(numberExit, onFinished = { numberTarget = null }) {
+            NumberPickerSheet(
+                visible = numberExit.visible,
+                title = stringRes(target.titleRes),
+                min = target.min,
+                max = target.max,
+                current = target.current,
+                onConfirm = target.apply,
+                onDismiss = { numberExit.beginExit() },
+            )
+        }
     }
     textTarget?.let { target ->
-        TextEditSheet(
-            visible = true,
-            title = stringRes(target.titleRes),
-            initial = target.initial,
-            hint = "",
-            onConfirm = target.apply,
-            onDismiss = { textTarget = null },
-        )
+        SheetExitHost(textExit, onFinished = { textTarget = null }) {
+            TextEditSheet(
+                visible = textExit.visible,
+                title = stringRes(target.titleRes),
+                initial = target.initial,
+                hint = "",
+                onConfirm = target.apply,
+                onDismiss = { textExit.beginExit() },
+            )
+        }
     }
 }
 

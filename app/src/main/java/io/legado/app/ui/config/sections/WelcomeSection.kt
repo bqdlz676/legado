@@ -14,8 +14,10 @@ import io.legado.app.ui.config.settings.NumberPickerSheet
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
 import io.legado.app.ui.config.settings.SectionActions
+import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.config.settings.SwitchRow
 import io.legado.app.ui.config.settings.ValueRow
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.utils.getPrefInt
 import io.legado.app.utils.putPrefInt
 import io.legado.app.utils.putPrefString
@@ -30,13 +32,19 @@ fun WelcomeSection(actions: SectionActions) {
     val context = LocalContext.current
     var timeTarget by remember { mutableStateOf(false) }
     var imageTarget by remember { mutableStateOf<String?>(null) }
+    // B29：时长盘与背景图菜单各持一份两段式离场控制器，离场段拒收重复打开。
+    val timeExit = rememberSheetExitController()
+    val imageExit = rememberSheetExitController()
 
     val groups = listOf(
         SettingGroup(
             null,
             listOf(
                 ValueRow(stringRes(R.string.welcome_show_time), context.getPrefInt(PreferKey.welcomeShowTime, 500).toString()) {
-                    timeTarget = true
+                    if (timeExit.canOpen) {
+                        timeTarget = true
+                        timeExit.open()
+                    }
                 },
                 SwitchRow(PreferKey.customWelcome, stringRes(R.string.custom_welcome), stringRes(R.string.custom_welcome_summary), false),
             ),
@@ -45,7 +53,10 @@ fun WelcomeSection(actions: SectionActions) {
             stringRes(R.string.day),
             listOf(
                 ValueRow(stringRes(R.string.background_image), AppConfig.welcomeImage ?: stringRes(R.string.select_image)) {
-                    imageTarget = PreferKey.welcomeImage
+                    if (imageExit.canOpen) {
+                        imageTarget = PreferKey.welcomeImage
+                        imageExit.open()
+                    }
                 },
                 SwitchRow(PreferKey.welcomeShowText, stringRes(R.string.show_welcome_text), stringRes(R.string.welcome_text), true),
             ),
@@ -54,7 +65,10 @@ fun WelcomeSection(actions: SectionActions) {
             stringRes(R.string.night),
             listOf(
                 ValueRow(stringRes(R.string.background_image), AppConfig.welcomeImageDark ?: stringRes(R.string.select_image)) {
-                    imageTarget = PreferKey.welcomeImageDark
+                    if (imageExit.canOpen) {
+                        imageTarget = PreferKey.welcomeImageDark
+                        imageExit.open()
+                    }
                 },
                 SwitchRow(PreferKey.welcomeShowTextDark, stringRes(R.string.show_welcome_text), stringRes(R.string.welcome_text), true),
             ),
@@ -64,31 +78,36 @@ fun WelcomeSection(actions: SectionActions) {
     SettingList(groups)
 
     if (timeTarget) {
-        NumberPickerSheet(
-            visible = true,
-            title = stringRes(R.string.welcome_show_time),
-            min = 0,
-            max = 5000,
-            current = context.getPrefInt(PreferKey.welcomeShowTime, 500),
-            unit = "ms",
-            onConfirm = { context.putPrefInt(PreferKey.welcomeShowTime, it) },
-            onDismiss = { timeTarget = false },
-        )
+        SheetExitHost(timeExit, onFinished = { timeTarget = false }) {
+            NumberPickerSheet(
+                visible = timeExit.visible,
+                title = stringRes(R.string.welcome_show_time),
+                min = 0,
+                max = 5000,
+                current = context.getPrefInt(PreferKey.welcomeShowTime, 500),
+                unit = "ms",
+                onConfirm = { context.putPrefInt(PreferKey.welcomeShowTime, it) },
+                onDismiss = { timeExit.beginExit() },
+            )
+        }
     }
 
     imageTarget?.let { key ->
-        io.legado.app.ui.config.settings.InkBottomSheetHost(
-            title = stringRes(R.string.background_image),
-            onDismiss = { imageTarget = null },
-        ) {
-            androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
-                io.legado.app.ui.components.InkButton(stringRes(R.string.select_image), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) {
-                    actions.pickImage { uri -> if (uri != null) context.putPrefString(key, uri.toString()) }
-                    imageTarget = null
-                }
-                io.legado.app.ui.components.InkButton(stringRes(R.string.delete), variant = io.legado.app.ui.components.InkButtonVariant.GHOST) {
-                    context.putPrefString(key, null)
-                    imageTarget = null
+        SheetExitHost(imageExit, onFinished = { imageTarget = null }) {
+            io.legado.app.ui.config.settings.InkBottomSheetHost(
+                visible = imageExit.visible,
+                title = stringRes(R.string.background_image),
+                onDismiss = { imageExit.beginExit() },
+            ) {
+                androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+                    io.legado.app.ui.components.InkButton(stringRes(R.string.select_image), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) {
+                        actions.pickImage { uri -> if (uri != null) context.putPrefString(key, uri.toString()) }
+                        imageExit.beginExit()
+                    }
+                    io.legado.app.ui.components.InkButton(stringRes(R.string.delete), variant = io.legado.app.ui.components.InkButtonVariant.GHOST) {
+                        context.putPrefString(key, null)
+                        imageExit.beginExit()
+                    }
                 }
             }
         }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,8 +33,10 @@ import io.legado.app.ui.config.settings.NumberTarget
 import io.legado.app.ui.config.settings.SettingGroup
 import io.legado.app.ui.config.settings.SettingList
 import io.legado.app.ui.config.settings.SectionActions
+import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.config.settings.SwitchRow
 import io.legado.app.ui.config.settings.TextEditSheet
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.ui.config.settings.ValueRow
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefBoolean
@@ -63,29 +66,57 @@ fun BackupSection(actions: SectionActions) {
     var restoreNames by remember { mutableStateOf<List<String>?>(null) }
     var lanSheet by remember { mutableStateOf<LanState>(LanState.Closed) }
     var confirmLocalPw by remember { mutableStateOf(false) }
+    // B29：各弹层槽位各持一份两段式离场控制器；离场段拒收重复打开。
+    val textExit = rememberSheetExitController()
+    val numberExit = rememberSheetExitController()
+    val contentExit = rememberSheetExitController()
+    val ignoreExit = rememberSheetExitController()
+    val modeExit = rememberSheetExitController()
+    val restoreExit = rememberSheetExitController()
+    val pwExit = rememberSheetExitController()
+    val lanExit = rememberSheetExitController()
+    val qrExit = rememberSheetExitController()
 
     val groups = listOf(
         SettingGroup(
             stringRes(R.string.web_dav_set),
             listOf(
                 ValueRow(stringRes(R.string.web_dav_url), context.getPrefString(PreferKey.webDavUrl) ?: stringRes(R.string.web_dav_url_s)) {
-                    textTarget = PrefTextTarget(PreferKey.webDavUrl, R.string.web_dav_url, context.getPrefString(PreferKey.webDavUrl), false)
+                    if (textExit.canOpen) {
+                        textTarget = PrefTextTarget(PreferKey.webDavUrl, R.string.web_dav_url, context.getPrefString(PreferKey.webDavUrl), false)
+                        textExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.web_dav_account), context.getPrefString(PreferKey.webDavAccount) ?: stringRes(R.string.web_dav_account_s)) {
-                    textTarget = PrefTextTarget(PreferKey.webDavAccount, R.string.web_dav_account, context.getPrefString(PreferKey.webDavAccount), false)
+                    if (textExit.canOpen) {
+                        textTarget = PrefTextTarget(PreferKey.webDavAccount, R.string.web_dav_account, context.getPrefString(PreferKey.webDavAccount), false)
+                        textExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.web_dav_pw), context.getPrefString(PreferKey.webDavPassword)?.let { "*".repeat(it.length) } ?: stringRes(R.string.web_dav_pw_s)) {
-                    textTarget = PrefTextTarget(PreferKey.webDavPassword, R.string.web_dav_pw, context.getPrefString(PreferKey.webDavPassword), true)
+                    if (textExit.canOpen) {
+                        textTarget = PrefTextTarget(PreferKey.webDavPassword, R.string.web_dav_pw, context.getPrefString(PreferKey.webDavPassword), true)
+                        textExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.sub_dir), AppConfig.webDavDir) {
-                    textTarget = PrefTextTarget(PreferKey.webDavDir, R.string.sub_dir, AppConfig.webDavDir, false)
+                    if (textExit.canOpen) {
+                        textTarget = PrefTextTarget(PreferKey.webDavDir, R.string.sub_dir, AppConfig.webDavDir, false)
+                        textExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.webdav_device_name), AppConfig.webDavDeviceName) {
-                    textTarget = PrefTextTarget(PreferKey.webDavDeviceName, R.string.webdav_device_name, AppConfig.webDavDeviceName, false)
+                    if (textExit.canOpen) {
+                        textTarget = PrefTextTarget(PreferKey.webDavDeviceName, R.string.webdav_device_name, AppConfig.webDavDeviceName, false)
+                        textExit.open()
+                    }
                 },
                 ValueRow(stringRes(R.string.webdav_backup_keep_count_t), stringRes(R.string.webdav_backup_keep_count_s)) {
-                    numberTarget = NumberTarget(R.string.webdav_backup_keep_count_t, 0, 999, AppConfig.webDavBackupKeepCount) {
-                        context.putPrefInt(PreferKey.webDavBackupKeepCount, it)
+                    if (numberExit.canOpen) {
+                        numberTarget = NumberTarget(R.string.webdav_backup_keep_count_t, 0, 999, AppConfig.webDavBackupKeepCount) {
+                            context.putPrefInt(PreferKey.webDavBackupKeepCount, it)
+                        }
+                        numberExit.open()
                     }
                 },
                 SwitchRow(PreferKey.webDavBookAutoUpload, stringRes(R.string.webdav_book_auto_upload_t), stringRes(R.string.webdav_book_auto_upload_s), false),
@@ -97,21 +128,49 @@ fun BackupSection(actions: SectionActions) {
         SettingGroup(
             stringRes(R.string.backup_restore),
             listOf(
-                ValueRow(stringRes(R.string.set_local_password), stringRes(R.string.set_local_password_summary)) { confirmLocalPw = true },
+                ValueRow(stringRes(R.string.set_local_password), stringRes(R.string.set_local_password_summary)) {
+                    if (pwExit.canOpen) {
+                        confirmLocalPw = true
+                        pwExit.open()
+                    }
+                },
                 ValueRow(stringRes(R.string.backup_path), stringRes(R.string.select_backup_path)) {
                     actions.pickFolder { uri -> if (uri != null) context.putPrefString(PreferKey.backupPath, uri) }
                 },
-                ValueRow(stringRes(R.string.backup_content), stringRes(R.string.backup_content_summary)) { contentMulti = true },
-                ValueRow(stringRes(R.string.lan_backup_transfer), stringRes(R.string.lan_backup_transfer_summary)) { lanSheet = LanState.Menu },
-                ValueRow(stringRes(R.string.backup), stringRes(R.string.backup_destination_summary)) { backupModeSheet = true },
+                ValueRow(stringRes(R.string.backup_content), stringRes(R.string.backup_content_summary)) {
+                    if (contentExit.canOpen) {
+                        contentMulti = true
+                        contentExit.open()
+                    }
+                },
+                ValueRow(stringRes(R.string.lan_backup_transfer), stringRes(R.string.lan_backup_transfer_summary)) {
+                    if (lanExit.canOpen) {
+                        lanSheet = LanState.Menu
+                        lanExit.open()
+                    }
+                },
+                ValueRow(stringRes(R.string.backup), stringRes(R.string.backup_destination_summary)) {
+                    if (modeExit.canOpen) {
+                        backupModeSheet = true
+                        modeExit.open()
+                    }
+                },
                 ValueRow(stringRes(R.string.restore), stringRes(R.string.restore_summary)) {
                     scope.launch {
                         vm.webDavBackupNames().onSuccess { names ->
-                            restoreNames = names
+                            if (restoreExit.canOpen) {
+                                restoreNames = names
+                                restoreExit.open()
+                            }
                         }.onFailure { actions.toast(it.localizedMessage ?: "") }
                     }
                 },
-                ValueRow(stringRes(R.string.restore_ignore), stringRes(R.string.restore_ignore_summary)) { ignoreMulti = true },
+                ValueRow(stringRes(R.string.restore_ignore), stringRes(R.string.restore_ignore_summary)) {
+                    if (ignoreExit.canOpen) {
+                        ignoreMulti = true
+                        ignoreExit.open()
+                    }
+                },
                 SwitchRow(PreferKey.onlyLatestBackup, stringRes(R.string.only_latest_backup_t), stringRes(R.string.only_latest_backup_s), true),
                 ValueRow(stringRes(R.string.auto_backup_t)) { autoBackupSheet = true },
                 SwitchRow(PreferKey.autoCheckNewBackup, stringRes(R.string.auto_check_new_backup_t), stringRes(R.string.auto_check_new_backup_s), true),
@@ -122,46 +181,52 @@ fun BackupSection(actions: SectionActions) {
     SettingList(groups)
 
     textTarget?.let { t ->
-        TextEditSheet(true, stringRes(t.titleRes), t.initial, "", password = t.password, onConfirm = { v ->
-            context.putPrefString(t.key, v)
-            vm.upWebDavConfig()
-        }, onDismiss = { textTarget = null })
+        SheetExitHost(textExit, onFinished = { textTarget = null }) {
+            TextEditSheet(textExit.visible, stringRes(t.titleRes), t.initial, "", password = t.password, onConfirm = { v ->
+                context.putPrefString(t.key, v)
+                vm.upWebDavConfig()
+            }, onDismiss = { textExit.beginExit() })
+        }
     }
 
     numberTarget?.let { t ->
-        NumberPickerSheet(true, stringRes(t.titleRes), t.min, t.max, t.current, onConfirm = t.apply, onDismiss = { numberTarget = null })
+        SheetExitHost(numberExit, onFinished = { numberTarget = null }) {
+            NumberPickerSheet(numberExit.visible, stringRes(t.titleRes), t.min, t.max, t.current, onConfirm = t.apply, onDismiss = { numberExit.beginExit() })
+        }
     }
 
     if (contentMulti) {
         val checked = BooleanArray(BackupConfig.contentKeys.size) { BackupConfig.contentIsEnabled(BackupConfig.contentKeys[it]) }
-        MultiChoiceSheet(
-            true,
-            stringRes(R.string.backup_content),
-            BackupConfig.contentTitles.toList(),
-            checked,
-            onConfirm = { result ->
-                BackupConfig.contentKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = !result[i] }
-                BackupConfig.saveIgnoreConfig()
-                contentMulti = false
-            },
-            onDismiss = { contentMulti = false },
-        )
+        SheetExitHost(contentExit, onFinished = { contentMulti = false }) {
+            MultiChoiceSheet(
+                contentExit.visible,
+                stringRes(R.string.backup_content),
+                BackupConfig.contentTitles.toList(),
+                checked,
+                onConfirm = { result ->
+                    BackupConfig.contentKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = !result[i] }
+                    BackupConfig.saveIgnoreConfig()
+                },
+                onDismiss = { contentExit.beginExit() },
+            )
+        }
     }
 
     if (ignoreMulti) {
         val checked = BooleanArray(BackupConfig.ignoreKeys.size) { BackupConfig.ignoreConfig[BackupConfig.ignoreKeys[it]] ?: false }
-        MultiChoiceSheet(
-            true,
-            stringRes(R.string.restore_ignore),
-            BackupConfig.ignoreTitle.toList(),
-            checked,
-            onConfirm = { result ->
-                BackupConfig.ignoreKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = result[i] }
-                BackupConfig.saveIgnoreConfig()
-                ignoreMulti = false
-            },
-            onDismiss = { ignoreMulti = false },
-        )
+        SheetExitHost(ignoreExit, onFinished = { ignoreMulti = false }) {
+            MultiChoiceSheet(
+                ignoreExit.visible,
+                stringRes(R.string.restore_ignore),
+                BackupConfig.ignoreTitle.toList(),
+                checked,
+                onConfirm = { result ->
+                    BackupConfig.ignoreKeys.forEachIndexed { i, key -> BackupConfig.ignoreConfig[key] = result[i] }
+                    BackupConfig.saveIgnoreConfig()
+                },
+                onDismiss = { ignoreExit.beginExit() },
+            )
+        }
     }
 
     if (autoBackupSheet) {
@@ -169,20 +234,23 @@ fun BackupSection(actions: SectionActions) {
     }
 
     if (backupModeSheet) {
-        InkBottomSheetHost(title = stringRes(R.string.backup), onDismiss = { backupModeSheet = false }) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                io.legado.app.ui.components.InkButton(stringRes(R.string.backup_local_only), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) {
-                    backupModeSheet = false
-                    scope.launch {
-                        val err = vm.backup(AppConfig.backupPath, false)
-                        actions.toast(if (err == null) context.getString(R.string.backup_success) else context.getString(R.string.backup_fail, err))
+        SheetExitHost(modeExit, onFinished = { backupModeSheet = false }) {
+            InkBottomSheetHost(visible = modeExit.visible, title = stringRes(R.string.backup), onDismiss = { modeExit.beginExit() }) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // 动作按钮为同屏触发备份任务后直摘（旧口径）；遮罩 / 拖拽关闭走 modeExit 两段式离场。
+                    io.legado.app.ui.components.InkButton(stringRes(R.string.backup_local_only), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY) {
+                        backupModeSheet = false
+                        scope.launch {
+                            val err = vm.backup(AppConfig.backupPath, false)
+                            actions.toast(if (err == null) context.getString(R.string.backup_success) else context.getString(R.string.backup_fail, err))
+                        }
                     }
-                }
-                io.legado.app.ui.components.InkButton(stringRes(R.string.backup_local_webdav)) {
-                    backupModeSheet = false
-                    scope.launch {
-                        val err = vm.backup(AppConfig.backupPath, true)
-                        actions.toast(if (err == null) context.getString(R.string.backup_success) else context.getString(R.string.backup_fail, err))
+                    io.legado.app.ui.components.InkButton(stringRes(R.string.backup_local_webdav)) {
+                        backupModeSheet = false
+                        scope.launch {
+                            val err = vm.backup(AppConfig.backupPath, true)
+                            actions.toast(if (err == null) context.getString(R.string.backup_success) else context.getString(R.string.backup_fail, err))
+                        }
                     }
                 }
             }
@@ -190,42 +258,54 @@ fun BackupSection(actions: SectionActions) {
     }
 
     restoreNames?.let { names ->
-        ListPickSheet(true, stringRes(R.string.select_restore_file), names, names, "", onPick = { name ->
-            scope.launch {
-                vm.restoreWebDav(name).onFailure { actions.toast(it.localizedMessage ?: "") }
-            }
-        }, onDismiss = { restoreNames = null })
+        SheetExitHost(restoreExit, onFinished = { restoreNames = null }) {
+            ListPickSheet(restoreExit.visible, stringRes(R.string.select_restore_file), names, names, "", onPick = { name ->
+                scope.launch {
+                    vm.restoreWebDav(name).onFailure { actions.toast(it.localizedMessage ?: "") }
+                }
+            }, onDismiss = { restoreExit.beginExit() })
+        }
     }
 
     if (confirmLocalPw) {
-        TextEditSheet(true, stringRes(R.string.set_local_password), LocalConfig.password, "password", onConfirm = { v ->
-            LocalConfig.password = v.ifBlank { null }
-        }, onDismiss = { confirmLocalPw = false })
+        SheetExitHost(pwExit, onFinished = { confirmLocalPw = false }) {
+            TextEditSheet(pwExit.visible, stringRes(R.string.set_local_password), LocalConfig.password, "password", onConfirm = { v ->
+                LocalConfig.password = v.ifBlank { null }
+            }, onDismiss = { pwExit.beginExit() })
+        }
     }
 
     when (val lan = lanSheet) {
-        LanState.Menu -> LanMenuSheet(
-            onSend = {
-                lanSheet = LanState.Closed
-                scope.launch {
-                    vm.lanPrepare().onSuccess { bitmap -> lanSheet = LanState.Qr(bitmap) }
-                        .onFailure { actions.toast(it.localizedMessage ?: "") }
-                }
-            },
-            onReceive = {
-                lanSheet = LanState.Closed
-                actions.scanQr { qr ->
-                    if (qr != null) scope.launch {
-                        vm.lanReceive(qr).onFailure { actions.toast(it.localizedMessage ?: "") }
+        LanState.Menu -> SheetExitHost(lanExit, onFinished = { lanSheet = LanState.Closed }) {
+            LanMenuSheet(
+                visible = lanExit.visible,
+                onSend = {
+                    lanSheet = LanState.Closed
+                    scope.launch {
+                        vm.lanPrepare().onSuccess { bitmap -> lanSheet = LanState.Qr(bitmap) }
+                            .onFailure { actions.toast(it.localizedMessage ?: "") }
+                    }
+                },
+                onReceive = {
+                    lanSheet = LanState.Closed
+                    actions.scanQr { qr ->
+                        if (qr != null) scope.launch {
+                            vm.lanReceive(qr).onFailure { actions.toast(it.localizedMessage ?: "") }
+                        }
+                    }
+                },
+                onDismiss = { lanExit.beginExit() },
+            )
+        }
+        is LanState.Qr -> {
+            LaunchedEffect(lanSheet) { qrExit.open() }
+            SheetExitHost(qrExit, onFinished = { lanSheet = LanState.Closed }) {
+                InkBottomSheetHost(visible = qrExit.visible, title = stringRes(R.string.lan_backup_send), onDismiss = { qrExit.beginExit() }) {
+                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Image(bitmap = lan.bitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.size(200.dp))
+                        Spacer(Modifier.height(12.dp))
                     }
                 }
-            },
-            onDismiss = { lanSheet = LanState.Closed },
-        )
-        is LanState.Qr -> InkBottomSheetHost(title = stringRes(R.string.lan_backup_send), onDismiss = { lanSheet = LanState.Closed }) {
-            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                Image(bitmap = lan.bitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.size(200.dp))
-                Spacer(Modifier.height(12.dp))
             }
         }
         LanState.Closed -> Unit
@@ -233,8 +313,8 @@ fun BackupSection(actions: SectionActions) {
 }
 
 @Composable
-private fun LanMenuSheet(onSend: () -> Unit, onReceive: () -> Unit, onDismiss: () -> Unit) {
-    InkBottomSheetHost(title = stringRes(R.string.lan_backup_transfer), onDismiss = onDismiss) {
+private fun LanMenuSheet(visible: Boolean, onSend: () -> Unit, onReceive: () -> Unit, onDismiss: () -> Unit) {
+    InkBottomSheetHost(visible = visible, title = stringRes(R.string.lan_backup_transfer), onDismiss = onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             io.legado.app.ui.components.InkButton(stringRes(R.string.lan_backup_send), variant = io.legado.app.ui.components.InkButtonVariant.SECONDARY, onClick = onSend)
             io.legado.app.ui.components.InkButton(stringRes(R.string.lan_backup_receive), onClick = onReceive)

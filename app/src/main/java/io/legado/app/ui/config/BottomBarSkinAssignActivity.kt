@@ -44,6 +44,8 @@ import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.config.settings.InkBottomSheetHost
 import io.legado.app.ui.config.settings.SettingRowShell
 import io.legado.app.ui.config.settings.SettingScaffold
+import io.legado.app.ui.config.settings.SheetExitHost
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -118,6 +120,8 @@ private fun AssignScreen(
     var palette by remember { mutableStateOf<List<File>>(emptyList()) }
     var thumbs by remember { mutableStateOf<Map<File, Bitmap>>(emptyMap()) }
     var paletteFor by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    // B29：配色弹层两段式离场控制器；离场段拒收重复打开。
+    val paletteExit = rememberSheetExitController()
 
     val slotLabels = linkedMapOf(
         "bookshelf" to R.string.bookshelf,
@@ -178,9 +182,13 @@ private fun AssignScreen(
                         style = androidx.compose.ui.text.TextStyle(color = ComponentTokens.textPrimary, fontSize = 16.sp()),
                     )
                 }
-                Thumb(row.selected, enabled = true) { paletteFor = index to true }
+                Thumb(row.selected, enabled = true) {
+                    if (paletteExit.canOpen) { paletteFor = index to true; paletteExit.open() }
+                }
                 Spacer(Modifier.size(12.dp))
-                Thumb(row.normal, enabled = row.selected != null) { paletteFor = index to false }
+                Thumb(row.normal, enabled = row.selected != null) {
+                    if (paletteExit.canOpen) { paletteFor = index to false; paletteExit.open() }
+                }
             }
         }
         item {
@@ -199,7 +207,8 @@ private fun AssignScreen(
     }
 
     paletteFor?.let { (index, isSelected) ->
-        InkBottomSheetHost(title = context.getString(rows[index].labelRes), onDismiss = { paletteFor = null }) {
+        SheetExitHost(paletteExit, onFinished = { paletteFor = null }) {
+            InkBottomSheetHost(visible = paletteExit.visible, title = context.getString(rows[index].labelRes), onDismiss = { paletteExit.beginExit() }) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (rows[index].selected != null) {
                     io.legado.app.ui.components.InkButton(context.getString(R.string.clear), variant = io.legado.app.ui.components.InkButtonVariant.GHOST) {
@@ -207,7 +216,7 @@ private fun AssignScreen(
                             it[index].selected = null
                             it[index].normal = null
                         }
-                        paletteFor = null
+                        paletteExit.beginExit()
                     }
                 }
                 androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
@@ -230,7 +239,7 @@ private fun AssignScreen(
                                                 it[index].normal = file
                                             }
                                         }
-                                        paletteFor = null
+                                        paletteExit.beginExit()
                                     })
                                 },
                         ) {
@@ -241,6 +250,7 @@ private fun AssignScreen(
                     }
                 }
             }
+        }
         }
     }
 }

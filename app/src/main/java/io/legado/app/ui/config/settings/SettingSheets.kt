@@ -49,9 +49,10 @@ fun NumberPickerSheet(
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!visible) return
+    // B29：不按 visible 早退摘子树——离场段 visible=false 时子树保留组合，由 InkBottomSheet
+    // 内部保留帧条件（progress 归 0 且 !visible）收束；宿主在动画收束后才清空槽位摘子树。
     var value by remember(current) { mutableIntStateOf(current.coerceIn(min, max)) }
-    InkBottomSheet(visible = true, onDismiss = onDismiss, title = title) {
+    InkBottomSheet(visible = visible, onDismiss = onDismiss, title = title) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -104,9 +105,9 @@ fun TextEditSheet(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!visible) return
+    // B29：离场段不早退，子树保留播离场动画（口径见 NumberPickerSheet 注释）。
     var text by remember(initial) { mutableStateOf(initial ?: "") }
-    InkBottomSheet(visible = true, onDismiss = onDismiss, title = title) {
+    InkBottomSheet(visible = visible, onDismiss = onDismiss, title = title) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             BasicTextField(
                 value = text,
@@ -150,8 +151,8 @@ fun ListPickSheet(
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!visible) return
-    InkBottomSheet(visible = true, onDismiss = onDismiss, title = title) {
+    // B29：离场段不早退，子树保留播离场动画（口径见 NumberPickerSheet 注释）。
+    InkBottomSheet(visible = visible, onDismiss = onDismiss, title = title) {
         Column(
             Modifier
                 .padding(horizontal = 8.dp, vertical = 8.dp)
@@ -189,9 +190,9 @@ fun MultiChoiceSheet(
     onConfirm: (BooleanArray) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!visible) return
+    // B29：离场段不早退，子树保留播离场动画（口径见 NumberPickerSheet 注释）。
     val state = remember(checked) { checked.copyOf() }
-    InkBottomSheet(visible = true, onDismiss = onDismiss, title = title) {
+    InkBottomSheet(visible = visible, onDismiss = onDismiss, title = title) {
         Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
             items.forEachIndexed { index, label ->
                 Row(
@@ -231,8 +232,8 @@ fun ConfirmSheet(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!visible) return
-    InkBottomSheet(visible = true, onDismiss = onDismiss, title = title) {
+    // B29：离场段不早退，子树保留播离场动画（口径见 NumberPickerSheet 注释）。
+    InkBottomSheet(visible = visible, onDismiss = onDismiss, title = title) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             BasicText(
                 text = message,
