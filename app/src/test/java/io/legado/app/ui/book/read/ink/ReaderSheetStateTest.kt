@@ -11,16 +11,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * B20 点字半屏连点竞态单测（纯 JVM；[ReaderSheetState] 的 mutableStateOf 可在普通单测
- * 直接实例化，先例见 ReaderShellStateTest）。
+ * B20 点字半屏连点竞态 + B21 离场两段式单测（纯 JVM；[ReaderSheetState] 的
+ * mutableStateOf 可在普通单测直接实例化，先例见 ReaderShellStateTest）。
  *
- * 断言与锚点卡六条判据一一对应：
+ * B20 六条判据：
  *  1. 同字重复请求：不新开、不重建，request 与首份 snapshotBefore 保持首次值；
  *  2. 异字请求：本单口径为「拒绝」——不切换内容，首份快照保留；
  *  3. isOpen 真实消费：open / close 路径均读取，初始 / 打开 / 关闭状态可断言；
  *  4. 关闭后再开：快照正确重置，不残留上一轮 after；
  *  5. 快速连点两次（同步连调模拟 <200ms）：只持有一层请求；
  *  6. B1 旧判据不破：开合快照五字段全等仍判 true，字段漂移判 false。
+ *
+ * B21 两条：关闭离场段子树保留、visible=false、离场段拒收新请求；动画收束回调后
+ * 保留请求清空并可重开新会话。两段式生命周期在纯 JVM 用例里以 finishExitAnimation()
+ * 等效 Compose 层的收束延时回调。
  */
 class ReaderSheetStateTest {
 
@@ -74,6 +78,8 @@ class ReaderSheetStateTest {
         state.dismiss(snap())
         assertFalse(state.isOpen)
         assertNull(state.request)
+        // B21：离场动画收束回调（等效延时在 Compose 层）；收束前重开被离场闸拒收。
+        state.finishExitAnimation()
 
         // 已关态冗余 dismiss 不回写 after，比对结果仍为上一轮的 true。
         state.open(req(ReaderDetailKind.CHAR, "道"), snap())
@@ -88,6 +94,7 @@ class ReaderSheetStateTest {
         state.open(req(ReaderDetailKind.CHAR, "道"), snap(scroll = 320))
         state.dismiss(snap(scroll = 320))
         assertEquals(true, state.restoredExactly)
+        state.finishExitAnimation()
 
         state.open(req(ReaderDetailKind.PLACE, "曲阜"), snap(scroll = 500))
         assertEquals(snap(scroll = 500), state.snapshotBefore)
@@ -120,5 +127,45 @@ class ReaderSheetStateTest {
         drifted.open(req(ReaderDetailKind.CHAR, "道"), snap())
         drifted.dismiss(snap(scroll = 321))
         assertEquals(false, drifted.restoredExactly)
+    }
+
+    @Test
+    fun `判据B21 关闭离场段保留子树 visible=false 且拒收新请求`() {
+        val state = ReaderSheetState()
+        val first = req(ReaderDetailKind.PERSON, "孔子")
+        state.open(first, snap(scroll = 320))
+
+        state.dismiss(snap(scroll = 320))
+
+        // 两段式第一段：状态请求按 B20 口径置空，但离场守卫保留原请求，子树仍在组合。
+        assertNull(state.request)
+        assertSame(first, state.exitRequest)
+        assertFalse(state.exitVisible)
+        assertTrue(state.isExiting)
+
+        // 离场段新请求被拒收：不替换保留请求、不重采快照。
+        state.open(req(ReaderDetailKind.CHAR, "仁"), snap(scroll = 400))
+        assertSame(first, state.exitRequest)
+        assertTrue(state.isExiting)
+        assertNull(state.request)
+    }
+
+    @Test
+    fun `判据B21 动画收束回调后保留请求清空并可重开新会话`() {
+        val state = ReaderSheetState()
+        state.open(req(ReaderDetailKind.PERSON, "孔子"), snap(scroll = 320))
+        state.dismiss(snap(scroll = 320))
+
+        state.finishExitAnimation()
+
+        assertFalse(state.isExiting)
+        assertNull(state.exitRequest)
+        assertFalse(state.exitVisible)
+
+        val second = req(ReaderDetailKind.PLACE, "曲阜")
+        state.open(second, snap(scroll = 500))
+        assertSame(second, state.request)
+        assertSame(second, state.exitRequest)
+        assertTrue(state.exitVisible)
     }
 }

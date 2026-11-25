@@ -30,17 +30,37 @@ import io.legado.app.ui.components.ReaderSnapshot
  *   并重走开合动画，属另一条需求，本单不做。
  * - close 路径：冗余 dismiss（已关态）不再回写 after 快照，避免两轮开合串味。
  *
- * @param request 当前打开的详情请求；null 表示覆盖层关闭。
+ * 〔B21 离场两段式口径〕
+ * 关闭不直接摘子树：[dismiss] 先把请求交 [ReaderSheetExitGate] 进入离场段（保留原请求、
+ * `visible=false` 播组件内离场动画），状态请求仍按 B20 口径置空；动画收束后覆盖层回调
+ * [finishExitAnimation] 清空保留请求再摘子树。离场段新请求被 [exitGate] 拒收，与 B20
+ * 判重闸串联而不互相替代；守卫快照比对口径不变。
+ *
+ * @param request 当前打开的详情请求；null 表示覆盖层关闭（离场段保留请求另存于 exitGate）。
  */
 class ReaderSheetState {
 
     private val guard = ReaderSheetGuard()
+
+    private val exitGate = ReaderSheetExitGate()
 
     var request by mutableStateOf<ReaderDetailRequest?>(null)
         private set
 
     val isOpen: Boolean
         get() = request != null
+
+    /** 离场动画播放中（两段式关闭第二段未收束）；入口闸据此拒收新半屏，配合 B20 闸。 */
+    val isExiting: Boolean
+        get() = exitGate.phase == ReaderSheetExitPhase.EXITING
+
+    /** 离场段保留的原请求；覆盖层动画期间按此组合，收束后为 null。 */
+    val exitRequest: ReaderDetailRequest?
+        get() = exitGate.retainedRequest
+
+    /** 传给 InkHalfSheet 的可见性：离场段 false，播组件内下降 / 遮罩回亮动画。 */
+    val exitVisible: Boolean
+        get() = exitGate.visible
 
     /** 供单测断言首份快照基线；生产路径只经 [restoredExactly] 读比对结果。 */
     internal val snapshotBefore: ReaderSnapshot?
@@ -51,20 +71,31 @@ class ReaderSheetState {
      * 清掉上一轮关闭后的残留快照，避免两次开合串味。
      */
     fun open(request: ReaderDetailRequest, before: ReaderSnapshot) {
+        // B21 闸：离场段拒收新请求；在场段重复请求判重仍走下方 B20 守卫闸，语义不替代。
+        if (!exitGate.canOpen) return
         // 闸：isOpen 是 open 路径真实消费方；守卫按透传可见性判重，拒收时首份基线不动。
         if (!guard.open(before, alreadyOpen = isOpen)) return
+        exitGate.open(request)
         this.request = request
     }
 
     /**
-     * 关闭覆盖层：已关态冗余关闭直接返回；正常关闭记录关闭后快照并清空请求；
-     * 宿主状态由宿主自身回写，本方法不改写任何阅读位置。
+     * 关闭覆盖层：已关态冗余关闭直接返回；正常关闭记录关闭后快照；先交离场守卫保留原
+     * 请求播离场动画，状态请求按 B20 口径置空；宿主状态由宿主自身回写，本方法不改写
+     * 任何阅读位置。
      */
     fun dismiss(after: ReaderSnapshot) {
         // 闸：isOpen 是 close 路径真实消费方；未开时不回写 after 快照。
         if (!isOpen) return
         guard.dismiss(after, alreadyOpen = isOpen)
+        // B21 两段式：离场段保留原请求、visible=false；动画收束后由 finishExitAnimation 摘子树。
+        exitGate.beginExit(request)
         request = null
+    }
+
+    /** 离场动画收束后由覆盖层回调：清空离场段保留请求，子树可摘除；非离场段空操作。 */
+    fun finishExitAnimation() {
+        exitGate.finishExit()
     }
 
     /** 开合前后宿主状态是否一字不差；尚未打开或尚未关闭时返回 null（不可判定）。 */

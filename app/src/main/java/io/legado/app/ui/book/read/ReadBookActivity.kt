@@ -1548,9 +1548,11 @@ class ReadBookActivity : BaseReadBookActivity(),
      *
      * B20 入口闸：半屏已开则直接返回，不再发请求、不重复采快照；状态层 [ReaderSheetState.open]
      * 另有 isOpen 兜底闸，连点竞态下不叠第二层、首份快照基线不被冲掉。
+     * B21 离场闸：离场动画播放中（isExiting）同样拒收新请求，动画收束前不叠新半屏；
+     * 状态层 open 另有 exitGate 兜底闸。
      */
     override fun openReaderSheet(request: ReaderDetailRequest) {
-        if (readerSheetState.isOpen) return
+        if (readerSheetState.isOpen || readerSheetState.isExiting) return
         readerSheetState.open(request, captureReaderSnapshot())
     }
 

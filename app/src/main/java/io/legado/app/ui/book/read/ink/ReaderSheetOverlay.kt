@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -13,11 +14,13 @@ import androidx.compose.ui.unit.sp
 import io.legado.app.ui.book.read.page.ReaderDetailKind
 import io.legado.app.ui.book.read.page.ReaderDetailRequest
 import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.HalfSheetAnchors
 import io.legado.app.ui.components.HalfSheetFallback
 import io.legado.app.ui.components.InkHalfSheet
+import kotlinx.coroutines.delay
 
 /**
- * 阅读页点字详情半屏覆盖层（B1 接线）。
+ * 阅读页点字详情半屏覆盖层（B1 接线；B21 补两段式离场）。
  *
  * 宿主 View（ContentTextView）把命中结果打包成 [ReaderDetailRequest] 经状态持有者灌入；
  * 本覆盖层按入口类型分派人物 / 纪年 / 字词 / 地名四个独立调用点，各自渲染统一自绘
@@ -27,7 +30,13 @@ import io.legado.app.ui.components.InkHalfSheet
  * 开合前后快照由 [ReaderSheetState] 采集比对。本层不套 MaterialTheme、不取
  * Material colorScheme、不用 ripple / elevation；颜色只引 [ComponentTokens]。
  *
- * @param state 状态持有者；`state.request` 为 null 时覆盖层整体不组合。
+ * 〔B21 两段式关闭〕关闭不立即摘子树：[ReaderSheetState.dismiss] 后离场守卫保留原
+ * 请求、`visible=false` 播组件内离场动画；本覆盖层按保留请求继续组合，待离场动画
+ * 收束（遮罩 [HalfSheetAnchors.MASK_DURATION_MS] + Sheet [HalfSheetAnchors.RISE_DURATION_MS]，
+ * 组件内顺序播放）后回调 [ReaderSheetState.finishExitAnimation] 清空保留请求，子树摘除。
+ * 摘除时机以组件自有动画时长为等效延时依据，不写「立即摘」。
+ *
+ * @param state 状态持有者；离场收束后无保留请求时覆盖层整体不组合。
  * @param onDismiss 关闭回调；宿主据此采关闭后快照并收口覆盖层。
  * @param onLinkSelected 分区行点击回传跳转 query（同名候选 / 同场人物切换）；遗留通道暂无候选映射时为空操作。
  */
@@ -37,12 +46,24 @@ fun ReaderSheetOverlay(
     onDismiss: () -> Unit,
     onLinkSelected: (String) -> Unit = {},
 ) {
-    val request = state.request ?: return
+    val request = state.exitRequest ?: return
+    val visible = state.exitVisible
+
+    // 离场段：等效延时对齐组件内离场动画总时长（遮罩 + Sheet 顺序播放），收束后再摘子树。
+    // InkHalfSheet 契约未暴露动画完成回调，按锚点卡允许的「等效延时」口径收口；时长只引
+    // 组件自有常量，不在本层另造魔法数。
+    LaunchedEffect(state.isExiting) {
+        if (state.isExiting) {
+            delay((HalfSheetAnchors.MASK_DURATION_MS + HalfSheetAnchors.RISE_DURATION_MS).toLong())
+            state.finishExitAnimation()
+        }
+    }
+
     when (request.kind) {
-        ReaderDetailKind.PERSON -> PersonSheetBody(request, onDismiss, onLinkSelected)
-        ReaderDetailKind.YEAR -> YearSheetBody(request, onDismiss, onLinkSelected)
-        ReaderDetailKind.CHAR -> CharSheetBody(request, onDismiss, onLinkSelected)
-        ReaderDetailKind.PLACE -> PlaceSheetBody(request, onDismiss, onLinkSelected)
+        ReaderDetailKind.PERSON -> PersonSheetBody(request, visible, onDismiss, onLinkSelected)
+        ReaderDetailKind.YEAR -> YearSheetBody(request, visible, onDismiss, onLinkSelected)
+        ReaderDetailKind.CHAR -> CharSheetBody(request, visible, onDismiss, onLinkSelected)
+        ReaderDetailKind.PLACE -> PlaceSheetBody(request, visible, onDismiss, onLinkSelected)
     }
 }
 
@@ -50,11 +71,12 @@ fun ReaderSheetOverlay(
 @Composable
 private fun PersonSheetBody(
     request: ReaderDetailRequest,
+    visible: Boolean,
     onDismiss: () -> Unit,
     onLinkSelected: (String) -> Unit,
 ) {
     InkHalfSheet(
-        visible = true,
+        visible = visible,
         onDismiss = onDismiss,
         dialog = true,
         title = request.token,
@@ -68,11 +90,12 @@ private fun PersonSheetBody(
 @Composable
 private fun YearSheetBody(
     request: ReaderDetailRequest,
+    visible: Boolean,
     onDismiss: () -> Unit,
     onLinkSelected: (String) -> Unit,
 ) {
     InkHalfSheet(
-        visible = true,
+        visible = visible,
         onDismiss = onDismiss,
         dialog = true,
         title = request.token,
@@ -86,11 +109,12 @@ private fun YearSheetBody(
 @Composable
 private fun CharSheetBody(
     request: ReaderDetailRequest,
+    visible: Boolean,
     onDismiss: () -> Unit,
     onLinkSelected: (String) -> Unit,
 ) {
     InkHalfSheet(
-        visible = true,
+        visible = visible,
         onDismiss = onDismiss,
         dialog = true,
         title = request.token,
@@ -104,11 +128,12 @@ private fun CharSheetBody(
 @Composable
 private fun PlaceSheetBody(
     request: ReaderDetailRequest,
+    visible: Boolean,
     onDismiss: () -> Unit,
     onLinkSelected: (String) -> Unit,
 ) {
     InkHalfSheet(
-        visible = true,
+        visible = visible,
         onDismiss = onDismiss,
         dialog = true,
         title = request.token,
