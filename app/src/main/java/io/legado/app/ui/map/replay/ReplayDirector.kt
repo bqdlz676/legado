@@ -104,6 +104,12 @@ class ReplayDirector(
     val clashes: MutableList<ClashEffect> = mutableListOf()
     val encounters: MutableList<EncounterRing> = mutableListOf()
 
+    /**
+     * 派发 / 边界告警台账：未知动作、目标棋子缺失等不生效项逐条登记，供壳层观测；
+     * 与活栈 warnings 口径一致——不生效必须可观测，不许静默空转。
+     */
+    val warnings: MutableList<String> = mutableListOf()
+
     // 上一帧仍相邻的敌我对子。交战只在「由不相邻变为相邻」的沿边触发：
     // 否则一场交战 DONE 被清理后，位置没动的同一对子下一帧会立刻再炸一场，动画永远清不空。
     private val adjacentClashPairs = mutableSetOf<String>()
@@ -235,17 +241,31 @@ class ReplayDirector(
             val triggered = event.turn?.let { current >= it } ?: conditionTriggered(event)
             if (!triggered) return@forEachIndexed
 
+            // 边界：目标棋子 id 在战役中不存在；记告警不抛异常，事件仍登记为已点燃，不重复结算。
+            val target = armies.firstOrNull { it.id == event.targetId }
+            if (target == null) {
+                warnings += "事件「${event.reason}」：目标 ${event.targetId} 缺失，动作 ${event.action} 未生效"
+                appliedEvents.add(key)
+                return@forEachIndexed
+            }
+
             armies = armies.map { piece ->
                 if (piece.id != event.targetId) return@map piece
                 when (event.action) {
                     EventAction.MORALE_CHANGE ->
                         piece.withMorale(Morale.fromLabel(event.value))
                     EventAction.SUPPLY_CUT ->
-                        if (piece.morale == Morale.ROUT) piece
-                        else piece.withMorale(Morale.WAVERING)
+                        // 断粮口径对齐活栈 / 并行栈：清补给，不降士气；已溃散棋子不重复结算。
+                        if (piece.morale == Morale.ROUT) piece else piece.withSupply(0)
                     EventAction.SURRENDER -> {
                         routStartMs[piece.id] = now
                         piece.withMorale(Morale.ROUT)
+                    }
+                    else -> {
+                        // 兜底：回放可视化栈当前仅登记上述三种种子动作；枚举后续扩充或数据管道
+                        // 灌入 crossing 其余动作时，未接分支一律在此显式拒绝 + 告警，不许静默空转。
+                        warnings += "事件「${event.reason}」：回放栈暂不支持动作 ${event.action}（目标 ${piece.id}），未生效"
+                        piece
                     }
                 }
             }

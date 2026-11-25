@@ -53,7 +53,15 @@ enum class Intent {
     }
 }
 
-/** 战役事件动作：士气变化 / 断粮 / 溃散投降。 */
+/**
+ * 战役事件动作（回放可视化栈子集）。
+ *
+ * 回放栈由静态种子 / 后续数据管道驱动，不吃 campaign JSON；本枚举只登记回放棋子模型
+ * 能够落地的三种动作。crossing 活栈枚举（ui.map.crossing.model.EventAction）的其余
+ * 16 种动作（火攻 / 设伏 / 包抄 / 撤退 / 突围等）所需的存活、被俘、暴露、目标点
+ * 等状态在回放棋子模型上尚无对应字段，本栈不接执行分支；待双栈合并 / 数据管道落地时
+ * 再扩枚举。派发层对未接动作走显式拒绝 + 告警台账，不静默空转（见 ReplayDirector）。
+ */
 enum class EventAction {
     MORALE_CHANGE,
     SUPPLY_CUT,
@@ -72,6 +80,8 @@ data class BattleSide(
  *
  * @param strength 兵力规模：棋子尺寸与之成正比，主力比偏师大 1.5 倍（见 PieceVisual）
  * @param targetLat / targetLng 行军目标；null 表示固守原地
+ * @param supply 剩余补给等级 0..5（与 crossing 活栈 Corps.supply 口径对齐；5 = 满补给）。
+ *        回放棋子原无补给字段，D2 修复补入：断粮事件据此清零补给，不再错降士气。
  */
 data class ArmyPiece(
     val id: String,
@@ -85,6 +95,7 @@ data class ArmyPiece(
     val intent: Intent,
     val targetLat: Double? = null,
     val targetLng: Double? = null,
+    val supply: Int = SUPPLY_FULL,
 ) {
 
     val isRout: Boolean get() = morale == Morale.ROUT
@@ -94,8 +105,16 @@ data class ArmyPiece(
     /** 复制并替换士气（事件触发用）。 */
     fun withMorale(next: Morale): ArmyPiece = copy(morale = next)
 
+    /** 复制并替换补给等级；越界钳制在 0..[SUPPLY_FULL]，不允许负补给。 */
+    fun withSupply(level: Int): ArmyPiece = copy(supply = level.coerceIn(0, SUPPLY_FULL))
+
     /** 复制并替换位置（回放推进 / 落点用）。 */
     fun withPosition(lat: Double, lng: Double): ArmyPiece = copy(lat = lat, lng = lng)
+
+    companion object {
+        /** 满补给等级 0..5，口径对齐 crossing 活栈 CampaignJsonParser.SUPPLY_FULL。 */
+        const val SUPPLY_FULL: Int = 5
+    }
 }
 
 /** 时间轴阶段：turn 为该阶段起始回合，铜点落在底部金线下方。 */
