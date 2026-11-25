@@ -2,8 +2,10 @@ name: Package Debug APK
 
 on:
   # 由 verify 车道成功完成后触发：verify 全绿才进入打包，并行触发被此闸门排除。
+  # 注意：workflows 里填的是被监听 workflow 的 name 字段（verify.yml 的 "Verify (unit tests)"），
+  # 不是文件名 "verify"。填文件名不会报错，但闸门永远不触发——第 5 轮实测脚手架静默失效，故此处按 name 精确匹配。
   workflow_run:
-    workflows: ["verify"]
+    workflows: ["Verify (unit tests)"]
     types: [completed]
   # 保留手动入口（baseline 对照模式直接出包等场景）。
   workflow_dispatch:
