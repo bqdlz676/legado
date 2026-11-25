@@ -91,8 +91,11 @@ if [ -f "$LEDGER" ] && [ -f "$TIER" ]; then
 else bad "⑨并发上限" "缺 $LEDGER 或 $TIER"; fi
 
 # ⑯ 台账新鲜度（F-79/F-80）：HEAD 比台账新 >60min 即 FAIL；在飞超硬上限 FAIL；无当日行仅 WARN。
+# 输出纪律（M-10 收口）：结论行只保留一处 ok/FAIL 与最终 PASS 判据串；脚本内部 ok 不再回显，
+# WARN 单独成行并标注「不影响 GATE 结论」，不与 ok 混排。
 LED16=$(python3 data_scripts/check-dispatch-ledger.py 2>&1)
-if [ $? -eq 0 ]; then ok "⑯台账新鲜度" "$(echo "$LED16" | grep -E 'ok|PASS' | tail -2 | tr '\n' ' ')"; else bad "⑯台账新鲜度" "$(echo "$LED16" | grep 'FAIL' | head -3)"; fi
+if [ $? -eq 0 ]; then ok "⑯台账新鲜度" "$(echo "$LED16" | grep -E 'PASS' | tail -1)"; else bad "⑯台账新鲜度" "$(echo "$LED16" | grep 'FAIL' | head -3 | tr '\n' ' ')"; fi
+echo "$LED16" | grep 'WARN' | while read -r w; do say "⑯台账新鲜度(提示)" "$w（不影响 GATE 结论）"; done
 
 # ⑰ 并发档位表在册（F-82）：口径冻结必须含三档串，并发档位.md 必须存在且含"当前档位："行；
 #    防"只落最低档、后两档被摘要吞掉"（2026-11-24 漏改事故：口令被压缩时未落地部分被当成已完结）。
@@ -105,8 +108,10 @@ if [ -f "$TIER" ] && grep -q '当前档位：' "$TIER"; then TIER_OK2=1; else TI
 if [ "$TIER_OK" -eq 1 ] && [ "$TIER_OK2" -eq 1 ]; then ok "⑰档位表在册" "三档串与档位文件齐全"; else bad "⑰档位表在册" "三档串/档位文件缺失（F-82 未落地）"; fi
 
 # ⑱ 队列与满槽（F-84）：队列在册；PENDING 不超时丢单；不空槽空转；有积压不空转。
+# 输出纪律（M-10）：结论行只回显最终 PASS 判据串；WARN 单列并标注不影响 GATE 结论。
 QUE18=$(python3 data_scripts/check-dispatch-queue.py 2>&1)
-if [ $? -eq 0 ]; then ok "⑱队列满槽" "$(echo "$QUE18" | grep -E 'ok|PASS|WARN' | tr '\n' ' ')"; else bad "⑱队列满槽" "$(echo "$QUE18" | grep 'FAIL' | head -3)"; fi
+if [ $? -eq 0 ]; then ok "⑱队列满槽" "$(echo "$QUE18" | grep -E 'PASS' | tail -1)"; else bad "⑱队列满槽" "$(echo "$QUE18" | grep 'FAIL' | head -3 | tr '\n' ' ')"; fi
+echo "$QUE18" | grep 'WARN' | while read -r w; do say "⑱队列满槽(提示)" "$w（不影响 GATE 结论）"; done
 
 # ⑲ 锚点卡（F-85）：写码回执须带存在的锚点卡；验收报告须逐字对照锚点卡；
 #    机械改动 / F-73 退回设计 / 验收-选型（F-73 第二段，候选规格即锚点）豁免。
@@ -290,6 +295,17 @@ say "㊴认证书尾" "$(echo "$TR39" | grep -E 'PASS|WARN' | head -1)"
 #    结单 commit，commit 与单号无法回源）。扫最近 5 条 commit，纯标准库 git diff-tree 判据。
 SPLIT40=$(python3 data_scripts/check-commit-split.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊵提交路径分离" "$(echo "$SPLIT40" | grep 'COMMIT-SPLIT: PASS')"; else bad "㊵提交路径分离" "$(echo "$SPLIT40" | grep -E 'FAIL|混合' | head -3 | tr '\n' ' ')"; fi
+
+# ㊶ 队列↔台账结构与状态一致（M-01/M-02/M-04，Q-68）：主表列数与表头一致 / 状态白名单 /
+#    RUNNING 四要素（agent id、起始时间、文件域、判据锚）/ 队列与台账同 Q-xx 状态不矛盾。
+#    为什么：行结构漂移会让按列解析失真；僵尸 RUNNING 曾靠人工提交擦过；双事实源两处手写必漂。
+QL41=$(python3 data_scripts/check-queue-ledger.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊶队列台账一致" "$(echo "$QL41" | grep 'QUEUE-LEDGER: PASS')"; else bad "㊶队列台账一致" "$(echo "$QL41" | grep 'FAIL' | head -4 | tr '\n' ' ')"; fi
+
+# ㊷ 清单状态↔修复报告一致 + 状态词白名单（M-03/M-07，Q-68）：有修复/验收报告仍标 🔴 脱钩 FAIL；
+#    状态词不在五态白名单 FAIL。为什么：报告落盘没人回写清单，103 个 🔴 无法机械区分僵尸。
+LS42=$(python3 data_scripts/check-ledger-status.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊷清单状态词" "$(echo "$LS42" | grep 'LEDGER-STATUS: PASS')"; else bad "㊷清单状态词" "$(echo "$LS42" | grep 'FAIL' | head -6 | tr '\n' ' ')"; fi
 
 echo
 
