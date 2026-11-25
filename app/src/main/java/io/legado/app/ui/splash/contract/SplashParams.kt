@@ -23,7 +23,8 @@ import io.legado.app.ui.components.ComponentPalette
  *
  * 〔颜色口径〕
  * 全部颜色只引用既有单源 [ComponentPalette]：绢帛底 BG_PAGE、暖金 BRAND_GOLD、
- * 墨色 TEXT_PRIMARY、茶褐 TEXT_SECONDARY；本文件不写任何十六进制色值（锚点卡判据 4）。
+ * 墨色 TEXT_PRIMARY、茶褐 TEXT_SECONDARY（远山轮廓）、云灰 TEXT_TERTIARY（标语落款）；
+ * 本文件不写任何十六进制色值（锚点卡判据 4）。
  *
  * 〔本单边界〕
  * 本对象只管外观与时序参数；三点依次亮灭的透明度序列由 [goldDotAlpha] 纯函数收口；
@@ -82,17 +83,17 @@ object SplashParams {
 
     /**
      * 远山浓度（山脊 / 雾带最高不透明度 0.0~1.0）。
-     * // [待拍板] A1 裁决：远山 opacity 原文未给数值；本单按默认 0.35 实现，
-     * 理由：远山「存在感很低、不抢字的注意力」，0.35 为低饱和淡墨档；P1 观感复核由用户目测微调。
+     * // [已拍板 2026-11-25] 原推定值 0.35（A1 默认低饱和淡墨档）；用户 2026-11-25 指令拍板
+     * 以切片原文 0.25 为准，落码 0.25f。出处：用户 2026-11-25 拍板指令；此值不许再改。
      */
-    const val HILL_MAX_ALPHA: Float = 0.35f
+    const val HILL_MAX_ALPHA: Float = 0.25f
 
     /**
      * 扫光背后金色辉光半径 dp。
-     * // [待拍板] A1 裁决：辉光半径原文未给数值；本单按默认 24dp 实现，
-     * 理由：暖金辉光只托字面轮廓、不铺满屏幕，24dp 为局部光晕档；P1 观感复核由用户目测微调。
+     * // [已拍板 2026-11-25] 原推定值 24dp（A1 默认局部光晕档）；用户 2026-11-25 指令拍板
+     * 以切片原文 40dp 为准，落码 40。出处：用户 2026-11-25 拍板指令；此值不许再改。
      */
-    const val GLOW_RADIUS_DP: Int = 24
+    const val GLOW_RADIUS_DP: Int = 40
 
     // ── 颜色（只转发 ComponentPalette，不写 hex） ──
 
@@ -105,6 +106,14 @@ object SplashParams {
     /** 墨色（标题字面），取 [ComponentPalette.TEXT_PRIMARY]。 */
     val textPrimary: Long get() = ComponentPalette.TEXT_PRIMARY
 
-    /** 茶褐（标语 / 远山轮廓），取 [ComponentPalette.TEXT_SECONDARY]。 */
+    /**
+     * 云灰（标语落款），取 [ComponentPalette.TEXT_TERTIARY]（#9B9687）。
+     * // [已拍板 2026-11-25] 原误取茶褐 [ComponentPalette.TEXT_SECONDARY]（#5C4F3A）；
+     * 用户 2026-11-25 指令拍板：标语按切片-01:61「12sp，云灰色（#9B9687）」取 12 色 token
+     * 里的云灰 TEXT_TERTIARY。出处：用户 2026-11-25 拍板指令；标语色不许再改回茶褐。
+     */
+    val textTertiary: Long get() = ComponentPalette.TEXT_TERTIARY
+
+    /** 茶褐（远山轮廓），取 [ComponentPalette.TEXT_SECONDARY]；仅远山轮廓用，不用于标语。 */
     val textSecondary: Long get() = ComponentPalette.TEXT_SECONDARY
 }
