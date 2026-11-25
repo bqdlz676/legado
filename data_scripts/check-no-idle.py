@@ -8,6 +8,10 @@
 判据：now - HEAD commit time > IDLE_ALLOW_MINUTES(默认 120) 且队列里 PENDING+RUNNING > 0 → FAIL。
 为什么是 120 分钟：一轮 CI 约 15 分钟，正常等 CI 不会被误判；而"整晚没动"必然命中。
 """
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).parent))
+from queue_stats import stats as _qstats  # O1：计数单源
 import os
 import re
 import subprocess
@@ -23,17 +27,12 @@ def head_age_minutes(repo: str) -> float:
 
 
 def queue_counts(repo: str):
-    p = Path(repo) / 'docs' / '派单队列.md'
-    if not p.exists():
-        return 0, 0
-    text = p.read_text(encoding='utf-8', errors='ignore')
-    pending = len(re.findall(r'\| PENDING \|', text)) + len([1 for ln in text.splitlines() if re.match(r'\| Q-', ln) and '| PENDING |' in ln])
-    running = len([1 for ln in text.splitlines() if re.match(r'\| Q-', ln) and ('RUNNING' in ln or '在飞' in ln)])
-    # 同一行可能被两种模式重复计数，取去重后的行计数为准
-    rows = [ln for ln in text.splitlines() if re.match(r'\| Q-', ln)]
-    pending = len([1 for ln in rows if 'PENDING' in ln])
-    running = len([1 for ln in rows if ('RUNNING' in ln or '在飞' in ln)])
-    return pending, running
+    # O1：改用 queue_stats 单源（旧版行内子串匹配会把备注文字当状态，得 7/6，与 ⑱ 的 6/1 互斥）
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from queue_stats import stats
+    st = stats(str(Path(repo) / 'docs' / '派单队列.md'))
+    return st['PENDING'], st['RUNNING']
 
 
 def main(repo: str) -> int:

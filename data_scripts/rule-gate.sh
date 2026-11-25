@@ -4,6 +4,8 @@
 # 适用：每次 commit / push / 派单前跑一遍；任何一项 FAIL 不许继续下一步。
 cd "$(dirname "$0")/.." || exit 1
 FAIL=0
+OUT=/tmp/.gate_cur
+exec > >(tee "$OUT")
 say() { printf '%-42s %s\n' "$1" "$2"; }
 bad() { FAIL=1; say "$1" "FAIL  $2"; }
 ok()  { say "$1" "ok    $2"; }
@@ -55,9 +57,10 @@ PY2
 else bad "⑤一问题一代理" "缺 $LEDGER"; fi
 
 # ⑥ 铁律45/55：每个在册缺陷必须有独立验收产物或在飞标记
+#    O1：计数改用 queue_stats 单一事实源（旧版抓台账「在飞」行，与 ⑱/㉚ 数值互斥，见 C1）
 if [ -f "$LEDGER" ]; then
-  OPEN=$(grep -cE '^\|.*\| *在飞' "$LEDGER" || true)
-  ok "⑥在飞计数" "$OPEN 条（每条须有独立验收代理，禁同一代理验收多条）"
+  OPEN=$(python3 data_scripts/queue_stats.py | grep -oE 'RUNNING=[0-9]+' | cut -d= -f2)
+  ok "⑥在飞计数" "RUNNING $OPEN 条（每条须有独立验收代理，禁同一代理验收多条）"
 fi
 
 # ⑦ 铁律82：禁拿 L0 当验收 —— 报告里不许出现"验收通过"而级别只有 L0
@@ -74,7 +77,8 @@ else say "⑧图标冻结" "无冻结哈希文件（首次需生成）"; fi
 #    台账暂无"写/查"分列，本项先判总数 ≤ 档位总数；写查分判待台账补列（见复盘报告注明）。
 TIER=docs/并发档位.md
 if [ -f "$LEDGER" ] && [ -f "$TIER" ]; then
-  OPEN=$(grep -cE '^\|.*\| *在飞' "$LEDGER" || true)
+  OPEN=$(python3 data_scripts/queue_stats.py | grep -oE 'RUNNING=[0-9]+' | cut -d= -f2)
+  PEND=$(python3 data_scripts/queue_stats.py | grep -oE 'PENDING=[0-9]+' | cut -d= -f2)
   TIER_LINE=$(grep -E '当前档位：' "$TIER" | head -1)
   TIER_HEAD=${TIER_LINE%%；*}
   TIER_N=$(echo "$TIER_HEAD" | grep -oE '档位：[0-9]' | grep -oE '[0-9]')
@@ -83,7 +87,7 @@ if [ -f "$LEDGER" ] && [ -f "$TIER" ]; then
   if awk "BEGIN{exit !($LOAD1 >= 1.5)}"; then CAP=3; BAND="饱和(档1减半 2写1查)"; else CAP="$TOTAL"; BAND="档位$TIER_N"; fi
   if [ -z "$TOTAL" ]; then bad "⑨并发上限" "档位文件配比解析失败";
   elif [ "$OPEN" -gt "$CAP" ]; then bad "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP，在飞 $OPEN 超限，禁再派单";
-  else ok "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP，在飞 $OPEN 未超（写查分判待台账补列）"; fi
+  else ok "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP，RUNNING $OPEN / PENDING $PEND（分槽建议 写3验2）"; fi
 else bad "⑨并发上限" "缺 $LEDGER 或 $TIER"; fi
 
 # ⑯ 台账新鲜度（F-79/F-80）：HEAD 比台账新 >60min 即 FAIL；在飞超硬上限 FAIL；无当日行仅 WARN。
@@ -252,6 +256,28 @@ if [ $? -eq 0 ]; then ok "㉝本地禁止编译" "$(echo "$NBL" | grep 'NO-LOCAL
 #    一红连 Task 都进不去（run 45525688582 实证）。这条把这类假注释机械抓出来。
 GS34=$(python3 data_scripts/check-gradle-syntax.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉞Gradle语法" "$(echo "$GS34" | grep 'GRADLE-SYNTAX: PASS')"; else bad "㉞Gradle语法" "$(echo "$GS34" | grep -E ':' | head -3 | tr '\n' ' ')"; fi
+
+# ㉟ 推送窗口（O3/K-20 机制化）：CI 有 run 在飞时不许 push，否则上一次 push 的验证被打成 cancelled。
+#    本项只提示（在飞是常态，不能因此长期阻断门禁）；真正拦截在 data_scripts/pre-push.sh（唯一 push 入口）。
+PW35=$(python3 data_scripts/check-push-window.py 2>&1)
+if [ $? -eq 0 ]; then say "㉟推送窗口" "$(echo "$PW35" | head -1)"; else say "㉟推送窗口" "CI 在飞 → 暂缓 push（等终态；或走 pre-push.sh 拦截）"; fi
+
+# ㊱ 处置锚点防洗白（O4/C7）：锚点=一次处置，之后不许再冒违规；多锚点即掩盖历史。
+AI36=$(python3 data_scripts/check-anchor-integrity.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊱锚点防洗白" "$(echo "$AI36" | grep -E 'PASS|WARN')"; else bad "㊱锚点防洗白" "$(echo "$AI36" | grep 'FAIL' | head -3 | tr '\n' ' ')"; fi
+
+# ㊲ 验收字样（O6/C4）：含「验收通过」的文件必须带判据锚，禁空口自称通过。
+AC37=$(python3 data_scripts/check-accept-claim.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊲验收字样" "$(echo "$AC37" | grep 'ACCEPT-CLAIM')"; else bad "㊲验收字样" "$(echo "$AC37" | grep 'FAIL' | head -2 | tr '\n' ' ')"; fi
+
+# ⑧' 变化摘要（O8）：与上一次快照 diff，新增 FAIL 标 NEW，免每次肉眼扫 34+ 项。
+CUR_FAIL=$(grep -E '^[^ ]+ +FAIL' /tmp/.gate_cur 2>/dev/null | awk '{print $1}')
+# ㊳ 子代理熔断（Q-22 结单，用户原话「不能超过15分钟」）：RUNNING 行 >15min 提示、>60min 判失败。
+#    为什么是时长而非"无产物"：队列只有登记时间，产物有无由 ㉚/⑳ 各自覆盖。
+AT38=$(python3 data_scripts/check-agent-timeout.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊳子代理熔断" "$(echo "$AT38" | grep -E 'PASS|WARN' | head -2 | tr '\n' ' ')"; else bad "㊳子代理熔断" "$(echo "$AT38" | grep 'FAIL' | head -2 | tr '\n' ' ')"; fi
+
+echo
 
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }

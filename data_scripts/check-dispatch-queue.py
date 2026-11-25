@@ -22,6 +22,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from queue_stats import stats as qstats  # O1：计数单源，禁用行内子串匹配
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QUEUE = os.path.join(ROOT, "docs", "派单队列.md")
 LEDGER = os.path.join(ROOT, "docs", "派单台账.md")
@@ -42,7 +45,8 @@ def parse_rows(text: str):
             continue
         rows.append({
             "id": cells[0], "title": cells[1], "created": cells[2],
-            "status": cells[3], "dep": cells[4], "domain": cells[5],
+            "status": cells[3], "kind": qstats.__globals__["classify"](cells[3]),
+            "dep": cells[4], "domain": cells[5],
         })
     return rows
 
@@ -56,8 +60,9 @@ def main() -> int:
 
     qtext = open(QUEUE, encoding="utf-8").read()
     rows = parse_rows(qtext)
-    pending = [r for r in rows if r["status"] == "PENDING"]
-    running = [r for r in rows if r["status"] == "RUNNING"]
+    # O1：按状态列前缀分类（queue_stats 单源），不再精确匹配整串（旧判据在状态带备注时恒为 0）
+    pending = [r for r in rows if r["kind"] == "PENDING"]
+    running = [r for r in rows if r["kind"] == "RUNNING"]
     print(f"ok    队列在册：共 {len(rows)} 行，PENDING {len(pending)} / RUNNING {len(running)} / DONE 其余")
 
     # E2：PENDING 存活超时 → 丢单
