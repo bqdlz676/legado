@@ -47,9 +47,19 @@ def recent(path: Path) -> bool:
 def main(repo: str) -> int:
     bad = []
     try:
-        ps = subprocess.run(['ps', '-eo', 'args'], capture_output=True, text=True, timeout=10).stdout
-        if 'GradleDaemon' in ps or 'org.gradle.launcher.daemon' in ps:
-            bad.append('有 GradleDaemon 进程在跑')
+        # 只认 comm=java 的守护进程行：调用方 shell 的 argv 里可能正好含 "GradleDaemon"
+        # 这个字样（例如本脚本被 heredoc/管道包裹时），整表匹配会自匹配成假阳性。
+        ps = subprocess.run(['ps', '-eo', 'comm=,args='], capture_output=True, text=True, timeout=10).stdout
+        for row in ps.splitlines():
+            parts = row.split(None, 1)
+            if len(parts) != 2:
+                continue
+            comm, args = parts
+            if not comm.lower().startswith('java'):
+                continue
+            if 'GradleDaemon' in args or 'org.gradle.launcher.daemon' in args or 'KotlinCompileDaemon' in args:
+                bad.append(f'有 Gradle/Kotlin 守护进程在跑：{args[:120]}')
+                break
     except Exception as e:  # 无 ps 时降级为不判
         print(f'NO-LOCAL-BUILD: WARN（ps 不可用：{e}）')
 

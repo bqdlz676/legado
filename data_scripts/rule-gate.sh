@@ -145,7 +145,12 @@ BUILD_CAP=0
 if command -v gradle >/dev/null 2>&1; then BUILD_CAP=1; fi
 if [ -n "$ANDROID_HOME$ANDROID_SDK_ROOT" ]; then BUILD_CAP=1; fi
 if ls "$HOME/.gradle/jdks" 2>/dev/null | grep -qv 'CACHEDIR.TAG'; then BUILD_CAP=1; fi
-if pgrep -f 'gradle|kotlinc|assemble' >/dev/null 2>&1; then BUILD_CAP=1; fi
+# ⑩ 进程探测用「不会自匹配」的模式：旧写法 pgrep -f 'gradle|kotlinc|assemble' 会把
+#    检查命令自身的命令行（含这些词）当成命中，造成每次跑门禁必 FAIL 的假阳性。
+#    故只匹配真实构建守护进程的特征串。
+# 只匹配 comm=java 的行：任何 shell 包装器的 argv 都可能含下面这些字面量，整行匹配会自匹配
+BUILD_PROCS=$(ps -eo comm=,args= 2>/dev/null | awk '$1 ~ /^java/ && /GradleDaemon|KotlinCompileDaemon|org\.gradle\.launcher\.daemon/ {print $0}')
+if [ -n "$BUILD_PROCS" ]; then BUILD_CAP=1; fi
 if [ "$BUILD_CAP" -eq 0 ]; then ok "⑩本地构建能力" "已封死（无gradle/SDK/JDK21，无构建进程）"; else bad "⑩本地构建能力" "检测到本地构建能力/进程，禁提交禁派单"; fi
 
 # ⑪ 规格完整性（用户令：不断查完整性；单一实现=spec-check.sh，不重复逻辑）
