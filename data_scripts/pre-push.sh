@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 唯一允许的 push 入口（F-109/F-111，节拍批量推送）：
-#   距上次 push ≥ 15 分钟才允许一次攒批推送；窗口未到直接退出 0，不阻塞本地继续 commit。
+#   距上次 push ≥ 30 分钟（≈主 run 实测时长+缓冲）才允许一次攒批推送；窗口未到直接退出 0，不阻塞本地继续 commit。
 # 为什么：K-20 实证连环 push 会把在飞 run 打成 cancelled；节拍攒批把多次触发合成一次，
 #   降 push 次数与 runner 分钟数。trailer（F-111）只做事后追溯，不参与本脚本分流。
 # 上次 push 时间戳落盘 docs/.last_push_epoch（已 gitignore）；取不到时间戳时退化为队列 PENDING=0 守卫。
@@ -9,7 +9,10 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
-WINDOW_MIN=15
+# 窗口值来自实测，不是拍的：主 run 实测 26~27 分钟（604b37a 26min / e57c2f8 27min），
+# 若窗口 < 主 run 时长，窗口一到就推必然撞上在飞 run 并把它取消（浪费 26 分钟 runner）。
+# 故窗口取主 run 中位时长 + 缓冲 = 30 分钟；理想时机是"上一批终态事件到达时顺手推"，窗口只是防抖兜底。
+WINDOW_MIN=30
 EPOCH_FILE="docs/.last_push_epoch"
 WINDOW_SEC=$((WINDOW_MIN * 60))
 
