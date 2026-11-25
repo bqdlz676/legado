@@ -168,21 +168,27 @@ object SearchReducer {
         }
 
         is SearchIntent.LoadMoreStart -> {
-            // 守卫：仅 Content + 还有更多 + 无在途请求才进入翻页在途态；
+            // 守卫：自动到底需 canLoadMore；分页失败态只允许脚注显式重试进入在途。
             // 其余情况原样返回，UI 重复到底不会产生第二个请求出口。
-            if (!state.canLoadMore) return@reduce state
+            if (!state.canLoadMore && state.paging !is SearchPagingState.LoadMoreError) {
+                return@reduce state
+            }
             state.copy(paging = SearchPagingState.LoadingMore)
         }
 
         is SearchIntent.LoadMoreAppend -> {
-            // 只在首屏已有内容时追加；按 id / 同名同作者轻量去重，先出现者保留。
+            // 只在首屏已有内容且翻页在途时追加；按 id / 同名同作者轻量去重，先出现者保留。
             val current = (state.loadState as? SearchLoadState.Content) ?: return@reduce state
+            if (state.paging !is SearchPagingState.LoadingMore) return@reduce state
             val merged = SearchMerger.merge(current.results, intent.results)
+            // 多批次收口窗口（D1-R1/R6）：同一页请求内 onSearchSuccess 按书源多次到达，
+            // 在途身份必须保留到 onSearchFinish；本批 hasMore 只做 OR 累积，
+            // 终态（Idle / Ended）由 LoadMoreFinish 单一来源落定，追加批次不提前收口。
             state.copy(
                 loadState = SearchLoadState.Content(merged),
                 lastResults = merged,
-                hasMore = intent.hasMore,
-                paging = if (intent.hasMore) SearchPagingState.Idle else SearchPagingState.Ended,
+                hasMore = state.hasMore || intent.hasMore,
+                paging = SearchPagingState.LoadingMore,
             )
         }
 

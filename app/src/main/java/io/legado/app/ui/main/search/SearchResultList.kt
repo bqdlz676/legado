@@ -52,14 +52,16 @@ fun SearchResultList(
 
     val listState = rememberLazyListState()
 
-    // 到底监听：最后可见条目贴底即上报一次；是否真发请求由 ViewModel 守卫
+    // 到底监听：末条内容条目贴底即上报一次；是否真发请求由 ViewModel 守卫
     // （canLoadMore + 去抖 + 在途并发保护），此处连发不会穿透成重复请求。
+    // 脚注条目不计入内容条数，短列表首屏可见脚注时不误预取第二页（D1-R5）。
     LaunchedEffect(listState, paging, hasMore) {
         snapshotFlow { listState.layoutInfo }
             .collect { info ->
-                val total = info.totalItemsCount
                 val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                if (total > 0 && lastVisible >= total - 1) onLoadMore()
+                if (SearchPagingPolicy.bottomReached(info.totalItemsCount, lastVisible, footerCount = 1)) {
+                    onLoadMore()
+                }
             }
     }
 

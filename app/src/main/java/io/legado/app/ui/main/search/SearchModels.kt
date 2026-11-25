@@ -141,14 +141,20 @@ data class SearchUiState(
         }
 
     /**
-     * 是否允许触发下一页：
-     * 必须有内容展示、远端还有更多、且当前没有在途翻页请求；
-     * 分页失败态（LoadMoreError）允许重试，不在此拦阻。
+     * 是否允许「滚动到底」自动触发下一页：
+     * 必须有内容展示、远端还有更多、且当前没有在途翻页请求。
+     * 分页失败态（[SearchPagingState.LoadMoreError]）不在此放行——重试只走脚注显式入口
+     * （[canRetryLoadMore]），避免去抖窗口一过被滚动到底隐式重发一页（D1-R3）。
      */
     val canLoadMore: Boolean
         get() = loadState is SearchLoadState.Content &&
             hasMore &&
-            paging !is SearchPagingState.LoadingMore
+            paging !is SearchPagingState.LoadingMore &&
+            paging !is SearchPagingState.LoadMoreError
+
+    /** 是否允许脚注显式重试上一页：仅分页错态可入，与自动到底入口分开（D1-R3）。 */
+    val canRetryLoadMore: Boolean
+        get() = paging is SearchPagingState.LoadMoreError
 }
 
 /**
@@ -162,4 +168,26 @@ internal object SearchPagingPolicy {
      */
     fun withinDebounce(lastAtMillis: Long, nowMillis: Long, debounceMs: Long): Boolean =
         lastAtMillis > 0 && nowMillis - lastAtMillis < debounceMs
+
+    /** 自动到底触发是否放行：失败态只走显式重试，不被滚动到底隐式重发（D1-R3）。 */
+    fun autoTriggerAllowed(state: SearchUiState): Boolean = state.canLoadMore
+
+    /** 脚注显式重试是否可用：仅分页错态（D1-R3）。 */
+    fun retryAllowed(state: SearchUiState): Boolean = state.canRetryLoadMore
+
+    /** 归约器是否已把本次翻页接收进在途态；未接收则不落去抖账（D1-R4）。 */
+    fun acceptedIntoFlight(afterStart: SearchUiState): Boolean =
+        afterStart.paging is SearchPagingState.LoadingMore
+
+    /**
+     * 贴底判定（D1-R5）：[totalItemsCount] 含底部脚注条目，[footerCount] 为脚注条数。
+     * 脚注可见时其下标等于内容条数，不算末条内容贴底——短列表首屏即可见脚注，
+     * 不应据此自动预取第二页；只有末条内容条目真正进入可见区才上报到底。
+     */
+    fun bottomReached(totalItemsCount: Int, lastVisibleIndex: Int, footerCount: Int): Boolean {
+        val contentTotal = totalItemsCount - footerCount
+        return contentTotal > 0 &&
+            lastVisibleIndex in 0 until contentTotal &&
+            lastVisibleIndex >= contentTotal - 1
+    }
 }

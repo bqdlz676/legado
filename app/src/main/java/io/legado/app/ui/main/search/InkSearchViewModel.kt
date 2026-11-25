@@ -52,8 +52,8 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
     private var searchID = 0L
     private val commandGate = SearchCommandGate()
 
-    /** 上一次翻页触发时间戳（ms）；用于滚动到底连发的去抖窗口判定，0 = 从未触发。 */
-    private var lastLoadMoreAt = 0L
+    /** 翻页编排：闸门 / 去抖账 / 调用决策的纯 JVM 协作者，与单测共用同一实现。 */
+    private val pagingOrchestrator = SearchPagingOrchestrator(commandGate)
 
     /**
      * 入口接线：Intent 透传的初始关键词 / 搜索范围在此落位；重复进入（onNewIntent 语义）
@@ -139,19 +139,37 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
     }
 
     /**
-     * 滚动到底触发下一页。三道守卫任一不满足即直接返回，不发请求：
+     * 滚动到底触发下一页。守卫 / 去抖 / 归约二次闸门由 [SearchPagingOrchestrator] 统一收口：
      * 1. [SearchUiState.canLoadMore]：有内容、远端还有更多、无在途翻页（同页并发保护）；
      * 2. [SearchTokens.LOAD_MORE_DEBOUNCE_MS] 去抖窗口：连发只取首次；
-     * 3. 协程体内再次比对闸门 / 网络 / 关键词，离线与空词回落分页错态而不是卡死。
+     * 3. 协程体内再次复核命令序号 / 在途态 / 网络 / 关键词，离线与空词回落分页错态而不是卡死。
      */
     fun loadMore() {
-        val state = _uiState.value
-        if (!state.canLoadMore) return
-        val now = System.currentTimeMillis()
-        if (SearchPagingPolicy.withinDebounce(lastLoadMoreAt, now, SearchTokens.LOAD_MORE_DEBOUNCE_MS)) return
-        lastLoadMoreAt = now
-        dispatch(SearchIntent.LoadMoreStart)
+        pagingOrchestrator.startAuto(
+            snapshot = { _uiState.value },
+            now = System.currentTimeMillis(),
+            dispatch = ::dispatch,
+            onSearch = ::launchPageSearch,
+        )
+    }
+
+    /** 分页失败脚注重试；仅分页错态可调，绕开自动到底拦阻但仍过归约器闸门（D1-R3）。 */
+    fun retryLoadMore() {
+        pagingOrchestrator.startRetry(
+            snapshot = { _uiState.value },
+            now = System.currentTimeMillis(),
+            dispatch = ::dispatch,
+            onSearch = ::launchPageSearch,
+        )
+    }
+
+    /**
+     * 翻页协程体：编排器放行后在此复核命令序号与在途态（D1-R2），再做模型 / 关键词 /
+     * 网络兜底；复核不通过直接退出，旧翻页体不得用新检索字段再调模型。
+     */
+    private fun launchPageSearch(command: Long) {
         execute {
+            if (!pagingOrchestrator.bodyStillEligible(command, _uiState.value)) return@execute
             val model = searchModel
             if (model == null || searchKey.isBlank()) {
                 dispatch(SearchIntent.LoadMoreFailure(SearchTokens.ERROR_MESSAGE))
@@ -161,16 +179,12 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
                 dispatch(SearchIntent.LoadMoreFailure(SearchTokens.OFFLINE_MESSAGE))
                 return@execute
             }
+            // 复核通过后再取字段快照，避免挂起期间被新检索覆盖。
+            val id = searchID
+            val key = searchKey
             // 同 id 复调：SearchModel 内部识别为同词续页，searchPage++ 取下一页。
-            model.search(searchID, searchKey)
+            model.search(id, key)
         }
-    }
-
-    /** 分页失败脚注重试；仅分页错态可调，复用 [loadMore] 的守卫并绕过去抖。 */
-    fun retryLoadMore() {
-        if (_uiState.value.paging !is SearchPagingState.LoadMoreError) return
-        lastLoadMoreAt = 0L
-        loadMore()
     }
 
     fun pause() {
@@ -198,7 +212,8 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
             searchModel?.cancelSearch()
             searchID = command
             searchKey = key
-            lastLoadMoreAt = 0L
+            // 新检索作废在途翻页命令（commandGate.next 已递增序号），清翻页去抖账（D1-R2）。
+            pagingOrchestrator.onNewSearch()
 
             if (!NetworkUtils.isAvailable()) {
                 // 离线兜底：本地书架照搜，结果作离线缓存展示，不阻断入口。
@@ -230,7 +245,8 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
             val remote = searchBooks.map { it.toSearchItem() }
             execute {
                 if (_uiState.value.paging is SearchPagingState.LoadingMore) {
-                    // 翻页回填：按 id / 同名同作者轻量去重后追加；本地书架前置与排序合并归 D5。
+                    // 翻页回填：多批 onSearchSuccess 都落在在途态（归约器保留在途到 Finish），
+                    // 按 id / 同名同作者轻量去重后追加；本地书架前置与排序合并归 D5。
                     dispatch(SearchIntent.LoadMoreAppend(remote, hasMore = _uiState.value.hasMore))
                 } else {
                     val local = queryLocal(searchKey)
