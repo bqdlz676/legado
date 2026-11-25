@@ -73,7 +73,9 @@ class ArtifactContractTest {
 
     @Test
     fun `空数据回退气泡非null且字段齐全`() {
-        val content = ArtifactFallback.notFound("龙泉剑", ArtifactCategory.SWORD, FallbackState.NO_DATA)
+        val result = ArtifactFallback.notFound("龙泉剑", ArtifactCategory.SWORD, FallbackState.NO_DATA)
+        val content = result.content
+        assertEquals(FallbackState.NO_DATA, result.state)
         assertNotNull(content)
         assertEquals("龙泉剑", content.token)
         assertEquals("龙泉剑", content.headline)
@@ -103,13 +105,15 @@ class ArtifactContractTest {
     fun `同名多候选候选顺序与入参一致空候选退化为空壳`() {
         // B22 收口：构造器不接收默认下标；候选只保顺序与裸串，默认项由接线层 Candidate.isDefault 展开。
         val candidates = listOf("庐山 · 江西", "庐山 · 安徽别称")
-        val content = ArtifactFallback.ambiguous("庐山", ArtifactCategory.LANDSCAPE, candidates)
+        val ambiguousResult = ArtifactFallback.ambiguous("庐山", ArtifactCategory.LANDSCAPE, candidates)
+        val content = ambiguousResult.content
+        assertEquals(FallbackState.AMBIGUOUS, ambiguousResult.state)
         assertEquals(candidates, content.candidates)
         assertEquals(2, content.candidates.size)
         assertTrue(content.actions.isEmpty())
         assertEquals(MISSING_SOURCE, content.source)
 
-        val degraded = ArtifactFallback.ambiguous("无名", ArtifactCategory.LANDSCAPE, emptyList())
+        val degraded = ArtifactFallback.ambiguous("无名", ArtifactCategory.LANDSCAPE, emptyList()).content
         assertTrue(degraded.candidates.isEmpty())
         assertEquals(MISSING_SOURCE, degraded.source)
     }
@@ -120,7 +124,9 @@ class ArtifactContractTest {
         assertEquals(CacheStatus.TIMEOUT, CacheStatus.valueOf("TIMEOUT"))
         assertEquals(FallbackState.TIMEOUT, FallbackState.valueOf("TIMEOUT"))
 
-        val content = ArtifactFallback.timeout("龙泉剑", ArtifactCategory.SWORD)
+        val timeoutResult = ArtifactFallback.timeout("龙泉剑", ArtifactCategory.SWORD)
+        val content = timeoutResult.content
+        assertEquals(FallbackState.TIMEOUT, timeoutResult.state)
         assertNotNull(content)
         assertEquals("龙泉剑", content.token)
         assertEquals(MISSING_SOURCE, content.source)
@@ -131,6 +137,28 @@ class ArtifactContractTest {
 
         // 阈值单点：全包唯一超时阈值常量，值可回读，实现层不得另立第二份。
         assertEquals(5_000L, ArtifactLoadStrategy.LOAD_TIMEOUT_MS)
+    }
+
+    @Test
+    fun `超时兜底与查无兜底状态及提示口径可区分五态同构回读`() {
+        // B25 判据 4：纯 JVM 可区分「超时兜底」与「查无兜底」两条返回；判据 3：五态回读同构。
+        val timeoutResult = ArtifactFallback.timeout("龙泉剑", ArtifactCategory.SWORD)
+        val missingResult = ArtifactFallback.notFound("龙泉剑", ArtifactCategory.SWORD, FallbackState.NO_DATA)
+
+        assertEquals(FallbackState.TIMEOUT, timeoutResult.state)
+        assertEquals(FallbackState.NO_DATA, missingResult.state)
+        assertTrue(timeoutResult.state != missingResult.state)
+        assertEquals("加载超时，展示缓存内容", timeoutResult.fallbackMessage)
+        assertEquals("查无此项", missingResult.fallbackMessage)
+        assertTrue(timeoutResult.fallbackMessage != missingResult.fallbackMessage)
+
+        // 五态同构：每一条兜底返回都经同一结果壳回读 state 与提示口径，不为超时单开特例。
+        FallbackState.entries.forEach { state ->
+            val result = ArtifactFallback.notFound("测试名", null, state)
+            assertEquals(state, result.state)
+            assertNotNull(result.content)
+            assertTrue(result.fallbackMessage.isNotBlank())
+        }
     }
 
     @Test
@@ -155,7 +183,9 @@ class ArtifactContractTest {
     @Test
     fun `断网本地缓存未命中状态可标记`() {
         assertEquals(CacheStatus.OFFLINE_CACHE_MISS, CacheStatus.valueOf("OFFLINE_CACHE_MISS"))
-        val content = ArtifactFallback.notFound("木莲", ArtifactCategory.PLANT, FallbackState.CACHE_MISS_OFFLINE)
+        val offlineResult = ArtifactFallback.notFound("木莲", ArtifactCategory.PLANT, FallbackState.CACHE_MISS_OFFLINE)
+        val content = offlineResult.content
+        assertEquals(FallbackState.CACHE_MISS_OFFLINE, offlineResult.state)
         assertNotNull(content)
         assertEquals(MISSING_SOURCE, content.source)
     }
@@ -167,7 +197,8 @@ class ArtifactContractTest {
         assertNotNull(content)
         assertEquals(MISSING_SOURCE, content.source)
         val yearMissing = ArtifactFallback.notFound("白马寺", ArtifactCategory.TEMPLE, FallbackState.YEAR_MISSING)
-        assertNotNull(yearMissing)
+        assertEquals(FallbackState.YEAR_MISSING, yearMissing.state)
+        assertNotNull(yearMissing.content)
     }
 
     @Test

@@ -25,26 +25,27 @@ enum class FallbackState {
 }
 
 /**
- * 空数据 / 兜底气泡构造器。所有回退路径产出的 [BubbleContent] 字段齐全：
- * source 固定为 [MISSING_SOURCE]（「未命中」），candidates / actions 为空列表，
- * phonetic 为 null；绝不返回 null、绝不抛异常。
+ * 空数据 / 兜底气泡构造器。所有回退路径产出的 [ArtifactFallbackResult] 字段齐全：
+ * 内嵌气泡壳 source 固定为 [MISSING_SOURCE]（「未命中」），candidates / actions 为空列表，
+ * phonetic 为 null；状态 [FallbackState] 显式落在结果壳上（B25），绝不返回 null、绝不抛异常。
  */
 object ArtifactFallback {
 
     /**
-     * 构造未命中兜底气泡。
+     * 构造未命中兜底结果（气泡壳 + 兜底态成对返回）。
      *
      * @param name     原文命中名；空白时 token / headline 落空串，不猜名。
      * @param category 命中类别；未知类别传 null，气泡类型退化为 [Kind.WORD]。
-     * @param state    兜底态，供接线层区分空数据 / 离线缓存未命中 / 缺年份 / 超时。
+     * @param state    兜底态，供接线层区分空数据 / 离线缓存未命中 / 缺年份 / 消歧失败 / 超时；
+     *                 五态经 [ArtifactFallbackResult.state] 同构回读。
      */
     fun notFound(
         name: String,
         category: ArtifactCategory?,
         state: FallbackState,
-    ): BubbleContent {
+    ): ArtifactFallbackResult {
         val safeName = name.ifBlank { "" }
-        return BubbleContent(
+        val content = BubbleContent(
             kind = category?.fallbackKind ?: Kind.WORD,
             token = safeName,
             phonetic = null,
@@ -55,12 +56,13 @@ object ArtifactFallback {
             candidates = emptyList(),
             source = MISSING_SOURCE,
         )
+        return ArtifactFallbackResult(state = state, content = content)
     }
 
     /**
-     * 构造同名多候选气泡（消歧失败回退）。
+     * 构造同名多候选兜底结果（消歧失败回退）。
      *
-     * @param candidates 候选裸串列表；无候选时退化为 [FallbackState.NO_DATA] 空壳。
+     * @param candidates 候选裸串列表；无候选时退化为 [FallbackState.AMBIGUOUS] 空壳。
      *
      * 口径（B22 收口，判据 1「下标该不该存在」判定为：气泡契约不需要）：
      * 冻结 [BubbleContent] 的 `candidates` 为裸串 `List<String>`，契约层不为其扩字段；
@@ -72,12 +74,12 @@ object ArtifactFallback {
         name: String,
         category: ArtifactCategory?,
         candidates: List<String>,
-    ): BubbleContent {
+    ): ArtifactFallbackResult {
         if (candidates.isEmpty()) {
             return notFound(name, category, FallbackState.AMBIGUOUS)
         }
         val safeName = name.ifBlank { "" }
-        return BubbleContent(
+        val content = BubbleContent(
             kind = category?.fallbackKind ?: Kind.WORD,
             token = safeName,
             phonetic = null,
@@ -88,15 +90,16 @@ object ArtifactFallback {
             candidates = candidates,
             source = MISSING_SOURCE,
         )
+        return ArtifactFallbackResult(state = FallbackState.AMBIGUOUS, content = content)
     }
 
     /**
-     * 构造加载超时兜底气泡（B23 收口）。
+     * 构造加载超时兜底结果（B23 收口；B25 起超时态经结果壳显式回读）。
      *
      * 按需 / 在线加载超过 [ArtifactLoadStrategy.LOAD_TIMEOUT_MS] 仍未返回时，接线层改走
      * 缓存 / 降级路径，经本构造器产出结构完整的空壳气泡：不返回 null、不抛异常到 UI；
      * 超时边界以 [FallbackState.TIMEOUT] 显式标记，可由纯 JVM 单测直接构造断言。
      */
-    fun timeout(name: String, category: ArtifactCategory?): BubbleContent =
+    fun timeout(name: String, category: ArtifactCategory?): ArtifactFallbackResult =
         notFound(name, category, FallbackState.TIMEOUT)
 }

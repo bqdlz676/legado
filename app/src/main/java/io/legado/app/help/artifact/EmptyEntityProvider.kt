@@ -17,7 +17,8 @@ class EmptyEntityProvider : EntityProvider {
         // anchor 在此为空实现中不参与过滤：缺年份不做年代过滤（FallbackState.YEAR_MISSING 口径），
         // 年代锚属于后续消歧链职责，空实现不猜年代。
         val category = categoryForType(type)
-        return ArtifactFallback.notFound(name, category, FallbackState.NO_DATA)
+        // 接口契约（09:15）返回气泡壳；兜底态由 ArtifactFallbackResult 承载，此处只取内嵌壳。
+        return ArtifactFallback.notFound(name, category, FallbackState.NO_DATA).content
     }
 
     /**
@@ -25,7 +26,7 @@ class EmptyEntityProvider : EntityProvider {
      * 空实现同样返回结构完整的未命中气泡。
      */
     fun queryByCategory(name: String, category: ArtifactCategory, anchor: Any?): BubbleContent =
-        ArtifactFallback.notFound(name, category, FallbackState.NO_DATA)
+        ArtifactFallback.notFound(name, category, FallbackState.NO_DATA).content
 
     /**
      * 由 schema type 反查类别；type 属于新表但无对应十七类条目（如 vehicle/seal/jade/armor），
