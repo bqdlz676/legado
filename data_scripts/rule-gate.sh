@@ -277,6 +277,11 @@ CUR_FAIL=$(grep -E '^[^ ]+ +FAIL' /tmp/.gate_cur 2>/dev/null | awk '{print $1}')
 AT38=$(python3 data_scripts/check-agent-timeout.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊳子代理熔断" "$(echo "$AT38" | grep -E 'PASS|WARN' | head -2 | tr '\n' ' ')"; else bad "㊳子代理熔断" "$(echo "$AT38" | grep 'FAIL' | head -2 | tr '\n' ' ')"; fi
 
+# ㊴ 提交认证书尾（F-111）：未推提交必须带 Verified-by/Wip/Docs-only trailer；
+#    让"推了什么、验没验"能被 git log 机械查，不靠记忆；缺 trailer 两种推法都拒绝（分流在 pre-push.sh）。
+TR39=$(python3 data_scripts/check-commit-trailer.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊴认证书尾" "$(echo "$TR39" | grep 'COMMIT-TRAILER: PASS')"; else bad "㊴认证书尾" "$(echo "$TR39" | grep -E 'MISSING|INVALID|FAIL' | head -4 | tr '\n' ' ')"; fi
+
 echo
 
 echo
