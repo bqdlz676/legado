@@ -389,6 +389,23 @@ class CampaignControllerTest {
     }
 
     @Test
+    fun `B8R3 斜向偏移三二格在四格视野内 按八向度量目睹留档`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        // (8,8) → (11,10)：横三纵二，octile 3.828 ≤ 常规兵半径 4；旧曼哈顿 5 > 4 会漏报。
+        a1.position = Cell(8, 8)
+        a1.latLng = controller.projection.toGeo(Cell(8, 8))
+        b1.position = Cell(11, 10)
+        b1.latLng = controller.projection.toGeo(Cell(11, 10))
+
+        controller.step() // 本回合目睹：age=0，模糊半径 0，视图标记已观测。
+        assertEquals("斜向格位应在四格八向视野内被目睹", 0, controller.reportRadiusCells("b1"))
+        val view = controller.snapshot().corps.first { it.id == "b1" }
+        assertTrue("斜向格位应标记为已观测", view.observed)
+    }
+
+    @Test
     fun `B9-12 陈旧报告位置冻结：走出视野后上报坐标仍是目睹位，不回填实时坐标`() {
         val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
         val a1 = controller.corps.first { it.id == "a1" }
