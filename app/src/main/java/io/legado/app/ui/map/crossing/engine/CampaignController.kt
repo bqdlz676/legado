@@ -533,20 +533,46 @@ class CampaignController private constructor(
     }
 
     private fun planRoute(corps: Corps, intent: Intent, target: io.legado.app.ui.map.crossing.model.Cell?): List<io.legado.app.ui.map.crossing.model.Cell> {
+        // 每回合先清零降级标志：上一回合的侧翼降级不得串到本回合的其它意图（HOLD / ADVANCE 等）；
+        // 置于 target 空判之前，无目标格的回合同样不得残留旧标志。
+        corps.routeDegraded = false
         if (target == null) return emptyList()
         return when (intent) {
             // B9：侧翼避敌视野只用感知位置；真实敌军位置不进寻路层。
             // B8R2：逐敌传「感知位置 + 敌军自身 visionRadiusCells」，不再只取 position 把半径丢掉；
             // 混编兵种时高视野 / 低视野敌军各按自身半径被闸门。
-            Intent.FLANK -> pathfinder.flankPath(
-                corps.position,
-                target,
-                corps.type,
-                perceivedEnemies(corps).map { EnemySight(it.position, it.visionRadiusCells) },
-            )
+            // B8R4：改调带降级标志的 [Pathfinder.flankRoute]，降级事实交 [consumeFlankDegrade] 入账。
+            Intent.FLANK -> {
+                val route = pathfinder.flankRoute(
+                    corps.position,
+                    target,
+                    corps.type,
+                    perceivedEnemies(corps).map { EnemySight(it.position, it.visionRadiusCells) },
+                )
+                consumeFlankDegrade(corps, route)
+                route.path
+            }
             Intent.AMBUSH, Intent.HOLD -> emptyList()
             else -> pathfinder.find(corps.position, target, corps.type)
         }
+    }
+
+    /**
+     * 消费侧翼降级事实（B8R4）。判定单源在寻路层 [FlankRoute]，本层只读不重算，不再建第二套
+     * 「是否被迫暴露」的推导：
+     * - 暴露入账：被迫走暴露路线即隐蔽姿态作废，置 [Corps.exposed]，参与伏击 / 遭遇暴露判定
+     *   （与佯退、接战置 exposed 同一口径；exposed 为回合间粘性标志，不每回合自动复位）；
+     * - 情报上送：降级口径原文写入事件日志，回放 / 壳层事件流可查；
+     * - 壳层可见：[Corps.routeDegraded] 经快照下发，名册挂「降级·绕行」标识。
+     *
+     * 士气不在本层自动扣减：降级路线已承担 1.8 倍视线加价且暴露，再叠士气惩罚属双重追责，
+     * 可能把无路可选的军队判成必败；是否把降级接入士气结算留规格另单（见修复报告二阶推演）。
+     */
+    private fun consumeFlankDegrade(corps: Corps, route: FlankRoute) {
+        corps.routeDegraded = route.degraded
+        if (!route.degraded) return
+        corps.exposed = true
+        log("${corps.name} 侧翼路线被迫降级：${route.reason}")
     }
 
     private fun marchAlong(corps: Corps, intent: Intent) {
@@ -923,6 +949,8 @@ class CampaignController private constructor(
         observed = observed,
         reportLat = report?.lat,
         reportLng = report?.lng,
+        // B8R4：降级标识属决策信息，未观测敌军随路线一并模糊，不下发。
+        routeDegraded = if (blurRoute) false else routeDegraded,
     )
 
     /**

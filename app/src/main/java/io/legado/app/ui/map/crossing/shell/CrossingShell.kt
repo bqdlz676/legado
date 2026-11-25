@@ -683,6 +683,7 @@ private fun CorpsRoster(
                     .semantics {
                         contentDescription = buildString {
                             append("${corps.name}，当前意图${current.label()}。")
+                            if (corps.routeDegraded) append("本回合侧翼路线被迫降级绕行。")
                             if (spec != null) append("上下左右拖拽调整方向，长按展开意图面板。")
                         }
                     }
@@ -755,6 +756,18 @@ private fun CorpsRoster(
                         ),
                         modifier = Modifier.alpha(0.55f + 0.45f * intentAlpha),
                     )
+                    // B8R4：侧翼路线被迫降级（加价绕行 / 折线兜底）时挂朱砂小标识，与战役级
+                    // 「演示降级」（host.degraded，载入兜底）作用域不同：本条只标单支军队本回合路线。
+                    if (corps.routeDegraded) {
+                        BasicText(
+                            text = "降级·绕行",
+                            style = TextStyle(
+                                color = Color(CrossingTokens.textAccent),
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Serif,
+                            ),
+                        )
+                    }
                 }
             }
         }

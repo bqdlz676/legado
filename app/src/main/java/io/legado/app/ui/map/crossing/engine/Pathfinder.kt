@@ -83,7 +83,8 @@ class Pathfinder(
      * 2. 严格模式无路 → 放宽为「视野代价最小路径」：视野内格保留但乘 [VISIBILITY_PENALTY] 加价，
      *    此时路径仍可能暴露，`degraded = true`；
      * 3. 加价模式仍无路 → 退回朝目标逐格钳制的直线折线，`degraded = true`。
-     * 起点 / 目标格不受视野剪枝（否则路径无从起步或永远无法落点）；敌军所在格在两种模式下都排除。
+     * 起点 / 目标格不受视野剪枝（否则路径无从起步或永远无法落点；B8R5 起目标格在闸门中
+     * 与起点同享豁免，敌军所在格不在豁免内）；敌军所在格在两种模式下都排除。
      */
     fun flankRoute(
         from: Cell,
@@ -153,7 +154,9 @@ class Pathfinder(
                 if (next in enemySet) continue
 
                 // 逐敌闸门：每条敌军用其自身半径判定，混编时高视野 / 低视野各算各的（B8R2）。
-                val watched = enemies.any { watchedBy(it.position, next, it.radiusCells) }
+                // 目标格豁免视野剪枝（B8R5）：落点本身必须可达，否则严格模式把终点剪掉会永远
+                // 无法收尾、被迫误判降级；敌军所在格仍由 enemySet 排除，豁免不包含敌阵格。
+                val watched = next != to && enemies.any { watchedBy(it.position, next, it.radiusCells) }
                 // 严格侧翼模式：视野内格剪枝（等价 BLOCKED），而不是加价放行。
                 if (strictView && watched) continue
 

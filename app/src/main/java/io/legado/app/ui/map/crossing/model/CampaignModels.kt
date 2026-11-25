@@ -162,6 +162,12 @@ data class Corps(
     var visionRadiusCells: Int,
     /** 累计兵力损失（守恒审计用）：只增不减，事件补强另计。 */
     var losses: Double = 0.0,
+    /**
+     * 本回合侧翼寻路是否被迫降级（B8R4）：严格避视野无路后走了加价绕行 / 直线折线兜底。
+     * 判定单源在寻路层 `FlankRoute.degraded`，控制器只读不重算；每回合 planRoute 刷新，
+     * 不沿用到下一回合的其它意图。
+     */
+    var routeDegraded: Boolean = false,
 ) {
     /** 溃散 / 解散：兵力归零、移出棋盘。 */
     fun disband() {
@@ -233,6 +239,11 @@ data class CorpsView(
     val reportRadiusCells: Int? = null,
     /** 盲区占位文案：从未侦察到的敌军方位提示；null = 非盲区。缺省 null 保证旧构造点不破。 */
     val blindZoneLabel: String? = null,
+    /**
+     * 本回合侧翼路线被迫降级（加价绕行 / 折线兜底，B8R4）；壳层在意图标签旁挂「降级·绕行」
+     * 标识。未观测敌军随 [route] 一并模糊，不下发本标志。
+     */
+    val routeDegraded: Boolean = false,
 )
 
 /** 一回合的推演快照（回放 / 分支对比消费）。 */
