@@ -587,6 +587,7 @@
     <string name="create_bookmark_error">Không thể tạo dấu trang</string>
     <string name="single_url">URL đơn</string>
     <string name="import_bookshelf">Nhập danh sách sách</string>
+    <string name="import_bookshelf_default_group">Đã nhập vào tủ sách chưa phân nhóm; bạn có thể di chuyển sách vào nhóm trong quản lý tủ sách.</string>
     <string name="pre_download">Tải trước</string>
     <string name="pre_download_m">Tải trước %s trang</string>
     <string name="is_enabled">Đã bật</string>
