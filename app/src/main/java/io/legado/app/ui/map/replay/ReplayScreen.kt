@@ -147,6 +147,22 @@ fun ReplayScreenHost(
             }
         }
 
+        // 告警台账：取最新一条压在顶栏下方展示；台账由导演层截断保最新 N 条，壳层只读不写。
+        // 每帧 tick 驱动重组，新告警出现即刷新；台账为空时本行不占布局。
+        activeDirector.warnings.lastOrNull()?.let { latestWarning ->
+            BasicText(
+                text = "⚠ $latestWarning",
+                style = TextStyle(
+                    color = Color(ReplayTokens.textAccent),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Serif,
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 16.dp, top = 56.dp),
+            )
+        }
+
         // 底部战斗仪表盘：回合进度蚕丝金线 + 阶段铜点 + 播放控制。
         if (!activeDirector.theaterMode) {
             Column(

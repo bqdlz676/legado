@@ -26,6 +26,8 @@ data class PieceVisual(
     val color: Long,
     /** 棋子基座贴地高度（世界单位）：由注入高程按棋子经纬度采样；平面兜底为 0.0。 */
     val groundHeight: Double,
+    /** 是否断粮（supply 0）：断粮棋子压暗、顶光缩短；消费 ArmyPiece.supply 的视觉后果位。 */
+    val supplyStarved: Boolean,
 ) {
 
     val isRout: Boolean get() = routShards != null
@@ -65,24 +67,33 @@ data class PieceVisual(
 
             // 设伏：棋子虚化到 0.3 opacity，地面另画脉冲红点。
             val ambush = piece.intent == Intent.AMBUSH
-            val opacity = if (ambush) ReplayConfig.AMBUSH_OPACITY else 1f
+            // 断粮：supply 0 的棋子压暗一档、顶光缩短（即时视觉后果；活栈的断粮累计 / 疲劳
+            // 撤退长尾链不在回放静态镜像内）。与设伏虚化相乘，两态叠加不互相覆盖。
+            val starved = piece.isStarved
+            val supplyOpacity = if (starved) ReplayConfig.STARVED_OPACITY else 1f
+            val opacity = (if (ambush) ReplayConfig.AMBUSH_OPACITY else 1f) * supplyOpacity
 
             // 士气三态：高昂稳定直射；动摇 0.5° 微颤、顶光缩短；溃散出碎片。
             val jitterDeg: Double
-            val topLightUnits: Double
+            val moraleTopLight: Double
             when (piece.morale) {
                 Morale.HIGH, Morale.STEADY -> {
                     jitterDeg = 0.0
-                    topLightUnits = ReplayConfig.TOP_LIGHT_UNITS
+                    moraleTopLight = ReplayConfig.TOP_LIGHT_UNITS
                 }
                 Morale.WAVERING -> {
                     jitterDeg = ReplayConfig.WAVER_JITTER_DEG
-                    topLightUnits = ReplayConfig.TOP_LIGHT_UNITS * 0.6
+                    moraleTopLight = ReplayConfig.TOP_LIGHT_UNITS * 0.6
                 }
                 Morale.ROUT -> {
                     jitterDeg = 0.0
-                    topLightUnits = 0.0
+                    moraleTopLight = 0.0
                 }
+            }
+            val topLightUnits = if (starved) {
+                moraleTopLight * ReplayConfig.STARVED_TOP_LIGHT_RATIO
+            } else {
+                moraleTopLight
             }
 
             val breathMs = if (selected) ReplayConfig.SELECTED_BREATH_MS else ReplayConfig.BREATH_MS
@@ -110,6 +121,7 @@ data class PieceVisual(
                 residualRing = residualRing,
                 color = color,
                 groundHeight = ReplayGround.heightAt(elevation, piece.lat, piece.lng),
+                supplyStarved = starved,
             )
         }
 

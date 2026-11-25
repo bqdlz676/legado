@@ -56,16 +56,33 @@ enum class Intent {
 /**
  * 战役事件动作（回放可视化栈子集）。
  *
- * 回放栈由静态种子 / 后续数据管道驱动，不吃 campaign JSON；本枚举只登记回放棋子模型
- * 能够落地的三种动作。crossing 活栈枚举（ui.map.crossing.model.EventAction）的其余
- * 16 种动作（火攻 / 设伏 / 包抄 / 撤退 / 突围等）所需的存活、被俘、暴露、目标点
- * 等状态在回放棋子模型上尚无对应字段，本栈不接执行分支；待双栈合并 / 数据管道落地时
- * 再扩枚举。派发层对未接动作走显式拒绝 + 告警台账，不静默空转（见 ReplayDirector）。
+ * 回放栈由静态种子 / 后续数据管道驱动，不吃 campaign JSON。与 crossing 活栈 19 分支
+ * 对照后的落地分类（返工验收 6/6/4）：
+ *
+ * - 已接线 9 种：既有 [MORALE_CHANGE] / [SUPPLY_CUT] / [SURRENDER]，加上本批补接的
+ *   [SET_INTENT] / [SET_TARGET] / [STRENGTH_CHANGE] / [AMBUSH] / [FLANK] / [RETREAT]
+ *   ——这六种所需 intent / targetLat / targetLng / strength 状态位在 [ArmyPiece] 上已存在，
+ *   且已被 PieceVisual / BattleArrow 渲染层消费。
+ * - 显式拒绝 4 种：[DEFEND_FALL] / [CAPTURE] / [ANNIHILATE] / [FEIGNED_RETREAT]，
+ *   回放模型缺 alive / surrendered / exposed 位，派发层逐条告警写明缺哪个位，不静默。
+ * - 部分缺失 6 种（ROUT / FIRE_ATTACK / SIEGE_ENGINE / BREAKTHROUGH / NAVAL_ROUT /
+ *   ESCAPE）：兵力 / 士气位在，但缺损耗裁决、ROUT/BREAKOUT 意图位，暂落 Director 兜底
+ *   告警分支；待双栈合并 / 数据管道落地时再裁。
  */
 enum class EventAction {
     MORALE_CHANGE,
     SUPPLY_CUT,
     SURRENDER,
+    SET_INTENT,
+    SET_TARGET,
+    STRENGTH_CHANGE,
+    AMBUSH,
+    FLANK,
+    RETREAT,
+    DEFEND_FALL,
+    CAPTURE,
+    ANNIHILATE,
+    FEIGNED_RETREAT,
 }
 
 /** 战役一方。 */
@@ -82,6 +99,8 @@ data class BattleSide(
  * @param targetLat / targetLng 行军目标；null 表示固守原地
  * @param supply 剩余补给等级 0..5（与 crossing 活栈 Corps.supply 口径对齐；5 = 满补给）。
  *        回放棋子原无补给字段，D2 修复补入：断粮事件据此清零补给，不再错降士气。
+ *        消费点：PieceVisual.of 读 [isStarved]，断粮棋子压暗、顶光缩短（即时视觉后果）；
+ *        活栈的断粮回合计数 / 疲劳撤退长尾链不在回放静态镜像范围内。
  */
 data class ArmyPiece(
     val id: String,
@@ -102,11 +121,24 @@ data class ArmyPiece(
 
     val hasTarget: Boolean get() = targetLat != null && targetLng != null
 
+    /** 是否断粮（supply 0）：视觉层据此给疲弱态，口径对齐活栈 supply ≤ 0 的疲弱判定。 */
+    val isStarved: Boolean get() = supply <= 0
+
     /** 复制并替换士气（事件触发用）。 */
     fun withMorale(next: Morale): ArmyPiece = copy(morale = next)
 
     /** 复制并替换补给等级；越界钳制在 0..[SUPPLY_FULL]，不允许负补给。 */
     fun withSupply(level: Int): ArmyPiece = copy(supply = level.coerceIn(0, SUPPLY_FULL))
+
+    /** 复制并替换行军意图（SET_INTENT / AMBUSH / FLANK / RETREAT 事件用）。 */
+    fun withIntent(next: Intent): ArmyPiece = copy(intent = next)
+
+    /** 复制并替换目标落点（SET_TARGET 事件用）；箭头落点由 BattleArrow.fromPiece 消费。 */
+    fun withTarget(lat: Double, lng: Double): ArmyPiece = copy(targetLat = lat, targetLng = lng)
+
+    /** 复制并按增减量改兵力（STRENGTH_CHANGE 事件用）；兵力钳制 ≥0，不允许负兵力。 */
+    fun withStrengthDelta(delta: Int): ArmyPiece =
+        copy(strength = (strength + delta).coerceAtLeast(0))
 
     /** 复制并替换位置（回放推进 / 落点用）。 */
     fun withPosition(lat: Double, lng: Double): ArmyPiece = copy(lat = lat, lng = lng)

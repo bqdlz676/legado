@@ -84,6 +84,12 @@ object ReplayConfig {
     /** 设伏态棋子虚化透明度：0.3。 */
     const val AMBUSH_OPACITY: Float = 0.3f
 
+    /** 断粮（supply 0）棋子透明度：压到 0.75，与满补给棋子拉开疲弱差异。 */
+    const val STARVED_OPACITY: Float = 0.75f
+
+    /** 断粮棋子顶光保留比例：缩到一半，光衰对应补给断绝。 */
+    const val STARVED_TOP_LIGHT_RATIO: Double = 0.5
+
     // ─────────────────────────── 势力 / 战线多边形（契约 §1.5 E 势力色）───────────────────────────
 
     /** 己方势力填充不透明度：0.12（暖金半透明）。 */

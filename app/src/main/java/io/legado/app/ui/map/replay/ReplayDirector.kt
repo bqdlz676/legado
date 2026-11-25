@@ -105,10 +105,23 @@ class ReplayDirector(
     val encounters: MutableList<EncounterRing> = mutableListOf()
 
     /**
-     * 派发 / 边界告警台账：未知动作、目标棋子缺失等不生效项逐条登记，供壳层观测；
-     * 与活栈 warnings 口径一致——不生效必须可观测，不许静默空转。
+     * 派发 / 边界告警台账：未知动作、目标棋子缺失、缺字段被拒绝等不生效项逐条登记，
+     * 供壳层观测；与活栈 warnings 口径一致——不生效必须可观测，不许静默空转。
+     * 上限 [MAX_WARNINGS]：超出截断最旧条目、保最新 N 条；复位时机为导演实例新建
+     * （一场战役一个导演）或壳层重开回放时调用 [clearWarnings]。
      */
     val warnings: MutableList<String> = mutableListOf()
+
+    /** 登记一条告警；超出上限截断最旧条目，保最新 N 条。 */
+    fun recordWarning(message: String) {
+        warnings.add(message)
+        while (warnings.size > MAX_WARNINGS) warnings.removeAt(0)
+    }
+
+    /** 清空告警台账；重开一场战役 / 回放复位时调用（导演新建时台账本为空）。 */
+    fun clearWarnings() {
+        warnings.clear()
+    }
 
     // 上一帧仍相邻的敌我对子。交战只在「由不相邻变为相邻」的沿边触发：
     // 否则一场交战 DONE 被清理后，位置没动的同一对子下一帧会立刻再炸一场，动画永远清不空。
@@ -244,7 +257,7 @@ class ReplayDirector(
             // 边界：目标棋子 id 在战役中不存在；记告警不抛异常，事件仍登记为已点燃，不重复结算。
             val target = armies.firstOrNull { it.id == event.targetId }
             if (target == null) {
-                warnings += "事件「${event.reason}」：目标 ${event.targetId} 缺失，动作 ${event.action} 未生效"
+                recordWarning("事件「${event.reason}」：目标 ${event.targetId} 缺失，动作 ${event.action} 未生效")
                 appliedEvents.add(key)
                 return@forEachIndexed
             }
@@ -261,10 +274,59 @@ class ReplayDirector(
                         routStartMs[piece.id] = now
                         piece.withMorale(Morale.ROUT)
                     }
+
+                    // ── 本批补接：状态位已在 ArmyPiece 上，渲染层已消费 ──
+                    EventAction.SET_INTENT ->
+                        piece.withIntent(Intent.fromLabel(event.value))
+                    EventAction.SET_TARGET -> {
+                        val targetPoint = parseTargetPoint(event.value)
+                        if (targetPoint == null) {
+                            recordWarning(
+                                "事件「${event.reason}」：SET_TARGET 坐标缺失或格式非法" +
+                                    "（value=${event.value}），目标 ${piece.id} 未生效",
+                            )
+                            piece
+                        } else {
+                            piece.withTarget(targetPoint.first, targetPoint.second)
+                        }
+                    }
+                    EventAction.STRENGTH_CHANGE -> {
+                        val delta = event.value?.toIntOrNull()
+                        if (delta == null) {
+                            recordWarning(
+                                "事件「${event.reason}」：STRENGTH_CHANGE 兵力增减量非法" +
+                                    "（value=${event.value}），目标 ${piece.id} 未生效",
+                            )
+                            piece
+                        } else {
+                            piece.withStrengthDelta(delta)
+                        }
+                    }
+                    EventAction.AMBUSH -> piece.withIntent(Intent.AMBUSH)
+                    EventAction.FLANK -> piece.withIntent(Intent.FLANK)
+                    EventAction.RETREAT -> piece.withIntent(Intent.RETREAT)
+
+                    // ── 显式拒绝：回放模型缺 alive / surrendered / exposed 位，写明理由不静默 ──
+                    EventAction.DEFEND_FALL -> rejectMissingField(
+                        piece, event, "模型缺 alive 出局位：城破殉国的阵亡 / 出局态在回放棋子上无法落地",
+                    )
+                    EventAction.CAPTURE -> rejectMissingField(
+                        piece, event, "模型缺 surrendered 被俘位：被俘收编态在回放棋子上无法落地",
+                    )
+                    EventAction.ANNIHILATE -> rejectMissingField(
+                        piece, event, "模型缺 alive 出局位：全军覆没的阵亡态在回放棋子上无法落地",
+                    )
+                    EventAction.FEIGNED_RETREAT -> rejectMissingField(
+                        piece, event, "模型缺 exposed 暴露位：佯退诱敌的位置暴露态在回放棋子上无法落地",
+                    )
+
                     else -> {
-                        // 兜底：回放可视化栈当前仅登记上述三种种子动作；枚举后续扩充或数据管道
-                        // 灌入 crossing 其余动作时，未接分支一律在此显式拒绝 + 告警，不许静默空转。
-                        warnings += "事件「${event.reason}」：回放栈暂不支持动作 ${event.action}（目标 ${piece.id}），未生效"
+                        // 兜底：部分缺失动作（ROUT / FIRE_ATTACK / SIEGE_ENGINE / BREAKTHROUGH /
+                        // NAVAL_ROUT / ESCAPE）与枚举后续扩充、数据管道灌入的新动作，一律在此
+                        // 显式拒绝 + 告警，不许静默空转。
+                        recordWarning(
+                            "事件「${event.reason}」：回放栈暂不支持动作 ${event.action}（目标 ${piece.id}），未生效",
+                        )
                         piece
                     }
                 }
@@ -275,6 +337,26 @@ class ReplayDirector(
 
     /** 条件触发事件（如兵力低于阈值）：本版本种子无兵力衰减，兜底为不触发。 */
     private fun conditionTriggered(event: BattleEvent): Boolean = false
+
+    /**
+     * 解析 SET_TARGET 的 value 坐标串，格式 "lat,lng"；非法 / 缺项返回 null，由调用方记告警。
+     * 回放事件模型无独立 targetPos 字段（对照活栈 EventDef.targetPos），坐标暂走 value 串承载。
+     */
+    private fun parseTargetPoint(value: String?): Pair<Double, Double>? {
+        val parts = value?.split(",")?.map { it.trim() } ?: return null
+        if (parts.size != 2) return null
+        val lat = parts[0].toDoubleOrNull() ?: return null
+        val lng = parts[1].toDoubleOrNull() ?: return null
+        return lat to lng
+    }
+
+    /** 缺字段动作的显式拒绝：登记告警写明缺哪个状态位，棋子原样返回、状态不变。 */
+    private fun rejectMissingField(piece: ArmyPiece, event: BattleEvent, missing: String): ArmyPiece {
+        recordWarning(
+            "事件「${event.reason}」：动作 ${event.action} 回放栈显式拒绝——$missing（目标 ${piece.id}），未生效",
+        )
+        return piece
+    }
 
     // ══════════════════════════ 交战 / 遭遇检测 ══════════════════════════
 
@@ -370,5 +452,8 @@ class ReplayDirector(
     companion object {
         /** 交战相邻阈值：敌我棋子相距 10 公里内判定相邻（地形视野内的近身距离）。 */
         const val CLASH_THRESHOLD_KM: Double = 10.0
+
+        /** 告警台账上限：超出截断最旧条目、保最新 N 条，避免长战役只增不减。 */
+        const val MAX_WARNINGS: Int = 20
     }
 }
