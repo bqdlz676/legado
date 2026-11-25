@@ -319,6 +319,15 @@ jobs:
             tail -40 "$LOG" 2>/dev/null || echo "(no log)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          # summary 只有登录用户能看；这里再把失败用例名打成 annotation，
+          # 未登录也能读到（annotation 每 job 上限 10 条，故合并成 1 条、截断到 900 字符）。
+          # Gradle 的失败行形如 "com.x.MyTest > 方法名 FAILED"，统一按行尾 FAILED 抓取。
+          FAILED_CASES="$(grep -E 'FAILED$' "$LOG" 2>/dev/null | sed 's/^ *//' | head -12 | tr '\n' ';')"
+          if [ -n "$FAILED_CASES" ]; then
+            echo "::error::shard ${{ matrix.shard }}/4 失败用例: ${FAILED_CASES:0:900}"
+          else
+            echo "::error::shard ${{ matrix.shard }}/4 无匹配失败用例行,尾部: $(tail -6 "$LOG" 2>/dev/null | tr '\n' ';' | cut -c1-700)"
+          fi
 
       - name: Upload shard JUnit XML results
         uses: actions/upload-artifact@v4
