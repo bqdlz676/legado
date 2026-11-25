@@ -17,6 +17,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -26,6 +27,7 @@ import androidx.core.view.get
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.size
+import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.lifecycleScope
 import com.jaredrummler.android.colorpicker.ColorPickerDialog
 import com.jaredrummler.android.colorpicker.ColorPickerDialogListener
@@ -121,8 +123,12 @@ import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TITLE_NUMBER_
 import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_COLOR
 import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_DIVIDER_COLOR
 import io.legado.app.ui.book.read.page.ContentTextView
+import io.legado.app.ui.book.read.page.ReaderDetailRequest
 import io.legado.app.ui.book.read.page.InkView
 import io.legado.app.ui.book.read.page.ReadView
+import io.legado.app.ui.book.read.ink.ReaderSheetOverlay
+import io.legado.app.ui.book.read.ink.ReaderSheetState
+import io.legado.app.ui.components.ReaderSnapshot
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
 import io.legado.app.ui.book.read.page.entities.PageDirection
 import io.legado.app.ui.book.read.page.entities.TextPage
@@ -304,6 +310,12 @@ class ReadBookActivity : BaseReadBookActivity(),
     val textActionMenu: TextActionMenu by lazy {
         TextActionMenu(this, this)
     }
+
+    /**
+     * B1 点字详情半屏状态持有者：请求与开合前后快照在此收口；Sheet 覆盖层只读宿主状态，
+     * 不滚动正文、不改写选中 / 下划线。Compose 覆盖层在 [onActivityCreated] 挂载。
+     */
+    private val readerSheetState = ReaderSheetState()
     private val popupAction: PopupAction by lazy {
         PopupAction(this)
     }
@@ -522,6 +534,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     @SuppressLint("ClickableViewAccessibility")
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
+        attachReaderSheetOverlay()
         // 预先加载典故词表与字义表，避免首次绘制、首次点击卡顿
         Coroutine.async {
             AllusionDict.preload(this@ReadBookActivity)
@@ -1526,6 +1539,55 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     override fun onHighlightClick(highlight: BookHighlight, x: Float, y: Float) {
         showHighlightActionMenu(highlight, x, y)
+    }
+
+    /**
+     * B1 接线：点字详情请求出口。View 层只打包请求，宿主在此采弹起前快照后交给
+     * [readerSheetState]，由 Compose 覆盖层渲染统一 InkHalfSheet；本方法不滚动正文、
+     * 不改写选中 / 下划线状态。
+     */
+    override fun openReaderSheet(request: ReaderDetailRequest) {
+        readerSheetState.open(request, captureReaderSnapshot())
+    }
+
+    /**
+     * 挂载点字详情 Compose 覆盖层。覆盖层自身不画背景：InkHalfSheet 以 dialog 模式
+     * 起独立窗口承载遮罩与 Sheet，宿主阅读页不被重排、不被重算 layout（切片-11 §5.4）。
+     */
+    private fun attachReaderSheetOverlay() {
+        val sheetHost = ComposeView(this).apply {
+            setContent {
+                ReaderSheetOverlay(
+                    state = readerSheetState,
+                    onDismiss = {
+                        readerSheetState.dismiss(captureReaderSnapshot())
+                    },
+                )
+            }
+        }
+        window.addContentView(
+            sheetHost,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+    }
+
+    /**
+     * 采集当前阅读页只读快照：章序号 / 段内偏移 / 滚动像素 / 下划线可见性 / 已选段集合。
+     * 快照只用于开合前后逐字段比对，采集过程不回写任何阅读状态；选中段集合在遗留横排
+     * 通道无独立选中模型，先置空集，待竖排壳选中态接入后补齐。
+     */
+    private fun captureReaderSnapshot(): ReaderSnapshot {
+        val bookUrl = ReadBook.book?.bookUrl.orEmpty()
+        return ReaderSnapshot(
+            chapterIndex = ReadBook.durChapterIndex,
+            segmentOffset = ReadBook.durChapterPos,
+            scrollPosition = binding.readView.scrollY,
+            underlineVisible = ReadBook.highlights.any { it.bookUrl == bookUrl },
+            selectedSegments = emptySet(),
+        )
     }
 
     override fun onHighlightRuleClick(ruleId: Long, x: Float, y: Float) {

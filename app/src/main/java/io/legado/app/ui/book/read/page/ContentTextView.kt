@@ -3,8 +3,6 @@ package io.legado.app.ui.book.read.page
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
-import android.app.Activity
-import android.content.Intent
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -580,12 +578,17 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                     if (y2 != null) {
                                         {
                                             dismissCharBubble()
-                                            val fm = (context as? androidx.fragment.app.FragmentActivity)
-                                                ?.supportFragmentManager
-                                            if (fm != null) {
-                                                io.legado.app.ui.main.DetailSheet.year(y2)
-                                                    .show(fm, "detail_year")
-                                            }
+                                            // 旧纪年工厂内的锚定副作用保留：
+                                            // 用户主动点年号 = 最高优先级锚定，纪年 / 地名 / 人物 / 地图从此读同一年份。
+                                            io.legado.app.help.chrono.ContextAnchor.setYear(y2)
+                                            callBack.openReaderSheet(
+                                                ReaderDetailRequest(
+                                                    kind = ReaderDetailKind.YEAR,
+                                                    token = chronoHit.title,
+                                                    year = y2,
+                                                    detail = chronoHit.detail,
+                                                )
+                                            )
                                         }
                                     } else null
                                 )
@@ -607,51 +610,32 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                                             }
                                             append(nm.detail)
                                         }
-                                        // 半屏 sheet：原文不离眼，返回不重建
+                                        // 半屏 sheet：原文不离眼，返回不重建（B1 接线，统一走 InkHalfSheet）
                                         val personDetail: (() -> Unit)? =
                                             if (nm.kind == io.legado.app.help.NameResolver.Kind.PERSON) {
                                                 {
                                                     dismissCharBubble()
-                                                    val fm = (context as? androidx.fragment.app.FragmentActivity)
-                                                        ?.supportFragmentManager
-                                                    if (fm != null) {
-                                                        io.legado.app.ui.main.DetailSheet
-                                                            .person(nm.name, nm.anchorYear, lineText)
-                                                            .show(fm, "detail_person")
-                                                    } else {
-                                                        val i = Intent(
-                                                            context,
-                                                            io.legado.app.ui.main.PersonDetailActivity::class.java
+                                                    callBack.openReaderSheet(
+                                                        ReaderDetailRequest(
+                                                            kind = ReaderDetailKind.PERSON,
+                                                            token = nm.name,
+                                                            year = nm.anchorYear,
+                                                            excerpt = lineText,
+                                                            detail = body,
                                                         )
-                                                            .putExtra("name", nm.name)
-                                                            .putExtra("appearances", "[]")
-                                                        if (context !is Activity) {
-                                                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                        }
-                                                        context.startActivity(i)
-                                                    }
+                                                    )
                                                 }
                                             } else {
                                                 {
                                                     dismissCharBubble()
-                                                    val fm = (context as? androidx.fragment.app.FragmentActivity)
-                                                        ?.supportFragmentManager
-                                                    if (fm != null) {
-                                                        io.legado.app.ui.main.DetailSheet
-                                                            .place(nm)
-                                                            .show(fm, "detail_place")
-                                                    } else {
-                                                        val i = Intent(
-                                                            context,
-                                                            io.legado.app.ui.main.PlaceMapActivity::class.java
-                                                        ).putExtra("name", nm.name)
-                                                            .putExtra("wlat", nm.wlat ?: Double.NaN)
-                                                            .putExtra("wlng", nm.wlng ?: Double.NaN)
-                                                        if (context !is Activity) {
-                                                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                        }
-                                                        context.startActivity(i)
-                                                    }
+                                                    callBack.openReaderSheet(
+                                                        ReaderDetailRequest(
+                                                            kind = ReaderDetailKind.PLACE,
+                                                            token = nm.name,
+                                                            detail = nm.detail,
+                                                            placeOthers = nm.others,
+                                                        )
+                                                    )
                                                 }
                                             }
                                         showBubble(
@@ -1373,10 +1357,13 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             showDetail = detail
             onDetail = customDetail ?: {
                 dismissCharBubble()
-                val fm = (context as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager
-                if (fm != null) {
-                    io.legado.app.ui.main.DetailSheet.char(ch).show(fm, "detail_char")
-                }
+                callBack.openReaderSheet(
+                    ReaderDetailRequest(
+                        kind = ReaderDetailKind.CHAR,
+                        token = ch,
+                        detail = meaningFinal,
+                    )
+                )
             }
         }
         bubble.measure(
@@ -1948,6 +1935,12 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         fun onReviewClick(paragraphNum: Int, count: Int, chapterIndex: Int)
         fun onHighlightClick(highlight: BookHighlight, x: Float, y: Float)
         fun onHighlightRuleClick(ruleId: Long, x: Float, y: Float)
+
+        /**
+         * 点字详情请求出口（B1 接线）：View 层只打包命中结果抛给宿主 Compose 层，
+         * 由统一自绘 InkHalfSheet 覆盖层渲染；View 内不再直接弹 Fragment / Dialog。
+         */
+        fun openReaderSheet(request: ReaderDetailRequest)
     }
 
     private fun resolveReviewId(textLine: TextLine): Int {
