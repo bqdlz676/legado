@@ -83,6 +83,7 @@ fun InkButton(
     loading: Boolean = false,
     offline: Boolean = false,
     empty: Boolean = false,
+    standaloneInteractive: Boolean = false,
     leading: @Composable (() -> Unit)? = null,
 ) {
     val gesture = rememberInkGesture(
@@ -90,6 +91,7 @@ fun InkButton(
         loading = loading,
         empty = empty,
         offline = offline,
+        standaloneInteractive = standaloneInteractive,
         onClick = onClick,
     )
     val interaction = gesture.interaction
@@ -191,5 +193,9 @@ fun InkButton(
     loading: Boolean = false,
     offline: Boolean = false,
     empty: Boolean = false,
+    standaloneInteractive: Boolean = false,
     onClick: () -> Unit,
-) = InkButton(text, onClick, modifier, variant, enabled, loading, offline, empty, null)
+) = InkButton(
+    text, onClick, modifier, variant, enabled, loading, offline, empty,
+    standaloneInteractive, null,
+)

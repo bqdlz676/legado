@@ -63,6 +63,9 @@ fun InkEmptyState(
                 onClick = onAction,
                 variant = InkButtonVariant.SECONDARY,
                 offline = offline,
+                // B17 分闸：重试是离线恢复入口，独立于容器 OFFLINE 禁点闸放行自身点击；
+                // 契约 OFFLINE 本体 eventsAllowed=false 的全局语义不动，EMPTY 态本就放行。
+                standaloneInteractive = offline,
             )
         }
     }
