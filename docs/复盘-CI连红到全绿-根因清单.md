@@ -42,3 +42,34 @@
 - **8 例分类**：**2 例是测试自身写错**（M2 坐标轴、JS 角标断言过时），**6 例是生产逻辑缺约束**（B7 四条 HOLD 闸门 + B9-7 士气节流 + M5 短图签名探针）。
 - **编译通过 ≠ 逻辑通过**：编译红修完后，语义红藏在 test 阶段后面——`2ff867d` 编译清零才首次暴露 8 个运行期失败。修红必须一次跑到 test 阶段真绿再报完成：`BUILD SUCCESSFUL` + `e:` 为 0 + `tests failed` 为 0，编译绿只是中间态。
 - **同轮顺带闭环**：`AndroidManifest.xml:22-26` 的 `WRITE_EXTERNAL_STORAGE` 补 `android:maxSdkVersion="28"`（卡片 12 类验收判据 7 的宿主侧挂账）。
+
+---
+
+## 十、CI 双车道拆分五轮红（2026-11-25，规则治理收口段）
+
+背景：把单一 `build.yml`（6 job）拆成 `verify.yml`（4 job，`cancel-in-progress: true`）+ `package.yml`（2 job，`false`，`workflow_run` 闸门）。拆分是规则体系要求，但从未在真 CI 上跑过，第一轮就红。
+
+### 第一层：并发下载 temurin 被限流（run 45610457536 / 45613650737，commit `227fb23` / `ac2790a`）
+- 现象：discover 绿（4m38s），4 个分片全红，aggregate 与 baseline skipped，全程 10m36s。
+- 定位：job annotations 指认失败步骤是 `Set up JDK 21 (temurin)`。discover 单路先跑、下载成功；4 个分片并发下载同一份 temurin，被 Adoptium 接口限流。
+- 修法：5 处 `actions/setup-java` 全换成"优先取 runner 预装 `JAVA_HOME_21_X64`，缺失才回落下拉（3 次重试）"，把 JDK 获取从网络依赖变成零网络。
+
+### 第二层：5 个基建契约测试拿 build.yml 当仓库根锚点（run 45618456070，commit `d794ede`）
+- 现象：JDK 步全绿（`shard 3/4` 全绿 4m50s），shard 1/2/4 红在 `Run shard unit tests`，exit code 1。
+- 定位：`app/src/test/java/io/legado/app/ci/` 下 ReleaseWorkflowTest、BetaReleaseWorkflowTest、DependabotConfigTest、TestReleaseWorkflowTest、WebWorkflowTest 五份契约测试，全部用 `first { File(it, ".github/workflows/build.yml").isFile }` 定位仓库根；build.yml 退役后 `first {}` 抛 NoSuchElementException，整组用例集体红。另有 4 处直接读 build.yml 文本做断言。
+- 修法：根锚点改 `settings.gradle`（与 CI 结构无关，以后换 workflow 文件名不再误红）；`buildWorkflowText` 改 `ciWorkflowText` = verify.yml + package.yml 合并文本，与拆分前同源，versionCode 地板、手动入口、产物名、composite action、legacy 工作流不存在等断言逐条不变，强度未放宽。
+
+### 第三层：workflow_run 填文件名，闸门静默失效（run 45627261264 绿 → package 无 run）
+- 现象：verify 第 5 轮全绿（6 job 全成功），但 package 一个 run 都没起。
+- 定位：`package.yml` 的 `on.workflow_run.workflows` 写的是 `"verify"`（文件名）。GitHub 匹配的是 workflow 的 `name` 字段，即 `"Verify (unit tests)"`；填错不报错、不告警、闸门永不触发。
+- 修法：改填 name。第 6 轮（commit `fa1a760`，run 45629525146）verify 绿后，package 自动触发 run 45631438066，成功产出 `legado-debug-apk` 与 `legado-release-apk`。
+
+### 沉淀（规则 + 自动化）
+- **R-CI-1** `workflow_run.workflows` 必须填 workflow 的 `name` 字段，禁填文件名；被引用方的 name 一改，引用方必须同步改。适用条件：任何 `workflow_run` 引用处。
+- **R-CI-2** `.github/workflows/` 任何增删改名，必须同步复核 `app/src/test/java/io/legado/app/ci/` 的契约测试。为什么：那批测试直接依赖 workflow 文件的存在与文本内容。
+- **R-CI-3** 契约测试的仓库根锚点不得依赖 workflow 文件名，用 `settings.gradle` 这类结构无关标识。为什么：根锚点一旦绑死某个会被重组的文件，结构一变就是整组误红。
+- **R-CI-4** 拆 workflow 后必须三件齐——verify 全绿、package 被自动触发、APK 产物在——才允许删除旧配置。为什么：旧配置是唯一回滚路径。
+- **自动化** `data_scripts/check-workflow-contracts.py`：机械校验 R-CI-1 与 R-CI-2（workflow_run 引用必须是已知 name、契约测试引用的 workflow 文件必须存在；`assertFalse(...exists())` 这类"断言已移除"的合法用法已排除）。正例 PASS，负例（把 name 改回文件名）精确报"这是文件名，应填 workflow 的 name 字段"。
+
+### 收口
+`build.yml.bak` 在三件齐后删除，仓库里只留 verify.yml + package.yml 双车道。
