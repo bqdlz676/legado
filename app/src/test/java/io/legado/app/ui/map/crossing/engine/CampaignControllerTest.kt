@@ -4,6 +4,7 @@ import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.BattleStatus
 import io.legado.app.ui.map.crossing.model.BranchSnapshot
 import io.legado.app.ui.map.crossing.model.Cell
+import io.legado.app.ui.map.crossing.model.Intent
 import io.legado.app.ui.map.crossing.terrain.HeightRaster
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -403,6 +404,31 @@ class CampaignControllerTest {
         assertEquals("斜向格位应在四格八向视野内被目睹", 0, controller.reportRadiusCells("b1"))
         val view = controller.snapshot().corps.first { it.id == "b1" }
         assertTrue("斜向格位应标记为已观测", view.observed)
+    }
+
+    @Test
+    fun `B8R4 侧翼被迫降级时暴露入账 快照下发降级标识且事件留档`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        // 双方拉开距离避免首回合接触交战干扰暴露口径；目标格给到远端，敌军视野半径拉满
+        // 覆盖全图，迫使侧翼严格模式无路、走退化链路（加价 / 折线兜底）。
+        a1.position = Cell(2, 5)
+        a1.latLng = controller.projection.toGeo(Cell(2, 5))
+        b1.position = Cell(28, 26)
+        b1.latLng = controller.projection.toGeo(Cell(28, 26))
+        a1.target = controller.projection.toGeo(Cell(28, 26))
+        b1.visionRadiusCells = 30
+
+        val snapshot = controller.step(mapOf("a1" to Intent.FLANK))
+
+        assertTrue("全图视野封锁侧翼应置降级标志", a1.routeDegraded)
+        assertTrue("被迫暴露路线应置暴露姿态", a1.exposed)
+        val ownView = snapshot.corps.first { it.id == "a1" }
+        assertTrue("快照应向本方下发降级标识", ownView.routeDegraded)
+        assertTrue("事件日志应留档降级口径", snapshot.events.any { it.contains("降级") })
+        val enemyView = snapshot.corps.first { it.id == "b1" }
+        assertFalse("未观测敌军不下发我方降级标识", enemyView.routeDegraded)
     }
 
     @Test

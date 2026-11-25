@@ -204,4 +204,48 @@ class PathfinderTest {
         assertTrue(cavalry !in route.path)
         assertTrue(militia !in route.path)
     }
+
+    @Test
+    fun `目标格身处敌军视野环内 严格模式仍可落点不被剪枝`() {
+        // B8R5：目标格与起点同享视野剪枝豁免。敌军贴邻目标格驻守（半径 1），目标格落在其
+        // 视野环内；严格 A* 仍应能落到目标格，不得把终点本身剪掉而误判降级绕行。
+        val enemy = Cell(28, 25)
+        val finder = Pathfinder(plainMap(), "clear")
+        val route = finder.flankRoute(
+            Cell(2, 5),
+            Cell(28, 26),
+            ArmyType.REGULAR,
+            listOf(EnemySight(enemy, 1)),
+        )
+        assertTrue("豁免目标格后侧翼路径必须非空", route.path.isNotEmpty())
+        assertEquals("终点必须落在目标格", Cell(28, 26), route.path.last())
+        assertFalse("目标可达时不应误置降级标志：${route.reason}", route.degraded)
+        assertTrue("路径不得踏上敌军所在格", enemy !in route.path)
+    }
+
+    @Test
+    fun `地形双重封锁时第三级直线折线兜底出线且理由标明折线`() {
+        // B8R5：厚水带横断全图且无渡口，严格 A* 与加价 A* 均无路，落到第三级 straightPath
+        // 折线兜底；专门锁住该兜底路径真的能出线（首格为出发格、逐格可通行、理由标明折线），
+        // 而不是只断言非空。
+        val map = blockedBandMap()
+        val finder = Pathfinder(map, "clear")
+        val route = finder.flankRoute(
+            Cell(2, 5),
+            Cell(2, 26),
+            ArmyType.REGULAR,
+            emptyList<EnemySight>(),
+        )
+        assertTrue("第三级折线兜底也必须非空", route.path.isNotEmpty())
+        assertTrue("双封锁应置降级标志", route.degraded)
+        assertTrue("降级理由应标明直线折线兜底", route.reason.contains("直线折线"))
+        assertEquals("折线兜底首格为出发格", Cell(2, 5), route.path.first())
+        route.path.forEach { cell ->
+            assertTrue("折线路径格应可通行：$cell", map.passable(cell, ArmyType.REGULAR))
+            assertTrue(
+                "折线路径格不得是非渡口水面：$cell",
+                !(map.isWater(cell) && !map.isFord(cell)),
+            )
+        }
+    }
 }
