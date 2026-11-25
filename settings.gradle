@@ -68,6 +68,7 @@ rootProject.name = 'legado'
 include ':app'
 include ':modules:book'
 include ':modules:rhino'
-# 路径 A：独立截图模块。Paparazzi 插件 / layoutlib / includeAndroidResources 只装在本模块，
-# :app 基线单测类路径不被污染（历史红因见 docs/待接-截图基建/README.md §2）。
+// 路径 A：独立截图模块。Paparazzi 插件 / layoutlib / includeAndroidResources 只装在本模块，
+// :app 基线单测类路径不被污染（历史红因见 docs/待接-截图基建/README.md §2）。
+// 注意：Gradle 的 settings.gradle 是 Groovy，注释只能写 //，写 # 会让 settings 直接编译失败（K-19，run 45525688582 实证）。
 include ':screenshot'

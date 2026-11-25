@@ -248,5 +248,10 @@ if [ $? -eq 0 ]; then ok "㉜FloatDouble混算" "$(echo "$FD32" | grep 'FLOAT-DO
 NBL=$(python3 data_scripts/check-no-local-build.py 2>&1)
 if [ $? -eq 0 ]; then ok "㉝本地禁止编译" "$(echo "$NBL" | grep 'NO-LOCAL-BUILD: PASS')"; else bad "㉝本地禁止编译" "$(echo "$NBL" | grep -E 'FAIL|Gradle|gradle|build' | head -3 | tr '\n' ' ')"; fi
 
+# ㉞ Gradle 语法（K-19 机制化）：settings.gradle/*.gradle 是 Groovy，行首 # 不是注释，
+#    一红连 Task 都进不去（run 45525688582 实证）。这条把这类假注释机械抓出来。
+GS34=$(python3 data_scripts/check-gradle-syntax.py 2>&1)
+if [ $? -eq 0 ]; then ok "㉞Gradle语法" "$(echo "$GS34" | grep 'GRADLE-SYNTAX: PASS')"; else bad "㉞Gradle语法" "$(echo "$GS34" | grep -E ':' | head -3 | tr '\n' ' ')"; fi
+
 echo
 [ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
