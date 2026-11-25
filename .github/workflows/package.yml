@@ -1,0 +1,149 @@
+name: Package Debug APK
+
+on:
+  # 由 verify 车道成功完成后触发：verify 全绿才进入打包，并行触发被此闸门排除。
+  workflow_run:
+    workflows: ["verify"]
+    types: [completed]
+  # 保留手动入口（baseline 对照模式直接出包等场景）。
+  workflow_dispatch:
+    inputs:
+      baseline_full_test:
+        description: 'baseline 模式：单 job 跑全量单测对照（默认 false 走 4 分片并行）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# 打包长作业不许被新推取消（K-20 教训：连推会 cancelled 在飞 run，APK 长杆被打断代价最大）。
+# 因此打包车道 cancel-in-progress: false；并发闸门由 workflow_run 串联 verify 成功来保证顺序。
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+# 口径与护栏（改动前先读）：
+# - 本文件由原 build.yml 出包侧 job 逐字搬运；测试 job 见 verify.yml。
+# - 跨 workflow 无法用 needs 引用 verify 内 job：原 build-shard 的 needs [discover, test-shard,
+#   test-aggregate]、build-baseline 的 needs [test-baseline]，其等待关系改由本文件顶部
+#   workflow_run(verify, conclusion == 'success') 闸门承担；job 内 steps / artifact 名称路径不变。
+# - 缓存未命中时 actions/cache 自动跳过 restore，Gradle 正常走网络下载；任何位置都不加 --offline。
+
+jobs:
+  # ---------- 出包（分片路径）：verify 车道全绿后由 workflow_run 闸门放行 ----------
+  build-shard:
+    name: Build & verify APKs (shard path)
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') && (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Resolve versionCode (.versioncode single source)
+        run: |
+          VC="$(tr -d '[:space:]' < .versioncode)"
+          echo "versionCode=$VC" | tee -a "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$VC" =~ ^[0-9]+$ ]] || (( VC < 38000 )); then
+            echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
+          fi
+
+      - name: Build & verify APKs (shared composite)
+        uses: ./.github/actions/build-apks
+
+  # ---------- 出包（baseline 路径）：仅手动 workflow_dispatch 勾选 baseline_full_test 时运行 ----------
+  build-baseline:
+    name: Build & verify APKs (baseline path)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline_full_test == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Resolve versionCode (.versioncode single source)
+        run: |
+          VC="$(tr -d '[:space:]' < .versioncode)"
+          echo "versionCode=$VC" | tee -a "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$VC" =~ ^[0-9]+$ ]] || (( VC < 38000 )); then
+            echo "::error::.versioncode 非法或低于硬地板 38000: '$VC'"; exit 1
+          fi
+
+      - name: Build & verify APKs (shared composite)
+        uses: ./.github/actions/build-apks
