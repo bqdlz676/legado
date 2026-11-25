@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>落文 · 规则链条图（旧链 13 环 → 新链 14 环）</title>
+<style>
+  :root{
+    --paper:#F7F1E6; --surface:#EFE8D8; --ink:#1A1410; --ink2:#5C4F3A;
+    --grey:#9B9687; --cinnabar:#C23B2E; --gold:#D4A54A; --copper:#8B6914;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:36px 28px 60px;background:var(--paper);color:var(--ink);
+       font-family:"Noto Serif SC","Songti SC",serif;line-height:1.5;}
+  h1{font-size:26px;letter-spacing:.08em;margin:0 0 6px;font-weight:600;}
+  .sub{color:var(--ink2);font-size:13px;letter-spacing:.04em;margin-bottom:26px;}
+  .sub b{color:var(--cinnabar);font-weight:600;}
+  h2{font-size:15px;letter-spacing:.14em;color:var(--ink2);margin:34px 0 14px;
+     padding-left:10px;border-left:3px solid var(--gold);}
+  .chain{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;}
+  .box{position:relative;flex:1 1 178px;min-width:168px;background:var(--surface);
+       border:1px solid rgba(26,20,16,.10);border-radius:14px;padding:11px 12px 12px;
+       box-shadow:0 1px 0 rgba(212,165,74,.28), 0 6px 14px rgba(26,20,16,.05);}
+  .box .no{font-size:11px;letter-spacing:.12em;color:var(--copper);}
+  .box .nm{font-size:14px;font-weight:600;margin:3px 0 5px;}
+  .box .rl{font-size:11px;color:var(--grey);line-height:1.45;}
+  .box.broken{border-color:rgba(194,59,46,.45);background:#F4E7E2;}
+  .tag{display:inline-block;margin-top:6px;font-size:10px;padding:1px 6px;border-radius:999px;
+       background:rgba(194,59,46,.10);color:var(--cinnabar);letter-spacing:.06em;}
+  .tag.keep{background:rgba(58,107,102,.12);color:#3A6B66;}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--gold);
+         font-size:16px;flex:0 0 auto;}
+  .legend{display:flex;flex-wrap:wrap;gap:18px;margin:10px 0 0;font-size:12px;color:var(--ink2);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .bars{margin-top:8px;}
+  .bar{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12px;}
+  .bar .lab{width:74px;color:var(--ink2);}
+  .bar .track{flex:1;height:12px;background:rgba(26,20,16,.06);border-radius:999px;overflow:hidden;}
+  .bar .fill{height:100%;border-radius:999px;}
+  .bar .num{width:46px;text-align:right;color:var(--copper);font-variant-numeric:tabular-nums;}
+  .note{margin-top:26px;padding:16px 18px;background:#FBF6EC;border:1px solid rgba(212,165,74,.35);
+        border-radius:14px;font-size:12.5px;color:var(--ink2);line-height:1.85;}
+  .note b{color:var(--cinnabar);}
+  .foot{margin-top:30px;font-size:11px;color:var(--grey);letter-spacing:.03em;}
+</style>
+</head>
+<body>
+  <h1>落文 · 规则链条图</h1>
+  <div class="sub">旧链 <b>E01–E13</b>（13 环，263 条规则）→ 新链 <b>C01–C14</b>（W/V 任务卡）。数据取自 <code>docs/规则逻辑链.md</code>，条数已实测：铁律 63、拍板 20、段内 24、总账 111、门禁 38、状态载体 7。</div>
+
+  <h2>旧链 · 从口令到交付的 13 环</h2>
+  <div class="chain">
+    <div class="box"><div class="no">E01</div><div class="nm">输入</div><div class="rl">口令与规格原文 · C1/C2/C8/C10</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E02</div><div class="nm">规格流入</div><div class="rl">F-88 / ㉒ / ⑪</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E03</div><div class="nm">立项与登记</div><div class="rl">E13 / 立项规则 / F-83</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E04</div><div class="nm">前置设计费</div><div class="rl">锚点卡 · F-85 / R6 / ⑲ / F-73</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E05</div><div class="nm">切分与派单</div><div class="rl">D1–D8 / F-84 / 队列 / ⑱</div></div>
+    <div class="arrow">→</div>
+    <div class="box broken"><div class="no">E06</div><div class="nm">并发与限流</div><div class="rl">E3 / E9 / F-82 / 档位 ①⑨</div><span class="tag">4 写 1 查 → 3 写 2 验</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E07</div><div class="nm">写码执行</div><div class="rl">A1–A8 / B1–B14 / F-107 / F-100</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E08</div><div class="nm">提交与认证</div><div class="rl">A3 / F-111 / F-112 / ㊴</div></div>
+    <div class="arrow">→</div>
+    <div class="box broken"><div class="no">E09</div><div class="nm">独立验收</div><div class="rl">D3 / D4 / F-108 / ⑮ / ㊲</div><span class="tag">⑮ ㊲ 与 V 卡证据合并</span></div>
+    <div class="arrow">→</div>
+    <div class="box broken"><div class="no">E10</div><div class="nm">组合验收</div><div class="rl">E4 / F-92 / ㉑ 金字塔</div><span class="tag">层 0 = 一张 V 卡</span></div>
+    <div class="arrow">→</div>
+    <div class="box broken"><div class="no">E11</div><div class="nm">推送与 CI</div><div class="rl">E1 / E2 / F-109 / ㉟</div><span class="tag">E2 废除：批次全过才推</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E12</div><div class="nm">事故与沉淀</div><div class="rl">F-105 / 事故 50 条 / F-89 / ㉓</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">E13</div><div class="nm">状态·落盘·交接</div><div class="rl">F1–F7 / B12 / ㉖</div></div>
+  </div>
+
+  <h2>新链 · 换成 W / V 任务卡之后的 14 环</h2>
+  <div class="chain">
+    <div class="box"><div class="no">C01</div><div class="nm">输入与拍板</div><div class="rl">承接 E01</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C02</div><div class="nm">规格流入</div><div class="rl">承接 E02，不变</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C03</div><div class="nm">切卡</div><div class="rl">写码卡 W-001–W-036</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C04</div><div class="nm">锚点卡</div><div class="rl">从前置产物变成卡的一个字段</div><span class="tag keep">缺锚点即不可冻结</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C05</div><div class="nm">配对</div><div class="rl">验收卡 V-001–V-036</div><span class="tag keep">F-108 结构化成 1:1</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C06</div><div class="nm">取卡</div><div class="rl">5 槽 = 3 写 + 2 验</div><span class="tag keep">替代 ⑨ ⑱ ㉚</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C07</div><div class="nm">写码执行</div><div class="rl">同 E07，判据锚点来自卡</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C08</div><div class="nm">交活</div><div class="rl">commit 短号 + trailer</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C09</div><div class="nm">V 卡验收</div><div class="rl">过必带证据：文件:行 或 run id</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C10</div><div class="nm">判废链</div><div class="rl">W-0NN-R1 配 V-0NN-R1</div><span class="tag">三次不过回拆卡</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C11</div><div class="nm">push 批次</div><div class="rl">批次内全过才推</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C12</div><div class="nm">CI</div><div class="rl">唯一编译验证（F-107）</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C13</div><div class="nm">事故挂卡</div><div class="rl">事故清单仍是正本，卡上只写指针</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="no">C14</div><div class="nm">规则从卡长</div><div class="rl">先落卡字段/门禁，再进总账</div></div>
+  </div>
+
+  <h2>迁移动作分布（263 条规则）</h2>
+  <div class="bars">
+    <div class="bar"><div class="lab">保留</div><div class="track"><div class="fill" style="width:100%;background:#3A6B66"></div></div><div class="num">237</div></div>
+    <div class="bar"><div class="lab">改指向</div><div class="track"><div class="fill" style="width:9%;background:#4A6FA5"></div></div><div class="num">16</div></div>
+    <div class="bar"><div class="lab">降级留档</div><div class="track"><div class="fill" style="width:6%;background:#9B9687"></div></div><div class="num">7</div></div>
+    <div class="bar"><div class="lab">废除</div><div class="track"><div class="fill" style="width:4%;background:#C23B2E"></div></div><div class="num">4</div></div>
+    <div class="bar"><div class="lab">合并</div><div class="track"><div class="fill" style="width:3%;background:#7A5AA6"></div></div><div class="num">2</div></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:#3A6B66"></i>保留：原样进卡字段</span>
+    <span><i class="dot" style="background:#4A6FA5"></i>改指向：脚本改读卡表</span>
+    <span><i class="dot" style="background:#7A5AA6"></i>合并：两条并一条</span>
+    <span><i class="dot" style="background:#C23B2E"></i>废除：与新口径相反</span>
+    <span><i class="dot" style="background:#9B9687"></i>降级：降为只读留档</span>
+  </div>
+
+  <div class="note">
+    <b>四个必须改的断裂点</b>：<br>
+    1. 并发档位 —— 原来是 4 写 + 1 查，卡模型要 3 写 + 2 验，写码与验收同时在场才不堵。<br>
+    2. 队列寿命 —— 门禁 ⑱ 规定排队超过一轮就报红，但卡上“待取”是合法常态（前置没做完，它就该待着）。<br>
+    3. 队首推进 —— 门禁 ㉚ 按队首推进，五槽取卡没有队首这个概念，整套逻辑不适用。<br>
+    4. 未验收先推 —— 铁律 E2 允许未验收也先 push，与“批次内全过才推”相反，取后者，E2 废除。<br>
+    另有五处“读数偏移”：⑥在飞计数、⑯台账新鲜度、计数单源脚本仍读派单队列，会永远显示旧数而不报错，这在工程上比报红更危险。
+  </div>
+
+  <div class="foot">数据源：docs/规则逻辑链.md（559 行 / 263 条迁移）· docs/规则形成史.md（事故 50 条血缘）· docs/规则形成史-备案线.md（口令来源追踪）。本图不含任何估算值。</div>
+</body>
+</html>
