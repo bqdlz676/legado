@@ -1,5 +1,7 @@
 package io.legado.app.ui.map.globe
 
+import io.legado.app.ui.map.globe.contract.GlobeParams
+
 /**
  * 落文 · 3D 地球仪规格常量收口（切片 17 / 18 / 19 / 20）。
  *
@@ -7,13 +9,16 @@ package io.legado.app.ui.map.globe
  * 都要引用；若在 shader / 网格 / 输入层各自写魔法数字，调参时必然出现口径不一致。
  * 本文件只放从规格逐字对齐的数值，所有模块从这里取，不允许就地再写一遍。
  *
+ * 〔单源边界〕2026-11-25 拍板四值（自转周期 / 球面半径 / 标记点直径 / 脉冲周期）唯一源在
+ * [GlobeParams]；本对象只做转发或派生，不再持有独立字面量，避免契约层与本文件两处漂移。
+ *
  * 纯 Kotlin：不引用任何 Android 类型，JVM 单测可直接断言。
  */
 object GlobeConfig {
 
     // ───────────────────── 球体几何（切片 20：SphereGeometry(100, 128, 128)）─────────────────────
-    /** 渲染球半径（世界单位）。 */
-    const val RADIUS: Float = 100f
+    /** 渲染球半径（世界单位）；转发 [GlobeParams.RADIUS_DP]，本处不另写字面量（单源在契约层）。 */
+    val RADIUS: Float get() = GlobeParams.RADIUS_DP
 
     /** 地轴倾斜 23.5°（切片 19：光照计算基于倾斜后的球面法线方向）。 */
     const val AXIAL_TILT_DEG: Double = 23.5
@@ -81,8 +86,12 @@ object GlobeConfig {
     const val OCEAN_ELEVATION_METERS: Double = 0.0
 
     // ───────────────────── 交互（切片 19 / 20）─────────────────────
-    /** 自动旋转 0.2°/s。 */
-    const val AUTO_ROTATE_DEG_PER_SEC: Double = 0.2
+    /**
+     * 自动旋转角速度（°/s）；由 [GlobeParams.ROTATION_PERIOD_MS] 派生：
+     * 360° ÷ 周期秒数（= 360_000 / 周期 ms）。契约层登记周期，本处只换算速率，不另写 0.2 字面量。
+     */
+    val AUTO_ROTATE_DEG_PER_SEC: Double get() =
+        360.0 / (GlobeParams.ROTATION_PERIOD_MS / 1000.0)
 
     /** 松手后惯性 0.8s 内衰减到 0。 */
     const val INERTIA_DECAY_SECONDS: Double = 0.8
@@ -115,6 +124,13 @@ object GlobeConfig {
 
     /** 手机端 draw call 上限 15。 */
     const val MAX_DRAW_CALLS: Int = 15
+
+    // ───────────────────── 标记点（契约层拍板值转发，唯一源见 GlobeParams）─────────────────────
+    /** 标记点直径 dp；转发 [GlobeParams.MARKER_DOT_DIAMETER_DP]，渲染层不得另写尺寸字面量。 */
+    val MARKER_DOT_DIAMETER_DP: Float get() = GlobeParams.MARKER_DOT_DIAMETER_DP
+
+    /** 标记点脉冲周期 ms；转发 [GlobeParams.MARKER_PULSE_PERIOD_MS]，呼吸光晕相位按此周期取模。 */
+    val MARKER_PULSE_PERIOD_MS: Long get() = GlobeParams.MARKER_PULSE_PERIOD_MS
 
     // ───────────────────── 战役回放（切片 18 / 20）─────────────────────
     /** 高圆弧凸起球面 1.5 单位，贴得紧又不被球面遮挡。 */
