@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
@@ -246,41 +245,21 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
                 .map { it.toSearchItem() }
         }
 
-    /** 本机历史词缓存：时间序（历史行）与频次序（热门行）两路流各自持有，任一刷新即重算热门。 */
-    private var historyKeys: List<String> = emptyList()
-    private var usageKeys: List<String> = emptyList()
+    /**
+     * 热门词双路流接线器；仅在 `attach()` 首次初始化时创建，随 `viewModelScope` 取消。
+     * 流收集、双路缓存快照与热门档回填全部归 [SearchHotBinder]，本类不另持跨协程缓存。
+     */
+    private var hotBinder: SearchHotBinder? = null
 
     private fun observeHistory() {
-        execute {
-            appDb.searchKeywordDao.flowByTime()
-                .catch { AppLog.put("搜索界面获取搜索历史数据失败\n${it.localizedMessage}", it) }
-                .collect { keywords ->
-                    historyKeys = SearchHistory.clean(keywords.map { it.word })
-                    publishHot(historyKeys) { it.copy(history = historyKeys) }
-                }
-        }
-        execute {
-            appDb.searchKeywordDao.flowByUsage()
-                .catch { AppLog.put("搜索界面获取高频搜索词失败\n${it.localizedMessage}", it) }
-                .collect { keywords ->
-                    usageKeys = keywords.map { it.word }
-                    publishHot(historyKeys) { it }
-                }
-        }
-    }
-
-    /**
-     * 按当前两路本地词表重算热门档并回填状态。
-     * [statePatch] 允许历史流同时更新历史行；频次流只刷热门行，不动历史。
-     */
-    private fun publishHot(
-        currentHistory: List<String>,
-        statePatch: (SearchUiState) -> SearchUiState,
-    ) {
-        val hot = SearchHotResolver.resolve(usageKeys, currentHistory)
-        _uiState.update { state ->
-            statePatch(state).copy(hot = hot.keys, hotSource = hot.source)
-        }
+        val binder = SearchHotBinder(
+            uiState = _uiState,
+            timeFlow = appDb.searchKeywordDao.flowByTime(),
+            usageFlow = appDb.searchKeywordDao.flowByUsage(),
+            scope = viewModelScope,
+        )
+        hotBinder = binder
+        binder.start()
     }
 
     private fun saveSearchKey(key: String) {
