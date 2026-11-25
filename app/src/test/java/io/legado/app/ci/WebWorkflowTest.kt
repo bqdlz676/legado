@@ -14,7 +14,9 @@ class WebWorkflowTest {
     private val repositoryRoot by lazy {
         val userDir = requireNotNull(System.getProperty("user.dir"))
         generateSequence(File(userDir)) { it.parentFile }
-            .first { File(it, ".github/workflows/build.yml").isFile }
+            // 仓库根改用 settings.gradle 定位：CI 已拆成 verify/package 双车道、旧 build.yml 退役，
+            // 若继续拿某个 workflow 文件名当根锚点，日后换文件名就会让整组契约测试集体误红。
+            .first { File(it, "settings.gradle").isFile }
     }
 
     private val webAssetScriptText by lazy {

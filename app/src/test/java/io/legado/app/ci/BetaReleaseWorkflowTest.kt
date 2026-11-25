@@ -14,13 +14,19 @@ class BetaReleaseWorkflowTest {
     private val repositoryRoot by lazy {
         val userDir = requireNotNull(System.getProperty("user.dir"))
         generateSequence(File(userDir)) { it.parentFile }
-            .first { File(it, ".github/workflows/build.yml").isFile }
+            // 仓库根改用 settings.gradle 定位：CI 已拆成 verify/package 双车道、旧 build.yml 退役，
+            // 若继续拿某个 workflow 文件名当根锚点，日后换文件名就会让整组契约测试集体误红。
+            .first { File(it, "settings.gradle").isFile }
     }
 
-    private val buildWorkflowText by lazy {
-        File(repositoryRoot, ".github/workflows/build.yml")
-            .readText()
-            .replace("\r\n", "\n")
+    // 现行 CI 定义 = 验证车道 verify.yml + 打包车道 package.yml 的合并文本。
+    // 拆分前这两部分是同一个 build.yml，所以下面的断言语义与拆分前等价、强度不放宽。
+    private val ciWorkflowText by lazy {
+        listOf("verify.yml", "package.yml").joinToString("\n") { name ->
+            File(repositoryRoot, ".github/workflows/$name")
+                .readText()
+                .replace("\r\n", "\n")
+        }
     }
 
     @Test
@@ -30,9 +36,9 @@ class BetaReleaseWorkflowTest {
 
     @Test
     fun `retained build workflow exposes manual dispatch alongside branch triggers`() {
-        assertTrue(buildWorkflowText.contains("workflow_dispatch:"))
-        assertTrue(buildWorkflowText.contains("push:"))
-        assertTrue(buildWorkflowText.contains("pull_request:"))
-        assertFalse(buildWorkflowText.contains("startsWith(github.event.head_commit.message"))
+        assertTrue(ciWorkflowText.contains("workflow_dispatch:"))
+        assertTrue(ciWorkflowText.contains("push:"))
+        assertTrue(ciWorkflowText.contains("pull_request:"))
+        assertFalse(ciWorkflowText.contains("startsWith(github.event.head_commit.message"))
     }
 }
