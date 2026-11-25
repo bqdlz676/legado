@@ -35,7 +35,7 @@ class B18ShelfGateTest {
     }
 
     @Test
-    fun `卡片域代码行不再内联禁用压淡 0.30f 字面量`() {
+    fun `卡片域代码行不再内联禁用压淡三零点三零 f 字面量`() {
         val cardTokens = File(sourceRoot, "io/legado/app/ui/card/CardTokens.kt").readText()
         val codeLines = cardTokens.lines().filter { !isCommentLine(it) }
         assertTrue(

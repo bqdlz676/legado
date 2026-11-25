@@ -65,7 +65,7 @@ class B18EmptyCardStateTest {
     // ─────────────────────────── 判据 5：0.35 裁决 ───────────────────────────
 
     @Test
-    fun `离线局部 0.35 压淡已移除 代码行无残留`() {
+    fun `离线局部三零点三五压淡已移除 代码行无残留`() {
         val codeLines = emptyCardSource.lines()
             .filter { !isCommentLine(it) }
             .map { it.substringBefore("//") }
