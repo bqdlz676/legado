@@ -25,7 +25,6 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.lib.theme.primaryTextColor
 import io.legado.app.ui.book.explore.ExploreShowActivity
-import io.legado.app.ui.main.search.InkSearchActivity
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.source.manage.BookSourceActivity
 import io.legado.app.ui.main.MainFragmentInterface
@@ -325,7 +324,8 @@ class ExploreFragment() : VMBaseFragment<ExploreViewModel>(R.layout.fragment_exp
     }
 
     override fun searchBook(bookSource: BookSourcePart) {
-        InkSearchActivity.start(requireContext(), bookSource)
+        // 死壳 Fragment（未被 MainActivity 适配器实例化）：旧独立搜索页已清剿，
+        // 全书库 / 单源检索统一改道书架浮层 ShelfSearchRouter，此处不再保留跳转。
     }
 
     fun compressExplore() {

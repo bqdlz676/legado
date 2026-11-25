@@ -45,7 +45,8 @@ import io.legado.app.ui.code.CodeEditActivity
 import io.legado.app.ui.code.CodeTextTransfer
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
-import io.legado.app.ui.main.search.InkSearchActivity
+import io.legado.app.ui.book.search.SearchScope
+import io.legado.app.ui.main.bookshelf.ShelfSearchRouter
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.widget.code.EditSafety
 import io.legado.app.ui.widget.dialog.TextDialog
@@ -194,7 +195,9 @@ class BookSourceEditActivity : FragmentActivity(), SourceEditActions, VariableDi
         }
     }
 
-    override fun onSearch() = saveThen { source -> InkSearchActivity.start(this, source) }
+    override fun onSearch() = saveThen { source ->
+        ShelfSearchRouter.openShelfSearch(this, null, SearchScope(source).toString())
+    }
 
     override fun onClearCookie() {
         vm.clearCookie(vm.assemble().bookSourceUrl)

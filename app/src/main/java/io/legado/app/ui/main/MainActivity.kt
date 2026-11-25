@@ -2,6 +2,7 @@
 
 package io.legado.app.ui.main
 
+import android.content.Intent
 import android.graphics.Rect
 import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
@@ -53,6 +54,7 @@ import io.legado.app.ui.association.ImportReplaceRuleDialog
 import io.legado.app.ui.association.ImportRssSourceDialog
 import io.legado.app.ui.association.ImportTxtTocRuleDialog
 import io.legado.app.ui.main.bookshelf.InkShelfFragment
+import io.legado.app.ui.main.bookshelf.ShelfSearchHandoff
 import io.legado.app.ui.main.explore.ExploreInkFragment
 import io.legado.app.ui.main.my.MyInkFragment
 import io.legado.app.ui.widget.dialog.TextDialog
@@ -118,6 +120,8 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
         initView()
         upHomePage()
         upBottomBarSkin()
+        // 跨页检索改道：外部分享 / 其他页面经 Intent extras 带词进入时，切回书架 Tab 打开浮层。
+        handleSearchIntent(intent)
         onBackPressedDispatcher.addCallback(this) {
             if (pagePosition != 0) {
                 binding.viewPagerMain.currentItem = 0
@@ -138,6 +142,30 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                     moveTaskToBack(true)
                 }
             }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleSearchIntent(intent)
+    }
+
+    /**
+     * 消费跨页检索 extras：有词 / 有范围时排队到 [ShelfSearchHandoff] 并切回书架 Tab。
+     * 书架 Fragment 已在栈中则直接投递请求；尚未建好（冷启 / 首次切槽）时请求留在单例，
+     * 由 [InkShelfFragment.onFragmentCreated] 消费，避免外部唤起后浮层不弹。
+     */
+    private fun handleSearchIntent(intent: Intent?) {
+        val key = intent?.getStringExtra(EXTRA_SEARCH_KEY)
+        val scope = intent?.getStringExtra(EXTRA_SEARCH_SCOPE)
+        if (key.isNullOrBlank() && scope.isNullOrBlank()) return
+        ShelfSearchHandoff.enqueue(key, scope)
+        switchTab(0)
+        val shelf = fragmentMap[getFragmentId(0)] as? InkShelfFragment
+        if (shelf != null) {
+            ShelfSearchHandoff.consume()?.let { shelf.openSearchRequest(it) }
         }
     }
 
@@ -530,6 +558,12 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 ImportReplaceRuleDialog(source)
             )
         }
+    }
+
+    companion object {
+        /** 跨页检索改道 extras：初始关键词 / 搜索范围串（口径同 [io.legado.app.ui.main.bookshelf.ShelfSearchRouter]）。 */
+        const val EXTRA_SEARCH_KEY = "shelfSearchKey"
+        const val EXTRA_SEARCH_SCOPE = "shelfSearchScope"
     }
 
 }

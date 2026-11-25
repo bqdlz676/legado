@@ -66,6 +66,13 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     /** 回顶信号计数：每次 [gotoTop] 自增，画面层观察到变化即滚回首项。 */
     private var scrollTopSignal by mutableStateOf(0)
 
+    /**
+     * 跨页检索请求：非书架页（发现 / 书详情 / 书源管理 / 阅读记录 / 外部分享）经
+     * [ShelfSearchRouter] 改道后投递到这里；画面层按序号打开浮层并回填初始词 / 作用域。
+     * 冷启时由 [onFragmentCreated] 从 [ShelfSearchHandoff] 消费排队请求。
+     */
+    private var searchRequest by mutableStateOf<ShelfSearchRequest?>(null)
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -83,7 +90,9 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
                 onDeleteBook = ::deleteBook,
                 onRetry = ::reload,
                 searchUiState = searchUiState,
-                onAttachSearch = { searchViewModel.attach(null, null) },
+                searchRequest = searchRequest,
+                onAttachSearch = { key, scope -> searchViewModel.attach(key, scope) },
+                onDetachSearch = { searchViewModel.detachOverlay() },
                 onQueryChange = { searchViewModel.dispatch(SearchIntent.QueryChange(it)) },
                 onSubmitSearch = { searchViewModel.submit() },
                 onPickHistory = { searchViewModel.pickHistory(it) },
@@ -100,6 +109,13 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
 
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
         observeBooks()
+        // 冷启 / 首次切槽时 Fragment 晚于 MainActivity 建栈：消费主壳排队的跨页检索请求。
+        ShelfSearchHandoff.consume()?.let { openSearchRequest(it) }
+    }
+
+    /** 主壳把跨页检索请求投递给本 Fragment（已在栈中时由 MainActivity 直调）。 */
+    fun openSearchRequest(request: ShelfSearchRequest) {
+        searchRequest = request
     }
 
     /**
@@ -175,7 +191,7 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
 
     /**
      * 点开一条浮层检索结果：本地书架已藏的书卷走阅读页入口；书源联网带回的未藏书卷
-     * 走书籍详情页，入参键（name / author / bookUrl）与旧独立搜索页 [InkSearchActivity] 一致。
+     * 走书籍详情页，入参键（name / author / bookUrl）沿用旧检索页透传口径。
      */
     private fun openSearchItem(item: SearchResultItem) {
         val local = books.firstOrNull { it.bookUrl == item.id }

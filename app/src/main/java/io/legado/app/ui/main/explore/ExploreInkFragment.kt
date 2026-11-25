@@ -18,7 +18,7 @@ import androidx.recyclerview.widget.RecyclerView
 import io.legado.app.R
 import io.legado.app.base.BaseFragment
 import io.legado.app.databinding.FragmentExploreInkBinding
-import io.legado.app.ui.main.search.InkSearchActivity
+import io.legado.app.ui.main.bookshelf.ShelfSearchRouter
 import io.legado.app.ui.main.MainFragmentInterface
 import io.legado.app.ui.main.PlaceMapActivity
 import io.legado.app.utils.viewbindingdelegate.viewBinding
@@ -97,7 +97,7 @@ class ExploreInkFragment() : BaseFragment(R.layout.fragment_explore_ink), MainFr
                 gravity = Gravity.CENTER
                 background = resources.getDrawable(R.drawable.bg_ink_classic_card)
                 setPadding(dp(8), dp(16), dp(8), dp(12))
-                setOnClickListener { InkSearchActivity.start(ctx, name) }
+                setOnClickListener { ShelfSearchRouter.openShelfSearch(ctx, name) }
                 cameraDistance = 9600f * resources.displayMetrics.density
                 rotationY = 3f
             }
@@ -207,7 +207,7 @@ class ExploreInkFragment() : BaseFragment(R.layout.fragment_explore_ink), MainFr
                 setPadding(0, dp(11), 0, dp(11))
                 setOnClickListener {
                     sheet.dismiss()
-                    InkSearchActivity.start(ctx, name)
+                    ShelfSearchRouter.openShelfSearch(ctx, name)
                 }
             }
             row.addView(TextView(ctx).apply {

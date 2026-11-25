@@ -4,6 +4,7 @@ import io.legado.app.constant.AppLog
 import io.legado.app.data.entities.SearchKeyword
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
@@ -49,9 +50,19 @@ internal class SearchHotBinder(
     /** 双路词表不可变快照；[AtomicReference] 保证跨协程可见性与原子合并，不暴露可写引用。 */
     private val snapshot = AtomicReference(HotSnapshot(emptyList(), emptyList()))
 
-    /** 启动两路收集器；重复调用会再起两路收集，生产侧仅在 `attach()` 首次初始化时调用一次。 */
+    /**
+     * 两路收集协程句柄；[close] 时逐路取消，浮层关闭后 DAO 流不再被收集。
+     * 句柄挂在 binder 实例上而不是只靠作用域取消：浮层关闭要在 VM 存活期内单独释放
+     * 这两路收集，而不取消整个 viewModelScope（书架页其它编排仍在作用域内）。
+     */
+    private val jobs = mutableListOf<Job>()
+
+    /**
+     * 启动两路收集器；重复调用会再起两路收集，生产侧仅在 `attach()` 首次初始化、
+     * 或 [close] 后重开浮层的幂等分支调用。
+     */
     fun start() {
-        scope.launch(dispatcher) {
+        jobs += scope.launch(dispatcher) {
             timeFlow
                 .catch { onError(it) }
                 .collect { keywords ->
@@ -60,7 +71,7 @@ internal class SearchHotBinder(
                     publishHot { it.copy(history = history) }
                 }
         }
-        scope.launch(dispatcher) {
+        jobs += scope.launch(dispatcher) {
             usageFlow
                 .catch { onError(it) }
                 .collect { keywords ->
@@ -69,6 +80,15 @@ internal class SearchHotBinder(
                     publishHot { it }
                 }
         }
+    }
+
+    /**
+     * 取消两路收集协程并清空句柄；取消后上游 DAO 流的新快照不再回填 [uiState]。
+     * 幂等：重复调用不报错。重开浮层时由 VM 重建 binder 并再次 [start]，不复用已取消的旧句柄。
+     */
+    fun close() {
+        jobs.forEach { it.cancel() }
+        jobs.clear()
     }
 
     /**

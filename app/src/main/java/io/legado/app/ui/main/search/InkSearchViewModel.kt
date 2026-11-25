@@ -42,6 +42,12 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
 
     private lateinit var searchScope: SearchScope
     private var searchModel: SearchModel? = null
+
+    /**
+     * 历史 / 热门双路流接线器；持有引用是为了浮层关闭时能单独取消两路收集协程
+     * （[detachOverlay]），而不必取消整个 viewModelScope。重开浮层时若已置空则重建。
+     */
+    private var hotBinder: SearchHotBinder? = null
     private var searchKey: String = ""
     private var searchID = 0L
     private val commandGate = SearchCommandGate()
@@ -58,8 +64,14 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
             searchScope = SearchScope(initialScope ?: AppConfig.searchScope)
             searchModel = SearchModel(viewModelScope, searchModelCallback)
             observeHistory()
-        } else if (!initialScope.isNullOrBlank()) {
-            searchScope.update(initialScope, postValue = false, save = false)
+        } else {
+            // 重开浮层：上一次关闭走了 [detachOverlay]，双路收集已取消、检索模型已暂停；
+            // 这里重建 binder 重新收集，并恢复模型，与既有 pause/resume 语义对齐。
+            if (hotBinder == null) observeHistory()
+            searchModel?.resume()
+            if (!initialScope.isNullOrBlank()) {
+                searchScope.update(initialScope, postValue = false, save = false)
+            }
         }
 
         val key = capQuery(SearchMatcher.normalize(initialKey ?: ""))
@@ -67,6 +79,20 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
             dispatch(SearchIntent.QueryChange(key))
             submit()
         }
+    }
+
+    /**
+     * 浮层关闭释放收集（验收 D3 收口）：取消历史 / 热门双路 DAO 流收集协程，
+     * 并暂停检索模型（与 [pause] 同一出口，不销毁模型本身）。VM 作用域仍存活，
+     * 缓存的 [_uiState] 保留，重开时 [attach] 幂等重建收集并 resume 模型。
+     *
+     * 为什么只暂停而不 close 模型：模型内部持有书源分页状态，关闭浮层属临时离场，
+     * 重开仍是同一次书架会话；彻底销毁归 [onCleared]。
+     */
+    fun detachOverlay() {
+        hotBinder?.close()
+        hotBinder = null
+        searchModel?.pause()
     }
 
     // ─────────────────────────── 事件入口 ───────────────────────────
@@ -246,25 +272,22 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
         }
 
     /**
-     * 热门词双路流接线：构造 [SearchHotBinder] 并启动两路收集；仅在 `attach()` 首次
-     * 初始化分支调用一次，重复进入不重建、不重复订阅。
+     * 热门词双路流接线：构造 [SearchHotBinder] 并启动两路收集；首次初始化分支、
+     * 或 [detachOverlay] 后重开浮层的幂等分支调用，不重复订阅。
      *
-     * 生命周期与持有说明（验收 N1 收口）：两路收集协程挂在 [viewModelScope] 上，
-     * `onCleared()` 走 `super.onCleared()` 取消作用域时，子协程随之取消，不存在脱离
-     * VM 生命周期的泄漏收集。因此本类**不持有 binder 字段、也不另存取消句柄**：binder
-     * 只是本函数的临时构造对象，其存活由两路收集协程的闭包（捕获 binder 实例调用
-     * `snapshot` / `publishHot`）保证，作用域取消后闭包释放、binder 一并回收。
-     * 热门档由 binder 内部收集循环经 `publishHot` 原子回填到 [_uiState]，VM 从不回读
-     * binder 引用；旧版 `hotBinder` 字段创建赋值后无任何读取点，是写-only 死字段，本单
-     * 删除（hot 不依赖该字段，仅依赖 binder 内部收集逻辑，删字段不影响热路径）。
+     * 生命周期与持有说明（验收 N1 / D3 收口）：两路收集协程挂在 [viewModelScope] 上，
+     * `onCleared()` 取消作用域时子协程随之取消；浮层关闭则走 [detachOverlay] 单独
+     * 取消 binder 内两路协程。binder 引用保留在 [hotBinder] 字段，唯一用途是关闭时
+     * 取得到句柄做定向取消；热门档仍由 binder 内部收集循环经 `publishHot` 原子回填
+     * 到 [_uiState]，VM 不回读 binder 内部状态。
      */
     private fun observeHistory() {
-        SearchHotBinder(
+        hotBinder = SearchHotBinder(
             uiState = _uiState,
             timeFlow = appDb.searchKeywordDao.flowByTime(),
             usageFlow = appDb.searchKeywordDao.flowByUsage(),
             scope = viewModelScope,
-        ).start()
+        ).also { it.start() }
     }
 
     private fun saveSearchKey(key: String) {

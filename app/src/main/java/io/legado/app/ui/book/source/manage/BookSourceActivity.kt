@@ -27,7 +27,8 @@ import io.legado.app.ui.book.source.edit.JsSourceEditActivity
 import io.legado.app.ui.config.CheckSourceConfig
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
-import io.legado.app.ui.main.search.InkSearchActivity
+import io.legado.app.ui.book.search.SearchScope
+import io.legado.app.ui.main.bookshelf.ShelfSearchRouter
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.eventObservable
@@ -139,7 +140,7 @@ class BookSourceActivity : FragmentActivity(), SourceManageActions {
     }
 
     override fun onSearch(source: BookSourcePart) {
-        InkSearchActivity.start(this, source)
+        ShelfSearchRouter.openShelfSearch(this, null, SearchScope(source).toString())
     }
 
     override fun onLogin(source: BookSourcePart) {

@@ -4,6 +4,7 @@ import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import io.legado.app.ui.main.bookshelf.BookshelfScreen
 import io.legado.app.ui.main.bookshelf.ShelfState
+import io.legado.app.ui.main.search.SearchUiState
 import org.junit.Rule
 import org.junit.Test
 
@@ -29,6 +30,19 @@ class BookshelfSnapshotTest {
                 onImport = {},
                 onDeleteBook = {},
                 onRetry = {},
+                searchUiState = SearchUiState(),
+                onAttachSearch = { _, _ -> },
+                onDetachSearch = {},
+                onQueryChange = {},
+                onSubmitSearch = {},
+                onPickHistory = {},
+                onRemoveHistory = {},
+                onClearHistory = {},
+                onClearQuery = {},
+                onOpenSearchItem = {},
+                onRetrySearch = {},
+                onLoadMore = {},
+                onRetryLoadMore = {},
             )
         }
     }
@@ -44,6 +58,19 @@ class BookshelfSnapshotTest {
                 onImport = {},
                 onDeleteBook = {},
                 onRetry = {},
+                searchUiState = SearchUiState(),
+                onAttachSearch = { _, _ -> },
+                onDetachSearch = {},
+                onQueryChange = {},
+                onSubmitSearch = {},
+                onPickHistory = {},
+                onRemoveHistory = {},
+                onClearHistory = {},
+                onClearQuery = {},
+                onOpenSearchItem = {},
+                onRetrySearch = {},
+                onLoadMore = {},
+                onRetryLoadMore = {},
             )
         }
     }
@@ -59,6 +86,19 @@ class BookshelfSnapshotTest {
                 onImport = {},
                 onDeleteBook = {},
                 onRetry = {},
+                searchUiState = SearchUiState(),
+                onAttachSearch = { _, _ -> },
+                onDetachSearch = {},
+                onQueryChange = {},
+                onSubmitSearch = {},
+                onPickHistory = {},
+                onRemoveHistory = {},
+                onClearHistory = {},
+                onClearQuery = {},
+                onOpenSearchItem = {},
+                onRetrySearch = {},
+                onLoadMore = {},
+                onRetryLoadMore = {},
             )
         }
     }
@@ -74,6 +114,19 @@ class BookshelfSnapshotTest {
                 onImport = {},
                 onDeleteBook = {},
                 onRetry = {},
+                searchUiState = SearchUiState(),
+                onAttachSearch = { _, _ -> },
+                onDetachSearch = {},
+                onQueryChange = {},
+                onSubmitSearch = {},
+                onPickHistory = {},
+                onRemoveHistory = {},
+                onClearHistory = {},
+                onClearQuery = {},
+                onOpenSearchItem = {},
+                onRetrySearch = {},
+                onLoadMore = {},
+                onRetryLoadMore = {},
             )
         }
     }

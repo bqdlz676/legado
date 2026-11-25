@@ -51,7 +51,7 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
-import io.legado.app.ui.main.search.InkSearchActivity
+import io.legado.app.ui.main.bookshelf.ShelfSearchRouter
 import io.legado.app.utils.cnCompare
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.startActivityForBook
@@ -147,7 +147,7 @@ class ReadRecordActivity : AppCompatActivity() {
                     .filter { it.author == item.author }
                     .maxByOrNull { it.durChapterTime }
             }
-            if (book == null) InkSearchActivity.start(this@ReadRecordActivity, item.bookName)
+            if (book == null) ShelfSearchRouter.openShelfSearch(this@ReadRecordActivity, item.bookName)
             else startActivityForBook(book)
         }
     }

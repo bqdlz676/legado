@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import io.legado.app.ui.main.MainActivity
-import io.legado.app.ui.main.search.InkSearchActivity
+import io.legado.app.ui.main.bookshelf.ShelfSearchRouter
 import io.legado.app.utils.startActivity
 import splitties.init.appCtx
 
@@ -54,7 +54,9 @@ class SharedReceiverActivity : AppCompatActivity() {
         if (result.length > 1) {
             startActivity<MainActivity>()
         } else {
-            InkSearchActivity.start(this, text)
+            // C 类外部分享：改道主壳书架浮层（冷启经 MainActivity extras 重建请求，
+            // 不再起独立搜索页）；本 Activity 仍由 Manifest exported=true 承接系统入口。
+            ShelfSearchRouter.openShelfSearch(this, text)
         }
     }
 }

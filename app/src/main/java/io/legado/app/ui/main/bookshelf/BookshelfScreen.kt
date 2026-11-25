@@ -157,7 +157,11 @@ internal fun shelfGateOf(state: ShelfState, recoveryEntry: Boolean): ShelfGate =
  * @param onDeleteBook 卡片碎墨消散后的删除回调
  * @param onRetry 错误态重试
  * @param searchUiState 既有搜索栈整页态（历史 / 热门 / 联网结果 / 分页），浮层只读
- * @param onAttachSearch 浮层打开时挂接搜索 ViewModel（幂等）
+ * @param searchRequest 跨页检索请求（发现页 / 书详情 / 书源管理 / 分享等改道投递）；
+ *  非空时打开浮层并回填初始词 / 作用域，序号变化重复触发
+ * @param onAttachSearch 浮层打开时挂接搜索 ViewModel（幂等），透传初始词 / 作用域
+ * @param onDetachSearch 浮层关闭时释放搜索 ViewModel 的双路流收集并暂停检索模型；
+ *  仅在「曾打开过」之后的关闭分支触发，首帧关闭态不调用
  * @param onQueryChange 输入词变化（透传检索栈 QueryChange）
  * @param onSubmitSearch 提交检索（回车 / 词条点选）
  * @param onPickHistory 点选历史 / 热门词条
@@ -179,7 +183,9 @@ fun BookshelfScreen(
     onDeleteBook: (ShelfBookUi) -> Unit,
     onRetry: () -> Unit,
     searchUiState: SearchUiState,
-    onAttachSearch: () -> Unit,
+    searchRequest: ShelfSearchRequest? = null,
+    onAttachSearch: (String?, String?) -> Unit,
+    onDetachSearch: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSubmitSearch: () -> Unit,
     onPickHistory: (String) -> Unit,
@@ -210,9 +216,27 @@ fun BookshelfScreen(
     var searchState by remember { mutableStateOf(ShelfSearch.closed) }
     val overlayBody = ShelfSearch.bodyOf(searchState, searchUiState)
     // 浮层首次打开时挂接既有搜索 ViewModel（首建检索模型 + 历史 / 热门双路流订阅）；
-    // 重复打开走 VM 的 attach 幂等分支，不重建模型、不重复订阅。
+    // 重复打开走 VM 的 attach 幂等分支，不重建模型、不重复订阅。关闭分支在「曾打开过」
+    // 之后才释放收集：首帧关闭态不触发 detach，避免冷启空挂接后立刻被取消。
+    var hasOpenedOverlay by remember { mutableStateOf(false) }
     LaunchedEffect(searchState.isOpen) {
-        if (searchState.isOpen) onAttachSearch()
+        if (searchState.isOpen) {
+            hasOpenedOverlay = true
+            onAttachSearch(null, null)
+        } else if (hasOpenedOverlay) {
+            hasOpenedOverlay = false
+            onDetachSearch()
+        }
+    }
+    // 跨页检索改道：外部页面带词 / 作用域投递请求时打开浮层、回填关键词；
+    // 初始词非空由 VM.attach 内部自动提交检索，这里不重复 submit。
+    LaunchedEffect(searchRequest?.seq) {
+        val request = searchRequest ?: return@LaunchedEffect
+        searchState = ShelfSearch.updateQuery(
+            ShelfSearch.open(searchState),
+            request.key.orEmpty(),
+        )
+        onAttachSearch(request.key, request.scope)
     }
 
     Box(

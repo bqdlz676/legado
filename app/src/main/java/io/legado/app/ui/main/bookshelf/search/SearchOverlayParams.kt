@@ -23,8 +23,9 @@ import io.legado.app.ui.components.ComponentPalette
  * 本文件不写任何十六进制色值。
  *
  * 〔本单边界〕
- * 本对象只管浮层外观参数；书名 / 作者 / 正文三路命中判定、片段起止索引与排序由
- * [searchBooks] 纯函数收口；历史词、热门词、联网书源检索不在本单范围（归既有 D1~D7 链路）。
+ * 本对象只管浮层外观参数；书名 / 作者 / 正文命中判定、片段高亮与排序归既有
+ * `ui.main.search` 检索栈（SearchMatcher / SearchMerger / SearchReducer）；
+ * 历史词、热门词、联网书源检索不在本单范围（归既有 D1~D7 链路）。
  */
 object SearchOverlayParams {
 
