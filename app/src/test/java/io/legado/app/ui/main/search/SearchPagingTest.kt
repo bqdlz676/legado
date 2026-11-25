@@ -27,6 +27,10 @@ class SearchPagingTest {
         hasMore = hasMore,
     )
 
+    /** 已进入翻页在途态的内容状态（追加 / 失败 / 收口分支的前置态）。 */
+    private fun inFlight(hasMore: Boolean = true) =
+        SearchReducer.reduce(contentState(hasMore), SearchIntent.LoadMoreStart)
+
     @Test
     fun `bottom reached on content with more results triggers one load`() {
         val state = contentState()
@@ -62,37 +66,53 @@ class SearchPagingTest {
     fun `append merges new page keeping prior items and deduping by id`() {
         val incoming = page1 + page2
         val appended = SearchReducer.reduce(
-            contentState(),
+            inFlight(),
             SearchIntent.LoadMoreAppend(incoming, hasMore = true),
         )
 
         val content = appended.loadState as SearchLoadState.Content
         assertEquals(listOf("1", "2"), content.results.map { it.id })
-        assertTrue("还有更多时回到空闲可翻页", appended.paging is SearchPagingState.Idle)
+        // 多批次在途身份保留到 Finish：追加不回 Idle（D1-R1）。
+        assertTrue(appended.paging is SearchPagingState.LoadingMore)
         assertEquals(content.results, appended.lastResults)
     }
 
     @Test
-    fun `append with no more ends paging and stops further requests`() {
+    fun `append keeps in flight and finish closes paging as single source`() {
         val appended = SearchReducer.reduce(
-            contentState(),
+            inFlight(),
             SearchIntent.LoadMoreAppend(page2, hasMore = false),
         )
 
-        assertFalse(appended.hasMore)
-        assertTrue(appended.paging is SearchPagingState.Ended)
-        assertFalse(appended.canLoadMore)
+        // 追加批次不提前收口：仍在途，hasMore 按 OR 累积保留旧值；终态只由 Finish 落定（D1-R6）。
+        assertTrue(appended.paging is SearchPagingState.LoadingMore)
+        assertTrue(appended.hasMore)
+
+        val finished = SearchReducer.reduce(appended, SearchIntent.LoadMoreFinish(hasMore = false))
+        assertFalse(finished.hasMore)
+        assertTrue(finished.paging is SearchPagingState.Ended)
+        assertFalse(finished.canLoadMore)
     }
 
     @Test
-    fun `load more failure keeps list and enters retryable error state`() {
-        val inFlight = SearchReducer.reduce(contentState(), SearchIntent.LoadMoreStart)
+    fun `load more failure keeps list and enters explicit retryable error state`() {
+        val inFlight = inFlight()
         val failed = SearchReducer.reduce(inFlight, SearchIntent.LoadMoreFailure("boom"))
 
         val error = failed.paging as SearchPagingState.LoadMoreError
         assertEquals("boom", error.message)
         assertEquals(page1, (failed.loadState as SearchLoadState.Content).results)
-        assertTrue("分页失败保留列表且允许重试", failed.canLoadMore)
+        assertFalse("失败态不被滚动到底自动重发（D1-R3）", failed.canLoadMore)
+        assertTrue("仅脚注显式重试入口可用", failed.canRetryLoadMore)
+    }
+
+    @Test
+    fun `explicit retry from error re-enters flight at reducer gate`() {
+        val failed = SearchReducer.reduce(inFlight(), SearchIntent.LoadMoreFailure("boom"))
+
+        // 归约器闸门只放行失败态 → 在途这一条显式重试路径；自动到底的拦阻在编排器层锁定。
+        val retry = SearchReducer.reduce(failed, SearchIntent.LoadMoreStart)
+        assertTrue("脚注显式重试可重新进入在途", retry.paging is SearchPagingState.LoadingMore)
     }
 
     @Test
@@ -176,5 +196,59 @@ class SearchPagingTest {
         assertTrue(submitted.loadState is SearchLoadState.Loading)
         assertTrue(submitted.hasMore)
         assertTrue(submitted.paging is SearchPagingState.Idle)
+    }
+
+    // ────────────────────────── D1-R1 多批次收口回归（必补断言②） ──────────────────────────
+
+    @Test
+    fun `multi batch appends then final finish lands ended closing mark`() {
+        // 构造同一页请求内两批成功回调，末次 Finish 带 hasMore=false：
+        // 两批都落在在途态，收口标记最终必须落到 Ended / hasMore=false，不允许停在 Idle。
+        var state = SearchReducer.reduce(contentState(), SearchIntent.LoadMoreStart)
+        state = SearchReducer.reduce(state, SearchIntent.LoadMoreAppend(page1, hasMore = true))
+        assertTrue("首批追加后仍在途", state.paging is SearchPagingState.LoadingMore)
+
+        state = SearchReducer.reduce(state, SearchIntent.LoadMoreAppend(page2, hasMore = true))
+        assertTrue("二批追加后仍在途，不误入首屏回填", state.paging is SearchPagingState.LoadingMore)
+        assertEquals(
+            listOf("1", "2"),
+            (state.loadState as SearchLoadState.Content).results.map { it.id },
+        )
+
+        state = SearchReducer.reduce(state, SearchIntent.LoadMoreFinish(hasMore = false))
+        assertFalse("末次收口标记落地：hasMore=false", state.hasMore)
+        assertTrue("末次收口标记落地：paging=Ended", state.paging is SearchPagingState.Ended)
+        assertFalse(state.canLoadMore)
+    }
+
+    @Test
+    fun `append is rejected when not in flight even if content present`() {
+        // 非在途态到达的追加（误路由首屏分支）不得被归约器收进翻页列表。
+        val idle = contentState()
+        val unchanged = SearchReducer.reduce(
+            idle,
+            SearchIntent.LoadMoreAppend(page2, hasMore = true),
+        )
+        assertEquals(idle, unchanged)
+    }
+
+    // ────────────────────────── D1-R5 贴底判定纯函数 ──────────────────────────
+
+    @Test
+    fun `bottom reached ignores footer item and short list visible footer`() {
+        // 短列表：内容 2 条 + 1 脚注，脚注可见（下标 2），内容总数 2 → 不触发。
+        assertFalse(
+            SearchPagingPolicy.bottomReached(totalItemsCount = 3, lastVisibleIndex = 2, footerCount = 1),
+        )
+        // 长列表滚到末条内容（下标 = 内容总数 - 1），脚注尚未可见 → 触发。
+        assertTrue(
+            SearchPagingPolicy.bottomReached(totalItemsCount = 11, lastVisibleIndex = 9, footerCount = 1),
+        )
+        // 可见区还在中部，不触发。
+        assertFalse(
+            SearchPagingPolicy.bottomReached(totalItemsCount = 11, lastVisibleIndex = 4, footerCount = 1),
+        )
+        // 空列表不触发。
+        assertFalse(SearchPagingPolicy.bottomReached(0, -1, footerCount = 1))
     }
 }

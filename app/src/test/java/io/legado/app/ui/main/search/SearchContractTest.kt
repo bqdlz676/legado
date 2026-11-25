@@ -27,6 +27,7 @@ class SearchContractTest {
         "SearchHotResolver.kt",
         "SearchHotBinder.kt",
         "SearchReducer.kt",
+        "SearchPagingOrchestrator.kt",
         "SearchMotion.kt",
         "SearchInputBar.kt",
         "SearchResultList.kt",
