@@ -83,8 +83,12 @@ class Pathfinder(
      * 2. 严格模式无路 → 放宽为「视野代价最小路径」：视野内格保留但乘 [VISIBILITY_PENALTY] 加价，
      *    此时路径仍可能暴露，`degraded = true`；
      * 3. 加价模式仍无路 → 退回朝目标逐格钳制的直线折线，`degraded = true`。
-     * 起点 / 目标格不受视野剪枝（否则路径无从起步或永远无法落点；B8R5 起目标格在闸门中
-     * 与起点同享豁免，敌军所在格不在豁免内）；敌军所在格在两种模式下都排除。
+     * 分级标注：[FlankRoute.crossedSight] 按实际路径几何核对是否穿越视野环，与 `degraded`
+     * 相互独立——纯地形兜底（落点不可通行、水带横断）即使降级也不构成视线穿越事实。
+     * 起点 / 目标格不受视野剪枝与终点格视线加价（否则路径无从起步或永远无法落点；B8R5 起
+     * 目标格在闸门中与起点同享豁免，敌军所在格不在豁免内）；注意豁免的只是视野闸门，
+     * 目标格的可通行判定不豁免（不可通行终点由 [nearestPassable] 向外钳制落点）；
+     * 敌军所在格在两种模式下都由 `enemySet` 排除。
      */
     fun flankRoute(
         from: Cell,
@@ -95,10 +99,12 @@ class Pathfinder(
         if (from == to) return FlankRoute(listOf(from), degraded = false, reason = "起点即终点")
         val target = nearestPassable(to, type)
         if (target == null) {
+            val path = straightPath(from, to, type, enemies.map { it.position }.toSet())
             return FlankRoute(
-                straightPath(from, to, type, enemies.map { it.position }.toSet()),
+                path,
                 degraded = true,
                 reason = "目标周边无可通行落点，已退化为直线折线兜底",
+                crossedSight = crossesSight(path, enemies),
             )
         }
         val strict = astar(from, target, type, emptySet(), enemies, strictView = true)
@@ -109,14 +115,25 @@ class Pathfinder(
                 penalized,
                 degraded = true,
                 reason = "敌军视野封锁全部绕行通路，已退化为视野代价最小路径（仍可能暴露）",
+                crossedSight = crossesSight(penalized, enemies),
             )
         }
+        val fallback = straightPath(from, to, type, enemies.map { it.position }.toSet())
         return FlankRoute(
-            straightPath(from, to, type, enemies.map { it.position }.toSet()),
+            fallback,
             degraded = true,
             reason = "视野与地形双重封锁，已退化为朝目标钳制的直线折线兜底",
+            crossedSight = crossesSight(fallback, enemies),
         )
     }
+
+    /**
+     * 结构化视线穿越核对（B8R6）：路径（不含出发格）是否踏入任一敌军视野环。
+     * 出发格是本回合机动前的既有站位，不计入「本次行军穿越视线」；终点格按 [watchedBy] 原始
+     * 几何口径核对，不享受 B8R5 的落点豁免（豁免的是寻路剪枝 / 终点加价，不是物理可见事实）。
+     */
+    private fun crossesSight(path: List<Cell>, enemies: List<EnemySight>): Boolean =
+        path.drop(1).any { cell -> enemies.any { watchedBy(it.position, cell, it.radiusCells) } }
 
     // ── A* ────────────────────────────────────────────────────
 
@@ -154,8 +171,10 @@ class Pathfinder(
                 if (next in enemySet) continue
 
                 // 逐敌闸门：每条敌军用其自身半径判定，混编时高视野 / 低视野各算各的（B8R2）。
-                // 目标格豁免视野剪枝（B8R5）：落点本身必须可达，否则严格模式把终点剪掉会永远
-                // 无法收尾、被迫误判降级；敌军所在格仍由 enemySet 排除，豁免不包含敌阵格。
+                // 目标格豁免的是视野剪枝与终点格视线加价（B8R5）：落点本身必须可达，否则严格
+                // 模式把终点剪掉会永远无法收尾、被迫误判降级；可通行判定不豁免（上方 passable
+                // 闸门对终点同样生效，不可通行终点由 nearestPassable 钳制）；敌军所在格仍由
+                // enemySet 排除，本豁免不包含敌阵格。
                 val watched = next != to && enemies.any { watchedBy(it.position, next, it.radiusCells) }
                 // 严格侧翼模式：视野内格剪枝（等价 BLOCKED），而不是加价放行。
                 if (strictView && watched) continue
@@ -288,11 +307,18 @@ data class EnemySight(
 /**
  * 侧翼寻路结果。[path] 全程非空（三级兜底保证）；[degraded] = true 表示严格避视野无路、
  * 已按退化口径放宽（加价绕行或直线折线）；[reason] 记录本次退化口径，供日志 / 调试断言。
+ *
+ * [crossedSight] = 本次降级路径是否实际穿越任一敌军视野环（视线穿越的物理事实）。判定为
+ * 结构化几何核对（路径格 × 逐敌 [watchedBy]），不从 [reason] 中文文本反推：
+ * - true：路径走过被看见的格，隐蔽姿态作废，控制器可据此置暴露；
+ * - false：纯地形 / 落点兜底降级（无敌军视线参与，或折线未踏入视野环），只挂降级标识与日志，
+ *   不废掉伏击隐蔽资格。
  */
 data class FlankRoute(
     val path: List<Cell>,
     val degraded: Boolean,
     val reason: String,
+    val crossedSight: Boolean = false,
 )
 
 // ── 八向格距度量（B8R3 单源）─────────────────────────────────

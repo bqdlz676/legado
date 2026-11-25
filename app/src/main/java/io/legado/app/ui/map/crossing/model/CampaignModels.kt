@@ -246,6 +246,15 @@ data class CorpsView(
     val routeDegraded: Boolean = false,
 )
 
+/**
+ * 单条事件日志条目（B8R6）。[attribution] 为相对玩家阵营的结构化归属，[text] 为可读文案；
+ * 壳层渲染 / 节拍分类读 [text]，阵营分组 / 过滤读 [attribution]，二者不互相反推。
+ */
+data class EventEntry(
+    val attribution: EventAttribution,
+    val text: String,
+)
+
 /** 一回合的推演快照（回放 / 分支对比消费）。 */
 data class TurnSnapshot(
     val turn: Int,
@@ -253,7 +262,7 @@ data class TurnSnapshot(
     val status: BattleStatus,
     val winnerSide: String?,
     val corps: List<CorpsView>,
-    val events: List<String>,
+    val events: List<EventEntry>,
 )
 
 /** 分支存档：手动改意图后可存一条状态线，之后与历史线对比（§五 分支保存）。 */
@@ -268,8 +277,9 @@ data class BranchSnapshot(
      *  缺字段旧档再由控制器按恢复后军位重建（见 CampaignController.restorePointHolders）。 */
     val pointHolders: Map<String, String> = emptyMap(),
     /** 事件日志全表（D-1）：恢复分支时先清空运行态日志再整表回写，避免被丢弃时间线的条目
-     *  残留到恢复后的面板；默认空表兼容旧构造点（旧五参构造不传本字段可直接编译）。 */
-    val eventLog: List<String> = emptyList(),
+     *  残留到恢复后的面板；默认空表兼容旧构造点（旧五参构造不传本字段可直接编译）。
+     *  B8R6：条目为结构化 [EventEntry]，归属与文案并存；往返一致性按条目整体相等比对。 */
+    val eventLog: List<EventEntry> = emptyList(),
 )
 
 // ── B10 分支并列对比：逐回合差异（纯 JVM，不依赖 Compose） ─────────────────────

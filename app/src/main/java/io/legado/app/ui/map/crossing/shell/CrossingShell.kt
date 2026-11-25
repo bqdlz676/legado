@@ -47,6 +47,7 @@ import io.legado.app.ui.components.ComponentPalette
 import io.legado.app.ui.map.crossing.engine.CampaignController
 import io.legado.app.ui.map.crossing.model.CorpsDiff
 import io.legado.app.ui.map.crossing.model.CorpsView
+import io.legado.app.ui.map.crossing.model.EventEntry
 import io.legado.app.ui.map.crossing.model.FactionRole
 import io.legado.app.ui.map.crossing.model.Geo
 import io.legado.app.ui.map.crossing.model.Intent
@@ -624,11 +625,11 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBlindZone(
 // ── 底部面板 ────────────────────────────────────────────────
 
 @Composable
-private fun EventLog(events: List<String>) {
+private fun EventLog(events: List<EventEntry>) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        events.takeLast(3).forEach { line ->
+        events.takeLast(3).forEach { entry ->
             BasicText(
-                text = "· $line",
+                text = "· ${entry.text}",
                 style = TextStyle(
                     color = Color(CrossingTokens.textSecondary),
                     fontSize = 11.sp,
@@ -1205,10 +1206,10 @@ private val EVENT_KEYWORDS = listOf("事件「", "士气变为", "补给断绝",
 /** 行军/转向关键词：位移、改变意图、目标点更新。 */
 private val MARCH_KEYWORDS = listOf("转入", "包抄", "追击", "渡河", "目标点更新", "意图调整", "设伏")
 
-/** 事件文案 → 节拍档位纯函数；空事件列表返回 [BeatKind.QUIET]。 */
-internal fun classifyBeat(events: List<String>): BeatKind {
+/** 事件文案 → 节拍档位纯函数；空事件列表返回 [BeatKind.QUIET]。节拍只读条目文案，归属字段不参与档位。 */
+internal fun classifyBeat(events: List<EventEntry>): BeatKind {
     if (events.isEmpty()) return BeatKind.QUIET
-    val joined = events.joinToString(" ")
+    val joined = events.joinToString(" ") { it.text }
     if (COMBAT_KEYWORDS.any { joined.contains(it) }) return BeatKind.COMBAT
     if (EVENT_KEYWORDS.any { joined.contains(it) }) return BeatKind.EVENT
     if (MARCH_KEYWORDS.any { joined.contains(it) }) return BeatKind.MARCH
@@ -1220,7 +1221,7 @@ internal fun classifyBeat(events: List<String>): BeatKind {
  * [BATCH_BEAT_FLOOR_MS] 压缩。回合 0（首回合）与短局不压缩；战役总回合上限在引擎层截断，
  * 节拍函数不重复接收 duration。
  */
-internal fun beatDelayMs(events: List<String>, turn: Int): Long {
+internal fun beatDelayMs(events: List<EventEntry>, turn: Int): Long {
     val base = BEAT_BASE_MS.getValue(classifyBeat(events))
     if (turn <= 0 || turn < LONG_CAMPAIGN_TURN) return base
     val over = turn - LONG_CAMPAIGN_TURN

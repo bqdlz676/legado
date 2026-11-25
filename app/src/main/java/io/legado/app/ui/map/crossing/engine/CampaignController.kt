@@ -7,6 +7,8 @@ import io.legado.app.ui.map.crossing.model.CampaignDefinition
 import io.legado.app.ui.map.crossing.model.Corps
 import io.legado.app.ui.map.crossing.model.CorpsView
 import io.legado.app.ui.map.crossing.model.EventAction
+import io.legado.app.ui.map.crossing.model.EventAttribution
+import io.legado.app.ui.map.crossing.model.EventEntry
 import io.legado.app.ui.map.crossing.model.FactionRole
 import io.legado.app.ui.map.crossing.model.Geo
 import io.legado.app.ui.map.crossing.model.Intent
@@ -110,7 +112,9 @@ class CampaignController private constructor(
      * 使回滚后的归属与存档时刻一致，不被旧时间线的活军位置污染。
      */
     private val pointHolders: MutableMap<String, String> = mutableMapOf()
-    private val _eventLog: MutableList<String> = mutableListOf()
+    // B8R6：条目为结构化 EventEntry（阵营归属 + 文案）；脚本 / 结算类系统条目归属 NEUTRAL，
+    // 军队自主行动条目经 logFor 按相对玩家阵营标注 FRIENDLY / ENEMY。
+    private val _eventLog: MutableList<EventEntry> = mutableListOf()
 
     /** 本回合每支军队的行军格数（士气推进消费）。 */
     private val marchCells: MutableMap<String, Int> = mutableMapOf()
@@ -281,8 +285,8 @@ class CampaignController private constructor(
 
         for (corps in corps) {
             val effect = MoraleSystem.advance(corps, marchCells[corps.id] ?: 0, dailyMaxCells(corps))
-            if (effect.disbanded) log("${corps.name} 士气溃散，解散退出战场")
-            else if (effect.moraleDropped) log("${corps.name} 疲劳过重，士气下降一级")
+            if (effect.disbanded) logFor(corps, "${corps.name} 士气溃散，解散退出战场")
+            else if (effect.moraleDropped) logFor(corps, "${corps.name} 疲劳过重，士气下降一级")
         }
 
         updateCaptureTracker()
@@ -558,11 +562,15 @@ class CampaignController private constructor(
     }
 
     /**
-     * 消费侧翼降级事实（B8R4）。判定单源在寻路层 [FlankRoute]，本层只读不重算，不再建第二套
-     * 「是否被迫暴露」的推导：
-     * - 暴露入账：被迫走暴露路线即隐蔽姿态作废，置 [Corps.exposed]，参与伏击 / 遭遇暴露判定
-     *   （与佯退、接战置 exposed 同一口径；exposed 为回合间粘性标志，不每回合自动复位）；
-     * - 情报上送：降级口径原文写入事件日志，回放 / 壳层事件流可查；
+     * 消费侧翼降级事实（B8R4 / B8R6 分级）。判定单源在寻路层 [FlankRoute]，本层只读不重算，
+     * 不再建第二套「是否被迫暴露」的推导：
+     * - 降级标识：[Corps.routeDegraded] 照搬 [FlankRoute.degraded]，纯地形兜底同样挂标识；
+     * - 暴露入账：仅当降级路径实际穿越敌军视野环（[FlankRoute.crossedSight] = true）才置
+     *   [Corps.exposed]，参与伏击 / 遭遇暴露判定（与佯退、接战置 exposed 同一口径；exposed
+     *   为回合间粘性标志，不每回合自动复位）。纯地形 / 落点兜底降级不含视线穿越事实，保留隐蔽
+     *   姿态，不得废掉伏击资格；
+     * - 情报上送：降级口径原文写入事件日志，并按军队相对玩家阵营标注归属（我方 / 敌方绕行
+     *   各带各的标记），回放 / 壳层事件流可查；
      * - 壳层可见：[Corps.routeDegraded] 经快照下发，名册挂「降级·绕行」标识。
      *
      * 士气不在本层自动扣减：降级路线已承担 1.8 倍视线加价且暴露，再叠士气惩罚属双重追责，
@@ -570,9 +578,8 @@ class CampaignController private constructor(
      */
     private fun consumeFlankDegrade(corps: Corps, route: FlankRoute) {
         corps.routeDegraded = route.degraded
-        if (!route.degraded) return
-        corps.exposed = true
-        log("${corps.name} 侧翼路线被迫降级：${route.reason}")
+        if (route.degraded && route.crossedSight) corps.exposed = true
+        if (route.degraded) logFor(corps, "${corps.name} 侧翼路线被迫降级：${route.reason}")
     }
 
     private fun marchAlong(corps: Corps, intent: Intent) {
@@ -621,8 +628,8 @@ class CampaignController private constructor(
         log("遭遇战：${corps.name} 对 ${target.name}（伏击=${ambushed}，高地=${highGroundDef}）" +
             "，损 ${outcome.attackerLoss.round1()} / ${outcome.defenderLoss.round1()}")
 
-        if (!target.alive) log("${target.name} 兵败解散")
-        if (!corps.alive) log("${corps.name} 兵败解散")
+        if (!target.alive) logFor(target, "${target.name} 兵败解散")
+        if (!corps.alive) logFor(corps, "${corps.name} 兵败解散")
     }
 
     private fun retreatFrom(corps: Corps, threat: io.legado.app.ui.map.crossing.model.Cell) {
@@ -921,8 +928,27 @@ class CampaignController private constructor(
 
     private fun Double.round1(): Double = (this * 10).roundToInt() / 10.0
 
+    /** 系统 / 结算类条目：不归属单方，记 [EventAttribution.NEUTRAL]。 */
     private fun log(message: String) {
-        _eventLog += message
+        appendEntry(EventEntry(EventAttribution.NEUTRAL, message))
+    }
+
+    /**
+     * 军队自主行动条目（B8R6）：按相对玩家阵营标注 [EventAttribution.FRIENDLY] /
+     * [EventAttribution.ENEMY]，盟友按 [isFriendlySide] 归入 FRIENDLY；归属走结构化阵营
+     * 判定，不在文案里拼前缀供下游字符串反推。
+     */
+    private fun logFor(corps: Corps, message: String) {
+        val attribution = if (isFriendlySide(definition.victory.side, corps.sideId)) {
+            EventAttribution.FRIENDLY
+        } else {
+            EventAttribution.ENEMY
+        }
+        appendEntry(EventEntry(attribution, message))
+    }
+
+    private fun appendEntry(entry: EventEntry) {
+        _eventLog += entry
         if (_eventLog.size > LOG_CAPACITY) _eventLog.removeAt(0)
     }
 
