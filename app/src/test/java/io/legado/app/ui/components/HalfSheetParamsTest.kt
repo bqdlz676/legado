@@ -1,6 +1,7 @@
 package io.legado.app.ui.components
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -32,6 +33,22 @@ class HalfSheetParamsTest {
     fun `Sheet 背景取纸白 token 横杠色取暖金 token`() {
         assertEquals(ComponentPalette.BG_PAGE, HalfSheetParams.sheetBackground)
         assertEquals(ComponentPalette.BRAND_GOLD, HalfSheetParams.grabberColor)
+    }
+
+    @Test
+    fun `四外观字段全部收口契约参数源 分隔线基色为云灰派生而非旧墨色八成`() {
+        // 背景 / 横杠色 / 分隔线宽 / 分隔线色 四字段均从 HalfSheetParams 读取
+        assertEquals(ComponentPalette.BG_PAGE, HalfSheetParams.sheetBackground)
+        assertEquals(ComponentPalette.BRAND_GOLD, HalfSheetParams.grabberColor)
+        assertEquals(1, HalfSheetParams.DIVIDER_WIDTH_DP)
+
+        val dividerRgb = HalfSheetParams.dividerColor and 0xFFFFFFL
+        // 色基：RGB 位取自 TEXT_TERTIARY 云灰（锚点 S-11:21）
+        assertEquals(ComponentPalette.TEXT_TERTIARY and 0xFFFFFFL, dividerRgb)
+        // 不得回退旧墨色 8%（COLOR_DIVIDER，rgba(26,20,16,.08)）那一支
+        assertNotEquals(ComponentPalette.COLOR_DIVIDER and 0xFFFFFFL, dividerRgb)
+        // 派生只改高位 alpha：0.25 × 255 = 63.75，四舍五入为 64
+        assertEquals(64, (HalfSheetParams.dividerColor ushr 24).toInt())
     }
 
     @Test

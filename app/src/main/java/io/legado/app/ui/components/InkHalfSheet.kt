@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -61,7 +62,7 @@ import kotlinx.coroutines.launch
  * 视觉契约（§5.1）：
  * - 弹起时阅读页整体下沉 8dp + 暗化 40%（茶色毛玻璃遮罩，色取 [ComponentTokens.bgOverlay]
  *   即 rgba(26,20,16,.45)，模糊基准 12dp，见 [HalfSheetAnchors.MASK_BLUR_DP]）；
- * - Sheet 背景 = 纸白 [ComponentTokens.bgPage] + 金色 1px 边框，顶部圆角；
+ * - Sheet 背景 = 纸白 [HalfSheetParams.sheetBackground] + 金色 1px 边框，顶部圆角；
  * - 顶部 4dp 金色横杠拖拽指示器（**不是圆角条**），两端各一粒金点，Canvas 自绘；
  * - Sheet 最大高度 = 屏幕 × 60%；跟手下拉关闭，Sheet 下降的同时阅读页上升恢复亮度；
  * - 弹起 250ms ease-out（[ComponentTokens.cardEnterEasing]），遮罩 200ms
@@ -241,7 +242,7 @@ private fun HalfSheetRoot(
                         topEnd = ComponentTokens.sheetRadius,
                     ),
                 )
-                .background(ComponentTokens.bgPage)
+                .background(Color(HalfSheetParams.sheetBackground))
                 .border(
                     1.dp,
                     ComponentTokens.brandGold,
@@ -361,32 +362,33 @@ private fun HalfSheetGrabber(modifier: Modifier = Modifier) {
         val cy = size.height / 2f
         val barLeft = cx - barWidth / 2f
         drawRect(
-            color = ComponentTokens.brandGold,
+            color = Color(HalfSheetParams.grabberColor),
             topLeft = Offset(barLeft, cy - barHeight / 2f),
             size = Size(barWidth, barHeight),
         )
         drawCircle(
-            color = ComponentTokens.brandGold,
+            color = Color(HalfSheetParams.grabberColor),
             radius = dotRadius,
             center = Offset(barLeft, cy),
         )
         drawCircle(
-            color = ComponentTokens.brandGold,
+            color = Color(HalfSheetParams.grabberColor),
             radius = dotRadius,
             center = Offset(barLeft + barWidth, cy),
         )
     }
 }
 
-/** 云灰 1px 分区分隔线（Canvas 自绘）。 */
+/** 云灰 1dp 分区分隔线（Canvas 自绘）；宽 / 色均收口 [HalfSheetParams]，色基取 TEXT_TERTIARY 派生。 */
 @Composable
 fun HalfSheetDivider(modifier: Modifier = Modifier) {
-    Canvas(modifier.fillMaxWidth().height(1.dp)) {
+    val dividerWidth = HalfSheetParams.DIVIDER_WIDTH_DP.dp
+    Canvas(modifier.fillMaxWidth().height(dividerWidth)) {
         drawLine(
-            color = ComponentTokens.colorDivider,
+            color = Color(HalfSheetParams.dividerColor),
             start = Offset(0f, 0.5f),
             end = Offset(size.width, 0.5f),
-            strokeWidth = 1.dp.toPx(),
+            strokeWidth = dividerWidth.toPx(),
         )
     }
 }

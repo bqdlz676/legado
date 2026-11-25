@@ -32,7 +32,7 @@ import kotlin.math.sin
  * - 画笔 / 直线 / 箭头 / 矩形 / 圆 / 橡皮全部 Canvas 自绘，文字笔迹以覆盖层文本落点渲染；
  * - 压感模拟：采样速度换算压感（慢速粗、快速细），指针自带压力时优先采用；
  * - 双击画布 = 撤销（§8.3）；
- * - 不包裹 MaterialTheme、不用 Material ripple、颜色只走 [ComponentTokens] / [InkPreset]。
+ * - 不包裹 MaterialTheme、不用 Material ripple、颜色只走 [ComponentTokens] 或契约 InkPalette 色表。
  *
  * PNG 位图编码属宿主层职责（[InkSlateBitmap] 原生渲染，Activity 落盘），
  * 本组件只产出笔迹模型与 SVG 标记（[InkSlateSvg]）。

@@ -44,6 +44,21 @@ object InkDerivedColors {
     val gamboge: Long = lighten(InkPalette.GAMBOGE.token, GAMBOGE_LIGHTEN_RATIO)
 
     /**
+     * 取某预设收口后的实际 ARGB：墨灰 / 花青 / 藤黄走本对象派生色，
+     * 朱砂 / 暖金 / 石青直取基础 token。渲染与模型只允许经此函数取色，不再另建色表。
+     */
+    fun resolvedColor(preset: InkPalette): Long = when (preset) {
+        InkPalette.INK_GRAY -> inkGray
+        InkPalette.INDIGO -> indigo
+        InkPalette.GAMBOGE -> gamboge
+        else -> preset.token
+    }
+
+    /** 按收口后 ARGB 反查预设；未命中返回 null（模型自检六色白名单用）。 */
+    fun presetOfArgb(argb: Long): InkPalette? =
+        InkPalette.entries.firstOrNull { resolvedColor(it) == argb }
+
+    /**
      * 降明度纯算术：每通道向 0 收拢 ratio 比例；alpha 高位字节原样保留。
      * 公式：c' = round( c × (1 − ratio) )。
      */
@@ -83,13 +98,8 @@ object InkDerivedColors {
         val preset = InkPalette.entries.firstOrNull {
             it.label == tool || it.name.equals(tool.trim(), ignoreCase = true)
         }
-        val color = when (preset) {
-            InkPalette.INK_GRAY -> inkGray
-            InkPalette.INDIGO -> indigo
-            InkPalette.GAMBOGE -> gamboge
-            null -> inkGray
-            else -> preset.token
-        }
+        // 未知工具名回退默认墨灰（[inkGray]），不抛异常
+        val color = resolvedColor(preset ?: return (inkGray and 0xFFFFFFFFL).toInt())
         return (color and 0xFFFFFFFFL).toInt()
     }
 }

@@ -3,12 +3,13 @@ package io.legado.app.ui.components.contract
 import io.legado.app.ui.components.ComponentPalette
 
 /**
- * S-04 组件六态契约枚举（默认 / 悬停 / 按下 / 选中 / 禁用 / 加载中）。
+ * S-04 组件状态契约枚举（默认 / 悬停 / 按下 / 选中 / 禁用 / 加载中 / 空数据 / 离线）。
  *
  * 〔状态口径〕切片-04:9-10 原文列「默认 / 悬浮 / 点击 / 禁用 / 加载 / 空状态 / 离线状态」；
- * 本契约按 S-04 写码单收口为六态：悬浮 → [HOVERED]、点击 → [PRESSED]，另补 [SELECTED] 选中档；
- * 空状态 / 离线属数据兜底态，仍归既有七态模型
- * （`io.legado.app.ui.components.ComponentState`），本枚举不重复登记。
+ * 悬浮 → [HOVERED]、点击 → [PRESSED]，另补 [SELECTED] 选中档；空数据 [EMPTY] / 离线
+ * [OFFLINE] 是与禁用并列的**独立档位**，不并入 DISABLED——旧模型 `ComponentState.kt`
+ * 口径：仅 disabled 压淡到 [ComponentPalette.DISABLED_OPACITY]，empty / offline 透明度
+ * 仍为 1f；可点性上 empty 仍可点，offline 禁点。
  *
  * 〔每个态同时给出两个可视字段〕
  *  - [contentAlpha]：整体不透明度系数（1f 不压淡；禁用取 [ComponentPalette.DISABLED_OPACITY] 0.30）；
@@ -39,7 +40,13 @@ enum class ComponentVisualState(
     DISABLED(contentAlpha = ComponentPalette.DISABLED_OPACITY, eventsAllowed = false),
 
     /** 加载中：三点 / 骨架屏占位；不压淡透明度，但阻止点击回调（既有模型 Loading 同口径）。 */
-    LOADING(contentAlpha = 1f, eventsAllowed = false);
+    LOADING(contentAlpha = 1f, eventsAllowed = false),
+
+    /** 空数据：兜底占位；不压淡透明度（旧模型 empty 仍 1f），允许点击回调（旧模型 empty 可点）。 */
+    EMPTY(contentAlpha = 1f, eventsAllowed = true),
+
+    /** 离线：降级缓存 + 提示；不压淡透明度，但阻止点击回调（旧模型 offline 禁点）。 */
+    OFFLINE(contentAlpha = 1f, eventsAllowed = false);
 }
 
 /**

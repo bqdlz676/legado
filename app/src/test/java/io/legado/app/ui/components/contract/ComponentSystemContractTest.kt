@@ -7,14 +7,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * S-04 组件系统 · 参数单源与六态契约验收（纯 JVM，只用 org.junit + java.*，
+ * S-04 组件系统 · 参数单源与状态契约验收（纯 JVM，只用 org.junit + java.*，
  * 不依赖 Android / Compose / 资源）。
  *
  * 覆盖本单断言：
- *  ① 默认态；② 悬停态；③ 按下态；④ 选中态；⑤ 禁用态；⑥ 加载中态（六态各一）；
- *  ⑦ 非法组合（禁用且按下 / 选中）归禁用，不抛异常；
- *  ⑧ 禁用态禁止事件；⑨ 按下态允许事件；
- *  ⑩ 最小点击区 ≥48dp；⑪ 圆角三档单调递减（按钮 > 卡片 > 浮层）。
+ *  ① 默认态；② 悬停态；③ 按下态；④ 选中态；⑤ 禁用态；⑥ 加载中态；⑦ 空数据态；⑧ 离线态；
+ *  ⑨ 非法组合（禁用且按下 / 选中）归禁用，不抛异常；
+ *  ⑩ 禁用态禁止事件；⑪ 按下态允许事件；
+ *  ⑫ 最小点击区 ≥48dp；⑬ 圆角三档单调递减（按钮 > 卡片 > 浮层）。
  */
 class ComponentSystemContractTest {
 
@@ -66,6 +66,25 @@ class ComponentSystemContractTest {
 
         assertFalse(state.eventsAllowed)
         assertEquals(1f, state.contentAlpha, 1e-6f)
+    }
+
+    @Test
+    fun `正常 空 离线三档各自透明度与事件许可独立登记`() {
+        // 正常档：完整不透明，允许事件
+        assertEquals(1f, ComponentVisualState.DEFAULT.contentAlpha, 1e-6f)
+        assertTrue(ComponentVisualState.DEFAULT.eventsAllowed)
+
+        // 空数据档：独立档位，不并入禁用；不压淡，仍可点（旧模型 empty 口径）
+        assertEquals(1f, ComponentVisualState.EMPTY.contentAlpha, 1e-6f)
+        assertTrue(ComponentVisualState.EMPTY.eventsAllowed)
+
+        // 离线档：独立档位，不并入禁用；不压淡，但禁点（旧模型 offline 口径）
+        assertEquals(1f, ComponentVisualState.OFFLINE.contentAlpha, 1e-6f)
+        assertFalse(ComponentVisualState.OFFLINE.eventsAllowed)
+
+        // 空 / 离线不得继承禁用档的 0.30 压淡系数
+        assertFalse(ComponentVisualState.EMPTY.contentAlpha == ComponentPalette.DISABLED_OPACITY)
+        assertFalse(ComponentVisualState.OFFLINE.contentAlpha == ComponentPalette.DISABLED_OPACITY)
     }
 
     @Test

@@ -1,5 +1,7 @@
 package io.legado.app.ui.components.inkslate
 
+import io.legado.app.ui.components.inkslate.contract.InkDerivedColors
+import io.legado.app.ui.components.inkslate.contract.InkPalette
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -18,7 +20,7 @@ class InkSlateModelTest {
     fun `默认画笔 朱砂 4 号线宽`() {
         val state = blank()
         assertEquals(InkTool.BRUSH, state.tool)
-        assertEquals(InkPreset.VERMILION.argb, state.color)
+        assertEquals(InkDerivedColors.resolvedColor(InkPalette.VERMILION), state.color)
         assertEquals(InkSlatePalette.WIDTH_DEFAULT, state.width, 1e-6f)
     }
 
@@ -26,10 +28,10 @@ class InkSlateModelTest {
     fun `工具 颜色 线宽选择收口`() {
         val state = blank()
             .selectTool(InkTool.ARROW)
-            .selectColor(InkPreset.INDIGO)
+            .selectColor(InkPalette.INDIGO)
             .setWidth(20f)
         assertEquals(InkTool.ARROW, state.tool)
-        assertEquals(InkPreset.INDIGO.argb, state.color)
+        assertEquals(InkDerivedColors.resolvedColor(InkPalette.INDIGO), state.color)
         assertEquals(InkSlatePalette.WIDTH_MAX, state.width, 1e-6f)
 
         val narrow = blank().setWidth(-3f)
@@ -187,8 +189,8 @@ class InkSlateModelTest {
     @Test
     fun `保留七工具六色板 砍掉项不出现`() {
         assertEquals(7, InkTool.entries.size)
-        assertEquals(6, InkPreset.bar.size)
-        val labels = InkPreset.bar.map { it.label }
+        assertEquals(6, InkPalette.bar.size)
+        val labels = InkPalette.bar.map { it.label }
         assertTrue(labels.containsAll(listOf("朱砂", "墨灰", "花青", "藤黄", "暖金", "石青")))
     }
 

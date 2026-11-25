@@ -21,13 +21,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.rememberInkGesture
+import io.legado.app.ui.components.inkslate.contract.InkDerivedColors
+import io.legado.app.ui.components.inkslate.contract.InkPalette
 
 /**
  * U7 画板工具栏（切片-12 §8.2）。
  *
  * 顶部一行：画笔 · 直线 · 箭头 · 矩形 · 圆形 · 文字 · 橡皮，全部露出，无「⋯ 更多」；
  * 底部一行：六色圆点 · 线宽 · 撤销 · 重做 · 图层 · 导出，全部露出。
- * 反馈走墨触手势（无 Material ripple），颜色只走 token / [InkPreset]。
+ * 反馈走墨触手势（无 Material ripple），颜色只走 token / [InkPalette]。
  */
 
 private val ToolLabel: Map<InkTool, String> = mapOf(
@@ -111,8 +113,9 @@ fun InkSlateBottomBar(
     ) {
         // 六色圆点
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            InkPreset.bar.forEach { preset ->
-                val selected = state.color == preset.argb
+            InkPalette.bar.forEach { preset ->
+                val presetColor = InkDerivedColors.resolvedColor(preset)
+                val selected = state.color == presetColor
                 val gesture = rememberInkGesture(enabled = true) {
                     onState(state.selectColor(preset))
                 }
@@ -120,7 +123,7 @@ fun InkSlateBottomBar(
                     Modifier
                         .size(if (selected) 22.dp else 18.dp)
                         .clip(CircleShape)
-                        .background(Color(preset.argb))
+                        .background(Color(presetColor))
                         .then(gesture.gestureModifier),
                 )
             }

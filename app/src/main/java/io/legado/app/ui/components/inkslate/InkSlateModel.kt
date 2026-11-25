@@ -4,6 +4,7 @@ package io.legado.app.ui.components.inkslate
 
 import io.legado.app.ui.components.ComponentPalette
 import io.legado.app.ui.components.inkslate.contract.InkDerivedColors
+import io.legado.app.ui.components.inkslate.contract.InkPalette
 import kotlin.math.hypot
 
 /**
@@ -51,38 +52,12 @@ enum class InkTool {
 enum class InkLayer { BASE, INK }
 
 /**
- * 六色预设（§8.2）：朱砂 · 墨灰 · 花青 · 藤黄 · 暖金 · 石青。
- * 与全站 token 重合的四色直接复用 [ComponentPalette]；花青 / 藤黄为传统国画色，
- * 在本模型内收口为 ARGB 常数，不在组件各处另造色值。
- */
-enum class InkPreset(val label: String, val argb: Long) {
-    VERMILION("朱砂", ComponentPalette.TEXT_ACCENT),
-    INK_GRAY("墨灰", ComponentPalette.TEXT_PRIMARY),
-    INDIGO("花青", InkSlatePalette.HUA_QING),
-    GAMBOGE("藤黄", InkSlatePalette.TENG_HUANG),
-    WARM_GOLD("暖金", ComponentPalette.BRAND_GOLD),
-    STONE_BLUE("石青", ComponentPalette.STONE_BLUE);
-
-    companion object {
-        /** 底部色条全部六色，顺序固定 */
-        val bar: List<InkPreset> = entries
-
-        fun fromArgb(argb: Long): InkPreset? = bar.firstOrNull { it.argb == argb }
-    }
-}
-
-/**
- * 画板专属国画色常数（ARGB, 0xAARRGGBB），仅花青 / 藤黄两色；其余走全站 token。
- * S-12 接线：花青 / 藤黄不再各写裸 hex，收口到 [InkDerivedColors] 派生色；
- * 旧名 HUA_QING / TENG_HUANG 保留为转发别名，避免外部引用断裂。
+ * 画板几何 / 手感常数（线宽档位、橡皮半径、双击判定间隔，dp 当量 / 毫秒）。
+ *
+ * S-12 收口：六色 ARGB 不再在本对象登记，统一由契约 [InkPalette] + [InkDerivedColors]
+ * 单源提供（派生三色走明度偏移，其余直取全站 token）；本对象只留非颜色参数。
  */
 object InkSlatePalette {
-    /** 花青：转发 InkDerivedColors.indigo（stone-blue 提明度 6% 派生）；为什么改：裸 hex 收口颜色单源，禁止组件各处另造色值 */
-    val HUA_QING: Long = InkDerivedColors.indigo
-
-    /** 藤黄：转发 InkDerivedColors.gamboge（brand-copper 提明度 12% 派生）；为什么改：与花青同口径走派生，不再保留本地裸 hex */
-    val TENG_HUANG: Long = InkDerivedColors.gamboge
-
     /** 线宽下限（dp 当量） */
     const val WIDTH_MIN: Float = 1f
 
@@ -198,7 +173,7 @@ data class InkSlateState(
     val strokes: List<Stroke> = emptyList(),
     val redoStack: List<Stroke> = emptyList(),
     val tool: InkTool = InkTool.BRUSH,
-    val color: Long = InkPreset.VERMILION.argb,
+    val color: Long = InkDerivedColors.resolvedColor(InkPalette.VERMILION),
     val width: Float = InkSlatePalette.WIDTH_DEFAULT,
     val layer: InkLayer = InkLayer.INK,
     val currentStroke: Stroke? = null,
@@ -213,7 +188,8 @@ data class InkSlateState(
 
     fun selectTool(tool: InkTool): InkSlateState = copy(tool = tool)
 
-    fun selectColor(preset: InkPreset): InkSlateState = copy(color = preset.argb)
+    fun selectColor(preset: InkPalette): InkSlateState =
+        copy(color = InkDerivedColors.resolvedColor(preset))
 
     fun setWidth(width: Float): InkSlateState = copy(
         width = width.coerceIn(InkSlatePalette.WIDTH_MIN, InkSlatePalette.WIDTH_MAX),
@@ -317,13 +293,13 @@ data class InkSlateState(
         if (width < InkSlatePalette.WIDTH_MIN || width > InkSlatePalette.WIDTH_MAX) {
             add("线宽 $width 超出 [${InkSlatePalette.WIDTH_MIN}, ${InkSlatePalette.WIDTH_MAX}]")
         }
-        if (InkPreset.fromArgb(color) == null) add("色值 $color 不在六色预设内")
+        if (InkDerivedColors.presetOfArgb(color) == null) add("色值 $color 不在六色预设内")
         strokes.forEach { stroke ->
             if (stroke.points.isEmpty()) add("笔迹 ${stroke.id} 无采样点")
             if (stroke.tool == InkTool.TEXT && stroke.text == null) {
                 add("文字笔迹 ${stroke.id} 缺少文本")
             }
-            if (stroke.color.let { InkPreset.fromArgb(it) == null }) {
+            if (stroke.color.let { InkDerivedColors.presetOfArgb(it) == null }) {
                 add("笔迹 ${stroke.id} 色值不在预设内")
             }
         }
