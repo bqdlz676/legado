@@ -1,0 +1,10 @@
+{
+  "metrics": {
+    "dual": 8,
+    "compat": 2,
+    "oversized_warn": 50,
+    "deprecated": 1,
+    "wip": 2
+  },
+  "note": "基线由 debt-ratchet.py 生成；上调须显式 --upgrade-baseline"
+}
