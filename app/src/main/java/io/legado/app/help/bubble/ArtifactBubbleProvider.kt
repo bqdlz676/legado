@@ -19,6 +19,9 @@ import io.legado.app.help.chrono.ContextAnchor
  *  - [EntityProvider.query] 契约返回非空完整气泡；既有链靠 null 触发优先级下钻。适配层把
  *  B25 兜底壳（source=[MISSING_SOURCE]）识别为未命中并返回 null 交下一层；真实命中才映射回
  *  既有 [BubbleContent]。
+ *  - 本层过滤是**早退优化（双保险之一）**：[SlotArbitrator] 仲裁器侧另有一道同源来源门禁
+ *  （`isGenuineHit`），即使本适配层过滤被改动 / 穿透，兜底壳也进不了仲裁结果；裁决规则
+ *  单源在仲裁器，此处不复制第二份来源判断。
  *  - 任何一路异常在内部 runCatching 兜住，不抛进 Resolver；未接数据时走 [EmptyEntityProvider]
  *  的 B25 五态兜底，不留空白态、不崩溃。
  *
@@ -42,6 +45,7 @@ class ArtifactBubbleProvider(
 
             // 兜底壳（未命中 / 超时 / 离线 / 缺年份 / 消歧失败）不是真实命中：返回 null 下钻，
             // 原始兜底态与分流文案仍可经 [fallbackResult] 从结果壳回读，不丢状态。
+            // 早退优化：此处挡掉壳可省去后续 toLegacy 映射；仲裁器 SlotArbitrator 另有同源门禁兜底。
             if (result.source == MISSING_SOURCE) continue
             return toLegacy(result)
         }
