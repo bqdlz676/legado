@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable // @Composable 注解必需；缺此 import 会 unresolved reference
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,10 +30,12 @@ import io.legado.app.R
 import io.legado.app.data.entities.BookHighlight
 import io.legado.app.model.ReadBook
 import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.HalfSheetAnchors
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.components.InkHalfSheet
 import io.legado.app.ui.components.ToolTextField
+import kotlinx.coroutines.delay
 
 /**
  * 批注 / 笔记编辑弹窗（C4A Compose 重写，Fragment 壳保留）。
@@ -55,6 +58,19 @@ class HighlightNoteDialog() : DialogFragment() {
     @Volatile
     private var submitted = false
 
+    /**
+     * B26 两段式离场守卫：阶段迁移纯 JVM（[NoteDialogExitGate]，口径复用 B21），
+     * 与 [submitted] 单点出口共用；离场段拒收重复打开。
+     */
+    private val exitGate = NoteDialogExitGate()
+
+    /**
+     * Compose 可观察离场位：true = 已进入离场段，`visible=false` 播组件内离场动画；
+     * 收束延时回调后再摘 Fragment。放在 Fragment 字段而非 remember：返回键监听挂在
+     * Dialog 窗口层，与 [submitted] 同理需在 Compose 作用域外可写。
+     */
+    private val exitingState = mutableStateOf(false)
+
     constructor(highlight: BookHighlight) : this() {
         arguments = Bundle().apply {
             putParcelable(ARG_HIGHLIGHT, highlight)
@@ -74,6 +90,8 @@ class HighlightNoteDialog() : DialogFragment() {
             return ComposeView(requireContext())
         }
         return ComposeView(requireContext()).apply {
+            // 在场段登记：进入动画口径与旧恒真可见等价，组件初始进度按可见态起播。
+            exitGate.open()
             setContent {
                 // 初始值先按上限收口：旧数据 / 外部导入若超长，进编辑器即截断，不带着超长草稿提交。
                 var bookText by remember {
@@ -82,8 +100,19 @@ class HighlightNoteDialog() : DialogFragment() {
                 var note by remember {
                     mutableStateOf(clampLength(highlight.note, MAX_NOTE_LENGTH))
                 }
+                // B26 两段式第二段：离场段按组件自有遮罩回亮 + Sheet 下降两段时长之和
+                // 等效延时收束，回调 finishExit 清阶段后再摘 Fragment；组件未暴露完成
+                // 回调，时长只引组件自有锚点常量，不另造魔法数（同 B21 口径）。
+                LaunchedEffect(exitingState.value) {
+                    if (exitingState.value) {
+                        delay((HalfSheetAnchors.MASK_DURATION_MS + HalfSheetAnchors.RISE_DURATION_MS).toLong())
+                        exitGate.finishExit()
+                        // 延时窗口内 Fragment 可能已被系统回收 / 分离；未挂接时不再调 dismiss。
+                        if (isAdded) dismissAllowingStateLoss()
+                    }
+                }
                 InkHalfSheet(
-                    visible = true,
+                    visible = !exitingState.value,
                     // 下滑关闭与遮罩点击（外部点击）在共享组件内都回调这同一个 onDismiss，
                     // 统一交给单点出口判闸，不在回调里再各自 dismiss。
                     onDismiss = { dismissOnce(false) },
@@ -179,12 +208,19 @@ class HighlightNoteDialog() : DialogFragment() {
      * @param commit true = 提交类动作（确认 / 删除）：进入闸后先跑 [commitAction] 写库；
      *               false = 纯离开（取消 / 下滑 / 遮罩点击 / 返回键）：无副作用，仅收尾关闭。
      * @param commitAction 提交类副作用；闸置位后的二次触发整段不执行（no-op）。
+     *
+     * B26 两段式：本方法不再直接 `dismissAllowingStateLoss()`，而是先进离场段
+     * （[exitGate.beginExit] + [exitingState] 翻 true）播组件内离场动画；Fragment 的
+     * 实际摘除由收束延时回调执行。写库副作用仍在决策时刻执行，时机与旧版一致。
      */
     private fun dismissOnce(commit: Boolean, commitAction: (() -> Unit)? = null) {
         if (submitted) return  // 二次触发 no-op：不写库、不重复 dismiss。
         submitted = true
         if (commit) commitAction?.invoke()
-        dismissAllowingStateLoss()
+        // B26 两段式第一段：子树保留、visible=false；收束摘 Fragment 见 setContent 内
+        // LaunchedEffect(exitingState)。离场段 [exitGate.canOpen] 为 false，不叠新弹窗。
+        exitGate.beginExit()
+        exitingState.value = true
     }
 
     companion object {
