@@ -266,6 +266,11 @@ class CampaignController private constructor(
         elapsedDays += 1
         // 回合级临时状态清零：交战士气降级标记随新回合重置。
         moraleDowngradedThisRound.clear()
+        // 暴露姿态按本回合事实重算（B8R7 回合复位）：上一回合的视线穿越 / 接触交战 / 佯退暴露
+        // 不粘性带入下一回合；本回合若再次穿越视野环、接战或被佯退诱出，会在本回合行动链路
+        // （consumeFlankDegrade / resolveEncounters / fireTriggeredEvents）重新置真。
+        // 复位置于触发器点燃之前：本回合事件置真不会被随后的清零冲掉。
+        corps.forEach { it.exposed = false }
 
         fireTriggeredEvents()
 
@@ -566,8 +571,9 @@ class CampaignController private constructor(
      * 不再建第二套「是否被迫暴露」的推导：
      * - 降级标识：[Corps.routeDegraded] 照搬 [FlankRoute.degraded]，纯地形兜底同样挂标识；
      * - 暴露入账：仅当降级路径实际穿越敌军视野环（[FlankRoute.crossedSight] = true）才置
-     *   [Corps.exposed]，参与伏击 / 遭遇暴露判定（与佯退、接战置 exposed 同一口径；exposed
-     *   为回合间粘性标志，不每回合自动复位）。纯地形 / 落点兜底降级不含视线穿越事实，保留隐蔽
+     *   [Corps.exposed]，参与伏击 / 遭遇暴露判定（与佯退、接战置 exposed 同一口径）。exposed
+     *   是回合级姿态：每回合 [step] 开头统一复位为未暴露，只由本回合事实（视线穿越 / 接战 /
+     *   佯退诱出）重新置真，不跨回合粘性保留；纯地形 / 落点兜底降级不含视线穿越事实，保留隐蔽
      *   姿态，不得废掉伏击资格；
      * - 情报上送：降级口径原文写入事件日志，并按军队相对玩家阵营标注归属（我方 / 敌方绕行
      *   各带各的标记），回放 / 壳层事件流可查；

@@ -134,7 +134,8 @@ data class CampaignDefinition(
  * 一支军队的运行态。
  *
  * @param supply 剩余补给等级 0..5；[supplyCutTurns] 记录断粮连续回合数（>3 疲劳加速）
- * @param exposed 是否已暴露伏击意图；[highGround] 本回合是否据制高点
+ * @param exposed 本回合是否暴露伏击意图（回合级姿态：每回合推进时复位，由本回合视线穿越 /
+ *        接触交战 / 佯退诱出等事实重新置真，不跨回合粘性保留）；[highGround] 本回合是否据制高点
  * @param route 本回合规划路径（单元序列，供壳层画行军线）
  * @param lastKnown 情报模糊：看不到的敌军用上次已知位置 + 模糊半径
  */
