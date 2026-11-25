@@ -2,8 +2,6 @@ package io.legado.app.ui.map.globe.mesh
 
 import io.legado.app.ui.map.globe.geo.Geo
 import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * 球面网格（纯 JVM，几何数据可直接上传 GL，也可在单测里校验）。
@@ -57,24 +55,21 @@ data class SphereGrid(
             for (r in 0 until rows) {
                 // phi: 0 = 北极，π = 南极
                 val phi = PI * r / rings
-                val sinPhi = sin(phi)
-                val cosPhi = cos(phi)
                 val lat = 90.0 - phi * Geo.RAD2DEG
                 for (s in 0 until cols) {
                     val theta = 2.0 * PI * s / segments
-                    val nx = sinPhi * cos(theta)
-                    val ny = cosPhi
-                    val nz = sinPhi * sin(theta)
                     val lng = Geo.wrapLng(theta * Geo.RAD2DEG - 180.0)
-                    val offset = displace(lat, lng, nx, ny, nz)
+                    // 口径单源：顶点位置与法线全部由 Geo.direction 派生，本类不再自写球面三角式。
+                    val dir = Geo.direction(lat, lng)
+                    val offset = displace(lat, lng, dir.x, dir.y, dir.z)
                     val rr = radius + offset
 
-                    positions[i * 3] = (nx * rr).toFloat()
-                    positions[i * 3 + 1] = (ny * rr).toFloat()
-                    positions[i * 3 + 2] = (nz * rr).toFloat()
-                    normals[i * 3] = nx.toFloat()
-                    normals[i * 3 + 1] = ny.toFloat()
-                    normals[i * 3 + 2] = nz.toFloat()
+                    positions[i * 3] = (dir.x * rr).toFloat()
+                    positions[i * 3 + 1] = (dir.y * rr).toFloat()
+                    positions[i * 3 + 2] = (dir.z * rr).toFloat()
+                    normals[i * 3] = dir.x.toFloat()
+                    normals[i * 3 + 1] = dir.y.toFloat()
+                    normals[i * 3 + 2] = dir.z.toFloat()
                     uvs[i * 2] = s.toFloat() / segments
                     uvs[i * 2 + 1] = r.toFloat() / rings
                     lats[i] = lat
