@@ -47,6 +47,13 @@ LEDGER = os.path.join(ROOT, "docs", "派单台账.md")
 # 阈值（理由见模块 docstring；升档扩查槽后同比上调）。
 MAX_PENDING = 10
 MAX_AGE_HOURS = 48
+# 返工桶阈值（M-16）：已验收但判「判低/部分 PASS」的单据属**返工积压**，不是"还没人验过"的
+# 验收槽积压。两类欠账性质不同：前者已经付过一次验收成本、额度已被消耗过；后者是纯欠账。
+# 混在一个阈值里会让"判低 13 条"直接锁死全仓提交，反而逼调度层放弃返工去追新单——
+# 与本判据"先清验收"的初衷相反。故拆桶：验收槽欠账 10 条/48h，返工欠账 20 条/168h。
+MAX_REWORK = 20
+MAX_REWORK_AGE_HOURS = 168
+REWORK_WORDS = ("判低返工",)
 
 FAM = r"(?:A|B|C|D|E|F|N|P|Q|S|U|V)"
 ID_RE = re.compile(rf"(?<![A-Za-z0-9\-])({FAM}-?\d+(?:R\d+)?(?:-[a-z]\d+)?)")
@@ -126,8 +133,10 @@ def report_mtime(doc_dir: str, cell: str):
 
 
 def collect(issue_path: str, ledger_path: str, docs_dir: str, now: datetime.datetime):
-    """返回 (reviewable, blocked, unknown_id) 三组积压条目。"""
+    """返回 (reviewable, rework, blocked, unknown_id) 四组积压条目。
+    reviewable=从未验收过的欠账（验收槽积压）；rework=已验收但判低待返工（返工积压）。"""
     reviewable: dict[str, dict] = {}
+    rework: dict[str, dict] = {}
     blocked: list[dict] = []
     unknown: list[dict] = []
 
@@ -147,6 +156,15 @@ def collect(issue_path: str, ledger_path: str, docs_dir: str, now: datetime.date
             ts = report_mtime(docs_dir, " ".join(cells))
         entry["date"] = ts
         key = norm_id(iid)
+        # 返工桶分流：状态格显式带"判低返工"字样才进返工桶（人工标注，不猜）
+        if any(w in cell for w in REWORK_WORDS):
+            if key in rework:
+                oldr = rework[key]
+                if ts and (oldr["date"] is None or ts < oldr["date"]):
+                    oldr["date"] = ts
+            else:
+                rework[key] = entry
+            return
         # 去重：同号已有更早日期则保留更早的。
         if key in reviewable:
             old = reviewable[key]
@@ -182,10 +200,10 @@ def collect(issue_path: str, ledger_path: str, docs_dir: str, now: datetime.date
             ts = parse_date(cells[0], now)
             consider(iid, cells, os.path.basename(ledger_path), ts)
 
-    return reviewable, blocked, unknown
+    return reviewable, rework, blocked, unknown
 
 
-def evaluate(reviewable: dict, blocked: list, unknown: list, now: datetime.datetime):
+def evaluate(reviewable: dict, rework: dict, blocked: list, unknown: list, now: datetime.datetime):
     fails: list[str] = []
     n = len(reviewable)
     if n > MAX_PENDING:
@@ -199,7 +217,19 @@ def evaluate(reviewable: dict, blocked: list, unknown: list, now: datetime.datet
         if oldest_age > MAX_AGE_HOURS:
             fails.append(f"最老待验单 {oldest_id} 已挂 {oldest_age:.1f}h > 阈值 {MAX_AGE_HOURS}h，疑似僵尸积压")
 
-    return fails, n, len(blocked), len(unknown), oldest_id, oldest_age
+    # 返工桶：单独阈值，超限同样 FAIL，但文案指明"返工"以免与验收欠账混淆
+    rn = len(rework)
+    if rn > MAX_REWORK:
+        fails.append(f"判低返工积压 {rn} 条 > 阈值 {MAX_REWORK}，返工欠账已挤占新单推进")
+    rages = [(e["id"], (now - e["date"]).total_seconds() / 3600.0)
+             for e in rework.values() if e["date"]]
+    roldest_id, roldest_age = (None, None)
+    if rages:
+        roldest_id, roldest_age = max(rages, key=lambda x: x[1])
+        if roldest_age > MAX_REWORK_AGE_HOURS:
+            fails.append(f"最老返工单 {roldest_id} 已挂 {roldest_age:.1f}h > 阈值 {MAX_REWORK_AGE_HOURS}h")
+
+    return fails, n, len(blocked), len(unknown), oldest_id, oldest_age, rn, roldest_id, roldest_age
 
 
 def main() -> int:
@@ -207,11 +237,13 @@ def main() -> int:
         return selftest()
 
     now = datetime.datetime.now()
-    reviewable, blocked, unknown = collect(ISSUE, LEDGER, os.path.join(ROOT, "docs"), now)
-    fails, n, nb, nu, oldest_id, oldest_age = evaluate(reviewable, blocked, unknown, now)
+    reviewable, rework, blocked, unknown = collect(ISSUE, LEDGER, os.path.join(ROOT, "docs"), now)
+    fails, n, nb, nu, oldest_id, oldest_age, rn, roldest_id, roldest_age = evaluate(reviewable, rework, blocked, unknown, now)
 
     for f in fails:
         print(f"FAIL  {f}")
+    for e in rework.values():
+        print(f"INFO  [判低返工，不计验收槽积压] {e['id']}（{e['source']}）")
     for e in blocked:
         print(f"INFO  [CI 阻塞，不计验收积压] {e['id']}（{e['source']}）")
     for e in unknown:
@@ -220,10 +252,11 @@ def main() -> int:
     age_txt = "日期未知"
     if oldest_age is not None:
         age_txt = f"最老 {oldest_id} {oldest_age:.1f}h"
+    rtxt = f"返工 {rn} 条" + (f"（最老 {roldest_id} {roldest_age:.1f}h）" if roldest_age is not None else "")
     if fails:
-        print(f"BACKLOG-DEPTH: FAIL（可验收积压 {n} 条 / CI 阻塞 {nb} 条 / 未编号 {nu} 条；{age_txt}；阈值 {MAX_PENDING} 条或 {MAX_AGE_HOURS}h）")
+        print(f"BACKLOG-DEPTH: FAIL（可验收积压 {n} 条 / {rtxt} / CI 阻塞 {nb} 条 / 未编号 {nu} 条；{age_txt}；阈值 验收 {MAX_PENDING} 条或 {MAX_AGE_HOURS}h、返工 {MAX_REWORK} 条或 {MAX_REWORK_AGE_HOURS}h）")
         return 1
-    print(f"BACKLOG-DEPTH: PASS（可验收积压 {n} 条 / CI 阻塞 {nb} 条 / 未编号 {nu} 条；{age_txt}；阈值 {MAX_PENDING} 条或 {MAX_AGE_HOURS}h）")
+    print(f"BACKLOG-DEPTH: PASS（可验收积压 {n} 条 / {rtxt} / CI 阻塞 {nb} 条 / 未编号 {nu} 条；{age_txt}；阈值 验收 {MAX_PENDING} 条或 {MAX_AGE_HOURS}h、返工 {MAX_REWORK} 条或 {MAX_REWORK_AGE_HOURS}h）")
     return 0
 
 
@@ -256,8 +289,8 @@ def selftest() -> int:
             f"| {today} Q-1 B1 夹具 | agent | f | 🟢 已修·待验证 | 待派 | docs/修复-B1-夹具.md | L2 |",
         ])
     open(os.path.join(docs, "修复-B1-夹具.md"), "w", encoding="utf-8").write("# x\n")
-    rev, blk, unk = collect(os.path.join(docs, "问题清单.md"), os.path.join(docs, "派单台账.md"), docs, now)
-    fails, n, nb, nu, _, _ = evaluate(rev, blk, unk, now)
+    rev, rew, blk, unk = collect(os.path.join(docs, "问题清单.md"), os.path.join(docs, "派单台账.md"), docs, now)
+    fails, n, nb, nu, _, _, rn, _, _ = evaluate(rev, rew, blk, unk, now)
     assert not fails and n == 2 and nb == 1, f"合规夹具应 PASS：n={n} blocked={nb} fails={fails}"
     print(f"[selftest] 合规夹具 PASS 通路 OK：可验收 {n} / CI 阻塞 {nb} / 未编号 {nu}")
 
@@ -266,8 +299,8 @@ def selftest() -> int:
     tmp2 = tempfile.mkdtemp(prefix="backlog-selftest-")
     _make_fixture(tmp2, rows, [])
     docs2 = os.path.join(tmp2, "docs")
-    rev2, blk2, unk2 = collect(os.path.join(docs2, "问题清单.md"), os.path.join(docs2, "派单台账.md"), docs2, now)
-    fails2, n2, _, _, _, _ = evaluate(rev2, blk2, unk2, now)
+    rev2, rew2, blk2, unk2 = collect(os.path.join(docs2, "问题清单.md"), os.path.join(docs2, "派单台账.md"), docs2, now)
+    fails2, n2, _, _, _, _, _, _, _ = evaluate(rev2, rew2, blk2, unk2, now)
     assert n2 > MAX_PENDING and any("积压" in f for f in fails2), f"超行数应 FAIL：n={n2} fails={fails2}"
     print("[selftest] 超行数 FAIL 通路 OK：", fails2[0])
 
@@ -275,10 +308,21 @@ def selftest() -> int:
     tmp3 = tempfile.mkdtemp(prefix="backlog-selftest-")
     _make_fixture(tmp3, [], [f"| {old} Q-9 B9 老单 | agent | f | 🟢 已修·待验证 | 待派 | — | L2 |"])
     docs3 = os.path.join(tmp3, "docs")
-    rev3, blk3, unk3 = collect(os.path.join(docs3, "问题清单.md"), os.path.join(docs3, "派单台账.md"), docs3, now)
-    fails3, _, _, _, _, age3 = evaluate(rev3, blk3, unk3, now)
+    rev3, rew3, blk3, unk3 = collect(os.path.join(docs3, "问题清单.md"), os.path.join(docs3, "派单台账.md"), docs3, now)
+    fails3, _, _, _, _, age3, _, _, _ = evaluate(rev3, rew3, blk3, unk3, now)
     assert any("僵尸积压" in f for f in fails3), f"超龄应 FAIL：{fails3} age={age3}"
     print("[selftest] 超龄 FAIL 通路 OK：", fails3[0])
+
+    # 违规 3（M-16 新增）：返工桶超限（21 条「判低返工」）→ FAIL，且必须与验收桶分开计。
+    tmp4 = tempfile.mkdtemp(prefix="backlog-selftest-")
+    rrows = [f"| B{20+i} | x | e | 🟢已修·待验证（判低返工） | 待返工 |" for i in range(MAX_REWORK + 1)]
+    docs4 = _make_fixture(tmp4, rrows, [])
+    rev4, rew4, blk4, unk4 = collect(os.path.join(docs4, "问题清单.md"), os.path.join(docs4, "派单台账.md"), docs4, now)
+    fails4, n4, _, _, _, _, rn4, _, _ = evaluate(rev4, rew4, blk4, unk4, now)
+    assert n4 == 0 and rn4 > MAX_REWORK and any("返工积压" in f for f in fails4), \
+        f"返工桶超限应 FAIL 且不计入验收桶：n={n4} rework={rn4} fails={fails4}"
+    print("[selftest] 返工桶超限 FAIL 通路 OK：", [f for f in fails4 if "返工" in f][0])
+    shutil.rmtree(tmp4, ignore_errors=True)
 
     shutil.rmtree(tmp, ignore_errors=True)
     shutil.rmtree(tmp2, ignore_errors=True)
