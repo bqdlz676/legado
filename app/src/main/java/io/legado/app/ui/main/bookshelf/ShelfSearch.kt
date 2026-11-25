@@ -178,6 +178,45 @@ object ShelfSearch {
             is SearchLoadState.Offline -> OverlayBody.OFFLINE
         }
 
+    /**
+     * 开合 effect 下一步动作（纯 JVM 判定结果）。画面层只按本枚举派发回调，不再在
+     * Composable 内手写守卫分支，守卫口径因此可被单测直接锁定（验收 N3 收口）。
+     */
+    enum class LifecycleAction {
+        /** 打开浮层：挂接搜索 ViewModel（首建模型 / 重建双路收集由 VM 幂等分支承接）。 */
+        Attach,
+
+        /** 关闭浮层且此前打开过：释放双路收集并暂停检索模型。 */
+        Detach,
+
+        /** 首帧关闭态：从未打开过，不触发 detach，避免冷启空挂接后立刻被取消。 */
+        Idle,
+    }
+
+    /**
+     * 一次开合 effect 触发的纯判定结果：新的「曾打开过」守卫位 + 应派发的动作。
+     * 为什么抽成纯函数：守卫原本埋在 Compose `LaunchedEffect` 内，纯 JVM 测试无法驱动
+     * 重组，去掉 `hasOpenedOverlay` 守卫不会让任何既有用例变红；收成函数后，画面层
+     * 只读本结果派发，判定逻辑可直接断。
+     */
+    data class LifecycleTransition(
+        val hasOpened: Boolean,
+        val action: LifecycleAction,
+    )
+
+    /**
+     * 开合守卫判定：给定当前开合态 [isOpen] 与此前是否打开过 [hasOpened]，产出下一步
+     * 动作与新守卫位。
+     * - 打开 → 守卫位置 true，动作 [LifecycleAction.Attach]；
+     * - 关闭且曾打开 → 守卫位复位 false，动作 [LifecycleAction.Detach]；
+     * - 关闭且首帧从未打开 → 守卫位保持 false，动作 [LifecycleAction.Idle]（不 detach）。
+     */
+    fun overlayTransition(isOpen: Boolean, hasOpened: Boolean): LifecycleTransition = when {
+        isOpen -> LifecycleTransition(hasOpened = true, action = LifecycleAction.Attach)
+        hasOpened -> LifecycleTransition(hasOpened = false, action = LifecycleAction.Detach)
+        else -> LifecycleTransition(hasOpened = false, action = LifecycleAction.Idle)
+    }
+
     /** 初始态：收起、无关键词。 */
     val closed = State(Stage.CLOSED, "")
 

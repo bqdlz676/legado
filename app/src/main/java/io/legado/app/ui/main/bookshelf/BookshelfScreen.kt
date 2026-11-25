@@ -220,12 +220,13 @@ fun BookshelfScreen(
     // 之后才释放收集：首帧关闭态不触发 detach，避免冷启空挂接后立刻被取消。
     var hasOpenedOverlay by remember { mutableStateOf(false) }
     LaunchedEffect(searchState.isOpen) {
-        if (searchState.isOpen) {
-            hasOpenedOverlay = true
-            onAttachSearch(null, null)
-        } else if (hasOpenedOverlay) {
-            hasOpenedOverlay = false
-            onDetachSearch()
+        // 守卫分支判定收成纯函数 [ShelfSearch.overlayTransition]；本 effect 只按结果派发回调。
+        val transition = ShelfSearch.overlayTransition(searchState.isOpen, hasOpenedOverlay)
+        hasOpenedOverlay = transition.hasOpened
+        when (transition.action) {
+            ShelfSearch.LifecycleAction.Attach -> onAttachSearch(null, null)
+            ShelfSearch.LifecycleAction.Detach -> onDetachSearch()
+            ShelfSearch.LifecycleAction.Idle -> Unit
         }
     }
     // 跨页检索改道：外部页面带词 / 作用域投递请求时打开浮层、回填关键词；
