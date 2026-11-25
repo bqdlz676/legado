@@ -5,6 +5,7 @@ import io.legado.app.ui.map.crossing.model.BattleStatus
 import io.legado.app.ui.map.crossing.model.BranchSnapshot
 import io.legado.app.ui.map.crossing.model.Cell
 import io.legado.app.ui.map.crossing.model.EventAttribution
+import io.legado.app.ui.map.crossing.model.Geo
 import io.legado.app.ui.map.crossing.model.Intent
 import io.legado.app.ui.map.crossing.terrain.HeightRaster
 import org.junit.Assert.assertEquals
@@ -577,6 +578,166 @@ class CampaignControllerTest {
         assertTrue("未观测敌军路线不下发", view.route.isEmpty())
     }
 
+    // ── B9-R2 情报数据层掩码收口（N1）+ 五条必补断言 ──────────────────────────
+
+    @Test
+    fun `B9-R2-0 未观测敌军意图与目标点掩码为 null，已观测敌军完整下发`() {
+        val controller = CampaignController.load(MASK_JSON, flatPlainRaster())
+        controller.step()
+        val b1 = controller.corps.first { it.id == "b1" }
+        val b2 = controller.corps.first { it.id == "b2" }
+        // 运行态两支敌军都挂目标点：验证掩码只作用于视图下发，不清空运行态真值。
+        b1.target = controller.projection.toGeo(Cell(20, 20))
+        b2.target = controller.projection.toGeo(Cell(25, 25))
+
+        val snapshot = controller.snapshot()
+        val observed = snapshot.corps.first { it.id == "b1" }
+        val unseen = snapshot.corps.first { it.id == "b2" }
+
+        assertTrue("近距敌军应被本方目睹", observed.observed)
+        assertNotNull("已观测敌军意图照常下发", observed.intent)
+        assertEquals("已观测敌军目标点纬度照常下发", b1.target!!.lat, observed.targetLat!!, 1e-9)
+        assertEquals("已观测敌军目标点经度照常下发", b1.target!!.lng, observed.targetLng!!, 1e-9)
+
+        assertFalse("远距敌军不应被标记观测", unseen.observed)
+        assertNull("未观测敌军意图不下发（未知态，不用缺省意图冒充情报）", unseen.intent)
+        assertNull("未观测敌军目标点纬度不下发", unseen.targetLat)
+        assertNull("未观测敌军目标点经度不下发", unseen.targetLng)
+    }
+
+    @Test
+    fun `B9-R2-1 陈旧报告位置落在当前模糊半径内，刚目睹报告格即真值格`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(8, 8)
+        a1.latLng = controller.projection.toGeo(Cell(8, 8))
+        val sightCell = Cell(12, 8) // octile 4 = 常规兵视野边界，本回合目睹
+        b1.position = sightCell
+        b1.latLng = controller.projection.toGeo(sightCell)
+
+        controller.step(mapOf("a1" to Intent.HOLD, "b1" to Intent.HOLD))
+
+        // 断言①-刚目睹：半径 0，报告格必须与真值格重合。
+        assertEquals(0, controller.reportRadiusCells("b1"))
+        val fresh = controller.snapshot().corps.first { it.id == "b1" }
+        val freshReportCell = controller.projection.toCell(Geo(fresh.reportLat!!, fresh.reportLng!!))
+        assertEquals("刚目睹报告格应等于真值格", b1.position, freshReportCell)
+
+        // 移出视野一格：(13,8) 距 5 > 视野 4；双方 HOLD 不动，真值停在钉住格。
+        b1.position = Cell(13, 8)
+        b1.latLng = controller.projection.toGeo(Cell(13, 8))
+        controller.step(mapOf("a1" to Intent.HOLD, "b1" to Intent.HOLD))
+
+        // 断言①-陈旧：报告格与当前真值格的八向距离不得超出当前模糊半径。
+        val radius = controller.reportRadiusCells("b1")!!
+        val stale = controller.snapshot().corps.first { it.id == "b1" }
+        val staleReportCell = controller.projection.toCell(Geo(stale.reportLat!!, stale.reportLng!!))
+        assertTrue(
+            "陈旧报告格 $staleReportCell 与真值格 ${b1.position} 距离应 ≤ 半径 $radius",
+            octileCells(staleReportCell, b1.position) <= radius,
+        )
+    }
+
+    @Test
+    fun `B9-R2-2 同回合两次半径取用一致，两次快照同字段相等`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        a1.position = Cell(8, 8)
+        a1.latLng = controller.projection.toGeo(Cell(8, 8))
+        b1.position = Cell(12, 8)
+        b1.latLng = controller.projection.toGeo(Cell(12, 8))
+        controller.step(mapOf("a1" to Intent.HOLD, "b1" to Intent.HOLD))
+
+        // 断言②：同回合两次取半径结果相等（纯函数确定性，无逐帧飘移）。
+        val radiusFirst = controller.reportRadiusCells("b1")
+        val radiusSecond = controller.reportRadiusCells("b1")
+        assertEquals("同回合两次半径取用应相等", radiusFirst, radiusSecond)
+
+        // 断言②：同回合两次快照逐军同字段相等。
+        val snapFirst = controller.snapshot()
+        val snapSecond = controller.snapshot()
+        assertEquals(snapFirst.corps.size, snapSecond.corps.size)
+        snapFirst.corps.zip(snapSecond.corps).forEach { (x, y) ->
+            assertEquals(x.id, y.id)
+            assertEquals(x.observed, y.observed)
+            assertEquals(x.reportLat, y.reportLat)
+            assertEquals(x.reportLng, y.reportLng)
+            assertEquals(x.intent, y.intent)
+            assertEquals(x.targetLat, y.targetLat)
+            assertEquals(x.targetLng, y.targetLng)
+            assertEquals(x.route, y.route)
+            assertEquals(x.routeDegraded, y.routeDegraded)
+            assertEquals(x.lat, y.lat, 1e-9)
+            assertEquals(x.lng, y.lng, 1e-9)
+        }
+    }
+
+    @Test
+    fun `B9-R2-3 视野精确边界：距 = 半径可见，距 = 半径 + 1 不可见`() {
+        fun snapshotAt(dist: Int): io.legado.app.ui.map.crossing.model.TurnSnapshot {
+            val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+            val a1 = controller.corps.first { it.id == "a1" }
+            val b1 = controller.corps.first { it.id == "b1" }
+            a1.position = Cell(8, 8)
+            a1.latLng = controller.projection.toGeo(Cell(8, 8))
+            b1.position = Cell(8 + dist, 8)
+            b1.latLng = controller.projection.toGeo(Cell(8 + dist, 8))
+            controller.step(mapOf("a1" to Intent.HOLD, "b1" to Intent.HOLD))
+            return controller.snapshot()
+        }
+
+        // 断言③：常规兵视野半径 4，可见性闸门为闭区间（distCells <= visionRadiusCells）。
+        val edge = snapshotAt(4).corps.first { it.id == "b1" }
+        assertTrue("距 = 视野半径 4 应标记观测", edge.observed)
+        assertNotNull("贴边目睹应下发上报坐标", edge.reportLat)
+
+        val beyond = snapshotAt(5).corps.first { it.id == "b1" }
+        assertFalse("距 = 半径 + 1（5）不应标记观测", beyond.observed)
+        assertNull("视野外敌军不下发上报坐标", beyond.reportLat)
+    }
+
+    @Test
+    fun `B9-R2-4 距离项半距封顶兵种视野半径，负值钳到 0`() {
+        val controller = CampaignController.load(RADIUS_JSON, flatPlainRaster())
+        // 断言④：常规兵视野 4——目击距离 10 → 半距 5 封顶 4；距离 8 → 半距 4 不触顶。
+        assertEquals(4, controller.distanceTermCells(10, ArmyType.REGULAR))
+        assertEquals(4, controller.distanceTermCells(8, ArmyType.REGULAR))
+        assertEquals(1, controller.distanceTermCells(2, ArmyType.REGULAR))
+        assertEquals(0, controller.distanceTermCells(0, ArmyType.REGULAR))
+        assertEquals("负目击距离钳到 0", 0, controller.distanceTermCells(-4, ArmyType.REGULAR))
+        // 骑兵视野 6：半距超出同样封顶到 6，半径表真源仍取 model 层兵种口径。
+        assertEquals(6, controller.distanceTermCells(20, ArmyType.CAVALRY))
+    }
+
+    @Test
+    fun `B9-R2-5 两敌同格：感知集两条目不合并，裁决与快照不抛`() {
+        val controller = CampaignController.load(TIE_JSON, flatPlainRaster())
+        val a1 = controller.corps.first { it.id == "a1" }
+        val b1 = controller.corps.first { it.id == "b1" }
+        val b2 = controller.corps.first { it.id == "b2" }
+        a1.position = Cell(8, 8)
+        a1.latLng = controller.projection.toGeo(Cell(8, 8))
+        b1.position = Cell(12, 8)
+        b1.latLng = controller.projection.toGeo(Cell(12, 8))
+        b2.position = Cell(12, 8)
+        b2.latLng = controller.projection.toGeo(Cell(12, 8))
+
+        controller.step(mapOf("a1" to Intent.HOLD, "b1" to Intent.HOLD, "b2" to Intent.HOLD))
+
+        // 断言⑤：同格两敌在感知集各占一条（按军 id 去重，不按位置合并），平局取用稳定不抛。
+        val perceived = controller.perceivedEnemiesOf("a1")
+        val tied = perceived.filter { it.id == "b1" || it.id == "b2" }
+        assertEquals("同格两敌在感知集应各占一条", 2, tied.size)
+        assertEquals("两条感知记录位置相同（同格平局）", tied[0].position, tied[1].position)
+
+        val snapshot = controller.snapshot()
+        val enemyViews = snapshot.corps.filter { it.sideId == "b" }
+        assertEquals("快照应保留两支敌军视图", 2, enemyViews.size)
+        assertTrue("贴边目睹两支敌军均标记观测", enemyViews.all { it.observed })
+    }
+
     /** 平场栅格：全域同高程，通视恒真、无水面 / 关隘，供半径用例确定性布位。 */
     private fun flatPlainRaster(): HeightRaster =
         HeightRaster.create(
@@ -763,6 +924,24 @@ class CampaignControllerTest {
       "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" },
     { "id": "b2", "name": "丙", "side": "b", "initialPos": [0.40, 0.40],
       "strength": 10, "type": "regular", "morale": "steady", "intent": "hold" }
+  ]
+}
+"""
+
+        /** 同格平局用例：b1 / b2 同阵营同格，验证感知集按军 id 保留两条、不按位置合并。 */
+        const val TIE_JSON: String = """
+{
+  "id": "b9-r2-tie",
+  "terrainFocus": { "center": [0.0, 0.0], "radius": 50 },
+  "duration": 10,
+  "victory": { "type": "defend", "side": "a" },
+  "armies": [
+    { "id": "a1", "name": "甲", "side": "a", "initialPos": [0.01, 0.01],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b1", "name": "乙", "side": "b", "initialPos": [0.02, 0.02],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" },
+    { "id": "b2", "name": "丙", "side": "b", "initialPos": [0.02, 0.02],
+      "strength": 8, "type": "regular", "morale": "steady", "intent": "hold" }
   ]
 }
 """
