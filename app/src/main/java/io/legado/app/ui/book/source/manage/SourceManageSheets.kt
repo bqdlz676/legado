@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +32,8 @@ import androidx.compose.ui.unit.sp
 import io.legado.app.R
 import io.legado.app.data.entities.BookSourcePart
 import io.legado.app.model.CheckSource
+import io.legado.app.ui.book.source.SourceSheetExitHost
+import io.legado.app.ui.book.source.rememberSourceSheetExitController
 import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
@@ -82,57 +85,64 @@ private fun MainOptionsSheet(
     vm: SourceManageViewModel,
     actions: SourceManageActions,
 ) {
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.book_source_manage_title), content = {
-        Column {
-            SheetRow(label = stringResource(R.string.add_book_source), onClick = actions::onAddSource)
-            SheetRow(label = stringResource(R.string.js_source_new), onClick = actions::onAddJsSource)
-            SheetRow(label = stringResource(R.string.import_local), onClick = actions::onImportLocal)
-            SheetRow(label = stringResource(R.string.import_on_line), onClick = {
-                vm.closeSheet()
-                vm.openSheet(ManageSheet.OnlineImport)
-            })
-            SheetRow(label = stringResource(R.string.import_by_qr_code), onClick = actions::onImportQr)
-            SheetRow(label = stringResource(R.string.group_manage), onClick = {
-                vm.closeSheet()
-                vm.openSheet(ManageSheet.GroupManage)
-            })
-            SheetRow(label = stringResource(R.string.sort), onClick = {
-                vm.closeSheet()
-                vm.openSheet(ManageSheet.SortOptions)
-            })
-            SheetRow(label = stringResource(R.string.menu_action_group), onClick = {
-                vm.closeSheet()
-                vm.openSheet(ManageSheet.GroupFilters)
-            })
-            SheetToggle(
-                label = stringResource(R.string.group_sources_by_domain),
-                checked = state.groupByDomain,
-                onToggle = vm::toggleGroupByDomain,
-            )
-            SheetToggle(
-                label = stringResource(R.string.show_source_check_status),
-                checked = state.showCheckStatus,
-                onToggle = vm::toggleShowCheckStatus,
-            )
-            SheetToggle(
-                label = stringResource(R.string.show_source_bookshelf_count),
-                checked = state.showBookshelfCount,
-                onToggle = vm::toggleShowBookshelfCount,
-            )
-            SheetToggle(
-                label = stringResource(R.string.block_source_navigation),
-                checked = io.legado.app.help.config.AppConfig.blockSourceNavigation,
-                onToggle = { vm.toggleBlockSourceNavigation() },
-            )
-            SheetRow(label = stringResource(R.string.help), onClick = actions::onHelp)
-        }
-    })
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.book_source_manage_title), content = {
+            Column {
+                SheetRow(label = stringResource(R.string.add_book_source), onClick = actions::onAddSource)
+                SheetRow(label = stringResource(R.string.js_source_new), onClick = actions::onAddJsSource)
+                SheetRow(label = stringResource(R.string.import_local), onClick = actions::onImportLocal)
+                // 同屏导航切换：关闭本层后直接打开下一级 Sheet，沿用旧直摘口径（config N3 先例）。
+                SheetRow(label = stringResource(R.string.import_on_line), onClick = {
+                    vm.closeSheet()
+                    vm.openSheet(ManageSheet.OnlineImport)
+                })
+                SheetRow(label = stringResource(R.string.import_by_qr_code), onClick = actions::onImportQr)
+                SheetRow(label = stringResource(R.string.group_manage), onClick = {
+                    vm.closeSheet()
+                    vm.openSheet(ManageSheet.GroupManage)
+                })
+                SheetRow(label = stringResource(R.string.sort), onClick = {
+                    vm.closeSheet()
+                    vm.openSheet(ManageSheet.SortOptions)
+                })
+                SheetRow(label = stringResource(R.string.menu_action_group), onClick = {
+                    vm.closeSheet()
+                    vm.openSheet(ManageSheet.GroupFilters)
+                })
+                SheetToggle(
+                    label = stringResource(R.string.group_sources_by_domain),
+                    checked = state.groupByDomain,
+                    onToggle = vm::toggleGroupByDomain,
+                )
+                SheetToggle(
+                    label = stringResource(R.string.show_source_check_status),
+                    checked = state.showCheckStatus,
+                    onToggle = vm::toggleShowCheckStatus,
+                )
+                SheetToggle(
+                    label = stringResource(R.string.show_source_bookshelf_count),
+                    checked = state.showBookshelfCount,
+                    onToggle = vm::toggleShowBookshelfCount,
+                )
+                SheetToggle(
+                    label = stringResource(R.string.block_source_navigation),
+                    checked = io.legado.app.help.config.AppConfig.blockSourceNavigation,
+                    onToggle = { vm.toggleBlockSourceNavigation() },
+                )
+                SheetRow(label = stringResource(R.string.help), onClick = actions::onHelp)
+            }
+        })
+    }
 }
 
 // ───────────────────────────── 排序 ─────────────────────────────
 
 @Composable
 private fun SortSheet(state: SourceManageUiState, vm: SourceManageViewModel) {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
     val options = listOf(
         BookSourceSort.Default to stringResource(R.string.sort_manual),
         BookSourceSort.Weight to stringResource(R.string.sort_auto),
@@ -142,54 +152,60 @@ private fun SortSheet(state: SourceManageUiState, vm: SourceManageViewModel) {
         BookSourceSort.Respond to stringResource(R.string.sort_by_respondTime),
         BookSourceSort.Enable to stringResource(R.string.is_enabled),
     )
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.sort), content = {
-        Column {
-            options.forEach { (sort, label) ->
-                SheetRow(
-                    label = label,
-                    checked = state.sort == sort,
-                    onClick = { vm.setSort(sort); vm.closeSheet() },
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.sort), content = {
+            Column {
+                options.forEach { (sort, label) ->
+                    SheetRow(
+                        label = label,
+                        checked = state.sort == sort,
+                        onClick = { vm.setSort(sort); exit.beginExit() },
+                    )
+                }
+                SheetToggle(
+                    label = stringResource(R.string.sort_desc),
+                    checked = !state.ascending,
+                    onToggle = { vm.toggleAscending() },
                 )
             }
-            SheetToggle(
-                label = stringResource(R.string.sort_desc),
-                checked = !state.ascending,
-                onToggle = { vm.toggleAscending() },
-            )
-        }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 分组筛选 ─────────────────────────────
 
 @Composable
 private fun GroupFiltersSheet(state: SourceManageUiState, vm: SourceManageViewModel) {
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.menu_action_group), content = {
-        Column {
-            val presets = listOf(
-                SourcePreset.ENABLED to stringResource(R.string.enabled),
-                SourcePreset.DISABLED to stringResource(R.string.disabled),
-                SourcePreset.LOGIN to stringResource(R.string.need_login),
-                SourcePreset.NO_GROUP to stringResource(R.string.no_group),
-                SourcePreset.EXPLORE_ENABLED to stringResource(R.string.enabled_explore),
-                SourcePreset.EXPLORE_DISABLED to stringResource(R.string.disabled_explore),
-            )
-            presets.forEach { (preset, label) ->
-                SheetRow(
-                    label = label,
-                    checked = state.preset == preset,
-                    onClick = { vm.selectPreset(preset); vm.closeSheet() },
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.menu_action_group), content = {
+            Column {
+                val presets = listOf(
+                    SourcePreset.ENABLED to stringResource(R.string.enabled),
+                    SourcePreset.DISABLED to stringResource(R.string.disabled),
+                    SourcePreset.LOGIN to stringResource(R.string.need_login),
+                    SourcePreset.NO_GROUP to stringResource(R.string.no_group),
+                    SourcePreset.EXPLORE_ENABLED to stringResource(R.string.enabled_explore),
+                    SourcePreset.EXPLORE_DISABLED to stringResource(R.string.disabled_explore),
                 )
+                presets.forEach { (preset, label) ->
+                    SheetRow(
+                        label = label,
+                        checked = state.preset == preset,
+                        onClick = { vm.selectPreset(preset); exit.beginExit() },
+                    )
+                }
+                state.groups.forEach { group ->
+                    SheetRow(
+                        label = group,
+                        checked = state.preset == SourcePreset.GROUP && state.groupName == group,
+                        onClick = { vm.selectPreset(SourcePreset.GROUP, group); exit.beginExit() },
+                    )
+                }
             }
-            state.groups.forEach { group ->
-                SheetRow(
-                    label = group,
-                    checked = state.preset == SourcePreset.GROUP && state.groupName == group,
-                    onClick = { vm.selectPreset(SourcePreset.GROUP, group); vm.closeSheet() },
-                )
-            }
-        }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 分组管理 ─────────────────────────────
@@ -199,7 +215,10 @@ private fun GroupManageSheet(state: SourceManageUiState, vm: SourceManageViewMod
     var renaming by remember { mutableStateOf<String?>(null) }
     var renameText by remember { mutableStateOf("") }
     var newGroup by remember { mutableStateOf("") }
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.group_manage), content = {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.group_manage), content = {
         Column {
             if (state.groups.isEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
@@ -284,7 +303,8 @@ private fun GroupManageSheet(state: SourceManageUiState, vm: SourceManageViewMod
                 },
             )
         }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 在线导入 ─────────────────────────────
@@ -293,7 +313,10 @@ private fun GroupManageSheet(state: SourceManageUiState, vm: SourceManageViewMod
 private fun OnlineImportSheet(vm: SourceManageViewModel, actions: SourceManageActions) {
     var url by remember { mutableStateOf("") }
     val history = vm.cachedImportUrls()
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.import_on_line), content = {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.import_on_line), content = {
         Column {
             SheetTextField(value = url, onValueChange = { url = it }, hint = stringResource(R.string.source_online_import_hint))
             Spacer(Modifier.height(10.dp))
@@ -321,12 +344,13 @@ private fun OnlineImportSheet(vm: SourceManageViewModel, actions: SourceManageAc
                     if (target.isNotBlank()) {
                         vm.rememberImportUrl(target)
                         actions.onImportOnline(target)
-                        vm.closeSheet()
+                        exit.beginExit()
                     }
                 },
             )
         }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 校验 ─────────────────────────────
@@ -334,7 +358,10 @@ private fun OnlineImportSheet(vm: SourceManageViewModel, actions: SourceManageAc
 @Composable
 private fun CheckSourceSheet(vm: SourceManageViewModel, actions: SourceManageActions) {
     var keyword by remember { mutableStateOf(CheckSource.keyword) }
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.check_select_source), content = {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.check_select_source), content = {
         Column {
             SheetTextField(
                 value = keyword,
@@ -348,7 +375,7 @@ private fun CheckSourceSheet(vm: SourceManageViewModel, actions: SourceManageAct
                     modifier = Modifier.weight(1f),
                     onClick = {
                         actions.onCheckSource(keyword.ifBlank { CheckSource.keyword })
-                        vm.closeSheet()
+                        exit.beginExit()
                     },
                 )
                 InkButton(
@@ -358,7 +385,8 @@ private fun CheckSourceSheet(vm: SourceManageViewModel, actions: SourceManageAct
                 )
             }
         }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 单条操作 ─────────────────────────────
@@ -371,25 +399,28 @@ private fun ItemActionsSheet(
     actions: SourceManageActions,
 ) {
     val source = state.items.firstOrNull { it.bookSourceUrl == sourceUrl } ?: return
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = source.bookSourceName, content = {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = source.bookSourceName, content = {
         Column {
             SheetRow(
                 label = stringResource(R.string.to_top),
                 enabled = state.canDrag,
-                onClick = { vm.topSource(listOf(source)); vm.closeSheet() },
+                onClick = { vm.topSource(listOf(source)); exit.beginExit() },
             )
             SheetRow(
                 label = stringResource(R.string.to_bottom),
                 enabled = state.canDrag,
-                onClick = { vm.bottomSource(listOf(source)); vm.closeSheet() },
+                onClick = { vm.bottomSource(listOf(source)); exit.beginExit() },
             )
             SheetRow(
                 label = stringResource(R.string.login),
                 enabled = source.hasLoginUrl,
-                onClick = { actions.onLogin(source); vm.closeSheet() },
+                onClick = { actions.onLogin(source); exit.beginExit() },
             )
-            SheetRow(label = stringResource(R.string.search), onClick = { actions.onSearch(source); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.debug), onClick = { actions.onDebug(source); vm.closeSheet() })
+            SheetRow(label = stringResource(R.string.search), onClick = { actions.onSearch(source); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.debug), onClick = { actions.onDebug(source); exit.beginExit() })
             SheetRow(
                 label = if (source.enabledExplore) {
                     stringResource(R.string.disable_explore)
@@ -399,16 +430,17 @@ private fun ItemActionsSheet(
                 enabled = source.hasExploreUrl,
                 onClick = {
                     vm.enableExplore(!source.enabledExplore, source)
-                    vm.closeSheet()
+                    exit.beginExit()
                 },
             )
             SheetRow(
                 label = stringResource(R.string.delete),
                 danger = true,
-                onClick = { vm.delete(listOf(source)); vm.closeSheet() },
+                onClick = { vm.delete(listOf(source)); exit.beginExit() },
             )
         }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 批量操作 ─────────────────────────────
@@ -419,13 +451,17 @@ private fun SelectionActionsSheet(
     vm: SourceManageViewModel,
     actions: SourceManageActions,
 ) {
-    InkHalfSheet(visible = true, onDismiss = vm::closeSheet, title = stringResource(R.string.source_selection_count, selection.size), content = {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = vm::closeSheet) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.source_selection_count, selection.size), content = {
         Column {
-            SheetRow(label = stringResource(R.string.enable_selection), onClick = { vm.enableSelection(); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.disable_selection), onClick = { vm.disableSelection(); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.revert_selection), onClick = { vm.revertSelection(); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.enable_explore), onClick = { vm.enableSelectExplore(); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.disable_explore), onClick = { vm.disableSelectExplore(); vm.closeSheet() })
+            SheetRow(label = stringResource(R.string.enable_selection), onClick = { vm.enableSelection(); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.disable_selection), onClick = { vm.disableSelection(); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.revert_selection), onClick = { vm.revertSelection(); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.enable_explore), onClick = { vm.enableSelectExplore(); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.disable_explore), onClick = { vm.disableSelectExplore(); exit.beginExit() })
+            // 同屏导航切换：打开下一级分组 Sheet，沿用旧直摘口径（config N3 先例）。
             SheetRow(
                 label = stringResource(R.string.add_group),
                 onClick = { vm.openSheet(ManageSheet.AddToGroup(selection)) },
@@ -434,16 +470,17 @@ private fun SelectionActionsSheet(
                 label = stringResource(R.string.remove_group),
                 onClick = { vm.openSheet(ManageSheet.RemoveFromGroup(selection)) },
             )
-            SheetRow(label = stringResource(R.string.selection_to_top), onClick = { vm.topSource(selection); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.selection_to_bottom), onClick = { vm.bottomSource(selection); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.export_selection), onClick = { actions.onExport(selection); vm.closeSheet() })
-            SheetRow(label = stringResource(R.string.share_selected_source), onClick = { actions.onShare(selection); vm.closeSheet() })
+            SheetRow(label = stringResource(R.string.selection_to_top), onClick = { vm.topSource(selection); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.selection_to_bottom), onClick = { vm.bottomSource(selection); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.export_selection), onClick = { actions.onExport(selection); exit.beginExit() })
+            SheetRow(label = stringResource(R.string.share_selected_source), onClick = { actions.onShare(selection); exit.beginExit() })
             SheetRow(label = stringResource(R.string.check_select_source), onClick = {
                 vm.openSheet(ManageSheet.CheckSource)
             })
-            SheetRow(label = stringResource(R.string.check_selected_interval), onClick = { vm.selectCheckedInterval(); vm.closeSheet() })
+            SheetRow(label = stringResource(R.string.check_selected_interval), onClick = { vm.selectCheckedInterval(); exit.beginExit() })
         }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 分组输入 ─────────────────────────────
@@ -456,7 +493,10 @@ private fun GroupInputSheet(
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = title, content = {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = onDismiss) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = title, content = {
         Column {
             SheetTextField(value = name, onValueChange = { name = it }, hint = stringResource(R.string.source_group_name_hint))
             Spacer(Modifier.height(8.dp))
@@ -470,12 +510,13 @@ private fun GroupInputSheet(
                 onClick = {
                     if (name.isNotBlank()) {
                         confirm(name.trim())
-                        onDismiss()
+                        exit.beginExit()
                     }
                 },
             )
         }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 导出结果 ─────────────────────────────
@@ -486,7 +527,10 @@ private fun ExportResultSheet(
     actions: SourceManageActions,
     onDismiss: () -> Unit,
 ) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_export_title), content = {
+    val exit = rememberSourceSheetExitController()
+    LaunchedEffect(Unit) { if (exit.canOpen) exit.open() }
+    SourceSheetExitHost(controller = exit, onFinished = onDismiss) {
+        InkHalfSheet(visible = exit.visible, onDismiss = { exit.beginExit() }, title = stringResource(R.string.source_export_title), content = {
         Column {
             androidx.compose.foundation.text.BasicText(
                 text = sheet.fileName,
@@ -522,7 +566,8 @@ private fun ExportResultSheet(
                 }
             }
         }
-    })
+        })
+    }
 }
 
 // ───────────────────────────── 通用行 / 输入 ─────────────────────────────

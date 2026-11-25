@@ -36,6 +36,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.R
+import io.legado.app.ui.book.source.SourceSheetExitHost
+import io.legado.app.ui.book.source.rememberSourceSheetExitController
 import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.InkHalfSheet
@@ -74,6 +76,7 @@ fun SourceDebugScreen(
     modifier: Modifier = Modifier,
 ) {
     var overflowOpen by remember { mutableStateOf(false) }
+    val overflowExit = rememberSourceSheetExitController()
 
     Box(
         modifier = modifier
@@ -86,7 +89,12 @@ fun SourceDebugScreen(
                 onKeywordChange = vm::setKeyword,
                 onSubmit = actions::onSubmit,
                 onBack = actions::onBack,
-                onOverflow = { overflowOpen = true },
+                onOverflow = {
+                    if (overflowExit.canOpen) {
+                        overflowOpen = true
+                        overflowExit.open()
+                    }
+                },
             )
 
             Box(Modifier.weight(1f)) {
@@ -107,11 +115,14 @@ fun SourceDebugScreen(
         }
 
         if (overflowOpen) {
-            OverflowSheet(
-                state = state,
-                onDismiss = { overflowOpen = false },
-                actions = actions,
-            )
+            SourceSheetExitHost(overflowExit, onFinished = { overflowOpen = false }) {
+                OverflowSheet(
+                    state = state,
+                    visible = overflowExit.visible,
+                    onDismiss = { overflowExit.beginExit() },
+                    actions = actions,
+                )
+            }
         }
     }
 }
@@ -395,10 +406,11 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
 @Composable
 private fun OverflowSheet(
     state: SourceDebugUiState,
+    visible: Boolean,
     onDismiss: () -> Unit,
     actions: SourceDebugActions,
 ) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_debug_title), content = {
+    InkHalfSheet(visible = visible, onDismiss = onDismiss, title = stringResource(R.string.source_debug_title), content = {
         val options = buildList {
             add(SheetAction(R.string.scan_qr_code, actions::onScan))
             if (!state.searchSrc.isNullOrBlank()) {

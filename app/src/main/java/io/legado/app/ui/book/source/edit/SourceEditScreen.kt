@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.R
+import io.legado.app.ui.book.source.SourceSheetExitHost
+import io.legado.app.ui.book.source.rememberSourceSheetExitController
 import io.legado.app.ui.components.ComponentTokens
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkEmptyState
@@ -84,6 +86,7 @@ fun SourceEditScreen(
     var activeTab by remember { mutableStateOf(EditTab.BASE) }
     var optionsExpanded by remember { mutableStateOf(false) }
     var overflowOpen by remember { mutableStateOf(false) }
+    val overflowExit = rememberSourceSheetExitController()
 
     Box(
         modifier = modifier
@@ -94,7 +97,12 @@ fun SourceEditScreen(
             EditHeader(
                 onBack = actions::onBack,
                 onSave = actions::onSave,
-                onOverflow = { overflowOpen = true },
+                onOverflow = {
+                    if (overflowExit.canOpen) {
+                        overflowOpen = true
+                        overflowExit.open()
+                    }
+                },
             )
 
             if (state.loading) {
@@ -144,12 +152,15 @@ fun SourceEditScreen(
         )
 
         if (overflowOpen) {
-            OverflowSheet(
-                state = state,
-                vm = vm,
-                actions = actions,
-                onDismiss = { overflowOpen = false },
-            )
+            SourceSheetExitHost(overflowExit, onFinished = { overflowOpen = false }) {
+                OverflowSheet(
+                    state = state,
+                    vm = vm,
+                    actions = actions,
+                    visible = overflowExit.visible,
+                    onDismiss = { overflowExit.beginExit() },
+                )
+            }
         }
     }
 }
@@ -421,9 +432,10 @@ private fun OverflowSheet(
     state: SourceEditUiState,
     vm: SourceEditViewModel,
     actions: SourceEditActions,
+    visible: Boolean,
     onDismiss: () -> Unit,
 ) {
-    InkHalfSheet(visible = true, onDismiss = onDismiss, title = stringResource(R.string.source_edit_title), content = {
+    InkHalfSheet(visible = visible, onDismiss = onDismiss, title = stringResource(R.string.source_edit_title), content = {
         Column {
             SheetAction(stringResource(R.string.edit_content), onClick = { onDismiss(); actions.onFullscreenEdit(EditTab.BASE, currentFocusedField(state)) })
             SheetAction(stringResource(R.string.debug_source), onClick = { onDismiss(); actions.onDebug() })
