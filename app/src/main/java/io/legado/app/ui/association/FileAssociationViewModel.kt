@@ -159,12 +159,20 @@ class FileAssociationViewModel(application: Application, private val savedState:
         importingData.value = true
         execute {
             when (type) {
-                "bookshelf" -> importBookshelfJson(Uri.parse(source).readText(context), 0)
+                "bookshelf" -> importBookshelfJson(
+                    Uri.parse(source).readText(context),
+                    IMPORT_DEFAULT_GROUP_ID,
+                )
                 "backup" -> Restore.restoreOrThrow(context, Uri.parse(source))
                 else -> error("Unsupported import")
             }
         }.onSuccess {
             importedData.value = true
+            if (type == "bookshelf") {
+                // 外部分享/文件入口拿不到用户当前可见分组，书单统一落未分组；
+                // 明确提示去向，避免用户误以为书籍被归入了既有分组。
+                context.toastOnUi(context.getString(R.string.import_bookshelf_default_group))
+            }
         }.onError {
             errorLive.value = it.localizedMessage ?: context.getString(R.string.wrong_format)
             AppLog.put("导入分享数据失败\n${it.localizedMessage}", it)
@@ -340,6 +348,11 @@ class FileAssociationViewModel(application: Application, private val savedState:
         }
         stagingDirectory?.deleteRecursively()
         super.onCleared()
+    }
+
+    private companion object {
+        // 书架分组是位掩码；0 表示未分组（默认书架）。importBookshelfJson 仅在 groupId > 0 时才写入分组位。
+        const val IMPORT_DEFAULT_GROUP_ID = 0L
     }
 }
 

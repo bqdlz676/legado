@@ -809,6 +809,7 @@
     <string name="create_bookmark_error">创建书签失败</string>
     <string name="single_url">单 URL</string>
     <string name="import_bookshelf">导入书单</string>
+    <string name="import_bookshelf_default_group">已导入到未分组书架，可在书架管理中移入分组</string>
     <string name="pre_download">预下载</string>
     <string name="pre_download_m">预下载%s页</string>
     <string name="is_enabled">是否启用</string>

@@ -196,7 +196,6 @@ object BookHelp {
             val filesDir = appCtx.filesDir
             FileUtils.delete("$filesDir/shareBookSource.json")
             FileUtils.delete("$filesDir/shareRssSource.json")
-            FileUtils.delete("$filesDir/books.json")
         }
     }
 
