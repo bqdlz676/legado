@@ -272,6 +272,9 @@ if [ $? -eq 0 ]; then ok "㊲验收字样" "$(echo "$AC37" | grep 'ACCEPT-CLAIM'
 
 # ⑧' 变化摘要（O8）：与上一次快照 diff，新增 FAIL 标 NEW，免每次肉眼扫 34+ 项。
 CUR_FAIL=$(grep -E '^[^ ]+ +FAIL' /tmp/.gate_cur 2>/dev/null | awk '{print $1}')
+# ㉕ 子代理超时熔断/工具预算：不设独立实现块。该职能已并入 ㊳ check-agent-timeout.py
+#    （Q-22 结单落 ㊳：>15min WARN / >60min FAIL）。保留㉕号仅作历史归档，避免同一职能双号
+#    重复判据；原三处文档引用的㉕号已统一改指 ㊳。
 # ㊳ 子代理熔断（Q-22 结单，用户原话「不能超过15分钟」）：RUNNING 行 >15min 提示、>60min 判失败。
 #    为什么是时长而非"无产物"：队列只有登记时间，产物有无由 ㉚/⑳ 各自覆盖。
 AT38=$(python3 data_scripts/check-agent-timeout.py 2>&1)
@@ -281,6 +284,12 @@ if [ $? -eq 0 ]; then ok "㊳子代理熔断" "$(echo "$AT38" | grep -E 'PASS|WA
 #    缺 trailer 只提示补登，不 FAIL——验收没过的 commit 也要能上云保槽，硬阻断会顶掉保槽铁律。
 TR39=$(python3 data_scripts/check-commit-trailer.py 2>&1)
 say "㊴认证书尾" "$(echo "$TR39" | grep -E 'PASS|WARN' | head -1)"
+
+# ㊵ 提交路径分离（F-112）：结单/台账/文档 commit 与代码 commit 必须逐路径分开；
+#    同一 commit 同时含 docs/ 与 app/src/ 即 FAIL（事故 E-05：`git add -A` 把在飞代码扫进
+#    结单 commit，commit 与单号无法回源）。扫最近 5 条 commit，纯标准库 git diff-tree 判据。
+SPLIT40=$(python3 data_scripts/check-commit-split.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊵提交路径分离" "$(echo "$SPLIT40" | grep 'COMMIT-SPLIT: PASS')"; else bad "㊵提交路径分离" "$(echo "$SPLIT40" | grep -E 'FAIL|混合' | head -3 | tr '\n' ' ')"; fi
 
 echo
 
