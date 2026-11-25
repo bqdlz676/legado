@@ -84,7 +84,7 @@ def main() -> int:
     if os.path.isfile(LEDGER):
         ltext = open(LEDGER, encoding="utf-8").read()
         open_count = sum(
-            1 for line in ltext.splitlines() if re.match(r"^\|.*\|\s*在飞", line)
+            1 for line in ltext.splitlines() if re.match(r"^\|.*\|\s*([🟡🔴🟢✅⛔]\s*)?在飞", line)
         )
 
     # E3：空槽空转（有积压却 0 在飞 0 RUNNING）
