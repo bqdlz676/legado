@@ -1,6 +1,7 @@
 package io.legado.app.help.bubble
 
 import io.legado.app.help.allusion.AllusionAnchorProvider
+import io.legado.app.help.artifact.EmptyEntityProvider
 import io.legado.app.help.chrono.Chronology
 import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.dict.ChineseDict
@@ -15,9 +16,11 @@ import java.util.LinkedHashMap
  *  2. 典故 —— [allusion]，2~4 字，已下划线优先；
  *  3. 人名 —— [person]，档案 / 别名印证，同名按锚点消歧；
  *  4. 地名 —— [place]，按 [ContextAnchor] 年代选层；
- *  5. 多字词 —— [word]，2~5 字，长词优先；
- *  6. 单字 —— [char]，字义 + 说文 + 用例；
- *  7. Missing —— [missing] 兜底，允许联网检索 / 加入生字本。
+ *  5. 名物 —— [artifact]，D16 通用 EntityProvider 承接的草木 / 鸟兽 / 药名 / 器物 / 建筑 /
+ *     天文 / 饮食 / 服饰 / 山川等专名；人物 / 地名 / 典故不在此槽重复查询；
+ *  6. 多字词 —— [word]，2~5 字，长词优先；
+ *  7. 单字 —— [char]，字义 + 说文 + 用例；
+ *  8. Missing —— [missing] 兜底，允许联网检索 / 加入生字本。
  *
  * 性能（规格 §5 / 切片-08）：冷启动首触气泡 ≤ 300ms（含加载），热路径 ≤ 80ms。
  * 命中结果按「段落 + 位置 + 锚点年」进 LRU 缓存；Provider 内部只走索引 / 二分查表，
@@ -27,6 +30,7 @@ import java.util.LinkedHashMap
  * @param allusion 典故 Provider
  * @param person   人名 Provider
  * @param place    地名 Provider
+ * @param artifact D16 名物适配 Provider（通用 EntityProvider 泛化入口；默认空数据兜底实现）
  * @param word     多字词 Provider
  * @param char     单字 Provider
  * @param missing  兜底 Provider
@@ -40,6 +44,7 @@ class BubbleResolverImpl(
     private val word: BubbleProvider,
     private val char: BubbleProvider,
     private val missing: BubbleProvider,
+    private val artifact: BubbleProvider = ArtifactBubbleProvider(EmptyEntityProvider()),
     private val cacheSize: Int = 64,
 ) {
 
@@ -78,6 +83,7 @@ class BubbleResolverImpl(
             ?: safe { allusion.query(clean, anchor) }
             ?: safe { person.query(clean, anchor) }
             ?: safe { place.query(clean, anchor) }
+            ?: safe { artifact.query(clean, anchor) }
             ?: safe { word.query(clean, anchor) }
             ?: safe { char.query(clean, anchor) }
     }
@@ -95,6 +101,7 @@ class BubbleResolverImpl(
         safe { allusion.matchAllusion(paragraph, pos, anchor) }?.let { return it }
         safe { person.hitAt(paragraph, pos, anchor) }?.let { return it }
         safe { place.hitAt(paragraph, pos, anchor) }?.let { return it }
+        safe { artifact.hitAt(paragraph, pos, anchor) }?.let { return it }
         safe { word.matchWord(paragraph, pos, anchor) }?.let { return it }
         safe { char.hitAt(paragraph, pos, anchor) }?.let { return it }
         return null
@@ -126,6 +133,10 @@ class BubbleResolverImpl(
  * 默认装配：真实骨架 Provider。后续数据表接入时只替换各 Provider 内部实现，
  * 优先级编排与本入口不动。典故槽与多字词槽共用 [WordProvider]，由其内部
  * [BubbleProvider.matchAllusion] / [BubbleProvider.matchWord] 分流出典故事与普通词。
+ *
+ * 名物槽 [ArtifactBubbleProvider] 在此装配处实例化通用 [EmptyEntityProvider]（D16 包外首个
+ * 真实消费点）；人物 / 地名 / 典故按 [io.legado.app.help.artifact.ArtifactSlots] 登记表走既有槽，
+ * 不在名物槽重复查询。真实名物数据表落地后只替换 EntityProvider 注入实现，编排不动。
  */
 val DefaultBubbleResolver = BubbleResolverImpl(
     date = DateProvider,
@@ -135,6 +146,7 @@ val DefaultBubbleResolver = BubbleResolverImpl(
     word = WordProvider,
     char = CharProvider,
     missing = MissingProvider,
+    artifact = ArtifactBubbleProvider(EmptyEntityProvider()),
 )
 
 /** 全局唯一入口对象，委托给默认装配。 */

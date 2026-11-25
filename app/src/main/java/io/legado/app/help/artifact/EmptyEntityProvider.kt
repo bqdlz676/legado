@@ -33,6 +33,12 @@ class EmptyEntityProvider : EntityProvider {
      * 或表名 / type 未知时返回 null，走通用兜底，不抛异常。
      */
     private fun categoryForType(type: String): ArtifactCategory? = when (type) {
+        // 既有表名（09:24）：装配层以表名作 type 透传时保留类别保真度，不一律退化为 Kind.WORD。
+        "person" -> ArtifactCategory.PERSON
+        "place" -> ArtifactCategory.PLACE
+        "plant" -> ArtifactCategory.PLANT
+        "animal" -> ArtifactCategory.ANIMAL
+        "medicine" -> ArtifactCategory.MEDICINE
         "sword" -> ArtifactCategory.SWORD
         "horse" -> ArtifactCategory.HORSE
         "instrument" -> ArtifactCategory.INSTRUMENT
