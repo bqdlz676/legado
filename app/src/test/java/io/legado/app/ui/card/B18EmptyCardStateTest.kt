@@ -62,6 +62,24 @@ class B18EmptyCardStateTest {
         )
     }
 
+    // ─────────────────────────── B28 预留组件公共面锁 ───────────────────────────
+
+    @Test
+    fun `B28 预留公共面完整 三变体复用基座 待 S-09 S-10 宿主接线`() {
+        // B28 判定 A（保留·规格预留）：本组件 main 生产源码零调用，预定宿主为 S-09 阅读空章、
+        // S-10 书架空/离线空架（切片-25:50-53；立项-补条款-B档:379）。此断言锁住预留公共面，
+        // 防止预留期被误删或改面而 CI 静默漏网；纯源码条款断言，不拉起 Compose 运行时。
+        assertTrue("EmptyKind 必须保留 EmptyShelf/NotFound/Offline 三变体",
+            emptyCardSource.contains("enum class EmptyKind") &&
+                emptyCardSource.contains("EmptyKind.EmptyShelf") &&
+                emptyCardSource.contains("EmptyKind.NotFound") &&
+                emptyCardSource.contains("EmptyKind.Offline"))
+        assertTrue("空态卡必须复用 CardSurface 卡片基座",
+            emptyCardSource.contains("CardSurface("))
+        assertTrue("六态映射纯函数 emptyCardVisualState 必须保留",
+            emptyCardSource.contains("fun emptyCardVisualState("))
+    }
+
     // ─────────────────────────── 判据 5：0.35 裁决 ───────────────────────────
 
     @Test
