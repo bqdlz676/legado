@@ -68,16 +68,32 @@ class B18EmptyCardStateTest {
     fun `B28 预留公共面完整 三变体复用基座 待 S-09 S-10 宿主接线`() {
         // B28 判定 A（保留·规格预留）：本组件 main 生产源码零调用，预定宿主为 S-09 阅读空章、
         // S-10 书架空/离线空架（切片-25:50-53；立项-补条款-B档:379）。此断言锁住预留公共面，
-        // 防止预留期被误删或改面而 CI 静默漏网；纯源码条款断言，不拉起 Compose 运行时。
-        assertTrue("EmptyKind 必须保留 EmptyShelf/NotFound/Offline 三变体",
-            emptyCardSource.contains("enum class EmptyKind") &&
-                emptyCardSource.contains("EmptyKind.EmptyShelf") &&
+        // 防止预留期被误删或改面而 CI 静默漏网；纯 JVM 反射核验，不拉起 Compose 运行时。
+
+        // 第一道 · 编译期符号锁：在编译产物里反射核验真实类与枚举常量存在。
+        // 包移动、类改名、内部掏空而名字串原样保留都会在此暴露，不再只匹配源码子串。
+        val kindClass = Class.forName("io.legado.app.ui.card.EmptyKind")
+        assertTrue("EmptyKind 必须是编译产物中的枚举类", kindClass.isEnum)
+        val constantNames = kindClass.enumConstants?.map { it.name }.orEmpty().toSet()
+        assertTrue(
+            "EmptyKind 必须保留 EmptyShelf NotFound Offline 三变体",
+            constantNames == setOf("EmptyShelf", "NotFound", "Offline"),
+        )
+        // 文件门面类承载顶层六态映射纯函数；门面缺失即组件被移包或整面改撤。
+        Class.forName("io.legado.app.ui.card.EmptyStateCardKt")
+
+        // 第二道 · 粗粒度文本兜底锁：两道锁并存的适用条件——符号锁为主，验证产物里的真实
+        // 符号；文本锁为辅，只在源码文件整删、路径断裂时给出可读的源码级红，并兜住符号锁
+        // 未覆盖的基座调用字样，文本锁不单独作为公共面存在的依据。
+        assertTrue(
+            "空态卡源码兜底须保留三变体与映射纯函数字样",
+            emptyCardSource.contains("EmptyKind.EmptyShelf") &&
                 emptyCardSource.contains("EmptyKind.NotFound") &&
-                emptyCardSource.contains("EmptyKind.Offline"))
+                emptyCardSource.contains("EmptyKind.Offline") &&
+                emptyCardSource.contains("fun emptyCardVisualState("),
+        )
         assertTrue("空态卡必须复用 CardSurface 卡片基座",
             emptyCardSource.contains("CardSurface("))
-        assertTrue("六态映射纯函数 emptyCardVisualState 必须保留",
-            emptyCardSource.contains("fun emptyCardVisualState("))
     }
 
     // ─────────────────────────── 判据 5：0.35 裁决 ───────────────────────────
