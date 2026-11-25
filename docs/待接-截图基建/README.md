@@ -1,10 +1,12 @@
 # 待接 · 截图基建（Paparazzi）暂存说明
 
+> 状态：已接线（路径 A：独立 Gradle 模块 `:screenshot`），commit `07615c1`；5 个源码已迁入 `screenshot/src/test/java/io/legado/app/ci/screenshot/`，独立 workflow `.github/workflows/screenshot.yml` 不 gate 主 run。判据复验待 CI（按 F-107 未本地编译，等 CI）。本目录仅留 README 与原 job 逐字存档。
+
 ## 1. 这里是什么
 
 本目录是 2026-11-25 为修 CI 红而从 `:app` 模块整建制移出的截图帧能力存档，**不是删除**：
 
-- `app/src/test/java/io/legado/app/ci/screenshot/`：5 个截图测试源码（4 个快照测试 + 1 个夹具对象），相对路径原样保留，重新接线时按同路径拷回即可编译。
+- 5 个截图测试源码（4 个快照测试 + 1 个夹具对象）：路径 A 接线后已迁至 `screenshot/src/test/java/io/legado/app/ci/screenshot/`（包名不变），本目录不再保留源码副本。
 - `workflow-截图job原文.yml`：原 `build.yml` 中 `screenshot-frames` job 的逐字存档（含 record 任务、帧收集、frames.json 清单、artifact 上传全步骤），供重新接线时对照。
 - 配套脚本 `data_scripts/frame-manifest.py` 仍留在原路径，未随本目录移动；存档 job 里调用的就是该路径。
 
