@@ -47,27 +47,29 @@ class CampaignBranchIsolationTest {
         val controller = CampaignController.load(HOLD_A_JSON, null)
         controller.step()
         val branchA = controller.saveBranch()
-        val pointKey = branchA.pointHolders.keys.firstOrNull()
-        assertNotNull("存档 A 应含据点标识", pointKey)
-        assertNotNull("存档 A 占据方应为 a", branchA.pointHolders[pointKey])
-        assertEquals("存档 A 占据方为 a", "a", branchA.pointHolders[pointKey])
+        val rawKey = branchA.pointHolders.keys.firstOrNull()
+        assertNotNull("存档 A 应含据点标识", rawKey)
+        // assertNotNull 不参与 Kotlin 智能转换；局部取值走 requireNotNull，消除非空断言穿透（D-3）。
+        val archiveKey: String = requireNotNull(rawKey) { "存档 A 应含据点标识" }
+        assertNotNull("存档 A 占据方应为 a", branchA.pointHolders[archiveKey])
+        assertEquals("存档 A 占据方为 a", "a", branchA.pointHolders[archiveKey])
 
         // 手工构造分支 B：同一批军队，归属记为敌方 b、计数记 2，模拟另一条时间线的存档。
-        // pointKey 已在上方 assertNotNull 判空；mapOf 显式类型参数对齐 BranchSnapshot 的非空键签名。
+        // mapOf 显式类型参数对齐 BranchSnapshot 的非空键签名。
         val branchB = branchA.copy(
-            captureHold = mapOf<String, Int>(pointKey!! to 2),
-            pointHolders = mapOf<String, String>(pointKey!! to "b"),
+            captureHold = mapOf<String, Int>(archiveKey to 2),
+            pointHolders = mapOf<String, String>(archiveKey to "b"),
         )
 
         controller.restoreBranch(branchB)
         val restoredB = controller.saveBranch()
-        assertEquals("切到 B 后归属应为 b（证明 B 存档真实生效，非空表空转）", "b", restoredB.pointHolders[pointKey])
-        assertEquals("切到 B 后计数应为 2", 2, restoredB.captureHold[pointKey] ?: 0)
+        assertEquals("切到 B 后归属应为 b（证明 B 存档真实生效，非空表空转）", "b", restoredB.pointHolders[archiveKey])
+        assertEquals("切到 B 后计数应为 2", 2, restoredB.captureHold[archiveKey] ?: 0)
 
         controller.restoreBranch(branchA)
         val restoredA = controller.saveBranch()
-        assertEquals("恢复 A 后归属回到 A 的持有方 a", "a", restoredA.pointHolders[pointKey])
-        assertTrue("归属不得串成 B 的持有方 b", restoredA.pointHolders[pointKey] != "b")
+        assertEquals("恢复 A 后归属回到 A 的持有方 a", "a", restoredA.pointHolders[archiveKey])
+        assertTrue("归属不得串成 B 的持有方 b", restoredA.pointHolders[archiveKey] != "b")
         assertEquals("恢复 A 后计数回到 A 的计数", branchA.captureHold, restoredA.captureHold)
     }
 
