@@ -55,6 +55,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.main.bookshelf.search.HitSegment
+import io.legado.app.ui.main.bookshelf.search.SearchField
 import kotlin.math.roundToInt
 
 /**
@@ -157,6 +159,7 @@ fun BookshelfScreen(
                 query = searchState.query,
                 results = searchOutcome.results,
                 hint = searchOutcome.hint,
+                resultSegments = searchOutcome.segments,
                 onQueryChange = { searchState = ShelfSearch.updateQuery(searchState, it) },
                 onClose = { searchState = ShelfSearch.close(searchState) },
                 onPick = { book ->
@@ -665,6 +668,7 @@ private fun ShelfSearchOverlay(
     query: String,
     results: List<ShelfBookUi>,
     hint: String,
+    resultSegments: List<List<HitSegment>>,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
     onPick: (ShelfBookUi) -> Unit,
@@ -746,8 +750,11 @@ private fun ShelfSearchOverlay(
                     modifier = Modifier.heightIn(max = 260.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    results.forEach { book ->
-                        OverlayResultRow(book, query) { onPick(book) }
+                    results.forEachIndexed { index, book ->
+                        OverlayResultRow(
+                            book,
+                            resultSegments.getOrNull(index).orEmpty(),
+                        ) { onPick(book) }
                     }
                 }
             }
@@ -762,7 +769,7 @@ private fun ShelfSearchOverlay(
 @Composable
 private fun OverlayResultRow(
     book: ShelfBookUi,
-    query: String,
+    segments: List<HitSegment>,
     onPick: () -> Unit,
 ) {
     Row(
@@ -782,7 +789,7 @@ private fun OverlayResultRow(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             BasicText(
-                text = highlightMatch(book.title, query),
+                text = highlightSegments(book.title, segments, SearchField.TITLE),
                 style = TextStyle(
                     color = ShelfTokens.textPrimary,
                     fontSize = 14.sp,
@@ -791,7 +798,7 @@ private fun OverlayResultRow(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BasicText(
-                    text = highlightMatch(book.author, query),
+                    text = highlightSegments(book.author, segments, SearchField.AUTHOR),
                     style = TextStyle(
                         color = ShelfTokens.textSecondary,
                         fontSize = 10.sp,
@@ -819,19 +826,19 @@ private fun OverlayResultRow(
     }
 }
 
-/** 命中词朱砂高亮：忽略大小写匹配，保留原文大小写；无命中 / 空词时原样返回。 */
-private fun highlightMatch(text: String, query: String): AnnotatedString {
-    val key = query.trim()
-    if (key.isEmpty()) return AnnotatedString(text)
-    val start = text.lowercase().indexOf(key.lowercase())
-    if (start < 0) return AnnotatedString(text)
-    val end = start + key.length
+/**
+ * 命中词朱砂高亮：直接消费纯函数产出的 [segments] 区间切子串，画面层不再做第二套 `indexOf` 匹配；
+ * 对应命中路缺失、区间越界或非法时原样返回纯文本，不抛异常。
+ */
+private fun highlightSegments(text: String, segments: List<HitSegment>, field: SearchField): AnnotatedString {
+    val seg = segments.firstOrNull { it.field == field } ?: return AnnotatedString(text)
+    if (seg.start < 0 || seg.end > text.length || seg.end <= seg.start) return AnnotatedString(text)
     return buildAnnotatedString {
-        append(text.substring(0, start))
+        append(text.substring(0, seg.start))
         withStyle(SpanStyle(color = ShelfTokens.textAccent)) {
-            append(text.substring(start, end))
+            append(text.substring(seg.start, seg.end))
         }
-        append(text.substring(end))
+        append(text.substring(seg.end))
     }
 }
 

@@ -88,9 +88,12 @@ object ShelfTokens {
     const val GLOW_OVERFLOW_DP: Float = 4f
     /** 按下 3D 前倾 5° */
     const val TILT_DEG: Float = 5f
-    /** 朱砂进度竖线宽 1dp；冻结口径 1dp（切片-10:22 / ShelfParams.PROGRESS_LINE_WIDTH_DP=1.0）。
-     *  为什么改：旧值 3f 与冻结 1dp 冲突，渲染层已改引 ShelfParams 单源，本副本按同口径修正，避免两处漂移。 */
-    const val VLINE_WIDTH_DP: Float = 1f
+    /** 书架域口径 2dp，出处 docs/切片-25 第 19 行；阅读页 1dp 属正文细线，不同域不复用。
+     *  为什么：切片-10:22 只写「书名右侧一道朱砂竖线，线长 = 阅读进度比例」，未给线宽；
+     *  卡片规格切片-25:19 明写「右侧朱砂进度竖线 2dp」；切片-09:7 的 1dp 是阅读页右缘正文细线，
+     *  属阅读域，书架卡片不复用。卡片渲染读本常量，不再回指 components 层 ShelfParams 旧 1.0 副本；
+     *  ShelfParams.PROGRESS_LINE_WIDTH_DP 同步到 2.0 一事登记 Q-56，待 components 域释放后收口。 */
+    const val VLINE_WIDTH_DP: Float = 2f
     /** 底部细线进度高 2dp */
     const val BOTTOM_LINE_HEIGHT_DP: Float = 2f
     /** 云灰 1px 分隔线 */

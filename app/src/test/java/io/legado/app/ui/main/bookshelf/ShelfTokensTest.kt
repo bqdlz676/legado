@@ -55,6 +55,8 @@ class ShelfTokensTest {
         // 暖金微光溢出半径 12px、底部溢出 4dp。
         assertEquals(12f, ShelfTokens.GLOW_RADIUS_DP, 0f)
         assertEquals(4f, ShelfTokens.GLOW_OVERFLOW_DP, 0f)
+        // 朱砂进度竖线 2dp（切片-25:19「右侧朱砂进度竖线 2dp」）；阅读页 1dp 属正文细线，不同域不复用。
+        assertEquals(2f, ShelfTokens.VLINE_WIDTH_DP, 0f)
     }
 
     @Test

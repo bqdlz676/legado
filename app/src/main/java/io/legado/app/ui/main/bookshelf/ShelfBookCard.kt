@@ -296,7 +296,7 @@ private fun ShelfCardContent(book: ShelfBookUi, modifier: Modifier = Modifier) {
                     // 朱砂进度竖线：线长 = 阅读进度比例；余段留云灰轨道
                     Box(
                         modifier = Modifier
-                            .width(ShelfParams.PROGRESS_LINE_WIDTH_DP.toFloat().dp)
+                            .width(ShelfTokens.VLINE_WIDTH_DP.dp)
                             .height(72.dp)
                             .background(ShelfTokens.colorDivider, RoundedCornerShape(50)),
                     ) {

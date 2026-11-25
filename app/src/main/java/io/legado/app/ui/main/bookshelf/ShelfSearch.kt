@@ -1,5 +1,6 @@
 package io.legado.app.ui.main.bookshelf
 
+import io.legado.app.ui.main.bookshelf.search.HitSegment
 import io.legado.app.ui.main.bookshelf.search.ShelfItemLite
 import io.legado.app.ui.main.bookshelf.search.searchBooks
 
@@ -20,10 +21,15 @@ object ShelfSearch {
         val isOpen: Boolean get() = stage == Stage.OPENED
     }
 
-    /** 浮层检索结果：[results] 交既有结果列表渲染；[hint] 非空时作为空态文案透传画面层。 */
+    /**
+     * 浮层检索结果：[results] 交既有结果列表渲染；[hint] 非空时作为空态文案透传画面层；
+     * [segments] 与 [results] 按下标对齐，承载纯函数产出的命中片段区间，渲染高亮直接切此区间，
+     * 不再在画面层做第二套 `indexOf` 匹配；空词 / 无命中时为空列表。
+     */
     data class SearchOutcome(
         val results: List<ShelfBookUi>,
         val hint: String,
+        val segments: List<List<HitSegment>> = emptyList(),
     )
 
     /** 初始态：收起、无关键词。 */
@@ -59,12 +65,25 @@ object ShelfSearch {
      * 统一口径到 S-13 纯函数并保留正文命中路，最终命中路、排序以纯函数为准。
      */
     fun search(books: List<ShelfBookUi>, query: String): SearchOutcome {
-        if (query.isBlank()) return SearchOutcome(filter(books, query), "")
+        if (query.isBlank()) return SearchOutcome(filter(books, query), "", emptyList())
         val lites = books.map { it.toLite() }
         val result = searchBooks(query, lites)
-        // 命中条目按引用回映原 ShelfBookUi：searchBooks 原样回传入参 item，引用一致。
-        val original = lites.zip(books).associateBy({ it.first }, { it.second })
-        return SearchOutcome(result.hits.mapNotNull { original[it.item] }, result.hint)
+        // 回映按 Lite 排队取原件：两本书投影出完全相同 Lite 时，旧 associateBy 会折叠成一键，
+        // 第二条命中被 mapNotNull 漏掉；这里每个 Lite 挂一个原件队列，逐条命中从队首取，顺序不丢条目。
+        val originQueue = HashMap<ShelfItemLite, MutableList<ShelfBookUi>>()
+        lites.forEachIndexed { index, lite ->
+            originQueue.getOrPut(lite) { mutableListOf() }.add(books[index])
+        }
+        val entries = result.hits.mapNotNull { hit ->
+            val queue = originQueue[hit.item]
+            val origin = if (!queue.isNullOrEmpty()) queue.removeAt(0) else return@mapNotNull null
+            origin to hit.segments
+        }
+        return SearchOutcome(
+            results = entries.map { it.first },
+            hint = result.hint,
+            segments = entries.map { it.second },
+        )
     }
 
     /**
