@@ -13,24 +13,44 @@ import io.legado.app.ui.components.isRestoredExactly
  * [ReaderSheetState] 只在其上包一层组合状态。
  *
  * 守卫只读快照、不读写宿主阅读引擎；两次快照取自同一口径（同一滚动单位、同一选中键规则）。
+ *
+ * 〔B20 连点闸〕可见性事实源在状态层（`request != null` 派生的 `isOpen`），本守卫不另存
+ * 开关 boolean，避免出现第二份开合记录。开合方法由状态层透传当前可见性 [alreadyOpen]，
+ * 守卫据此在已开态拒收重复打开、在已关态拒收冗余关闭，保证首份 `snapshotBefore` 不被
+ * 连点竞态冲掉基线。
  */
 class ReaderSheetGuard {
 
-    /** 弹起前快照；未打开过为 null。 */
-    private var snapshotBefore: ReaderSnapshot? = null
+    /** 弹起前快照；未打开过为 null。读出门面对状态层 / 单测可见，写入仍私有。 */
+    var snapshotBefore: ReaderSnapshot? = null
+        private set
 
     /** 关闭后快照；未关闭为 null。 */
     var snapshotAfter: ReaderSnapshot? = null
         private set
 
-    /** 打开覆盖层：记录弹起前快照，清掉上一轮关闭后的残留快照。 */
-    fun open(before: ReaderSnapshot) {
+    /**
+     * 打开覆盖层。
+     *
+     * 〔连点竞态口径〕[alreadyOpen] 为 true 表示半屏会话已开，本次是打开中的重复请求：
+     * 不重采弹起前快照、不清 `snapshotAfter`，首份基线保持首次值，返回 false 由状态层
+     * 保留首次请求。已关态（false）才落新基线，并清掉上一轮关闭后的残留快照。
+     *
+     * @return true = 新开会话；false = 已开态重复请求被拒收。
+     */
+    fun open(before: ReaderSnapshot, alreadyOpen: Boolean): Boolean {
+        if (alreadyOpen) return false
         snapshotBefore = before
         snapshotAfter = null
+        return true
     }
 
-    /** 关闭覆盖层：记录关闭后快照；不改写任何阅读位置。 */
-    fun dismiss(after: ReaderSnapshot) {
+    /**
+     * 关闭覆盖层。[alreadyOpen] 为 false 时属已关态的冗余关闭，不回写 after 快照；
+     * 正常关闭记录关闭后快照；不改写任何阅读位置。
+     */
+    fun dismiss(after: ReaderSnapshot, alreadyOpen: Boolean) {
+        if (!alreadyOpen) return
         snapshotAfter = after
     }
 

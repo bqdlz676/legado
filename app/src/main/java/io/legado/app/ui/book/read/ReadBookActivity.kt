@@ -1545,8 +1545,12 @@ class ReadBookActivity : BaseReadBookActivity(),
      * B1 接线：点字详情请求出口。View 层只打包请求，宿主在此采弹起前快照后交给
      * [readerSheetState]，由 Compose 覆盖层渲染统一 InkHalfSheet；本方法不滚动正文、
      * 不改写选中 / 下划线状态。
+     *
+     * B20 入口闸：半屏已开则直接返回，不再发请求、不重复采快照；状态层 [ReaderSheetState.open]
+     * 另有 isOpen 兜底闸，连点竞态下不叠第二层、首份快照基线不被冲掉。
      */
     override fun openReaderSheet(request: ReaderDetailRequest) {
+        if (readerSheetState.isOpen) return
         readerSheetState.open(request, captureReaderSnapshot())
     }
 

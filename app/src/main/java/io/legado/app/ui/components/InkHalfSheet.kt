@@ -95,6 +95,8 @@ fun InkHalfSheet(
     title: String = "",
     source: String = "",
     model: HalfSheetContent? = null,
+    // B19：宿主重试 / 刷新入口；null 表示本浮层无可接回调，离线分支回落纯提示（判据 3）。
+    onRetry: (() -> Unit)? = null,
     dialog: Boolean = false,
     host: @Composable () -> Unit = {},
     content: @Composable () -> Unit = {},
@@ -140,6 +142,7 @@ fun InkHalfSheet(
             host = host,
             content = content,
             onDismiss = onDismiss,
+            onRetry = onRetry,
             onLinkSelected = onLinkSelected,
             progress = progress.value,
             maskProgress = maskProgress.value,
@@ -176,6 +179,7 @@ private fun HalfSheetRoot(
     host: @Composable () -> Unit,
     content: @Composable () -> Unit,
     onDismiss: () -> Unit,
+    onRetry: (() -> Unit)?,
     onLinkSelected: (String) -> Unit,
     progress: Float,
     maskProgress: Float,
@@ -311,11 +315,24 @@ private fun HalfSheetRoot(
                         message = "暂无相关内容",
                         compact = true,
                     )
-                    ComponentVisualState.OFFLINE -> InkEmptyState(
-                        message = "当前离线，展示缓存内容",
-                        compact = true,
-                        offline = true,
-                    )
+                    ComponentVisualState.OFFLINE -> when (
+                        val offlineAction = resolveSheetOfflineAction(onRetry)
+                    ) {
+                        // B19 判据 1/2：宿主重试回调原样接到空态动作入口，点击上溯到宿主发起函数。
+                        is SheetOfflineAction.Wired -> InkEmptyState(
+                            message = "当前离线，展示缓存内容",
+                            compact = true,
+                            offline = true,
+                            onAction = offlineAction.onAction,
+                        )
+                        // B19 判据 3：无可接重试回调，动作标签置空 → 不渲染可点按钮，纯提示兜底。
+                        SheetOfflineAction.HintOnly -> InkEmptyState(
+                            message = "当前离线，展示缓存内容",
+                            compact = true,
+                            offline = true,
+                            actionLabel = "",
+                        )
+                    }
                     else -> if (model != null) {
                         HalfSheetSectionList(model, onLinkSelected = onLinkSelected)
                     } else {

@@ -75,6 +75,28 @@ object SheetDetent {
     fun normalize(detent: Float): Float = fractions.firstOrNull { abs(it - detent) < 0.01f } ?: fractions[1]
 }
 
+/**
+ * B19 浮层离线分支动作裁决（纯函数 / 纯数据，普通 JVM 单测可断言，不依赖 Compose）。
+ *
+ * 背景：BottomSheet / HalfSheet 是通用浮层组件，自身不持有数据与网络请求，离线「重试」
+ * 的真实发起函数在宿主侧。
+ *  - [Wired]：宿主传入了重试 / 刷新回调，离线「重试」按钮接到该回调；点击经
+ *    [InkEmptyState.onAction] → [InkButton.onClick] → `rememberInkGesture` 手势链路上溯到宿主发起函数；
+ *  - [HintOnly]：宿主未传回调（null），组件内没有可接的重试入口；按 B19 判据 3 不得保留
+ *    「可点但空动作」，回落到纯提示文案（不渲染操作按钮），不抛异常、不静默挂空 lambda。
+ */
+internal sealed interface SheetOfflineAction {
+    /** 已接到宿主重试回调；[onAction] 即重试 / 刷新入口，不是空 lambda。 */
+    data class Wired(val onAction: () -> Unit) : SheetOfflineAction
+
+    /** 无可接回调：纯提示兜底，无操作按钮。 */
+    data object HintOnly : SheetOfflineAction
+}
+
+/** 离线分支动作裁决：非空回调接 [SheetOfflineAction.Wired]，null 回落 [SheetOfflineAction.HintOnly]。 */
+internal fun resolveSheetOfflineAction(onRetry: (() -> Unit)?): SheetOfflineAction =
+    if (onRetry != null) SheetOfflineAction.Wired(onRetry) else SheetOfflineAction.HintOnly
+
 @Composable
 fun InkBottomSheet(
     visible: Boolean,
@@ -83,6 +105,8 @@ fun InkBottomSheet(
     initialDetent: Float = ComponentPalette.SHEET_DETENT_MID,
     state: ComponentVisualState = ComponentVisualState.DEFAULT,
     title: String = "",
+    // B19：宿主重试 / 刷新入口；null 表示本浮层无可接回调，离线分支回落纯提示（判据 3）。
+    onRetry: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     var detent by remember { mutableStateOf(SheetDetent.normalize(initialDetent)) }
@@ -210,11 +234,24 @@ fun InkBottomSheet(
                         InkLoadingDots()
                     }
                     ComponentVisualState.EMPTY -> InkEmptyState(message = "暂无相关内容", compact = true)
-                    ComponentVisualState.OFFLINE -> InkEmptyState(
-                        message = "当前离线，展示缓存内容",
-                        compact = true,
-                        offline = true,
-                    )
+                    ComponentVisualState.OFFLINE -> when (
+                        val offlineAction = resolveSheetOfflineAction(onRetry)
+                    ) {
+                        // B19 判据 1/2：宿主重试回调原样接到空态动作入口，点击上溯到宿主发起函数。
+                        is SheetOfflineAction.Wired -> InkEmptyState(
+                            message = "当前离线，展示缓存内容",
+                            compact = true,
+                            offline = true,
+                            onAction = offlineAction.onAction,
+                        )
+                        // B19 判据 3：无可接重试回调，动作标签置空 → 不渲染可点按钮，纯提示兜底。
+                        SheetOfflineAction.HintOnly -> InkEmptyState(
+                            message = "当前离线，展示缓存内容",
+                            compact = true,
+                            offline = true,
+                            actionLabel = "",
+                        )
+                    }
                     else -> content()
                 }
             }
