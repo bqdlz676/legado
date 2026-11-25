@@ -154,7 +154,8 @@ class DesignTokenGuardTest {
             "io/legado/app/ui/card/CardTokens.kt",
             "io/legado/app/ui/card/SearchResultCard.kt",
             "io/legado/app/ui/card/TopicMarxCard.kt",
-            "io/legado/app/ui/components/inkslate/InkSlateModel.kt",
+            // S-12 接线后该文件裸 hex 已收口到 InkDerivedColors（K-18），故从基线移除；
+            // 保持"命中集==基线集"双向对账，防止旧基线变成永远对不上的脏数据。
             "io/legado/app/ui/main/MapWebHolder.kt",
             "io/legado/app/ui/main/PersonDetailActivity.kt",
             "io/legado/app/ui/main/RelationActivity.kt",
