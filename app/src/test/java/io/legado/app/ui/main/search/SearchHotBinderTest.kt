@@ -2,6 +2,7 @@ package io.legado.app.ui.main.search
 
 import io.legado.app.data.entities.SearchKeyword
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -24,7 +25,8 @@ import org.junit.Test
  * 2. 双空 → 落 SEED 档且 `hotSource` 标出是兜底（不是热搜）；
  * 3. 清空历史 → 流重发后重新计算，回落到 SEED 兜底且热门行非空；
  * 4. 单条删除 · 历史档词：删后流重发「少一条」快照，该词从热门行同步剔除；
- * 5. 单条删除 · 与种子兜底重合的词：删空后档位必须记为 SEED 兜底，不冒充历史 / 高频。
+ * 5. 单条删除 · 与种子兜底重合的词：删空后档位必须记为 SEED 兜底，不冒充历史 / 高频；
+ * 6. 浮层关闭：close() 取消两路收集，流更新不再回填；重建后重开收集恢复（D3 收口）。
  *
  * 超时约定（验收 N4 收口）：仓内无 `kotlinx-coroutines-test`，未用虚拟时间调度器；
  * 每一处 `state.first { 谓词 }` 都包 [withTimeout]（5_000ms，与仓内
@@ -172,5 +174,47 @@ class SearchHotBinderTest {
         assertEquals(SearchHotResolver.SEED_KEYS.take(SearchTokens.HOT_LIMIT), after.hot)
         // 兜底词表仍含「论语」字样，但来源标记必须是 SEED 兜底，不能记成 HISTORY / USAGE。
         assertTrue("种子兜底词表应仍收录论语", after.hot.contains("论语"))
+    }
+
+    // 6. 浮层关闭释放收集（验收 D3 收口）：close() 取消两路收集协程，此后上游 DAO 流
+    //    再发快照也不再回填 UI；重建 binder 重新 start 后收集恢复，流更新再次回填。
+    @Test
+    fun `close cancels both collectors and restart resumes collection`() = runBlocking {
+        val state = MutableStateFlow(SearchUiState())
+        val timeFlow = MutableStateFlow(listOf(keyword("春秋")))
+        val usageFlow = MutableStateFlow(listOf(keyword("史记", usage = 3)))
+
+        val binder = SearchHotBinder(
+            uiState = state,
+            timeFlow = timeFlow,
+            usageFlow = usageFlow,
+            scope = this,
+            dispatcher = Dispatchers.Unconfined,
+        )
+        binder.start()
+        val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.USAGE } }
+        assertTrue("关闭前两路收集正常回填", before.history.isNotEmpty())
+
+        // 关闭浮层：定向取消两路收集（不取消注入的测试作用域本身）。
+        binder.close()
+        val closedSnapshot = state.value
+        timeFlow.value = emptyList()
+        usageFlow.value = emptyList()
+        // 留出余量：若收集协程未被取消，Unconfined 会同步回放空快照回填状态。
+        delay(200)
+        assertEquals("关闭后流更新不得再回填 UI 状态", closedSnapshot, state.value)
+
+        // 重开浮层：VM.attach 幂等分支重建 binder 重新收集，流更新再次回填。
+        val restarted = SearchHotBinder(
+            uiState = state,
+            timeFlow = timeFlow,
+            usageFlow = usageFlow,
+            scope = this,
+            dispatcher = Dispatchers.Unconfined,
+        )
+        restarted.start()
+        timeFlow.value = listOf(keyword("左传"))
+        val after = withTimeout(5_000) { state.first { it.history == listOf("左传") } }
+        assertEquals("重开后收集恢复，历史行按新快照回填", listOf("左传"), after.history)
     }
 }

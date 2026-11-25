@@ -33,7 +33,6 @@ class SearchContractTest {
         "SearchHistoryPanel.kt",
         "SearchFallback.kt",
         "SearchScreen.kt",
-        "InkSearchActivity.kt",
         "InkSearchViewModel.kt",
         "SearchMappers.kt",
     )
@@ -146,20 +145,20 @@ class SearchContractTest {
     }
 
     @Test
-    fun `activity registered in manifest under new package and old entry removed`() {
+    fun `standalone search activity removed from manifest and old entry stays gone`() {
         val manifest = manifestFile().readText()
-        assertTrue(manifest.contains(".ui.main.search.InkSearchActivity"))
+        // D25 清剿：独立搜索壳 InkSearchActivity 已从 Manifest 摘除，搜索只走书架浮层。
+        assertFalse(manifest.contains(".ui.main.search.InkSearchActivity"))
         assertFalse(manifest.contains(".ui.book.search.SearchActivity"))
     }
 
     @Test
-    fun `activity exposes three entry overloads with legacy extra keys`() {
-        val activity = read("InkSearchActivity.kt")
-        assertTrue(activity.contains("EXTRA_KEY = \"key\""))
-        assertTrue(activity.contains("EXTRA_SCOPE = \"searchScope\""))
-        assertTrue(activity.contains("fun start(context: Context, key: String?"))
-        assertTrue(activity.contains("fun start(context: Context, source: BookSource"))
-        assertTrue(activity.contains("fun start(context: Context, source: BookSourcePart"))
+    fun `search package keeps shared stack without an activity shell class`() {
+        // 检索编排 / 面板 / 列表构件仍被书架浮层复用；包内不再保留独立 Activity 壳。
+        val activityShell = projectFile("$sourceDir/InkSearchActivity.kt")
+        assertFalse("独立搜索壳文件应已删除", activityShell.isFile)
+        val viewModel = read("InkSearchViewModel.kt")
+        assertTrue(viewModel.contains("fun attach(initialKey: String?, initialScope: String?)"))
     }
 
     @Test

@@ -21,7 +21,8 @@ import io.legado.app.model.analyzeRule.AnalyzeRule
 import io.legado.app.model.analyzeRule.AnalyzeRule.Companion.setChapter
 import io.legado.app.ui.association.AddToBookshelfDialog
 import io.legado.app.ui.book.explore.ExploreShowActivity
-import io.legado.app.ui.main.search.InkSearchActivity
+import io.legado.app.ui.book.search.SearchScope
+import io.legado.app.ui.main.bookshelf.ShelfSearchRouter
 import io.legado.app.ui.login.SourceLoginActivity
 import io.legado.app.ui.login.createSourceLoginRoute
 import io.legado.app.ui.login.resolveLoginSource
@@ -74,13 +75,13 @@ open class RssJsExtensions(
     @JvmOverloads
     fun searchBook(key: String, searchScope: String? = null) {
         activityRef.get()?.let {
-            InkSearchActivity.start(it, key, searchScope)
+            ShelfSearchRouter.openShelfSearch(it, key, searchScope)
         }
     }
 
     fun searchBook(key: String, source: BookSource) {
         activityRef.get()?.let {
-            InkSearchActivity.start(it, source, key)
+            ShelfSearchRouter.openShelfSearch(it, key, SearchScope(source).toString())
         }
     }
 

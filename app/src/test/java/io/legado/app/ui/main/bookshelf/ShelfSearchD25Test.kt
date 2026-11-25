@@ -11,8 +11,9 @@ import javax.xml.parsers.DocumentBuilderFactory
 /**
  * D25 契约测试：导航三 Tab + 书架下拉搜索浮层。
  *
- * 纯 JVM：状态机与过滤走 [ShelfSearch] 直测；菜单 / 图标 / 幂等入栈走源码与 XML 回证，
- * 不依赖 Android 框架与 Compose 运行时。
+ * 纯 JVM：开合状态机走 [ShelfSearch] 直测；菜单 / 图标 / 幂等入栈走源码与 XML 回证，
+ * 不依赖 Android 框架与 Compose 运行时。本地三路投影旧纯函数已随检索栈收口清剿，
+ * 本文件不再锁定其过滤行为。
  */
 class ShelfSearchD25Test {
 
@@ -25,16 +26,6 @@ class ShelfSearchD25Test {
         sequenceOf(File("src/main/res"), File("app/src/main/res"))
             .first { it.isDirectory }
     }
-
-    private fun shelfBook(title: String, author: String) = ShelfBookUi(
-        id = "$title|$author",
-        title = title,
-        author = author,
-        chapterText = "未起读",
-        progress = 0f,
-        percentText = "未读",
-        isNew = false,
-    )
 
     // 1. 底部导航菜单定义处恰好 3 个 Tab：书架 · 发现 · 设置。
     @Test
@@ -82,32 +73,7 @@ class ShelfSearchD25Test {
         assertEquals("重新展开不应带上次关键词", "", state.query)
     }
 
-    // 3. 本地过滤：书名 / 作者命中、忽略大小写；空词返回全量；无命中与空书架均回落空列表。
-    @Test
-    fun `filter matches title author case-insensitively with empty fallbacks`() {
-        val books = listOf(
-            shelfBook("春秋左传", "左丘明"),
-            shelfBook("史记", "司马迁"),
-            shelfBook("三国志", "陈寿"),
-            shelfBook("Analects", "Confucius"),
-        )
-
-        assertEquals(books.size, ShelfSearch.filter(books, "").size)
-        assertEquals(books.size, ShelfSearch.filter(books, "   ").size)
-
-        assertEquals(1, ShelfSearch.filter(books, "左传").size)
-        assertEquals(1, ShelfSearch.filter(books, "司马迁").size)
-        // 大小写与首尾空白兜底
-        assertEquals(1, ShelfSearch.filter(books, "  analects  ").size)
-        assertEquals(1, ShelfSearch.filter(books, "CONFUCIUS").size)
-
-        assertTrue("无命中必须返回空列表，由画面层给占位",
-            ShelfSearch.filter(books, "庄子").isEmpty())
-        assertTrue("空书架 + 关键词不得崩",
-            ShelfSearch.filter(emptyList(), "左传").isEmpty())
-    }
-
-    // 4. 设置 Tab 幂等入栈：源码回证 switchTab 在已在目标页时不重复切换 / 不压 Activity。
+    // 3. 设置 Tab 幂等入栈：源码回证 switchTab 在已在目标页时不重复切换 / 不压 Activity。
     @Test
     fun `settings tab switch is idempotent without pushing activity`() {
         val activity = File(javaRoot, "io/legado/app/ui/main/MainActivity.kt").readText()
@@ -123,7 +89,7 @@ class ShelfSearchD25Test {
             !settingsBlock.substringBefore("else -> false").contains("startActivity"))
     }
 
-    // 5. 导航图标资源恰好 3 枚（书架 / 发现 / 设置，规格切片 ic_tab_*），旧人像 / 画板 / RSS / 填充齿轮清零。
+    // 4. 导航图标资源恰好 3 枚（书架 / 发现 / 设置，规格切片 ic_tab_*），旧人像 / 画板 / RSS / 填充齿轮清零。
     @Test
     fun `nav icon resources are exactly three`() {
         val drawableDir = File(resRoot, "drawable")
