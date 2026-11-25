@@ -173,7 +173,7 @@ class ShelfOverlaySearchTest {
 
         listOf(
             "InkSearchViewModel",
-            "attach(null, null)",
+            "attach(key, scope)",
             "QueryChange",
             "submit()",
             "pickHistory",
