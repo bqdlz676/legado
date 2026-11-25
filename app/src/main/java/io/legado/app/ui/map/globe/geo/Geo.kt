@@ -11,8 +11,10 @@ import kotlin.math.sin
 /**
  * 球面地理换算（纯 JVM）。
  *
- * 坐标系：球心在原点；Y 轴过两极；方向向量 = 单位球面坐标。
+ * 坐标系：球心在原点；Y 轴过两极（北极 +Y）；方向向量 = 单位球面坐标。
  * 纬度 lat ∈ [-90, 90]，经度 lng ∈ [-180, 180]。
+ * 口径（与 contract/GlobeSphere 同一套约定）：经度 0 指向 +z 轴；东经为 lon 正向，
+ * 绕 Y 轴右手系；赤道上东经 90° 落在 +x 轴。
  * 切片 20：平面 `lonU/latV` 映射换成球面坐标；从赤道平滑到北极不中断，无边界接缝。
  */
 object Geo {
@@ -33,14 +35,15 @@ object Geo {
         val lat = latDeg * DEG2RAD
         val lng = wrapLng(lngDeg) * DEG2RAD
         val cosLat = cos(lat)
-        return Vec3(cosLat * cos(lng), sin(lat), cosLat * sin(lng))
+        // 口径：lng=0 → +z；东经递增绕 +Y 右手系，故 x 取 sin(lng)、z 取 cos(lng)。
+        return Vec3(cosLat * sin(lng), sin(lat), cosLat * cos(lng))
     }
 
-    /** 单位球面方向 → 经纬度。 */
+    /** 单位球面方向 → 经纬度（direction 的逆映射：经度从 x/z 反解，与正向互逆）。 */
     fun latLng(dir: Vec3): Pair<Double, Double> {
         val n = dir.normalize()
         val lat = asin(n.y.coerceIn(-1.0, 1.0)) * RAD2DEG
-        val lng = atan2(n.z, n.x) * RAD2DEG
+        val lng = atan2(n.x, n.z) * RAD2DEG
         return lat to wrapLng(lng)
     }
 
