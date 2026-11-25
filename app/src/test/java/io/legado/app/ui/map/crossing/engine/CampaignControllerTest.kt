@@ -329,7 +329,7 @@ class CampaignControllerTest {
     /**
      * 记录级半径公式（与 [CampaignController.recordRadius] 同口径，先算后断言）：
      *   age = turn - seenTurn；age ≤ 0 → 0
-     *   distanceTerm = (seenDistCells / 2).coerceIn(0, visionRadiusFor(type))
+     *   distanceTerm = (seenDistCells / 2).coerceIn(0, type.visionRadiusCells)
      *   ageTerm = age × STALE_DRIFT_CELLS_PER_TURN（=1）
      *   radius  = (distanceTerm + ageTerm).coerceAtMost(MAX_STALE_RADIUS_CELLS = 8)
      * 平场栅格保证通视恒真；布位在载入后直接写运行态格 / 经纬度，首回合目睹距离可确定性留档。

@@ -2,6 +2,7 @@ package io.legado.app.ui.map.crossing.engine
 
 import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.Cell
+import io.legado.app.ui.map.crossing.model.visionRadiusCells
 import io.legado.app.ui.map.crossing.model.Geo
 import io.legado.app.ui.map.crossing.model.TerrainFocus
 import io.legado.app.ui.map.crossing.terrain.GeoProjection
@@ -68,7 +69,7 @@ class PathfinderTest {
     fun `侧翼路径全程不进入敌军视野半径且未退化`() {
         val enemy = Cell(15, 15)
         val finder = Pathfinder(plainMap(), "clear")
-        val radius = Pathfinder.radiusFor(ArmyType.REGULAR)
+        val radius = ArmyType.REGULAR.visionRadiusCells
         val route = finder.flankRoute(Cell(2, 5), Cell(28, 26), ArmyType.REGULAR, listOf(enemy), radius)
         assertTrue(route.path.isNotEmpty())
         assertTrue("视野可绕开时不应退化：${route.reason}", !route.degraded)

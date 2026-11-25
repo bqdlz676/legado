@@ -185,6 +185,24 @@ data class Corps(
     }
 }
 
+/**
+ * 各兵种视野半径（格）：model 层单一来源（B8R1 收口）。
+ *
+ * 口径：骑兵 6 / 精锐 5 / 常规 4 / 民兵 3。情报侧 [Corps.visionRadiusCells] 赋值、
+ * 情报模糊距离项封顶、侧翼寻路逐敌闸门全部引用本符号；engine 层（Pathfinder / CampaignController）
+ * 不得再各建一份字面量表，避免「情报看见的半径」与「侧翼躲开的半径」改平衡时只改一处而漂移。
+ *
+ * 为什么放 model：半径是兵种固有口径属性，model 被 engine 两侧共同依赖，单向向下，
+ * 不产生 engine 双向引用；枚举 [ArmyType] 自身保持纯枚举，表以扩展属性落在模型文件集中对账。
+ */
+val ArmyType.visionRadiusCells: Int
+    get() = when (this) {
+        ArmyType.CAVALRY -> 6
+        ArmyType.ELITE -> 5
+        ArmyType.REGULAR -> 4
+        ArmyType.MILITIA -> 3
+    }
+
 /** 喂给壳层的不可变棋子快照。 */
 data class CorpsView(
     val id: String,

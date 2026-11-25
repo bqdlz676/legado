@@ -1,6 +1,5 @@
 package io.legado.app.ui.map.crossing.engine
 
-import io.legado.app.ui.map.crossing.model.ArmyDef
 import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.BattleStatus
 import io.legado.app.ui.map.crossing.model.BranchSnapshot
@@ -16,6 +15,7 @@ import io.legado.app.ui.map.crossing.model.Relation
 import io.legado.app.ui.map.crossing.model.TerrainDef
 import io.legado.app.ui.map.crossing.model.TerrainFocus
 import io.legado.app.ui.map.crossing.model.TurnSnapshot
+import io.legado.app.ui.map.crossing.model.visionRadiusCells
 import io.legado.app.ui.map.crossing.terrain.GeoProjection
 import io.legado.app.ui.map.crossing.terrain.HeightMapRaster
 import io.legado.app.ui.map.crossing.terrain.HeightRaster
@@ -222,7 +222,7 @@ class CampaignController private constructor(
                 highGround = false,
                 route = emptyList(),
                 lastKnown = emptyMap(),
-                visionRadiusCells = visionRadius(def),
+                visionRadiusCells = def.type.visionRadiusCells,
             )
             marchCells[def.id] = 0
         }
@@ -242,16 +242,12 @@ class CampaignController private constructor(
                     geo = enemy.latLng,
                     cell = enemy.position,
                     seenTurn = 0,
-                    radiusCells = visionRadius(enemy.type),
-                    seenDistCells = visionRadius(enemy.type),
+                    radiusCells = enemy.type.visionRadiusCells,
+                    seenDistCells = enemy.type.visionRadiusCells,
                 )
             }
         }
     }
-
-    private fun visionRadius(def: ArmyDef): Int = visionRadius(def.type)
-
-    private fun visionRadius(type: ArmyType): Int = visionRadiusFor(type)
 
     // ── 回合主循环 ────────────────────────────────────────────
 
@@ -832,7 +828,7 @@ class CampaignController private constructor(
     private fun recordRadius(record: IntelRecord, type: ArmyType): Int {
         val age = turn - record.seenTurn
         if (age <= 0) return 0
-        val distanceTerm = (record.seenDistCells / 2).coerceIn(0, visionRadiusFor(type))
+        val distanceTerm = (record.seenDistCells / 2).coerceIn(0, type.visionRadiusCells)
         val ageTerm = age * STALE_DRIFT_CELLS_PER_TURN
         return (distanceTerm + ageTerm).coerceAtMost(MAX_STALE_RADIUS_CELLS)
     }
@@ -1112,17 +1108,6 @@ class CampaignController private constructor(
         const val BLIND_ZONE_LABEL: String = "情报空白区：未侦察到该部，方位不明"
 
         /**
-         * 各兵种视野半径（格）：引擎内单一来源；[Pathfinder.radiusFor] 为侧翼寻路侧同表镜像，
-         * 两处数值须保持同步（B8R1 已登记收敛项，本单不改 Pathfinder 域）。
-         */
-        fun visionRadiusFor(type: ArmyType): Int = when (type) {
-            ArmyType.CAVALRY -> 6
-            ArmyType.ELITE -> 5
-            ArmyType.REGULAR -> 4
-            ArmyType.MILITIA -> 3
-        }
-
-        /**
          * 模糊半径（格）策略：**随未观测龄期单调放大，封顶 [MAX_STALE_RADIUS_CELLS]**。
          * 为什么放大而不是恒定：恒定半径意味着十回合前的旧报告与刚目睹同样精确，违背情报贬值常识；
          * 放大速率取每回合 1 格（约一日行军造成的位置不确定性），基准取目标兵种视野半径，封顶防失控。
@@ -1132,7 +1117,7 @@ class CampaignController private constructor(
          */
         internal fun fuzzyRadiusCells(type: ArmyType, ageTurns: Int): Int {
             if (ageTurns <= 0) return 0
-            return (visionRadiusFor(type) + ageTurns * STALE_DRIFT_CELLS_PER_TURN)
+            return (type.visionRadiusCells + ageTurns * STALE_DRIFT_CELLS_PER_TURN)
                 .coerceAtMost(MAX_STALE_RADIUS_CELLS)
         }
 

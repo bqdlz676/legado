@@ -2,6 +2,7 @@ package io.legado.app.ui.map.crossing.engine
 
 import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.Cell
+import io.legado.app.ui.map.crossing.model.visionRadiusCells
 import io.legado.app.ui.map.crossing.terrain.TerrainCost
 import io.legado.app.ui.map.crossing.terrain.TerrainMap
 import java.util.PriorityQueue
@@ -33,7 +34,7 @@ class Pathfinder(
 
     /**
      * 侧翼路径（List 形态入口，旧版兼容）：敌军半径统一取 [visionRadiusCells]
-     * （缺省回退为本方兵种半径 [radiusFor(type)]）；新代码请使用逐敌半径重载 [enemies]。
+     * （缺省回退为本方兵种半径 [ArmyType.visionRadiusCells]）；新代码请使用逐敌半径重载 [enemies]。
      * 需要判断本次侧翼是否被迫退化（视野封锁绕不开）时，请直接用 [flankRoute] 读 `degraded`。
      */
     fun flankPath(
@@ -41,7 +42,7 @@ class Pathfinder(
         to: Cell,
         type: ArmyType,
         enemyPositions: List<Cell>,
-        visionRadiusCells: Int = radiusFor(type),
+        visionRadiusCells: Int = type.visionRadiusCells,
     ): List<Cell> = flankRoute(from, to, type, enemyPositions.map { EnemySight(it, visionRadiusCells) }).path
 
     /**
@@ -63,7 +64,7 @@ class Pathfinder(
         to: Cell,
         type: ArmyType,
         enemyPositions: List<Cell>,
-        visionRadiusCells: Int = radiusFor(type),
+        visionRadiusCells: Int = type.visionRadiusCells,
     ): FlankRoute = flankRoute(from, to, type, enemyPositions.map { EnemySight(it, visionRadiusCells) })
 
     /**
@@ -280,17 +281,6 @@ class Pathfinder(
 
         /** 目标不可通行时向外搜索的半径（格）。 */
         const val SEARCH_RADIUS: Int = 4
-
-        /**
-         * 各兵种视野半径（格）；与 `CampaignController.visionRadius` 同表
-         * （骑兵 6 / 精锐 5 / 常规 4 / 民兵 3），两处数值须保持同步。
-         */
-        fun radiusFor(type: ArmyType): Int = when (type) {
-            ArmyType.CAVALRY -> 6
-            ArmyType.ELITE -> 5
-            ArmyType.REGULAR -> 4
-            ArmyType.MILITIA -> 3
-        }
     }
 }
 
