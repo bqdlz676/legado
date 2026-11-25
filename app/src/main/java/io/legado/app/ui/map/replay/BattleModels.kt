@@ -42,13 +42,16 @@ enum class Intent {
     AMBUSH;
 
     companion object {
-        /** 数据资产字符串 → 意图；hold（固守）按无目标进军处理。 */
-        fun fromLabel(label: String?): Intent = when (label?.lowercase()) {
+        /**
+         * 数据资产字符串 → 意图；未知 / 缺失标签返回 null。
+         * 派发层收到 null 必须记告警并保留棋子原意图，不许静默回落 [ADVANCE] 降级。
+         */
+        fun fromLabelOrNull(label: String?): Intent? = when (label?.trim()?.lowercase()) {
             "rapid", "forced" -> RAPID
             "flank", "outflank" -> FLANK
             "retreat", "fallback" -> RETREAT
             "ambush", "埋伏" -> AMBUSH
-            else -> ADVANCE
+            else -> null
         }
     }
 }

@@ -276,8 +276,18 @@ class ReplayDirector(
                     }
 
                     // ── 本批补接：状态位已在 ArmyPiece 上，渲染层已消费 ──
-                    EventAction.SET_INTENT ->
-                        piece.withIntent(Intent.fromLabel(event.value))
+                    EventAction.SET_INTENT -> {
+                        val intent = Intent.fromLabelOrNull(event.value)
+                        if (intent == null) {
+                            recordWarning(
+                                "事件「${event.reason}」：SET_INTENT 意图标签非法" +
+                                    "（value=${event.value}），目标 ${piece.id} 未生效",
+                            )
+                            piece
+                        } else {
+                            piece.withIntent(intent)
+                        }
+                    }
                     EventAction.SET_TARGET -> {
                         val targetPoint = parseTargetPoint(event.value)
                         if (targetPoint == null) {

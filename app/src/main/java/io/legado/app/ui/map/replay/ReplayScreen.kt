@@ -62,6 +62,10 @@ fun ReplayScreenHost(
     var lastFrameNanos by remember { mutableStateOf(0L) }
 
     LaunchedEffect(activeDirector) {
+        // 挂接 / 切换导演实例时复位告警台账：外部注入同一导演跨战役复用进入本壳时，
+        // 上一场战役残留的告警不得串到下一场。effect 以导演实例为键，仅在首次挂接或
+        // 实例替换时复位，帧循环内累计的告警不会被每帧清空。
+        activeDirector.clearWarnings()
         withFrameNanos { now ->
             lastFrameNanos = now
         }
