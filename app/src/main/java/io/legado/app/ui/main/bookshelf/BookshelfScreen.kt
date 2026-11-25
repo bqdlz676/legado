@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,12 +47,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -59,8 +57,17 @@ import androidx.compose.ui.unit.sp
 import io.legado.app.ui.components.rememberInkGesture
 import io.legado.app.ui.components.resolveEventsAllowed
 import io.legado.app.ui.components.compat.toVisualState
-import io.legado.app.ui.main.bookshelf.search.HitSegment
-import io.legado.app.ui.main.bookshelf.search.SearchField
+import io.legado.app.ui.main.bookshelf.search.SearchOverlayParams
+import io.legado.app.ui.main.search.SearchFallbackBody
+import io.legado.app.ui.main.search.SearchHistoryPanel
+import io.legado.app.ui.main.search.SearchLoadState
+import io.legado.app.ui.main.search.SearchLoadingDots
+import io.legado.app.ui.main.search.SearchPagingState
+import io.legado.app.ui.main.search.SearchResultItem
+import io.legado.app.ui.main.search.SearchResultList
+import io.legado.app.ui.main.search.SearchTokens
+import io.legado.app.ui.main.search.SearchUiState
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlin.math.roundToInt
 
 /**
@@ -149,6 +156,18 @@ internal fun shelfGateOf(state: ShelfState, recoveryEntry: Boolean): ShelfGate =
  * @param onImport 导入本地书 / 书单
  * @param onDeleteBook 卡片碎墨消散后的删除回调
  * @param onRetry 错误态重试
+ * @param searchUiState 既有搜索栈整页态（历史 / 热门 / 联网结果 / 分页），浮层只读
+ * @param onAttachSearch 浮层打开时挂接搜索 ViewModel（幂等）
+ * @param onQueryChange 输入词变化（透传检索栈 QueryChange）
+ * @param onSubmitSearch 提交检索（回车 / 词条点选）
+ * @param onPickHistory 点选历史 / 热门词条
+ * @param onRemoveHistory 删除单条历史
+ * @param onClearHistory 清空全部历史
+ * @param onClearQuery 清空关键词并复位分页态
+ * @param onOpenSearchItem 点开一条检索结果（本地书卷 / 书源未藏书卷分流）
+ * @param onRetrySearch 离线 / 失败态重试
+ * @param onLoadMore 滚动到底加载下一页
+ * @param onRetryLoadMore 分页失败脚注重试
  */
 @Composable
 fun BookshelfScreen(
@@ -159,6 +178,18 @@ fun BookshelfScreen(
     onImport: () -> Unit,
     onDeleteBook: (ShelfBookUi) -> Unit,
     onRetry: () -> Unit,
+    searchUiState: SearchUiState,
+    onAttachSearch: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onSubmitSearch: () -> Unit,
+    onPickHistory: (String) -> Unit,
+    onRemoveHistory: (String) -> Unit,
+    onClearHistory: () -> Unit,
+    onClearQuery: () -> Unit,
+    onOpenSearchItem: (SearchResultItem) -> Unit,
+    onRetrySearch: () -> Unit,
+    onLoadMore: () -> Unit,
+    onRetryLoadMore: () -> Unit,
     scrollTopSignal: Int = 0,
     modifier: Modifier = Modifier,
 ) {
@@ -174,10 +205,14 @@ fun BookshelfScreen(
         }
     }
     var bannerDismissed by remember { mutableStateOf(false) }
-    // D25：书架页下拉搜索浮层状态（F-13）；输入即查本地书架，不起独立搜索页。
+    // D25：书架页下拉搜索浮层开合状态（F-13，纯 JVM 状态机）；检索整页态（历史 / 热门 /
+    // 联网结果 / 分页）由既有搜索栈 [SearchUiState] 单源供给，浮层不另立第二套检索状态。
     var searchState by remember { mutableStateOf(ShelfSearch.closed) }
-    val searchOutcome by remember(books, searchState.query) {
-        derivedStateOf { ShelfSearch.search(books, searchState.query) }
+    val overlayBody = ShelfSearch.bodyOf(searchState, searchUiState)
+    // 浮层首次打开时挂接既有搜索 ViewModel（首建检索模型 + 历史 / 热门双路流订阅）；
+    // 重复打开走 VM 的 attach 幂等分支，不重建模型、不重复订阅。
+    LaunchedEffect(searchState.isOpen) {
+        if (searchState.isOpen) onAttachSearch()
     }
 
     Box(
@@ -233,18 +268,35 @@ fun BookshelfScreen(
         }
 
         // D25：下拉搜索浮层盖在书架上层；点 scrim / 下滑 / 选书后收起。
-        if (searchState.isOpen) {
+        if (overlayBody != ShelfSearch.OverlayBody.HIDDEN) {
             ShelfSearchOverlay(
+                body = overlayBody,
                 query = searchState.query,
-                results = searchOutcome.results,
-                hint = searchOutcome.hint,
-                resultSegments = searchOutcome.segments,
-                onQueryChange = { searchState = ShelfSearch.updateQuery(searchState, it) },
-                onClose = { searchState = ShelfSearch.close(searchState) },
-                onPick = { book ->
-                    onOpenBook(book)
-                    searchState = ShelfSearch.close(searchState)
+                search = searchUiState,
+                onQueryChange = {
+                    searchState = ShelfSearch.updateQuery(searchState, it)
+                    onQueryChange(it)
                 },
+                onSubmit = onSubmitSearch,
+                onClose = {
+                    searchState = ShelfSearch.close(searchState)
+                    onClearQuery()
+                },
+                onPickHistory = onPickHistory,
+                onRemoveHistory = onRemoveHistory,
+                onClearHistory = onClearHistory,
+                onClearQuery = {
+                    searchState = ShelfSearch.updateQuery(searchState, "")
+                    onClearQuery()
+                },
+                onOpenItem = { item ->
+                    onOpenSearchItem(item)
+                    searchState = ShelfSearch.close(searchState)
+                    onClearQuery()
+                },
+                onRetry = onRetrySearch,
+                onLoadMore = onLoadMore,
+                onRetryLoadMore = onRetryLoadMore,
             )
         }
     }
@@ -784,22 +836,34 @@ private fun ShelfInkButton(
 /**
  * D25 · 书架页下拉搜索浮层（F-13）。
  *
- * 触发点：页眉放大镜；收起手势：点遮罩 / 面板下滑超阈值 / 选中结果；
- * 输入即查（本地书名 / 作者 / 正文片段三路命中，归 S-13 纯函数），空关键词与无命中均给可读占位，不留白、不崩。
+ * 触发点：页眉放大镜；收起手势：点遮罩 / 面板下滑超阈值 / 选中结果。
+ * 面板分区由 [ShelfSearch.bodyOf] 纯函数推导；历史 / 热门 / 联网结果 / 分页全部复用既有
+ * 搜索栈单源（[SearchUiState] 与其 ViewModel），浮层不复制热门三元回落或翻页逻辑。
+ * 结果列表自身是 LazyColumn，超面板高度可内部滚动到底并触发加载更多，不再设硬限高裁切。
  */
 @Composable
 private fun ShelfSearchOverlay(
+    body: ShelfSearch.OverlayBody,
     query: String,
-    results: List<ShelfBookUi>,
-    hint: String,
-    resultSegments: List<List<HitSegment>>,
+    search: SearchUiState,
     onQueryChange: (String) -> Unit,
+    onSubmit: () -> Unit,
     onClose: () -> Unit,
-    onPick: (ShelfBookUi) -> Unit,
+    onPickHistory: (String) -> Unit,
+    onRemoveHistory: (String) -> Unit,
+    onClearHistory: () -> Unit,
+    onClearQuery: () -> Unit,
+    onOpenItem: (SearchResultItem) -> Unit,
+    onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
+    onRetryLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // 下滑收起阈值：垂直拖拽位移超过 80dp 即关闭，未达阈值回弹（dragY 仅作阈值累计）。
     var dragY by remember { mutableStateOf(0f) }
+    // 面板最大高度取外观参数单源的屏高比例；列表区在该高度内滚动，不再用固定 dp 限高裁切条目。
+    val maxPanelHeight = (LocalConfiguration.current.screenHeightDp *
+        SearchOverlayParams.MAX_HEIGHT_RATIO).dp
     Box(modifier = modifier.fillMaxSize()) {
         // 半透明墨色遮罩：点按收起浮层。
         Box(
@@ -813,6 +877,7 @@ private fun ShelfSearchOverlay(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = maxPanelHeight)
                 .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
                 .background(ShelfTokens.bgSurface)
                 .pointerInput(Unit) {
@@ -846,19 +911,22 @@ private fun ShelfSearchOverlay(
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         imeAction = ImeAction.Search,
                     ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onSearch = { onSubmit() },
+                    ),
                     modifier = Modifier.weight(1f),
                 )
                 if (query.isNotBlank()) {
-                    // onClear 语义＝清空关键词；该叉按钮即浮层内独立清空入口，故不传单空回调
-                    OverlayClearButton(onClear = { onQueryChange("") })
+                    // 清空走既有搜索栈 ClearQuery 归约：复位关键词与分页态，回到空闲面板。
+                    OverlayClearButton(onClear = onClearQuery)
                 }
             }
             Spacer(Modifier.height(6.dp))
             BasicText(
-                text = if (query.isBlank()) {
-                    "搜书名、作者，输入即查"
+                text = if (body == ShelfSearch.OverlayBody.RESULTS) {
+                    "在本地书卷与书源中匹配 ${search.visibleResults.size} 卷"
                 } else {
-                    "在本地书卷中匹配 ${results.size} 卷"
+                    SearchTokens.HINT_GUIDE
                 },
                 style = TextStyle(
                     color = ShelfTokens.textTertiary,
@@ -867,19 +935,56 @@ private fun ShelfSearchOverlay(
                 ),
             )
             Spacer(Modifier.height(10.dp))
-            when {
-                query.isBlank() -> OverlayHint("输入书名或作者，查找本地书卷")
-                results.isEmpty() -> OverlayHint(hint.ifBlank { "未找到相关书卷，换个词试试" })
-                else -> Column(
-                    modifier = Modifier.heightIn(max = 260.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    results.forEachIndexed { index, book ->
-                        OverlayResultRow(
-                            book,
-                            resultSegments.getOrNull(index).orEmpty(),
-                        ) { onPick(book) }
+            Box(modifier = Modifier.weight(1f, fill = false)) {
+                when (body) {
+                    ShelfSearch.OverlayBody.HISTORY_HOT -> Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                    ) {
+                        SearchHistoryPanel(
+                            history = search.history,
+                            hot = search.hot,
+                            hotSource = search.hotSource,
+                            onPick = onPickHistory,
+                            onRemove = onRemoveHistory,
+                            onClearHistory = onClearHistory,
+                        )
                     }
+
+                    ShelfSearch.OverlayBody.LOADING -> SearchLoadingDots()
+
+                    ShelfSearch.OverlayBody.RESULTS -> SearchResultList(
+                        results = search.visibleResults,
+                        query = query,
+                        blocking = false,
+                        paging = search.paging,
+                        hasMore = search.hasMore,
+                        onItemClick = onOpenItem,
+                        onLoadMore = onLoadMore,
+                        onRetryLoadMore = onRetryLoadMore,
+                    )
+
+                    ShelfSearch.OverlayBody.EMPTY ->
+                        SearchFallbackBody(SearchTokens.EMPTY_MESSAGE)
+
+                    ShelfSearch.OverlayBody.ERROR -> OverlayFallbackWithCache(
+                        message = (search.loadState as? SearchLoadState.Error)
+                            ?.message?.ifBlank { SearchTokens.ERROR_MESSAGE }
+                            ?: SearchTokens.ERROR_MESSAGE,
+                        offline = false,
+                        cached = search.visibleResults,
+                        onRetry = onRetry,
+                        onOpenItem = onOpenItem,
+                    )
+
+                    ShelfSearch.OverlayBody.OFFLINE -> OverlayFallbackWithCache(
+                        message = SearchTokens.OFFLINE_MESSAGE,
+                        offline = true,
+                        cached = search.visibleResults,
+                        onRetry = onRetry,
+                        onOpenItem = onOpenItem,
+                    )
+
+                    ShelfSearch.OverlayBody.HIDDEN -> Unit
                 }
             }
         }
@@ -887,110 +992,37 @@ private fun ShelfSearchOverlay(
 }
 
 /**
- * 浮层结果行（卡片规格 §六 搜索结果卡）：56dp；书名 14sp 墨色，作者 10sp 副文，
- * 进度 10sp 云灰，来源「本地」8sp；命中词朱砂高亮。在线源标签归 D1~D7 检索流。
+ * 离线 / 失败兜底：文案 + 重试；有缓存结果时在下方列出。缓存列表不可翻页——
+ * 分页态空闲、收口、到底与重试回调均置空，口径与旧独立搜索页一致。
  */
 @Composable
-private fun OverlayResultRow(
-    book: ShelfBookUi,
-    segments: List<HitSegment>,
-    onPick: () -> Unit,
+private fun OverlayFallbackWithCache(
+    message: String,
+    offline: Boolean,
+    cached: List<SearchResultItem>,
+    onRetry: () -> Unit,
+    onOpenItem: (SearchResultItem) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { onPick() })
-            }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            BasicText(
-                text = highlightSegments(book.title, segments, SearchField.TITLE),
-                style = TextStyle(
-                    color = ShelfTokens.textPrimary,
-                    fontSize = 14.sp,
-                    fontFamily = ShelfTokens.serifTitle,
-                ),
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SearchFallbackBody(
+            message = message,
+            offline = offline,
+            error = !offline,
+            actionLabel = SearchTokens.RETRY_LABEL,
+            onAction = onRetry,
+        )
+        if (cached.isNotEmpty()) {
+            SearchResultList(
+                results = cached,
+                query = "",
+                blocking = true,
+                paging = SearchPagingState.Idle,
+                hasMore = false,
+                onItemClick = onOpenItem,
+                onLoadMore = {},
+                onRetryLoadMore = {},
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BasicText(
-                    text = highlightSegments(book.author, segments, SearchField.AUTHOR),
-                    style = TextStyle(
-                        color = ShelfTokens.textSecondary,
-                        fontSize = 10.sp,
-                        fontFamily = ShelfTokens.serifBody,
-                    ),
-                )
-                BasicText(
-                    text = book.percentText,
-                    style = TextStyle(
-                        color = ShelfTokens.textTertiary,
-                        fontSize = 10.sp,
-                        fontFamily = ShelfTokens.serifBody,
-                    ),
-                )
-            }
         }
-        BasicText(
-            text = "本地",
-            style = TextStyle(
-                color = ShelfTokens.textSecondary,
-                fontSize = 8.sp,
-                fontFamily = ShelfTokens.serifBody,
-            ),
-        )
-    }
-}
-
-/**
- * 命中词朱砂高亮：直接消费纯函数产出的 [segments] 区间切子串，画面层不再做第二套 `indexOf` 匹配；
- * 对应命中路缺失、区间越界或非法时原样返回纯文本，不抛异常。
- */
-private fun highlightSegments(text: String, segments: List<HitSegment>, field: SearchField): AnnotatedString {
-    val seg = segments.firstOrNull { it.field == field } ?: return AnnotatedString(text)
-    if (seg.start < 0 || seg.end > text.length || seg.end <= seg.start) return AnnotatedString(text)
-    return buildAnnotatedString {
-        append(text.substring(0, seg.start))
-        withStyle(SpanStyle(color = ShelfTokens.textAccent)) {
-            append(text.substring(seg.start, seg.end))
-        }
-        append(text.substring(seg.end))
-    }
-}
-
-/** 浮层空态 / 引导态：落墨点 + 一行云灰引导，不允许空白屏。 */
-@Composable
-private fun OverlayHint(text: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(50))
-                .background(ShelfTokens.textPrimary.copy(alpha = 0.7f)),
-        )
-        BasicText(
-            text = text,
-            style = TextStyle(
-                color = ShelfTokens.textSecondary,
-                fontSize = 13.sp,
-                fontFamily = ShelfTokens.serifBody,
-                textAlign = TextAlign.Center,
-            ),
-        )
     }
 }
 

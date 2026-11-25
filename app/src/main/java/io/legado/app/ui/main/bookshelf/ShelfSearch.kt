@@ -3,12 +3,19 @@ package io.legado.app.ui.main.bookshelf
 import io.legado.app.ui.main.bookshelf.search.HitSegment
 import io.legado.app.ui.main.bookshelf.search.ShelfItemLite
 import io.legado.app.ui.main.bookshelf.search.searchBooks
+import io.legado.app.ui.main.search.SearchLoadState
+import io.legado.app.ui.main.search.SearchUiState
 
 /**
  * D25 · 书架页下拉搜索浮层状态机（纯 JVM，不依赖 Compose / Android 框架，便于单测）。
  *
- * 口径（F-13）：搜索只做书架页下拉浮层，不再起独立搜索页；
- * 浮层输入即查本地书架，书源联网检索仍归 D1~D7，本状态机不碰网络。
+ * 口径（F-13）：搜索只做书架页下拉浮层，不再起独立搜索页。
+ * 开合态与面板分区推导在本状态机；历史 / 热门 / 联网检索 / 分页翻页复用既有
+ * `ui.main.search` 栈（[SearchUiState] + InkSearchViewModel），本状态机不碰网络、
+ * 不复制热门三元回落或翻页逻辑。
+ *
+ * [filter] / [search] / [SearchOutcome] 为早期本地书架三路投影纯函数，契约单测仍锁定；
+ * 浮层结果主源现已切到检索栈合并结果，本地投影的后续去留归旧入口清剿单裁决。
  */
 object ShelfSearch {
 
@@ -31,6 +38,52 @@ object ShelfSearch {
         val hint: String,
         val segments: List<List<HitSegment>> = emptyList(),
     )
+
+    /**
+     * 浮层面板分区（纯 JVM 推导，不碰 Compose / Android）：开合态 + 检索整页态 → 应渲染哪个区。
+     *
+     * 为什么抽到状态机层：开合与「输入 → 结果 → 关闭」的面板切换若埋在 Compose 分支里，
+     * 纯 JVM 单测无法锁定；这里把推导收成纯函数，画面层只读本枚举挂载分支，不另写第二套判断。
+     * 检索整页态复用既有搜索栈 [SearchUiState]（空闲 / 加载 / 内容 / 空 / 错 / 离线），
+     * 不在书架包内复制一套整页状态。
+     */
+    enum class OverlayBody {
+        /** 浮层关闭：不挂载浮层组合树。 */
+        HIDDEN,
+
+        /** 空闲：历史词条 + 热门词面板（双空由面板自身兜底文案收口，不留白）。 */
+        HISTORY_HOT,
+
+        /** 首屏检索中：三点加载指示。 */
+        LOADING,
+
+        /** 有结果：可滚动结果列表 + 分页脚注。 */
+        RESULTS,
+
+        /** 有查询词但无结果：空态引导。 */
+        EMPTY,
+
+        /** 检索失败：缓存结果 + 可重试入口。 */
+        ERROR,
+
+        /** 网络断开：本地缓存 + 离线文案 + 可重试入口。 */
+        OFFLINE,
+    }
+
+    /**
+     * 推导浮层当前应渲染的分区。浮层关闭时一律 [OverlayBody.HIDDEN]，与检索态无关；
+     * 打开后按 [SearchUiState.loadState] 映射，分支口径与旧独立搜索页一致。
+     */
+    fun bodyOf(overlay: State, search: SearchUiState): OverlayBody =
+        if (!overlay.isOpen) OverlayBody.HIDDEN
+        else when (search.loadState) {
+            is SearchLoadState.Idle -> OverlayBody.HISTORY_HOT
+            is SearchLoadState.Loading -> OverlayBody.LOADING
+            is SearchLoadState.Content -> OverlayBody.RESULTS
+            is SearchLoadState.Empty -> OverlayBody.EMPTY
+            is SearchLoadState.Error -> OverlayBody.ERROR
+            is SearchLoadState.Offline -> OverlayBody.OFFLINE
+        }
 
     /** 初始态：收起、无关键词。 */
     val closed = State(Stage.CLOSED, "")
