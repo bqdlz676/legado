@@ -94,6 +94,11 @@ def main():
         return 0
     if changed and not args.apply:
         print(f"共 {len(changed)} 条可自动收口；加 --apply 落盘")
+    if changed and args.apply:
+        # 只在确有改动时回写，避免无意义地改动时间戳；写前保留末尾换行形态。
+        with open(QUEUE, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines))
+        print(f"已回写 {QUEUE}")
     return 0
 
 
