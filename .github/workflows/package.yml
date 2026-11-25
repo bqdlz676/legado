@@ -54,8 +54,17 @@ jobs:
           set -e
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
-          yes | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          # Google 对同一 IP 的并发 sdkmanager 有 429 限流：4 个分片同时装同一套组件时
+          # 偶发只成功 1 个、其余失败，会被误读成代码回归。故重试 3 次（间隔 20s），
+          # 三次全失败才让 job 红，红灯含义仍是"组件装不上"而不是"测试没通过"。
+          for i in 1 2 3; do
+            if "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"; then
+              echo "sdk components ok (attempt $i)"; exit 0
+            fi
+            echo "::warning::sdkmanager attempt $i failed, retry in 20s"; sleep 20
+          done
+          echo "::error::sdkmanager failed 3 times"; exit 1
 
       - name: Compute cache key inputs
         id: cachekey
@@ -113,8 +122,17 @@ jobs:
           set -e
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
-          yes | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          # Google 对同一 IP 的并发 sdkmanager 有 429 限流：4 个分片同时装同一套组件时
+          # 偶发只成功 1 个、其余失败，会被误读成代码回归。故重试 3 次（间隔 20s），
+          # 三次全失败才让 job 红，红灯含义仍是"组件装不上"而不是"测试没通过"。
+          for i in 1 2 3; do
+            if "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"; then
+              echo "sdk components ok (attempt $i)"; exit 0
+            fi
+            echo "::warning::sdkmanager attempt $i failed, retry in 20s"; sleep 20
+          done
+          echo "::error::sdkmanager failed 3 times"; exit 1
 
       - name: Compute cache key inputs
         id: cachekey
