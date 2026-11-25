@@ -19,6 +19,8 @@ import java.util.LinkedHashMap
  *  5. 名物 —— [artifact]，D16 通用 EntityProvider 承接的草木 / 鸟兽 / 药名 / 器物 / 建筑 /
  *     天文 / 饮食 / 服饰 / 山川等专名；人物 / 地名 / 典故不在此槽重复查询；
  *  6. 多字词 —— [word]，2~5 字，长词优先；
+ *     B35：5 与 6 为邻接仲裁对，两侧候选一并取回后由 [SlotArbitrator] 单源裁决
+ *     （长词优先；等长保持名物领域优先），不再由 artifact 前置位次 first-hit 直接截胡；
  *  7. 单字 —— [char]，字义 + 说文 + 用例；
  *  8. Missing —— [missing] 兜底，允许联网检索 / 加入生字本。
  *
@@ -79,12 +81,15 @@ class BubbleResolverImpl(
     fun queryToken(token: String, anchor: ContextAnchor = ContextAnchor): BubbleContent? {
         val clean = BubbleSupport.cleanToken(token)
         if (clean.isEmpty()) return null
-        return safe { date.query(clean, anchor) }
-            ?: safe { allusion.query(clean, anchor) }
-            ?: safe { person.query(clean, anchor) }
-            ?: safe { place.query(clean, anchor) }
-            ?: safe { artifact.query(clean, anchor) }
-            ?: safe { word.query(clean, anchor) }
+        safe { date.query(clean, anchor) }?.let { return it }
+        safe { allusion.query(clean, anchor) }?.let { return it }
+        safe { person.query(clean, anchor) }?.let { return it }
+        safe { place.query(clean, anchor) }?.let { return it }
+        // B35：名物槽与多字词槽候选一并取回，交唯一仲裁器 [SlotArbitrator] 按长词优先裁决，
+        // 不再由前置位次 first-hit 直接截胡；同整词等长时仍保持名物领域优先。
+        val artifactHit = safe { artifact.query(clean, anchor) }
+        val wordHit = safe { word.query(clean, anchor) }
+        return SlotArbitrator.chooseArtifactOrWord(artifactHit, wordHit)
             ?: safe { char.query(clean, anchor) }
     }
 
@@ -101,8 +106,11 @@ class BubbleResolverImpl(
         safe { allusion.matchAllusion(paragraph, pos, anchor) }?.let { return it }
         safe { person.hitAt(paragraph, pos, anchor) }?.let { return it }
         safe { place.hitAt(paragraph, pos, anchor) }?.let { return it }
-        safe { artifact.hitAt(paragraph, pos, anchor) }?.let { return it }
-        safe { word.matchWord(paragraph, pos, anchor) }?.let { return it }
+        // B35：名物槽与多字词槽候选一并取回，交唯一仲裁器 [SlotArbitrator] 按长词优先裁决；
+        // 两槽不再各自 first-hit 直接 return，避免名物短词截胡更长的普通多字词。
+        val artifactHit = safe { artifact.hitAt(paragraph, pos, anchor) }
+        val wordHit = safe { word.matchWord(paragraph, pos, anchor) }
+        SlotArbitrator.chooseArtifactOrWord(artifactHit, wordHit)?.let { return it }
         safe { char.hitAt(paragraph, pos, anchor) }?.let { return it }
         return null
     }
