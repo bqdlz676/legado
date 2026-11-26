@@ -10,8 +10,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import io.legado.app.utils.defaultSharedPreferences
 import io.legado.app.utils.getPrefBoolean
-import io.legado.app.utils.getPrefInt
-import io.legado.app.utils.getPrefString
 
 /**
  * B3 设置页偏好状态桥：把 SharedPreferences 布尔 / 字符串 / 整型包成 Compose 可观察状态。
@@ -41,15 +39,15 @@ internal fun rememberB3Boolean(key: String, def: Boolean): Boolean {
     return value
 }
 
-/** 监听字符串偏好键；未知键 / 空串回落 [def]。 */
+/** 监听字符串偏好键；未知键 / 空串 / 类型不符回落 [def]（O-13 坏值不抛重组线程）。 */
 @Composable
 internal fun rememberB3String(key: String, def: String? = null): String? {
     val context = LocalContext.current
     val prefs = context.defaultSharedPreferences
-    var value by remember(key) { mutableStateOf(context.getPrefString(key, def)) }
+    var value by remember(key) { mutableStateOf(prefs.getStringCompatSafe(key, def)) }
     DisposableEffect(key) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { sp, changed ->
-            if (changed == key) value = sp.getString(key, def)
+            if (changed == key) value = sp.getStringCompatSafe(key, def)
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -57,15 +55,15 @@ internal fun rememberB3String(key: String, def: String? = null): String? {
     return value
 }
 
-/** 监听整型偏好键；越界档位由步进盘钳制后落盘，读取缺省 [def]。 */
+/** 监听整型偏好键；越界档位由步进盘钳制后落盘，读取缺省 [def]；类型不符回落 [def]（O-13）。 */
 @Composable
 internal fun rememberB3Int(key: String, def: Int): Int {
     val context = LocalContext.current
     val prefs = context.defaultSharedPreferences
-    var value by remember(key) { mutableStateOf(context.getPrefInt(key, def)) }
+    var value by remember(key) { mutableStateOf(prefs.getIntCompatSafe(key, def)) }
     DisposableEffect(key) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { sp, changed ->
-            if (changed == key) value = sp.getInt(key, def)
+            if (changed == key) value = sp.getIntCompatSafe(key, def)
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -82,4 +80,20 @@ private fun SharedPreferences.getBooleanCompatSafe(key: String, def: Boolean): B
         getBoolean(key, def)
     } catch (_: ClassCastException) {
         fallbackB3Boolean(all[key], def)
+    }
+
+/** 监听器内安全读字符串：类型不符回落 [def]，口径复用 [fallbackB3String]（O-13）。 */
+private fun SharedPreferences.getStringCompatSafe(key: String, def: String?): String? =
+    try {
+        getString(key, def)
+    } catch (_: ClassCastException) {
+        fallbackB3String(all[key], def)
+    }
+
+/** 监听器内安全读整型：类型不符回落 [def]，口径复用 [fallbackB3Int]（O-13）。 */
+private fun SharedPreferences.getIntCompatSafe(key: String, def: Int): Int =
+    try {
+        getInt(key, def)
+    } catch (_: ClassCastException) {
+        fallbackB3Int(all[key], def)
     }

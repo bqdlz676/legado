@@ -1,5 +1,6 @@
 package io.legado.app.ui.config.b3
 
+import io.legado.app.constant.PreferKey
 import io.legado.app.ui.config.configPreferenceMatches
 
 /**
@@ -101,3 +102,117 @@ fun clampB3Int(value: Int, min: Int, max: Int): Int = when {
  */
 fun fallbackB3Boolean(raw: Any?, def: Boolean): Boolean =
     (raw as? Boolean) ?: (raw as? String)?.trim()?.toBooleanStrictOrNull() ?: def
+
+/**
+ * 整型坏值回落（O-13）：SP 中类型不符（Int 键被写成 String / 其他类型）时解析失败回落 [def]，
+ * 不把 ClassCastException 抛到重组线程。纯函数，供桥监听回调与单测复用同一口径。
+ */
+fun fallbackB3Int(raw: Any?, def: Int): Int =
+    (raw as? Int) ?: (raw as? String)?.trim()?.toIntOrNull() ?: def
+
+/**
+ * 字符串坏值回落（O-13）：String 去首尾空白后用之，空白串回落 [def]；其余类型回落 [def]。
+ */
+fun fallbackB3String(raw: Any?, def: String?): String? =
+    (raw as? String)?.trim()?.ifBlank { def } ?: def
+
+// ────────────────────────────────────────────────────────────────────────────
+// R2 动效单源：行点触反馈回 MotionSpec 单源 PRESS（120ms 朱砂浸染），页面不自造时长 / 刚度裸值。
+// ────────────────────────────────────────────────────────────────────────────
+
+/** R2 行点触反馈动效名；对应 MotionSpec.PRESS，单测实调顶层纯函数取时长与弹簧规格。 */
+const val B3_PRESS_MOTION: String = "PRESS"
+
+// ────────────────────────────────────────────────────────────────────────────
+// R6/R7/R8 音效镜像行：D27 后端落地前只留只读说明位，页面不持有第二份开关布尔。
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 音效反馈行口径描述。[readOnly] = 本行只能装配为只读说明行；后续接入 D27 同源读取位时，
+ * 不得在本页预埋第二份本地布尔（R7：设置→阅读→底栏三态双向同步，状态源唯一）。
+ */
+data class B3SoundMirrorRow(val readOnly: Boolean, val keywords: List<String>)
+
+/** 音效镜像行静态描述；keywords 与装配行别名一致，供搜索兜底命中与单测谓词复用。 */
+val b3SoundMirrorRow: B3SoundMirrorRow = B3SoundMirrorRow(
+    readOnly = true,
+    keywords = listOf("sound", "音效", "声音", "InkSoundPool"),
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// R9 WebDAV 测试连接结果文案（纯映射，动作侧只回 Boolean，文案收口在本函数）。
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * R9 测试连接结果文案：连上显「已连接」；连不上显失败文案；null = 尚未测试，渲染层落占位空态。
+ */
+fun b3WebDavTestSummary(ok: Boolean?): String? = when (ok) {
+    true -> "已连接"
+    false -> "无法连接，检查地址和密码"
+    null -> null
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// R11 阅读字体档位：已存值回落口径（落盘键位取值依据见返工报告 §R11）。
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * R11 字体档位回落：已存值命中条目则原样返回；未知名 / 空串 / null 回落 [fallback]。
+ * 坏值防御：SP 被写成档位之外的字符串时不崩、不落错档。
+ */
+fun b3FontEntryFor(stored: String?, entries: List<String>, fallback: String): String {
+    if (stored.isNullOrBlank()) return fallback
+    return entries.firstOrNull { it == stored } ?: fallback
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// R13 备份内容清单与冲突合并口径（原文-03:11-15 / :22）。
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 备份内容条目。[landed] = 底层 Backup 清单当前是否已纳入；false 为待备份 / 画板批次落地，
+ * 页面文案不得把待纳入项宣称成已备份（文案与动作实现一致，不许只改文案）。
+ */
+data class B3BackupContent(val title: String, val landed: Boolean)
+
+/** R13 规格四类同步内容；生字本 / 画板批注底层实体与导出分支待备份 / 画板批次落地。 */
+val b3BackupContents: List<B3BackupContent> = listOf(
+    B3BackupContent("阅读进度", true),
+    B3BackupContent("生字本", false),
+    B3BackupContent("画板批注", false),
+    B3BackupContent("书签高亮", true),
+)
+
+/**
+ * R13 备份行摘要：已纳入项前置，待纳入项显式标注「待纳入」，避免把未落地项写成已备份。
+ */
+fun b3BackupSummary(contents: List<B3BackupContent>): String {
+    val landed = contents.filter { it.landed }.joinToString(" · ") { it.title }
+    val pending = contents.filter { !it.landed }.joinToString(" · ") { it.title }
+    return if (pending.isBlank()) landed else "$landed（待纳入：$pending）"
+}
+
+/**
+ * R13 冲突合并口径：最后修改时间戳晚的覆盖早的；同戳保持本地；不做 diff 合并。
+ * 纯函数，恢复侧（备份批次）接入本判定前，供页面契约与单测复用同一口径。
+ */
+fun b3PickLaterTimestamp(localTs: Long, backupTs: Long): Long =
+    if (backupTs > localTs) backupTs else localTs
+
+// ────────────────────────────────────────────────────────────────────────────
+// R14 墨水屏模式四项口径（原文-05:39：关动画 / 关粒子 / 关 3D / 黑白灰配色）。
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 墨水屏单项描述。[key] 为既有偏好键；[landed] = 本页已有对应开关行。
+ * 关粒子 / 关 3D 无既有偏好键，待地图 / 沙盘批次落键位后补开关行。
+ */
+data class B3EInkOption(val title: String, val key: String?, val landed: Boolean)
+
+/** R14 四项口径，顺序与规格切片-05:39 一致。 */
+val b3EInkOptions: List<B3EInkOption> = listOf(
+    B3EInkOption("关动画", PreferKey.noAnimScrollPage, true),
+    B3EInkOption("关粒子", null, false),
+    B3EInkOption("关 3D", null, false),
+    B3EInkOption("黑白灰配色", PreferKey.enableMangaGray, true),
+)

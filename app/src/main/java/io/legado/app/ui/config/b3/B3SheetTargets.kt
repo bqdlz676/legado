@@ -21,13 +21,15 @@ internal sealed class B3SheetTarget {
         val onConfirm: (String) -> Unit,
     ) : B3SheetTarget()
 
-    /** 数字步进盘目标：[min]–[max] 钳制；[onConfirm] 回传步进盘最终值（R21）。 */
+    /** 数字步进盘目标：[min]–[max] 钳制；[onConfirm] 回传步进盘最终值（R21）；[defaultLabel] 与 [onDefault] 同时非空时提供「恢复默认」（O-15）。 */
     data class Number(
         val title: String,
         val min: Int,
         val max: Int,
         val current: Int,
         val unit: String?,
+        val defaultLabel: String? = null,
+        val onDefault: (() -> Unit)? = null,
         val onConfirm: (Int) -> Unit,
     ) : B3SheetTarget()
 

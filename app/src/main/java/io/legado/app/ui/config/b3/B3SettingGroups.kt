@@ -1,10 +1,6 @@
 package io.legado.app.ui.config.b3
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import io.legado.app.R
@@ -54,10 +50,13 @@ internal fun b3SettingGroups(
     val themeCurrent = rememberB3String(PreferKey.themeMode, "0") ?: "0"
     val themeLabel = themeEntries.getOrElse(themeValues.indexOf(themeCurrent)) { themeEntries.first() }
     val fontScaleRaw = rememberB3Int(PreferKey.fontScale, 0)
-    val fontScale = fontScaleRaw.takeIf { it > 0 } ?: 10
+    // O-15：读取路径越界高值一并钳制到 8–16；非正回落默认 10，再走区间钳制。
+    val fontScale = clampB3Int(fontScaleRaw.takeIf { it > 0 } ?: 10, 8, 16)
 
     // ── 阅读分组 ──
-    var fontChoice by remember { mutableStateOf(fontEntries.first()) }
+    // R11：字体档位落盘既有正文字体域字符串键（取值依据见返工报告 §R11）；初始值 / 外部改键均由桥重读。
+    val fontStored = rememberB3String(PreferKey.fontFolder, fontEntries.first())
+    val fontChoice = b3FontEntryFor(fontStored, fontEntries, fontEntries.first())
 
     // ── 备份与云同步分组 ──
     val webDavUrl = rememberB3String(PreferKey.webDavUrl, null)
@@ -67,6 +66,7 @@ internal fun b3SettingGroups(
     // 弹层标题 / 提示必须在 composable 作用域先取，不能落在 onClick 这类非 Composable lambda 内（编译期硬约束）。
     val themeModeTitle = stringResource(R.string.theme_mode)
     val fontScaleTitle = stringResource(R.string.font_scale)
+    val fontScaleDefaultLabel = stringResource(R.string.restore_default)
     val webDavUrlTitle = stringResource(R.string.web_dav_url)
     val webDavUrlHint = stringResource(R.string.web_dav_url_s)
     val webDavAccountTitle = stringResource(R.string.web_dav_account)
@@ -109,6 +109,8 @@ internal fun b3SettingGroups(
                                 max = 16,
                                 current = fontScale,
                                 unit = null,
+                                defaultLabel = fontScaleDefaultLabel,
+                                onDefault = { context.putPrefInt(PreferKey.fontScale, 10) },
                                 onConfirm = { value -> context.putPrefInt(PreferKey.fontScale, value) },
                             ),
                         )
@@ -130,14 +132,14 @@ internal fun b3SettingGroups(
                                 entries = fontEntries,
                                 values = fontEntries,
                                 current = fontChoice,
-                                onPick = { fontChoice = it },
+                                onPick = { value -> context.putPrefString(PreferKey.fontFolder, value) },
                             ),
                         )
                     },
                 ),
                 B3InfoRow(
                     title = "《左传》预览",
-                    summary = "隐公元年，郑伯克段于鄢。注音小字维持无衬线不变。",
+                    summary = "当前：$fontChoice —— 隐公元年，郑伯克段于鄢。注音小字维持无衬线不变。",
                     keywords = listOf("preview", "预览"),
                 ),
                 B3InfoRow(
@@ -246,12 +248,14 @@ internal fun b3SettingGroups(
                 ),
                 B3ValueRow(
                     title = stringResource(R.string.backup),
-                    summary = "阅读进度 · 生字本 · 画板批注 · 书签高亮",
+                    summary = b3BackupSummary(b3BackupContents),
                     keywords = listOf("backup", "备份"),
                     onClick = actions.backupNow,
                 ),
                 B3InfoRow(
                     title = "从备份文件恢复",
+                    // 冲突口径与纯函数 b3PickLaterTimestamp 同参：晚覆盖早、同戳保持本地、不做 diff 合并；
+                    // 底层 Restore 合并接入该判定归备份批次（见返工报告 §O-10）。
                     summary = "文件选择契约随宿主批次接入；冲突按最后修改时间戳晚覆盖早，不做 diff 合并。",
                     keywords = listOf("restore", "恢复"),
                 ),

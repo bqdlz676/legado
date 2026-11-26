@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,16 +45,18 @@ fun B3SettingScreen(
     actions: B3SettingActions = rememberB3SettingActions(),
 ) {
     val context = LocalContext.current
-    var query by remember { mutableStateOf("") }
+    // O-14：搜索词 / 测试结果为 String，走 rememberSaveable 跨配置变更存活；弹层目标持有 lambda 不可序列化，
+    // 仍 remember 持有，待壳态批次提升到宿主状态机（见返工报告 §O-14）。
+    var query by rememberSaveable { mutableStateOf("") }
     var sheetTarget by remember { mutableStateOf<B3SheetTarget?>(null) }
-    var webDavTestSummary by remember { mutableStateOf<String?>(null) }
+    var webDavTestSummary by rememberSaveable { mutableStateOf<String?>(null) }
 
     val groups = b3SettingGroups(
         actions = actions,
         webDavTestSummary = webDavTestSummary,
         onTestWebDav = {
             actions.testWebDav { ok ->
-                webDavTestSummary = if (ok) "已连接" else "无法连接，检查地址和密码"
+                webDavTestSummary = b3WebDavTestSummary(ok)
             }
         },
         openTarget = { sheetTarget = it },
@@ -164,6 +167,8 @@ private fun B3SheetHost(target: B3SheetTarget?, onDismiss: () -> Unit) {
             max = target.max,
             current = clampB3Int(target.current, target.min, target.max),
             unit = target.unit,
+            defaultLabel = target.defaultLabel,
+            onDefault = target.onDefault,
             onConfirm = { value ->
                 target.onConfirm(value)
                 onDismiss()
