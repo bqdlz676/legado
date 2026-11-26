@@ -207,6 +207,24 @@ android {
     lint { //忽略string翻译缺失，后面需要翻译时去掉，todo
         disable 'MissingTranslation'
     }
+    // Q-246/Q-250：Rhino 阻塞求值类测试隔离。
+    // 根因：AGP 的 AndroidUnitTest 任务上没有 Gradle Test 的 includeCategories/excludeCategories 方法，
+    // 直接在任务实例上调会在 configuring 阶段崩（run 45810466813：line 228 No signature of method
+    // AndroidUnitTest.includeCategories()）。分类过滤必须走 JUnitOptions，即 useJUnit { } 闭包内。
+    // 作用域：unitTests.all 只覆盖单元测试变体（appDebug/appRelease unitTest），不触碰 androidTest；
+    // 两个属性均不传时闭包不设任何分类，行为等于全量单测。
+    testOptions {
+        unitTests.all { testTask ->
+            testTask.useJUnit {
+                if (project.hasProperty('includeRhino')) {
+                    includeCategories 'io.legado.app.RhinoEvalTest'
+                }
+                if (project.hasProperty('excludeRhino')) {
+                    excludeCategories 'io.legado.app.RhinoEvalTest'
+                }
+            }
+        }
+    }
 }
 
 def mockitoAgent = configurations.create('mockitoAgent') {
@@ -219,14 +237,6 @@ tasks.withType(Test).configureEach {
     jvmArgumentProviders.add({
         ["-javaagent:${mockitoAgent.asPath}"]
     } as org.gradle.process.CommandLineArgumentProvider)
-    // Q-246：Rhino 阻塞求值类测试隔离。-PexcludeRhino 供 4 分片排除；
-    // -PincludeRhino 供专用 rhino-eval-tests job 只跑该分类。两者互斥，CI 命令行分别传入。
-    if (project.hasProperty('excludeRhino')) {
-        excludeCategories 'io.legado.app.RhinoEvalTest'
-    }
-    if (project.hasProperty('includeRhino')) {
-        includeCategories 'io.legado.app.RhinoEvalTest'
-    }
 }
 
 dependencies {

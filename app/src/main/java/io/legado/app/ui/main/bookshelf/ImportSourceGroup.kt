@@ -37,7 +37,8 @@ internal fun sourceImportGroupKey(source: String): String? {
             "$host$path".takeIf { it.isNotBlank() }
         }
 
-        "content" -> uri.lastPathSegment
+        "content" -> uri.rawPath
+            ?.substringAfterLast('/')
             ?.let { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
             ?.substringAfterLast('/')
             ?.substringAfterLast(':')
