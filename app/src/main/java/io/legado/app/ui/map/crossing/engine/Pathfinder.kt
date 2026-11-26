@@ -149,7 +149,10 @@ class Pathfinder(
         val startKey = encode(from, n)
         val cameFrom = HashMap<Long, Long>(n * 2)
         val gScore = HashMap<Long, Double>(n * 2).apply { this[startKey] = 0.0 }
-        val open = PriorityQueue<Node>(compareBy { it.f })
+        // 次级键（节点编码）：f 值平局时按编码定序，锁定同一输入的裁决结果。
+        // 为什么要有：PriorityQueue 同 f 出队顺序在 JDK 契约里属任意，cameFrom 只在严格更小时改写，
+        // 平局抖动会让"同一输入两次裁决"逐格不一致（PathfinderBoundaryTest 已把它当硬约束）。
+        val open = PriorityQueue<Node>(compareBy({ it.f }, { it.key }))
         open += Node(startKey, heuristic(from, to))
         val closed = HashSet<Long>()
         // 敌军所在格集合只用于排阵；半径闸门走 [enemies] 每条自身半径，不能再合并成单一 viewRadius。

@@ -171,8 +171,8 @@ class ShelfEntrySweepTest {
             .substringBefore("</activity>")
         assertTrue("分享 Activity 必须保持 exported=true 承接系统入口",
             receiverBlock.contains("android:exported=\"true\""))
-        assertTrue("保留 PROCESS_TEXT 入口", receiverBlock.contains("ACTION_PROCESS_TEXT"))
-        assertTrue("保留 SEND 入口", receiverBlock.contains("ACTION_SEND"))
+        assertTrue("保留 PROCESS_TEXT 入口", receiverBlock.contains("android.intent.action.PROCESS_TEXT"))
+        assertTrue("保留 SEND 入口", receiverBlock.contains("android.intent.action.SEND"))
 
         val main = readMain("ui/main/MainActivity.kt")
         assertTrue("MainActivity 声明搜索词 extras 常量",

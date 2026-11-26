@@ -118,10 +118,13 @@ class ShelfOverlaySearchTest {
     fun `second page appends keeping first batch and deduping by id`() {
         val page1 = listOf(SearchResultItem(id = "1", title = "春秋左传", author = "左丘明"))
         val page2 = listOf(SearchResultItem(id = "2", title = "史记", snippet = "春秋时期"))
+        // 归约器单源语义（Q-179/D1-R1）：追加只在"翻页在途"时生效，故前置 paging=LoadingMore；
+        // 追加批不提前收口，终态由 LoadMoreFinish 落定。
         val state = SearchUiState(
             query = "左传",
             loadState = SearchLoadState.Content(page1),
             lastResults = page1,
+            paging = SearchPagingState.LoadingMore,
         )
 
         val appended = SearchReducer.reduce(
@@ -133,7 +136,9 @@ class ShelfOverlaySearchTest {
         assertEquals(listOf("1", "2"), content.results.map { it.id })
         assertTrue("首批条目不得被第二批覆盖", content.results.any { it.id == "1" })
         assertEquals(content.results, appended.lastResults)
-        assertTrue("还有更多时回到空闲可翻页", appended.paging is SearchPagingState.Idle)
+        assertTrue("追加批不提前收口，仍在途", appended.paging is SearchPagingState.LoadingMore)
+        val finished = SearchReducer.reduce(appended, SearchIntent.LoadMoreFinish(hasMore = true))
+        assertTrue("Finish 是唯一的收口来源", finished.paging is SearchPagingState.Idle)
     }
 
     // 5.【兜底回证，非主锁】源码文本检查：浮层复用既有历史面板与结果列表单源；书架包不得

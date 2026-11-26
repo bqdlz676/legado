@@ -163,7 +163,9 @@ class SearchContractTest {
     @Test
     fun `search package keeps shared stack without an activity shell class`() {
         // 检索编排 / 面板 / 列表构件仍被书架浮层复用；包内不再保留独立 Activity 壳。
-        val activityShell = projectFile("$sourceDir/InkSearchActivity.kt")
+        // 壳文件已删：这里不能用 projectFile（它在缺文件时抛异常，会把"应已删除"变成红），
+        // 只用不抛的 File 存在性判定。
+        val activityShell = File("$sourceDir/InkSearchActivity.kt")
         assertFalse("独立搜索壳文件应已删除", activityShell.isFile)
         val viewModel = read("InkSearchViewModel.kt")
         assertTrue(viewModel.contains("fun attach(initialKey: String?, initialScope: String?)"))
