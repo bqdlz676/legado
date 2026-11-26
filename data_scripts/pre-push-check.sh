@@ -48,6 +48,11 @@ else
   echo "[3/5] 本轮无报告改动"
 fi
 
+# 3.5) 报告字段门禁（锚点卡/结论标记/自查反例/证据锚点，L1 的机检入口）
+if ! python3 data_scripts/check-report-fields.py | tail -3; then
+  FAILED=1
+fi
+
 # 4) 跨模块编译面预检
 if ! python3 data_scripts/cross-module-guard.py $STRICT | tail -6; then
   echo "[4/5] 跨模块预检未过"; FAILED=1

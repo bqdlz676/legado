@@ -91,6 +91,7 @@ def main():
     ap.add_argument("--test", nargs="*", default=[])
     ap.add_argument("--conclusion", default="静态 PASS")
     ap.add_argument("--title", default="")
+    ap.add_argument("--verified-by", default="", help="验收报告路径；缺省则状态写「DONE（未验·待验收）」")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -119,7 +120,12 @@ def main():
     for kind, msg, paths in steps:
         if not commit(paths, msg):
             return 1
-    patch_queue(args.q, args.conclusion, args.report)
+    concl = args.conclusion
+    if args.verified_by:
+        concl = f"{concl}；已验 {args.verified_by}"
+    else:
+        concl = f"未验·待验收：{concl}"
+    patch_queue(args.q, concl, args.report)
     if not commit(["docs/派单队列.md", "docs/派单台账.md"], f"台账：{args.q} 收口"):
         return 1
 
