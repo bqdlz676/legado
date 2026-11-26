@@ -20,3 +20,7 @@ package-lock.json
 .vscode
 # 推送节拍时间戳（F-111/pre-push.sh 本地状态，不入库；入库会让工作区永远不干净）
 docs/.last_push_epoch
+# APK 包与解压目录（195M 二进制，不入库；入库会撑爆仓库并让每次换包产生巨大 diff）
+/dist/
+# 设计 token 机读草稿（由 check-design-tokens.py --emit 生成、可再生产，入库会与 docs/契约-设计token.json 形成双源打架）
+docs/契约-设计token.emit.json
