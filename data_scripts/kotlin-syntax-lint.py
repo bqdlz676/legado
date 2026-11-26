@@ -171,6 +171,30 @@ def check_style_only_params(clean: str):
     return errs
 
 
+
+LINE_WARN = 600  # 与 check-frankenstein.py 的 LINE_WARN 同口径（p95）
+
+
+def check_new_oversized(path: str):
+    """S4：新增文件 >=600 行 -> FAIL。
+
+    为什么只管"新增"：仓内既有 50 个 >=600 行文件是历史包袱（棘轮在册），
+    对新文件判死才既止血又不误杀。实测 2026-11-26：新面板 731 行把债务棘轮
+    oversized_warn 从 50 顶到 51，推送前才发现，白跑一轮拆分单。
+    """
+    try:
+        lines = sum(1 for _ in open(path, encoding='utf-8', errors='ignore'))
+    except OSError:
+        return []
+    if lines < LINE_WARN:
+        return []
+    in_head = subprocess.run(['git', 'cat-file', '-e', 'HEAD:%s' % path],
+                             capture_output=True).returncode == 0
+    if in_head:
+        return []
+    return [(1, '新增文件 %d 行 >= %d，会顶高债务棘轮（先拆再交）' % (lines, LINE_WARN))]
+
+
 def main() -> int:
     args = sys.argv[1:]
     if args:
@@ -192,7 +216,8 @@ def main() -> int:
         except OSError:
             continue
         clean = strip_noise(src)
-        for ln, why in check_balance(clean) + check_cond_trailing_comma(clean) + check_style_only_params(clean):
+        for ln, why in (check_balance(clean) + check_cond_trailing_comma(clean)
+                         + check_style_only_params(clean) + check_new_oversized(f)):
             print('FAIL %s:%d %s' % (f, ln, why))
             bad += 1
     print('KOTLIN-LINT: %s（%d 个文件）' % ('FAIL' if bad else 'PASS', len(files)))
