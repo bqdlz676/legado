@@ -474,6 +474,21 @@ if [ $? -eq 0 ]; then ok "㊿无等待条款" "$(echo "$NW50" | grep 'NO-WAIT-RU
 SC51=$(python3 data_scripts/check-selftest-coverage.py 2>&1)
 if [ $? -eq 0 ]; then ok "51自测覆盖" "$(echo "$SC51" | grep 'SELFTEST-COVERAGE: PASS')"; else bad "51自测覆盖" "$(echo "$SC51" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# 52 视觉基线（存量孤儿门禁，2026-11-26 穷举审计发现：脚本存在但从未被任何编排器调用＝假绿）：
+#   为什么：判据写了不跑，等于没写；P0 截图基建未建时按 WARN 级别计入末行，不静默。
+VB52=$(python3 data_scripts/check-visual-baseline.py 2>&1); RC52=$?
+if [ $RC52 -eq 0 ] && echo "$VB52" | grep -q 'PASS'; then ok "52视觉基线" "$(echo "$VB52" | grep -E 'PASS' | head -1)"; elif [ $RC52 -eq 0 ]; then ok "52视觉基线" "WARN：$(echo "$VB52" | grep 'WARN' | head -1)"; else bad "52视觉基线" "$(echo "$VB52" | grep -E 'FAIL|WARN' | head -2 | tr '\n' ' ')"; fi
+
+# 53 workflow 契约（同上：check-workflow-contracts.py 存在但未接线，CI 结构改动无人机检）。
+WC53=$(python3 data_scripts/check-workflow-contracts.py 2>&1)
+if [ $? -eq 0 ]; then ok "53workflow契约" "$(echo "$WC53" | grep 'CI-CONTRACT: PASS' | head -1)"; else bad "53workflow契约" "$(echo "$WC53" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
+# 54 门禁接线（2026-11-26 穷举审计：判据写了不跑＝假绿；52/53 就是孤儿被当场抓出）。
+#   为什么：脚本目录里有"为什么需要它"，编排器里没有调用行，人眼审计靠偶然。
+#   口径：孤儿进 data_scripts/wiring-baseline.json，基线只许缩小；新增门禁必须当轮接线。
+GW54=$(python3 data_scripts/check-gate-wiring.py 2>&1)
+if [ $? -eq 0 ]; then ok "54门禁接线" "$(echo "$GW54" | grep 'GATE-WIRING: PASS' | head -1)"; else bad "54门禁接线" "$(echo "$GW54" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。

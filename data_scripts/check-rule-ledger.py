@@ -16,8 +16,11 @@
   E. 被否决串扫描：三布尔含 APK / ≤3 并发 / 竖排引擎 / 印章圆形 / 副图标 ic_launcher_small；
      白名单（流水留档、复检/审计/复盘/验收/候选/切片/索引/备案等证据性文档）与
      行内否定/作废标记豁免后，仍裸奔命中即报。
-     引述豁免（2026-11-26 ㉓ 假红收口）：命中串整段落在同行配对引号/反引号内
-     （「」『』“”"`）视为回溯引用，不报红；引号外的同串仍必须红。
+     引述豁免（2026-11-26 ㉓ 假红收口；Q-217 收紧）：命中串整段落在同行配对引号/反引号内
+     （「」『』“”"`）且本行带位置回指词（未动/改述/回指/旧段落名/原文/引述/改名），
+     视为回溯引用，不报红；只有引号没有回指词、或引号外的同串，仍必须红。
+     代码块豁免：``` 围栏内为逐字转写/夹具留档区，E 组不扫；围栏按行配对，未闭合则块态保持
+     到文件尾；行内反引号不走围栏逻辑，仍按引号双条件判。
 
 退出码：0 = RULE-LEDGER: PASS；1 = RULE-LEDGER: FAIL。
 --selftest：造夹具双向跑通 PASS / FAIL 两条通路，跑完自删。
@@ -53,20 +56,22 @@ EXEMPT_WORDS = ["作废", "否决", "废弃", "弃", "旧称", "历史", "留档
                 "取代", "弃用", "删除", "不制作", "取消", "驳回", "有意缺席",
                 "分页引擎", "不成立", "误读", "澄清"]
 
-# 引述豁免（2026-11-26 ㉓ 假红收口）：
+# 引述豁免（2026-11-26 ㉓ 假红收口；Q-217 收紧为双条件）：
 # 为什么加：实测两类假红——① 两位数计数「在飞 23 槽」被裸子串 3+槽 误抓（已由数字边界收口）；
 #   ② 变更说明里用引号回指旧段落名（如「有无 APK」行一字未动），旧串在引号内、不是现行规则，
-#   却被当成裸奔旧条文。故加引号配对识别：命中串整段在引号/反引号区间内即视为引述，不报红。
+#   却被当成裸奔旧条文。
+# 豁免双条件（缺一不可，防"含引号就放过"的后门）：
+#   1) 命中串整段落在同行配对引号/反引号区间内；
+#   2) 本行同时带位置回指词（未动 / 改述 / 回指 / 旧段落名 / 原文 / 引述 / 改名）。
 # 边界在哪：
 #   - 引号按当前行配对，不支持跨行、不支持嵌套；开引号后同行找不到闭引号 → 不成对，不豁免（fail-closed）。
 #   - 只豁免命中串所在的那个区间，不豁免整行；同一行引号外再出现同串仍判红。
-#   - 回指词（一字未动/原文/引述/回指/改名）是变更说明的伴随标记，单独出现不构成豁免，
-#     必须同时满足命中串在引号内；防止把真裸奔规则挂上"原文"二字绕过。
-# 误判风险：作者若把一条真裸奔规则整句包进引号即可逃过本扫描；缓解：文件白名单与行内豁免词
-#   照旧叠加，引述豁免不扩大到整行，且引号外同串仍红；真红条文应落在无引号的规则正文里。
+#   - 只有引号、没有回指词的行不豁免：把旧规则包进引号照样抓，防止挂引号绕过。
+# 误判风险：回指词表若过宽会放过伪装引述；故词表只收"位置/沿革回指"语义，不收否定词
+#   （否定语义归 EXEMPT_WORDS 管）。文件白名单与行内豁免词照旧叠加。
 QUOTE_PAIRS = [("「", "」"), ("『", "』"), ("“", "”"), ('"', '"'), ("`", "`")]
-# 回指词：标记本句在回指旧文/旧名；仅作语境提示，不单独豁免（见上方边界）。
-QUOTE_REF_WORDS = ["一字未动", "原文", "引述", "回指", "改名"]
+# 位置回指词：本句在回指旧文/旧名/旧段落；必须与"命中串在引号内"同时成立才豁免。
+QUOTE_REF_WORDS = ["一字未动", "未动", "改述", "回指", "旧段落名", "原文", "引述", "改名"]
 
 
 def _quote_spans(line):
@@ -91,6 +96,11 @@ def _quote_spans(line):
 def _span_quoted(line, start, end):
     """命中区间 [start, end) 是否整段落在某对引号区间内。"""
     return any(s <= start and end <= e for s, e in _quote_spans(line))
+
+
+def _is_quote_exempt(line, start, end):
+    """引述豁免双条件：命中串在引号/反引号内，且本行带位置回指词；缺一不豁免。"""
+    return _span_quoted(line, start, end) and any(w in line for w in QUOTE_REF_WORDS)
 
 # 文件级白名单：证据性 / 留档性文档，旧串只作回溯引用，不接新判定
 WHITELIST_FILE = [
@@ -212,8 +222,10 @@ def check_gap_overdue(gap_text):
 
 
 def scan_rejected(root=ROOT):
-    """E. 否决串裸奔扫描。返回 (hits, total_scanned)。"""
+    """E. 否决串裸奔扫描。返回 (hits, total_scanned, exempts)。
+    exempts：命中串满足"引号内 + 位置回指词"双条件被豁免的条目，仅留痕打印，不报红。"""
     hits = []
+    exempts = []
     scanned = 0
     docs_dir = os.path.join(root, "docs")
     for dirpath, _, files in os.walk(docs_dir):
@@ -231,21 +243,28 @@ def scan_rejected(root=ROOT):
                 text = open(path, encoding="utf-8", errors="replace").read()
             except OSError:
                 continue
+            in_fence = False  # ``` 块内是逐字转写/夹具区，不代表现行规则（见模块注释 E 条）
             for lineno, line in enumerate(text.splitlines(), 1):
+                if line.lstrip().startswith("```"):
+                    in_fence = not in_fence
+                    continue
+                if in_fence:
+                    continue
                 if any(w in line for w in EXEMPT_WORDS):
                     continue
                 for name, pat in REJECTED:
                     bare_hit = None
                     for m in pat.finditer(line):
-                        if _span_quoted(line, m.start(), m.end()):
-                            # 引述豁免：命中串整段在引号/反引号内，是回溯引用，不报红
+                        if _is_quote_exempt(line, m.start(), m.end()):
+                            # 双条件豁免：引号内 + 位置回指词，是回溯引用，留痕不报红
+                            exempts.append((rel, lineno, name, line.strip()[:80]))
                             continue
                         bare_hit = m
                         break
                     if bare_hit is not None:
                         hits.append((rel, lineno, name, line.strip()[:80]))
                         break
-    return hits, scanned
+    return hits, scanned, exempts
 
 
 def run_checks(root=ROOT, groups=None):
@@ -259,7 +278,7 @@ def run_checks(root=ROOT, groups=None):
     b_ok, b_miss, n_src, n_led = check_f_coverage(ledger_text, freeze_text)
     c_ok, c_prob, n_conf = check_conflicts(conflict_text)
     d_ok, d_prob, n_gap = check_gap_overdue(gap_text)
-    hits, scanned = scan_rejected(root)
+    hits, scanned, exempts = scan_rejected(root)
     e_ok = len(hits) == 0
 
     counts = {
@@ -267,6 +286,7 @@ def run_checks(root=ROOT, groups=None):
         "冲突条数": n_conf,
         "缺项条数": n_gap,
         "否决串命中": len(hits),
+        "引述豁免": len(exempts),
     }
     problems = {
         "A总账结构": a_prob,
@@ -274,12 +294,15 @@ def run_checks(root=ROOT, groups=None):
         "C冲突裁决": c_prob,
         "D缺项逾期": d_prob,
         "E否决串裸奔": [f"{h[0]}:{h[1]} [{h[2]}] {h[3]}" for h in hits],
+        "E引述豁免": [f"{x[0]}:{x[1]} [{x[2]}] {x[3]}" for x in exempts],
     }
     results = {"A": a_ok, "B": b_ok, "C": c_ok, "D": d_ok, "E": e_ok}
-    if groups == "ledger":
+    if groups in ("ledger", "rule"):
         active = ["A", "B", "C", "E"]
     elif groups == "gap":
         active = ["D"]
+    elif groups == "vocab":
+        active = ["E"]
     else:
         active = ["A", "B", "C", "D", "E"]
     all_ok = all(results[k] for k in active)
@@ -322,35 +345,41 @@ def selftest():
     w("docs/规则总账.md", ledger_ok)
     w("docs/规则冲突清单.md", conflict_ok)
     w("docs/台账-三件缺项.md", gap_ok)
-    # 引述豁免回归夹具（2026-11-26 ㉓ 假红收口）：
+    # 引述豁免回归夹具（2026-11-26 ㉓ 假红收口；Q-217 双条件收紧）：
     # (a) 两位数槽位计数「在飞 23 槽」不得被判成并发上限旧口径；
-    # (b) 引号内旧段落名回指「有无 APK」不算裸奔。
+    # (b) 引号内旧段落名回指「有无 APK」且带回指词"一字未动"，不算裸奔。
     w("docs/自检-引述豁免.md",
       "# 引述豁免回归\n"
       "- 在飞 23 槽：Q-63 点字详情改走半屏。\n"
-      "- 其余章节（含「有无 APK」行）一字未动。\n")
+      "- 其余章节（含「有无 APK」行）一字未动。\n"
+      "```\n"
+      "进度满编 3 槽，两个写一个查。\n"
+      "```\n")
 
     ok, counts, problems, scanned = run_checks(tmp)
     assert ok, f"合规夹具应 PASS，实际 FAIL：{problems}"
     assert not problems["E否决串裸奔"], f"引述/计数夹具不应命中 E 组：{problems['E否决串裸奔']}"
     print("[selftest] 合规夹具 PASS 通路 OK：", counts)
-    print("[selftest] 回归 (a)「在飞 23 槽」计数 PASS；(b) 引号内「有无 APK」引述 PASS")
+    print("[selftest] 回归 (a)「在飞 23 槽」计数 PASS；(b) 引号内「有无 APK」+回指词引述 PASS；(e) 围栏内转写 PASS")
 
     # FAIL 夹具：总账缺锚点列值、冲突缺裁决、缺项超期、否决串裸奔
     w("docs/规则总账.md", ledger_ok.replace("总纲:198", ""))
     w("docs/规则冲突清单.md", conflict_ok.replace("以后令为准", "待定"))
     w("docs/台账-三件缺项.md", gap_ok.replace("2026-11-26", "2026-11-20"))
     w("docs/临时-裸奔.md", "# 留档\n进度只报三布尔含 APK。\n")
-    # (c) 裸奔旧条文：引号外的「满编 3 槽」必须 FAIL，引述豁免不得放行。
-    w("docs/自检-裸奔槽位.md", "进度满编 3 槽，两个写一个查。\n")
+    # (c) 裸奔旧条文：引号外的「只许 3 槽」必须 FAIL，引述豁免不得放行。
+    w("docs/自检-裸奔槽位.md", "进度只许 3 槽，两个写一个查。\n")
+    # (d) 反后门夹具：旧串包在引号内但本行无位置回指词，仍必须 FAIL（不得"含引号就放过"）。
+    w("docs/自检-引号无回指.md", "正文沿用「有无 APK」作为小节标题。\n")
     ok2, _, problems2, _ = run_checks(tmp)
     assert not ok2, "违规夹具应 FAIL，实际 PASS"
     fail_groups = [k for k, v in problems2.items() if v]
     print("[selftest] 违规夹具 FAIL 通路 OK，命中组：", fail_groups)
     assert set(["A总账结构", "B编号覆盖", "C冲突裁决", "D缺项逾期", "E否决串裸奔"]) & set(fail_groups)
     e_hits = problems2["E否决串裸奔"]
-    assert any("满编 3 槽" in h for h in e_hits), f"裸奔槽位夹具必须被 E 组抓到：{e_hits}"
-    print("[selftest] 回归 (c) 裸奔「满编 3 槽」FAIL 通路 OK")
+    assert any("只许 3 槽" in h for h in e_hits), f"裸奔槽位夹具必须被 E 组抓到：{e_hits}"
+    assert any("有无 APK" in h for h in e_hits), f"引号内无回指词的反后门夹具必须被抓到：{e_hits}"
+    print("[selftest] 回归 (c) 裸奔「只许 3 槽」FAIL 通路 OK；(d) 引号无回指词反后门 FAIL 通路 OK")
 
     import shutil
     shutil.rmtree(tmp)
@@ -378,11 +407,12 @@ def main():
     if "--check" in sys.argv:
         groups = sys.argv[sys.argv.index("--check") + 1]
     all_ok, counts, problems, scanned = run_checks(groups=groups)
-    active = {"ledger": ["A", "B", "C", "E"], "gap": ["D"]}.get(groups, ["A", "B", "C", "D", "E"])
+    active = {"ledger": ["A", "B", "C", "E"], "rule": ["A", "B", "C", "E"],
+              "gap": ["D"], "vocab": ["E"]}.get(groups, ["A", "B", "C", "D", "E"])
     print("== 规则总账门禁（F-89 三件套）==")
     print(f"扫描文档 {scanned} 份；四类计数：总账条目 {counts['总账条目']} / "
           f"冲突 {counts['冲突条数']} / 缺项 {counts['缺项条数']} / "
-          f"否决串命中 {counts['否决串命中']}")
+          f"否决串命中 {counts['否决串命中']}（引述豁免 {counts['引述豁免']}）")
     label_map = {"A": "A总账结构", "B": "B编号覆盖", "C": "C冲突裁决",
                  "D": "D缺项逾期", "E": "E否决串裸奔"}
     for key in active:
@@ -394,6 +424,10 @@ def main():
                 print(f"   · {it}")
         else:
             print(f"-- {group}：无")
+    if "E" in active and problems["E引述豁免"]:
+        print(f"-- E引述豁免（引号内回指，不报红）：{len(problems['E引述豁免'])} 处")
+        for it in problems["E引述豁免"]:
+            print(f"   · EXEMPT {it}")
     print()
     if all_ok:
         print("RULE-LEDGER: PASS")
