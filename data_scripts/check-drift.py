@@ -125,15 +125,21 @@ def resolve(path):
     hits = _BASE.get(os.path.basename(path), [])
     if len(hits) == 1:
         return hits[0]
-    for h in hits:
-        if h.endswith(path):
-            return h
+    narrowed = [h for h in hits if h.endswith(path)]
+    if len(narrowed) == 1:
+        return narrowed[0]
+    if len(narrowed) > 1:
+        # 同名多文件且路径不足以区分（如 `Pathfinder.kt:187` 命中 app 两处实现）：
+        # 旧实现静默取第一条，既可能假 OK 也会假 MISSING；改标 AMBIGUOUS 单列计数。
+        return 'AMBIGUOUS:' + '|'.join(sorted(narrowed)) + ':' + path
     return path
 
 
 def check_anchor(path, line_no, cand, cache):
     """返回 (status, detail)。cache 复用文件读取与符号索引。"""
     path = resolve(path)
+    if path.startswith('AMBIGUOUS:'):
+        return 'AMBIGUOUS', '同名多文件需写全路径：' + path.split(':', 1)[1].replace('|', ' / ')
     if path not in cache:
         if not os.path.exists(path):
             cache[path] = None
@@ -325,11 +331,12 @@ def main() -> int:
                '> `python3 data_scripts/check-drift.py --write` 生成。每一行是「报告:行 -> 锚点」的机检结论：',
                '> OK 符号对得上／DRIFT 行号漂了（结论需重贴锚）／VOID 已废标注豁免（报告头或行内标已废，不计失联，仍逐条列出）／MISSING 符号全文件失联（结论必须重判）／DEADFILE 文件已删。',
                '> SKIP-EXTERNAL 域外引用（screenshot/ 快照测试、modules/ 独立模块），文件实存但不属 app 证据链，不计入失联。',
+               '> AMBIGUOUS 同名多文件（如 app 下两份 Pathfinder.kt）而锚点只写短名：不计失联，但必须补全路径；旧实现静默取首条会假 OK / 假 MISSING。',
                '> 不自动改行号：行号漂往往意味着代码演进、口径可能一起变，自动重贴会把旧结论伪装成新证据。',
                '']
-        out.append('- 总计 %d 个锚点：OK %d ／ DRIFT %d ／ VOID %d ／ MISSING %d ／ DEADFILE %d ／ SKIP-EXTERNAL %d' % (
+        out.append('- 总计 %d 个锚点：OK %d ／ DRIFT %d ／ VOID %d ／ MISSING %d ／ DEADFILE %d ／ SKIP-EXTERNAL %d ／ AMBIGUOUS %d' % (
             len(rows), stat.get('OK', 0), stat.get('DRIFT', 0), stat.get('VOID', 0),
-            stat.get('MISSING', 0), stat.get('DEADFILE', 0), stat.get('SKIP-EXTERNAL', 0)))
+            stat.get('MISSING', 0), stat.get('DEADFILE', 0), stat.get('SKIP-EXTERNAL', 0), stat.get('AMBIGUOUS', 0)))
         out.append('')
         byf = {}
         for r in rows:
@@ -355,9 +362,9 @@ def main() -> int:
         # 通过时不回写基线：脚本不得自动下调基线；下调只留总控手动入口，
         # 且须留痕批次号与前后数值。这里只打印比对结果，基线文件保持不动。
         print('RATCHET: PASS 当前值 %d 小于等于基线 %d，基线未动' % (bad, base.get('bad', bad)))
-    print('RADAR: 锚点 %d｜OK %d｜DRIFT %d｜VOID %d｜MISSING %d｜DEADFILE %d｜SKIP-EXTERNAL %d（失联 %d）' % (
+    print('RADAR: 锚点 %d｜OK %d｜DRIFT %d｜VOID %d｜MISSING %d｜DEADFILE %d｜SKIP-EXTERNAL %d｜AMBIGUOUS %d（失联 %d）' % (
         len(rows), stat.get('OK', 0), stat.get('DRIFT', 0), stat.get('VOID', 0),
-        stat.get('MISSING', 0), stat.get('DEADFILE', 0), stat.get('SKIP-EXTERNAL', 0), bad))
+        stat.get('MISSING', 0), stat.get('DEADFILE', 0), stat.get('SKIP-EXTERNAL', 0), stat.get('AMBIGUOUS', 0), bad))
     return 0
 
 
