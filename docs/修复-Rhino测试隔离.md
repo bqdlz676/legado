@@ -45,18 +45,23 @@
 ```groovy
 // 改前：tasks.withType(Test).configureEach { 仅挂 mockito javaagent，无分类过滤 }
 
-// 改后（:222-229，接在既有 jvmArgumentProviders 之后）：
-// Q-246：Rhino 阻塞求值类测试隔离。-PexcludeRhino 供 4 分片排除；
-// -PincludeRhino 供专用 rhino-eval-tests job 只跑该分类。两者互斥，CI 命令行分别传入。
-if (project.hasProperty('excludeRhino')) {
-    excludeCategories 'io.legado.app.RhinoEvalTest'
-}
-if (project.hasProperty('includeRhino')) {
-    includeCategories 'io.legado.app.RhinoEvalTest'
+// 最终写法（app/build.gradle:216-227，android.testOptions.unitTests.all 内，useJUnit 闭包 = JUnitOptions）：
+testOptions {
+    unitTests.all { testTask ->
+        testTask.useJUnit {
+            if (project.hasProperty('includeRhino')) {
+                includeCategories 'io.legado.app.RhinoEvalTest'
+            }
+            if (project.hasProperty('excludeRhino')) {
+                excludeCategories 'io.legado.app.RhinoEvalTest'
+            }
+        }
+    }
 }
 ```
 
 - 为什么走项目属性而不是写死在 test 任务：分片与独立 job 共用同一个 `:app:testAppDebugUnitTest` 任务；写死排除会把独立 job 也排空。属性由 CI 命令行分别传入，两条分支互斥。
+- 为什么分类调用必须落在 `useJUnit { }` 闭包内：AGP `AndroidUnitTest` 任务实例上没有 Gradle `Test` 的 `includeCategories/excludeCategories` 方法，直接在任务上调会在 configuring 阶段崩；该 API 属于 JUnitOptions。详见 §十。
 
 ### 3.4 `.github/workflows/verify.yml`
 
@@ -100,13 +105,17 @@ app/src/test/java/io/legado/app/help/source/RssSortUrlsTest.kt:3:import io.legad
 app/src/test/java/io/legado/app/help/source/RssSortUrlsTest.kt:11:import org.junit.experimental.categories.Category
 app/src/test/java/io/legado/app/help/source/RssSortUrlsTest.kt:13:@Category(RhinoEvalTest::class)
 
-$ grep -n "excludeRhino\|includeRhino\|excludeCategories\|includeCategories" app/build.gradle
-222:    // Q-246：Rhino 阻塞求值类测试隔离。-PexcludeRhino 供 4 分片排除；
-223:    // -PincludeRhino 供专用 rhino-eval-tests job 只跑该分类。两者互斥，CI 命令行分别传入。
-224:    if (project.hasProperty('excludeRhino')) {
-225:        excludeCategories 'io.legado.app.RhinoEvalTest'
-227:    if (project.hasProperty('includeRhino')) {
-228:        includeCategories 'io.legado.app.RhinoEvalTest'
+$ grep -n "excludeRhino\|includeRhino\|excludeCategories\|includeCategories\|testOptions\|unitTests.all\|useJUnit" app/build.gradle
+211:    // 根因：AGP 的 AndroidUnitTest 任务上没有 Gradle Test 的 includeCategories/excludeCategories 方法，
+213:    // AndroidUnitTest.includeCategories()）。分类过滤必须走 JUnitOptions，即 useJUnit { } 闭包内。
+214:    // 作用域：unitTests.all 只覆盖单元测试变体（appDebug/appRelease unitTest），不触碰 androidTest；
+216:    testOptions {
+217:        unitTests.all { testTask ->
+218:            testTask.useJUnit {
+219:                if (project.hasProperty('includeRhino')) {
+220:                    includeCategories 'io.legado.app.RhinoEvalTest'
+222:                if (project.hasProperty('excludeRhino')) {
+223:                    excludeCategories 'io.legado.app.RhinoEvalTest'
 
 $ grep -n "excludeRhino\|includeRhino\|rhino-eval-tests\|test-results-rhino\|needs: \[discover\|Download Rhino\|'rhino' if" .github/workflows/verify.yml
 319:          ./gradlew :app:testAppDebugUnitTest -PexcludeRhino --no-daemon --build-cache --stacktrace "${ARGS[@]}"
@@ -120,17 +129,14 @@ $ grep -n "excludeRhino\|includeRhino\|rhino-eval-tests\|test-results-rhino\|nee
 542:              shard = m.group(1) if m else ('rhino' if 'rhino-eval' in x else '?')
 ```
 
-改动行数（`git diff --numstat`，不含本单未触碰的既有改动）：
+改动行数：Q-246 的 verify.yml、四个测试类、标记接口已随前序提交进入 HEAD；本单 Q-250（已收口并入 Q-246）工作区相对 HEAD 的改动仅 `app/build.gradle`：
 
 ```
-140  7  .github/workflows/verify.yml
-  8  0  app/build.gradle
-  2  0  app/src/test/java/io/legado/app/RhinoScriptErrorContextTest.kt
-  3  0  app/src/test/java/io/legado/app/help/source/RssSortUrlsTest.kt
-  3  0  app/src/test/java/io/legado/app/model/jsSource/JsSourceConfigTest.kt
-  3  0  app/src/test/java/io/legado/app/web/mcp/McpServiceContractTest.kt
- 新建  app/src/test/java/io/legado/app/RhinoEvalTest.kt（17 行）
+18  8  app/build.gradle
+ 新建  app/src/test/java/io/legado/app/RhinoEvalTest.kt（17 行，已入 HEAD）
 ```
+
+- `git diff app/build.gradle`：android 块内新增 `testOptions.unitTests.all { useJUnit { … } }`（+18 行，含注释）；撤除原 `tasks.withType(Test).configureEach` 内直接调任务分类 API 的 8 行。
 
 ## 五、aggregate 取新 job 产物与总数不变性论证
 
@@ -145,7 +151,7 @@ $ grep -n "excludeRhino\|includeRhino\|rhino-eval-tests\|test-results-rhino\|nee
 - 隔离后 Rhino 类真挂了谁发现：独立 `rhino-eval-tests` job 8 分钟超时兜底；job 红 → `needs` 阻断 aggregate → 整轮 Verify 红，诊断步骤 `:458-475` 抓失败用例名与日志尾段。不会再出现"挂死被分片 45 分钟兜底掩盖、分片间互相牵连"的情况。
 - 总数校验会不会误判：
   - 若 Rhino job 产物漏下载（pattern 漂移），求和会少掉分类内用例数，触发 `total < BASELINE` 硬断言红——漏产物会被总数闸门抓住，不会静默掉数。
-  - 若分类标记未被 Gradle 识别，独立 job 匹配到零个测试，Gradle 报"No tests found"或该 job XML 为空；空 XML 场景 aggregate 仍按求和断言，具体表现以 CI 为准（见 §八 未验证项）。
+  - 若分类标记未被 Gradle 识别，独立 job 匹配到零个测试，Gradle 报"No tests found"或该 job XML 为空；空 XML 场景 aggregate 仍按求和断言，具体表现以 CI 为准（见 §十一 未验证项）。
 - 三阶：未来新增 Rhino 求值测试类，必须补 `@Category(RhinoEvalTest::class)` 才会被独立 job 收编；漏打标的类仍混在分片，挂死风险回归。这是本方案唯一的人为维护点。
 - 三阶：baseline 对照模式（`test-baseline`，`:590` 起）不带任何分类属性，仍单 job 跑全量，Rhino 类在该模式下照旧执行；该 job 超时 60 分钟，若 Rhino 死循环在 baseline 模式挂住，只会拖 baseline 单 job，不影响分片车道。
 - 对用户行为/业务代码零影响：本单不改 main 源码、不改测试断言，只改 CI 执行拓扑。
@@ -155,13 +161,13 @@ $ grep -n "excludeRhino\|includeRhino\|rhino-eval-tests\|test-results-rhino\|nee
 1. **分类未被 Gradle 识别（标记包名/Retention 不对）**：`includeCategories` 匹配零测试 → 独立 job 空跑或报 No tests found。兜底：CI 第一轮回证 `per_shard` 中 `rhino` 条数 > 0、总数 = 3185；若为零，优先查 `excludeCategories/includeCategories` 字符串与接口全限定名是否一致。
 2. **`-PexcludeRhino` 与 `-PincludeRhino` 同时传入**：Gradle 分类过滤同时作用时取交集，结果为空。现状两个 job 命令行各传一个，不存在同任务双传；build.gradle 两条 `if` 独立判断，命令行若误拼双属性即空跑——此边界靠 CI 命令行评审兜，未在脚本里互斥断言。
 3. **新 job 产物名漂移**：aggregate 下载 pattern 是 `test-results-rhino-*`；日后改名需同步改 pattern，否则总数闸门红。产物名常量集中在 `:481`/`:489`/`:516` 三处。
-4. **分片清单仍列着四个类**：discover 枚举不识别分类，`shard-*.txt` 仍含这四类；靠 Gradle `excludeCategories` 在执行层排除。若 `--tests` 包含过滤与分类排除的组合行为在当前 Gradle/AGP 版本下不生效（分类类仍被拉起），分片挂死风险回归——此点只能 CI 实测确认（§八）。
+4. **分片清单仍列着四个类**：discover 枚举不识别分类，`shard-*.txt` 仍含这四类；靠 Gradle `excludeCategories` 在执行层排除。若 `--tests` 包含过滤与分类排除的组合行为在当前 Gradle/AGP 版本下不生效（分类类仍被拉起），分片挂死风险回归——此点只能 CI 实测确认（§十一）。
 5. **新增 Rhino 类漏打标**：见 §六 三阶；本单只收编 Q-243 点名的四类，其余触达 Rhino 的测试类未动。
 
 ## 八、认知成本
 
 - 新增一个概念：`RhinoEvalTest` 分类标记；接手人需要知道"分片排除、独立 job 收编"这对属性开关（`-PexcludeRhino` / `-PincludeRhino`）。
-- 改动面集中：标记接口 1 个文件、四个类各 2~3 行导入注解、build.gradle 8 行、verify.yml 一个 job + 两处接线；无新抽象层、无新共享状态。
+- 改动面集中：标记接口 1 个文件、四个类各 2~3 行导入注解、build.gradle 分类配置 18 行（含注释）、verify.yml 一个 job + 两处接线；无新抽象层、无新共享状态。
 - 命名提示：`RhinoEvalTest` 是 JUnit4 分类接口，不是测试基类；仓内若出现同名缩写需注意区分。
 
 ## 九、新发现问题
@@ -171,7 +177,49 @@ $ grep -n "excludeRhino\|includeRhino\|rhino-eval-tests\|test-results-rhino\|nee
 3. build.gradle 两条属性分支未做互斥断言；命令行双传会空跑且错误信息不直观 —— **已入队**：下一单可在 test 任务加一行 `require` 互斥校验，双属性同传直接 fail 并提示。
 4. 沙箱无 JDK，分类过滤与 `--tests` 包含过滤的组合行为、独立 job 零测试判定均未本地验证 —— **已入队**：CI 首轮回证 `per_shard` 含 `rhino` 分组且总数 3185 不掉；若分片仍拉起四类，回到本单 §七-4 排查。
 
-## 十、未验证项
+## 十、配置期真红修复（Q-250，已收口并入 Q-246）
+
+### 10.1 报错原文（远端 CI run 45810466813，`Rhino eval tests (isolated)` configuring 阶段）
+
+- `Build file .../app/build.gradle line: 228` — `Could not create task ':app:testAppDebugUnitTest' > No signature of method: com.android.build.gradle.tasks.factory.AndroidUnitTest.includeCategories() is applicable for argument types: (String)`。
+- 连带后果：配置期任务创建即崩，`testAppDebugUnitTest` 未能成型，四个分片 job 全部 skipped。
+
+### 10.2 错误 API 根因
+
+- Q-246 把 `excludeCategories` / `includeCategories` 直接写在 `tasks.withType(Test).configureEach { }` 闭包里，调用目标是任务实例本身。
+- AGP 单元测试任务类型是 `com.android.build.gradle.tasks.factory.AndroidUnitTest`；该任务实例上没有 Gradle 核心 `Test` 的分类方法签名（`includeCategories(String)` / `excludeCategories(String)`），Groovy 配置期按方法签名分派失败 → 任务创建即炸。
+- 分类 API 实际归属 JUnit 框架选项对象 `JUnitOptions`：必须经 `testTask.useJUnit { … }` 闭包拿到 options delegate 再调。`test.filter` 只支持类名/方法名模式，不支持分类，不能替代。
+
+### 10.3 新写法（`app/build.gradle:216-227`）
+
+```groovy
+testOptions {
+    unitTests.all { testTask ->
+        testTask.useJUnit {
+            if (project.hasProperty('includeRhino')) {
+                includeCategories 'io.legado.app.RhinoEvalTest'
+            }
+            if (project.hasProperty('excludeRhino')) {
+                excludeCategories 'io.legado.app.RhinoEvalTest'
+            }
+        }
+    }
+}
+```
+
+### 10.4 二三阶影响
+
+- **属性未传时是否等于全量**：是。`unitTests.all` 对每个单元测试任务执行闭包；两个 `project.hasProperty` 都为 false 时不设任何 include/exclude 分类，`useJUnit { }` 为空操作，任务选择全部测试，与改动前全量口径一致；baseline 模式不传属性，同样全量。
+- **androidTest 是否受影响**：不受影响。`android.testOptions.unitTests.all` 只枚举 unit test 变体任务（`testAppDebugUnitTest` / `testAppReleaseUnitTest`）；androidTest 任务属 androidTest 体系，不在 `unitTests.all` 枚举内，不会被挂分类过滤。
+- 二阶：`useJUnit { }` 显式声明 JUnit4 运行器；仓内测试本就是 JUnit4（junit 4.13.2），与现状一致，不引入 JUnit5 平台。
+- 二阶：分片与独立 job 仍共用同一任务类型，区别只在命令行属性；属性名 `includeRhino` / `excludeRhino` 未变，`verify.yml` 无需改动。
+- 三阶：若未来引入 JUnit5，分类机制要换成 `@Tag` + `useJUnitPlatform`，本闭包写法需随之调整。
+
+### 10.5 本单未验证项
+
+- 沙箱无 JDK，未跑 Gradle 配置；Groovy 括号闭合与属性名已用 Python 静态核对（见 §十二 门禁输出）。配置期能否通过、分类是否真正生效，以云端 CI 下一轮为准。
+
+## 十一、未验证项
 
 - 未跑本地编译、未跑单测；`kotlin-syntax-lint.py` 静态检查通过，红绿以云端 CI 为准。
 - `excludeCategories`/`includeCategories` 与 `--tests` 包含过滤的组合生效情况、独立 job 实际收编类数与条数，未在本地验证（沙箱无 JDK）。
@@ -190,11 +238,19 @@ $ grep -n "excludeRhino\|includeRhino\|rhino-eval-tests\|test-results-rhino\|nee
   - 禁 git 写操作：未执行 add/commit/push/revert/checkout（子代理必读 :11）。
   - 禁本地编译：未跑 gradle/kotlinc/assemble；仅 python3 跑 lint / 门禁（子代理必读 :12）。
   - grep 回证：标记、注解、属性分支、workflow 接线均以 grep 现取现核（子代理必读 :18）。
-  - 未验证项声明：分类过滤组合行为、独立 job 收编条数、aggregate 真实归组已在 §八、§十 显式列出（子代理必读 :20）。
+  - 未验证项声明：分类过滤组合行为、独立 job 收编条数、aggregate 真实归组已在 §八、§十一 显式列出（子代理必读 :20）。
 
-## 十一、门禁自检输出
+## 十二、门禁自检输出
 
 ```
+$ python3 - <<'PY'  # Gradle Groovy 括号闭合 + 属性名/API 静态核对（沙箱无 JDK，不能跑 gradle）
+bracket balance: OK
+excludeRhino -> 1
+includeRhino -> 1
+includeCategories -> 3（其中 2 处在注释，1 处代码 :220）
+excludeCategories -> 2（其中 1 处在注释，1 处代码 :223）
+PY
+
 $ python3 data_scripts/kotlin-syntax-lint.py \
   app/src/test/java/io/legado/app/RhinoEvalTest.kt \
   app/src/test/java/io/legado/app/model/jsSource/JsSourceConfigTest.kt \
@@ -215,12 +271,13 @@ rc=0
 $ python3 data_scripts/check-anchor-card.py --strict docs/修复-Rhino测试隔离.md
 汇总: PASS=1 FAIL=0（共 1 份）
 rc=0
+（仅余 Q-199 历史基线引用的次要提及 WARN，非 FAIL）
 
 $ python3 data_scripts/check-problem-finding.py docs/修复-Rhino测试隔离.md
 PROBLEM-FINDING: PASS（1 份报告均带新发现问题与处置状态）
 rc=0
 
 $ python3 data_scripts/check-unpushed-reports.py
-UNPUSHED-REPORTS: PASS（本轮 6 份报告（含已提交未推送）回执合规）
+UNPUSHED-REPORTS: PASS（本轮 4 份报告（含已提交未推送）回执合规）
 rc=0
 ```
