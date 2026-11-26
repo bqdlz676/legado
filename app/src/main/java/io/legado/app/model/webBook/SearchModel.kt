@@ -38,7 +38,8 @@ class SearchModel(private val scope: CoroutineScope, private val callBack: CallB
     val threadCount = AppConfig.threadCount
     private var searchPool: ExecutorCoroutineDispatcher? = null
     private var mSearchId = 0L
-    private var searchPage = 1
+    // 页码游标：按已成功取页数推进，派发时不占页；失败重试不推高页号（Q-179 N1）。
+    private val pageCursor = SearchPageCursor()
     private var searchKey: String = ""
     private var bookSourceParts = emptyList<BookSourcePart>()
     private var searchBooks = arrayListOf<SearchBook>()
@@ -71,11 +72,11 @@ class SearchModel(private val scope: CoroutineScope, private val callBack: CallB
                     return
                 }
                 mSearchId = searchId
-                searchPage = 1
+                pageCursor.reset()
                 initSearchPool()
-            } else {
-                searchPage++
             }
+            // 同 id 续页 / 失败重试：派发时不推高页号，待取页由游标当前值决定；
+            // 本页成功收口后游标才前进，失败重试再次取同一页（Q-179 N1）。
             startSearch()
         }
     }
@@ -85,7 +86,7 @@ class SearchModel(private val scope: CoroutineScope, private val callBack: CallB
         var hasMore = false
         val sourceParts = bookSourceParts
         val key = searchKey
-        val page = searchPage
+        val page = pageCursor.currentPage()
         val progress = SearchProgressReporter(sourceParts.size, callBack::onSearchProgress)
         activeProgress.getAndSet(progress)?.cancel()
         val job = scope.launch(searchPool!!, start = CoroutineStart.LAZY) {
@@ -132,8 +133,13 @@ class SearchModel(private val scope: CoroutineScope, private val callBack: CallB
                 val context = currentCoroutineContext()
                 pageOwner.complete(context[Job]) {
                     when {
-                        error == null -> progress.finish {
-                            callBack.onSearchFinish(searchBooks.isEmpty(), hasMore)
+                        error == null -> {
+                            // 本页正常收口才算取页成功：游标前进到下一页。失败 / 取消分支不前进，
+                            // 同 id 重试再次取当前页，不跳过失败页（Q-179 N1）。
+                            pageCursor.markSuccess()
+                            progress.finish {
+                                callBack.onSearchFinish(searchBooks.isEmpty(), hasMore)
+                            }
                         }
                         context.isActive -> progress.finish {
                             callBack.onSearchCancel()
@@ -253,6 +259,7 @@ class SearchModel(private val scope: CoroutineScope, private val callBack: CallB
             searchPool?.close()
             searchPool = null
             mSearchId = 0L
+            pageCursor.reset()
         }
     }
 

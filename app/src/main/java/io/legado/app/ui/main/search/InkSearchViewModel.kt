@@ -182,7 +182,8 @@ class InkSearchViewModel(application: Application) : BaseViewModel(application) 
             // 复核通过后再取字段快照，避免挂起期间被新检索覆盖。
             val id = searchID
             val key = searchKey
-            // 同 id 复调：SearchModel 内部识别为同词续页，searchPage++ 取下一页。
+            // 同 id 复调：SearchModel 内部识别为同词续页；页码按已成功取页数推进，
+            // 失败重试再取当前页，不推高页号（Q-179 N1）。
             model.search(id, key)
         }
     }

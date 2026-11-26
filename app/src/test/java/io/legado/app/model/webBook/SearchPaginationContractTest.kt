@@ -70,7 +70,7 @@ class SearchPaginationContractTest {
     }
 
     @Test
-    fun searchModelUsesOwnerBeforeIncrementAndJobStart() {
+    fun searchModelUsesOwnerBeforeJobStartAndAdvancesCursorOnlyOnSuccess() {
         val source = projectFile(
             "src/main/java/io/legado/app/model/webBook/SearchModel.kt"
         ).readText()
@@ -82,16 +82,27 @@ class SearchPaginationContractTest {
 
         assertTrue(search.contains("synchronized(pageOwner)"))
         assertTrue(
-            search.indexOf("pageOwner.isRunning()") in 0..<search.indexOf("searchPage++")
+            search.indexOf("pageOwner.isRunning()") in 0..<search.indexOf("startSearch()")
         )
+        // Q-179 N1：派发路径不再自增页码；同 id 重试不推高页号。
+        assertFalse("search() 派发时不得再自增页码", search.contains("searchPage++"))
+        assertFalse("派发路径不得直接推进游标", search.contains("markSuccess()"))
         assertTrue(
             launch.indexOf("CoroutineStart.LAZY") in 0..<launch.indexOf("pageOwner.register(job)")
         )
         assertTrue(launch.indexOf("pageOwner.register(job)") < launch.indexOf("job.start()"))
         assertTrue(launch.contains("pageOwner.complete(context[Job])"))
+        // 页码前进只允许出现在成功收口分支（onCompletion error == null）。
+        assertTrue(launch.contains("pageCursor.markSuccess()"))
+        // 新检索分支必须把游标复位到第 1 页（换词不从上一轮页号续起）。
+        assertTrue(search.contains("pageCursor.reset()"))
         assertTrue(
             source.section("fun close()", "interface CallBack")
                 .contains("pageOwner.cancel()?.cancel()")
+        )
+        assertTrue(
+            source.section("fun close()", "interface CallBack")
+                .contains("pageCursor.reset()")
         )
     }
 

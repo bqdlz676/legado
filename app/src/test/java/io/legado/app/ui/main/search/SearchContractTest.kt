@@ -1,5 +1,6 @@
 package io.legado.app.ui.main.search
 
+import io.legado.app.ui.main.bookshelf.ShelfSearch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,7 +12,7 @@ import java.io.File
  * - 12 色 token 收口，hex 色值只允许出现在 SearchTokens.kt；
  * - 不引 MaterialTheme、不挂 Material ripple（rememberRipple）；
  * - 切片-13 逐字文案「搜书名、作者、或正文中的任意一句」落在 token 与输入框；
- * - 六态（Idle/Loading/Content/Empty/Error/Offline）在页面分支中齐全；
+ * - 六态（Idle/Loading/Content/Empty/Error/Offline）由浮层状态机 ShelfSearch.bodyOf 分区齐全；
  * - 源文件清单齐全。
  */
 class SearchContractTest {
@@ -33,7 +34,6 @@ class SearchContractTest {
         "SearchResultList.kt",
         "SearchHistoryPanel.kt",
         "SearchFallback.kt",
-        "SearchScreen.kt",
         "InkSearchViewModel.kt",
         "SearchMappers.kt",
     )
@@ -119,22 +119,29 @@ class SearchContractTest {
     }
 
     @Test
-    fun `screen branches cover all six load states`() {
-        val screen = read("SearchScreen.kt")
-        listOf(
-            "SearchLoadState.Idle",
-            "SearchLoadState.Loading",
-            "SearchLoadState.Content",
-            "SearchLoadState.Empty",
-            "SearchLoadState.Error",
-            "SearchLoadState.Offline",
-        ).forEach { assertTrue("页面缺态分支 $it", screen.contains(it)) }
+    fun `overlay state machine maps all six search load states to bodies`() {
+        // D3 收口：旧独立搜索页壳 SearchScreen.kt 已删，六态分支改由浮层状态机
+        // [ShelfSearch.bodyOf] 行为锁定——构造每种整页态，断言落区，不再回证死页面源码。
+        val open = ShelfSearch.open(ShelfSearch.closed)
+        val states = listOf(
+            SearchLoadState.Idle to ShelfSearch.OverlayBody.HISTORY_HOT,
+            SearchLoadState.Loading to ShelfSearch.OverlayBody.LOADING,
+            SearchLoadState.Content(emptyList()) to ShelfSearch.OverlayBody.RESULTS,
+            SearchLoadState.Empty("庄子") to ShelfSearch.OverlayBody.EMPTY,
+            SearchLoadState.Error("检索暂时不可用") to ShelfSearch.OverlayBody.ERROR,
+            SearchLoadState.Offline() to ShelfSearch.OverlayBody.OFFLINE,
+        )
+        states.forEach { (loadState, expectedBody) ->
+            val search = SearchUiState(loadState = loadState)
+            assertEquals("$loadState 应落 $expectedBody", expectedBody, ShelfSearch.bodyOf(open, search))
+        }
     }
 
     @Test
-    fun `offline and error states expose retry action`() {
-        val screen = read("SearchScreen.kt")
-        assertTrue(screen.contains("onRetry"))
+    fun `offline and error bodies expose retry action via overlay spec`() {
+        // 重试入口由浮层分区规格表声明；兜底文案标签仍收口在 SearchTokens。
+        assertTrue("失败分区必须给重试入口", ShelfSearch.specOf(ShelfSearch.OverlayBody.ERROR).hasRetryAction)
+        assertTrue("离线分区必须给重试入口", ShelfSearch.specOf(ShelfSearch.OverlayBody.OFFLINE).hasRetryAction)
         assertTrue(read("SearchTokens.kt").contains(SearchTokens.RETRY_LABEL))
     }
 
