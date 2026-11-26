@@ -501,6 +501,11 @@ if [ $? -eq 0 ]; then ok "55永远找问题" "$(echo "$PF55" | grep 'PROBLEM-FIN
 LK56=$(python3 data_scripts/check-lock-rule.py 2>&1)
 if [ $? -eq 0 ]; then ok "56锁口径" "$(echo "$LK56" | grep 'LOCK-RULE: PASS' | head -1)"; else bad "56锁口径" "$(echo "$LK56" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# 57 空槽即红（2026-11-26 用户质问「怎么每次都要我说满槽位」：槽空着却等用户喊才派单）。
+#   为什么：队列有 PENDING 而 RUNNING 不满 5，就等于让机器闲着；靠自觉必然复发，必须机检。
+SF57=$(python3 data_scripts/check-slot-full.py 2>&1)
+if [ $? -eq 0 ]; then ok "57空槽即红" "$(echo "$SF57" | grep 'SLOT-FULL: PASS' | head -1)"; else bad "57空槽即红" "$(echo "$SF57" | grep -E 'FAIL|  ' | head -3 | tr '\n' ' ')"; fi
+
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
 if [ ${#SKIP_LEGACY[@]} -gt 0 ]; then
   echo "SKIP-LEGACY 合计 ${#SKIP_LEGACY[@]} 份（存量件仅头部留痕，⑲/⑭/⑮ 豁免）："
