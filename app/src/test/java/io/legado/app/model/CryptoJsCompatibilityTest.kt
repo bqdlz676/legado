@@ -25,7 +25,10 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import io.legado.app.RhinoEvalTest
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class CryptoJsCompatibilityTest {
 
     private var previousCryptoJsText: Any? = null

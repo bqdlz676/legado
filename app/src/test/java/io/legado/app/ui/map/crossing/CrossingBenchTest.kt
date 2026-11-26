@@ -7,6 +7,8 @@ import io.legado.app.ui.map.crossing.model.ArmyType
 import io.legado.app.ui.map.crossing.model.Cell
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.legado.app.SlowBenchTest
+import org.junit.experimental.categories.Category
 
 /**
  * 推演引擎纯逻辑 bench（规格 §末「一回合 < 1ms，不调模型、不联网、离线跑」）。
@@ -18,6 +20,7 @@ import org.junit.Test
  * - 规格目标：纯规则层一回合 <1ms（设备口径）；宿主 JVM 预算放宽到 5ms，
  *   A* 单次 2ms，快照装配 2ms，60 回合整局 ≤300ms。
  */
+@Category(SlowBenchTest::class)
 class CrossingBenchTest {
 
     private companion object {

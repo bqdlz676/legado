@@ -303,7 +303,9 @@ jobs:
           path: class-lists
 
       # 只跑本分片清单内的类；--tests 是包含式过滤；-PexcludeRhino 排除 Rhino 阻塞求值分类（Q-246），
-      # 该分类由独立 rhino-eval-tests job 执行，不在分片内求值，避免阻塞线程拖死 test worker。
+      # -PexcludeSlowBench 排除重负载模型层 bench 分类（Q-261）；两类分别由独立
+      # rhino-eval-tests / slow-bench-tests job 执行，不在分片内求值，避免阻塞线程或大批量
+      # 迭代拖死 test worker。分片排除集与两个独立 job 包含集互斥，三者并集 == discover 全量清单。
       - name: Run shard unit tests and benches
         run: |
           set -uo pipefail
@@ -316,7 +318,7 @@ jobs:
           echo "shard ${{ matrix.shard }}/4: ${#CLASSES[@]} classes"
           # 不用 set -e：tee 之后要按 PIPESTATUS[0] 取 gradle 的真实退出码，
           # 否则失败信息会被管道吞掉、红因只剩一个空退出码。
-          ./gradlew :app:testAppDebugUnitTest -PexcludeRhino --no-daemon --build-cache --stacktrace "${ARGS[@]}" 2>&1 | tee "gradle-shard-${{ matrix.shard }}.log"
+          ./gradlew :app:testAppDebugUnitTest -PexcludeRhino -PexcludeSlowBench --no-daemon --build-cache --stacktrace "${ARGS[@]}" 2>&1 | tee "gradle-shard-${{ matrix.shard }}.log"
           exit "${PIPESTATUS[0]}"
 
       - name: Dump shard failure diagnostics
@@ -490,11 +492,136 @@ jobs:
           path: app/build/test-results/**/*.xml
           if-no-files-found: warn
 
-  # ---------- 汇总：needs 全部分片与 Rhino 独立 job，求和 XML tests= 并硬断言基线 ----------
+  # ---------- 重负载 bench 分类独立 job（Q-261）：只跑 @Category(SlowBenchTest)，8 分钟超时。
+  # 背景：这批模型层 bench 跑 warmup 数千 + 测量数万轮 / A* 寻路 / 整局推演，单类占用 worker
+  # 时间显著长于普通单测；混进分片会把某一片拖到超时且无 XML（shard 1 挂死 20 分钟以上即此路径）。
+  # 与 Rhino 同族：不靠 @Test(timeout)（杀不掉已进入大批量循环的线程），分类隔离后慢速只红本 job。
+  slow-bench-tests:
+    name: Slow bench tests (isolated)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 与分片相同的预装 JDK21 取值路径，避免并发下载 Adoptium 限流（说明见 test-shard 同名步骤）。
+      - name: Set up JDK 21 (preinstalled, no network)
+        run: |
+          set -euo pipefail
+          for H in "${JAVA_HOME_21_X64:-}" "${JAVA_HOME_21_ARM64:-}"; do
+            if [ -n "$H" ] && [ -x "$H/bin/java" ]; then
+              echo "JAVA_HOME=$H" >> "$GITHUB_ENV"
+              echo "$H/bin" >> "$GITHUB_PATH"
+              "$H/bin/java" -version 2>&1 | head -3
+              echo "using preinstalled JDK21 at $H"
+              exit 0
+            fi
+          done
+          echo "::warning::runner 未预装 JDK21，回落下拉 temurin"
+          for i in 1 2 3; do
+            if curl -fsSL -o /tmp/jdk21.tar.gz \
+              "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"; then
+              mkdir -p /opt/jdk21
+              tar -xzf /tmp/jdk21.tar.gz -C /opt/jdk21 --strip-components=1
+              echo "JAVA_HOME=/opt/jdk21" >> "$GITHUB_ENV"
+              echo "/opt/jdk21/bin" >> "$GITHUB_PATH"
+              /opt/jdk21/bin/java -version 2>&1 | head -3
+              exit 0
+            fi
+            echo "::warning::jdk download attempt $i failed"; sleep 15
+          done
+          echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
+
+      - name: Install SDK components (skip when image preinstalled)
+        run: |
+          set -e
+          if [ -d "${ANDROID_HOME}/platforms/android-36" ] && [ -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            echo "SDK 组件已预装，跳过 sdkmanager"; exit 0
+          fi
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          for i in 1 2 3; do
+            if "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"; then
+              echo "sdk components ok (attempt $i)"; exit 0
+            fi
+            echo "::warning::sdkmanager attempt $i failed, retry in 20s"; sleep 20
+          done
+          echo "::error::sdkmanager failed 3 times"; exit 1
+
+      - name: Compute cache key inputs
+        id: cachekey
+        run: |
+          set -e
+          DIST="$(grep '^distributionUrl=' gradle/wrapper/gradle-wrapper.properties | cut -d= -f2- | tr -d '\\')"
+          echo "dist-hash=$(printf '%s' "$DIST" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle wrapper and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'gradle.properties') }}
+          restore-keys: |
+            gradle-${{ steps.cachekey.outputs.dist-hash }}-
+            gradle-
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      # -PincludeSlowBench 只纳入 SlowBenchTest 分类；不带 --tests，由 Gradle 分类过滤器选取，
+      # 与分片的 -PexcludeSlowBench 互斥，互不交叉执行（aggregate 的跨 job 重复执行判定据此不报错）。
+      - name: Run slow bench category tests
+        run: |
+          set -uo pipefail
+          ./gradlew :app:testAppDebugUnitTest -PincludeSlowBench --no-daemon --build-cache --stacktrace 2>&1 | tee gradle-slow-bench.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Dump slow-bench failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### slow-bench-tests 失败诊断"
+            echo "- 测试 XML 数: $(ls app/build/test-results/testAppDebugUnitTest/*.xml 2>/dev/null | wc -l)"
+            echo '```text'
+            grep -E 'FAILED|error:|Exception|No tests found|Could not|FAILURE|BUILD|STARTED' gradle-slow-bench.log 2>/dev/null | head -40 || true
+            echo '--- tail 40 ---'
+            tail -40 gradle-slow-bench.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          FAILED_CASES="$(grep -E 'FAILED$' gradle-slow-bench.log 2>/dev/null | sed 's/^ *//' | head -12 | tr '\n' ';')"
+          if [ -n "$FAILED_CASES" ]; then
+            echo "::error::slow-bench-tests 失败用例: ${FAILED_CASES:0:900}"
+          else
+            echo "::error::slow-bench-tests 无匹配失败用例行,尾部: $(tail -6 gradle-slow-bench.log 2>/dev/null | tr '\n' ';' | cut -c1-700)"
+          fi
+
+      # 绿跑 XML 供 test-aggregate 下载求和（pattern: test-results-slow-bench-*）。
+      - name: Upload slow-bench JUnit XML results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-slow-bench
+          path: app/build/test-results/**/*.xml
+          if-no-files-found: warn
+
+      - name: Upload failed-slow-bench JUnit XML (failure-only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-slow-bench-failed
+          path: app/build/test-results/**/*.xml
+          if-no-files-found: warn
+
+  # ---------- 汇总：needs 全部分片、Rhino 与 slow-bench 独立 job，求和 XML tests= 并硬断言基线 ----------
   test-aggregate:
     name: Aggregate & assert test totals
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
-    needs: [discover, test-shard, rhino-eval-tests]
+    needs: [discover, test-shard, rhino-eval-tests, slow-bench-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -514,6 +641,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: test-results-rhino-*
+          path: results
+
+      # Q-261：slow-bench 独立 job 的 XML 一并下载求和；漏掉这份会让总条数较基线少掉 bench 分类的用例数。
+      - name: Download slow-bench JUnit XML results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-slow-bench-*
           path: results
 
       - name: Download class manifest
@@ -539,7 +673,14 @@ jobs:
           dup = []
           for x in xmls:
               m = re.search(r'shard-(\d+)', x)
-              shard = m.group(1) if m else ('rhino' if 'rhino-eval' in x else '?')
+              if m:
+                  shard = m.group(1)
+              elif 'rhino-eval' in x:
+                  shard = 'rhino'
+              elif 'slow-bench' in x:
+                  shard = 'slowbench'
+              else:
+                  shard = '?'
               root = ET.parse(x).getroot()
               suites = [root] if root.tag == 'testsuite' else root.findall('testsuite')
               for s in suites:

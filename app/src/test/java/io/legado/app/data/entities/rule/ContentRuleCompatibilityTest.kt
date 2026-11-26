@@ -10,7 +10,10 @@ import io.legado.app.help.rhino.NativeBaseSource
 import io.legado.app.utils.GSON
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import io.legado.app.RhinoEvalTest
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class ContentRuleCompatibilityTest {
 
     @Test

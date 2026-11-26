@@ -16,7 +16,9 @@ import org.junit.Test
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class RhinoJsonInitializationTest {
 
     @Test

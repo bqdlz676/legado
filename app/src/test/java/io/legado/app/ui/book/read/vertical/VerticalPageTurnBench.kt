@@ -2,6 +2,8 @@ package io.legado.app.ui.book.read.vertical
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.legado.app.SlowBenchTest
+import org.junit.experimental.categories.Category
 
 /**
  * 落文 · 竖排翻页 bench（切片-08 性能红线：翻页全程 ≤16ms/帧）。
@@ -12,6 +14,7 @@ import org.junit.Test
  * 口径：翻页路径只切换当前页索引并映射已缓存的字位，不触发重新测量；
  * 这里逐次计量 next / prev / jumpTo 单次调用耗时，对标一帧 16ms 预算。
  */
+@Category(SlowBenchTest::class)
 class VerticalPageTurnBench {
 
     private companion object {

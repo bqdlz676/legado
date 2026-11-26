@@ -38,7 +38,9 @@ import java.io.IOException
 import java.util.zip.Deflater
 import java.util.zip.DeflaterOutputStream
 import java.util.zip.GZIPOutputStream
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class SourceCompatibilityTest {
 
     @Test

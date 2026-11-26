@@ -13,7 +13,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.legado.app.RhinoEvalTest
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class JsSourceEngineTest {
 
     @Test

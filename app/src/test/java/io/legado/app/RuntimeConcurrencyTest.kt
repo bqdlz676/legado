@@ -20,7 +20,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.concurrent.thread
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class RuntimeConcurrencyTest {
 
     @Test

@@ -2,12 +2,15 @@ package io.legado.app.ui.main.search
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.legado.app.SlowBenchTest
+import org.junit.experimental.categories.Category
 
 /**
  * 搜索页模型层 bench 断言：各阶段 p95 必须落在对应预算内。
  * 注意：本 bench 只覆盖纯模型 / 状态解析耗时；Compose 重组、真实绘制与触摸派发
  * 需真机或模拟器实测，未在本测试中验证。
  */
+@Category(SlowBenchTest::class)
 class SearchBenchTest {
 
     @Test

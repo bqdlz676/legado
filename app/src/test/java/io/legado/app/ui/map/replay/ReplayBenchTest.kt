@@ -3,6 +3,8 @@ package io.legado.app.ui.map.replay
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import io.legado.app.SlowBenchTest
+import org.junit.experimental.categories.Category
 
 /**
  * 战役回放模型层 bench（切片-07 性能红线 + 契约 §1-5）。
@@ -10,6 +12,7 @@ import org.junit.Test
  * 导演主循环每帧都要跑事件派发 / 交战检测 / 视觉派生，单帧预算压在 2ms 内留出
  * 绘制余量；战役构建与箭头采样按模型层 4ms / 1ms 口径。数字打到测试日志，真机再压。
  */
+@Category(SlowBenchTest::class)
 class ReplayBenchTest {
 
     private lateinit var director: ReplayDirector

@@ -2,12 +2,15 @@ package io.legado.app.ui.components
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.legado.app.SlowBenchTest
+import org.junit.experimental.categories.Category
 
 /**
  * 模型层 bench 断言：各阶段 p95 必须落在模型预算内（4ms），远低于单帧 16ms 红线。
  * 注意：本 bench 只覆盖纯模型 / 状态解析耗时；Compose 渲染帧耗时需真机或模拟器实测，
  * 未在本测试中验证。
  */
+@Category(SlowBenchTest::class)
 class ComponentBenchTest {
 
     @Test

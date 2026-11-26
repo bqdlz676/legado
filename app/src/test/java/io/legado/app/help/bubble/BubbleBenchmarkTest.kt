@@ -5,6 +5,8 @@ import io.legado.app.help.dict.ChineseDict
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import io.legado.app.SlowBenchTest
+import org.junit.experimental.categories.Category
 
 /**
  * 气泡解析性能 bench（规格切片-02 §5：冷启动首触气泡 ≤ 300ms（含加载）；之后 ≤ 80ms）。
@@ -16,6 +18,7 @@ import org.junit.Test
  * - 本 bench 在宿主 JVM 上跑，只验证解析编排路径不超时；荣耀 WIN 真机上的冷启动词典加载
  *   耗时仍需真机复测，未在本机验证的部分不计入通过结论。
  */
+@Category(SlowBenchTest::class)
 class BubbleBenchmarkTest {
 
     private companion object {

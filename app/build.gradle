@@ -222,6 +222,23 @@ android {
                 if (project.hasProperty('excludeRhino')) {
                     excludeCategories 'io.legado.app.RhinoEvalTest'
                 }
+                // Q-261：重负载模型层 bench 隔离，与 Rhino 同族（类粒度 JUnit4 分类）。
+                // 分片带 -PexcludeSlowBench 排除；专用 slow-bench-tests job 带 -PincludeSlowBench 收编。
+                if (project.hasProperty('includeSlowBench')) {
+                    includeCategories 'io.legado.app.SlowBenchTest'
+                }
+                if (project.hasProperty('excludeSlowBench')) {
+                    excludeCategories 'io.legado.app.SlowBenchTest'
+                }
+            }
+            // Q-261 取证兜底：每个 Test 任务开用例级 STARTED/FAILED 日志。
+            // 为什么只开 events 不开 showStandardStreams：上一轮 shard 1/2 挂死 45 分钟，
+            // 日志里没有一条用例名，root cause 无从取证；STARTED 能留下"最后开始的测试类"，
+            // 失败/超时翻日志即可 grep 出 culprit。showStandardStreams 会把用例 stdout 全量
+            // 灌入日志造成爆量，这里显式关死。
+            testTask.testLogging {
+                events "STARTED", "FAILED"
+                showStandardStreams = false
             }
         }
     }

@@ -14,7 +14,9 @@ import org.htmlunit.corejs.javascript.NativeJavaClass
 import org.htmlunit.corejs.javascript.Scriptable
 import org.htmlunit.corejs.javascript.ScriptableObject
 import org.htmlunit.corejs.javascript.Wrapper
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class JsEngineCapabilitiesTest {
 
     @Test

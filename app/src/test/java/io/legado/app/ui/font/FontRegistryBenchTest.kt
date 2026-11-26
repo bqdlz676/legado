@@ -3,6 +3,8 @@ package io.legado.app.ui.font
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import io.legado.app.SlowBenchTest
+import org.junit.experimental.categories.Category
 
 /**
  * U9 字体加载编排 bench（切片-08：字体首屏子集 ≤ 200KB；首屏渲染 < 400ms）。
@@ -13,6 +15,7 @@ import org.junit.Test
  * - 本 bench 在宿主 JVM 上跑，只验证编排路径不超时；荣耀 WIN 真机上的资产读取 /
  *   Typeface 构造耗时仍需真机复测，未在本机验证的部分不计入通过结论。
  */
+@Category(SlowBenchTest::class)
 class FontRegistryBenchTest {
 
     private companion object {
