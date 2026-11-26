@@ -16,6 +16,8 @@
   E. 被否决串扫描：三布尔含 APK / ≤3 并发 / 竖排引擎 / 印章圆形 / 副图标 ic_launcher_small；
      白名单（流水留档、复检/审计/复盘/验收/候选/切片/索引/备案等证据性文档）与
      行内否定/作废标记豁免后，仍裸奔命中即报。
+     引述豁免（2026-11-26 ㉓ 假红收口）：命中串整段落在同行配对引号/反引号内
+     （「」『』“”"`）视为回溯引用，不报红；引号外的同串仍必须红。
 
 退出码：0 = RULE-LEDGER: PASS；1 = RULE-LEDGER: FAIL。
 --selftest：造夹具双向跑通 PASS / FAIL 两条通路，跑完自删。
@@ -50,6 +52,45 @@ EXEMPT_WORDS = ["作废", "否决", "废弃", "弃", "旧称", "历史", "留档
                 "裁决", "旧口径", "被否决", "不再", "不许", "禁", "纠正", "修正",
                 "取代", "弃用", "删除", "不制作", "取消", "驳回", "有意缺席",
                 "分页引擎", "不成立", "误读", "澄清"]
+
+# 引述豁免（2026-11-26 ㉓ 假红收口）：
+# 为什么加：实测两类假红——① 两位数计数「在飞 23 槽」被裸子串 3+槽 误抓（已由数字边界收口）；
+#   ② 变更说明里用引号回指旧段落名（如「有无 APK」行一字未动），旧串在引号内、不是现行规则，
+#   却被当成裸奔旧条文。故加引号配对识别：命中串整段在引号/反引号区间内即视为引述，不报红。
+# 边界在哪：
+#   - 引号按当前行配对，不支持跨行、不支持嵌套；开引号后同行找不到闭引号 → 不成对，不豁免（fail-closed）。
+#   - 只豁免命中串所在的那个区间，不豁免整行；同一行引号外再出现同串仍判红。
+#   - 回指词（一字未动/原文/引述/回指/改名）是变更说明的伴随标记，单独出现不构成豁免，
+#     必须同时满足命中串在引号内；防止把真裸奔规则挂上"原文"二字绕过。
+# 误判风险：作者若把一条真裸奔规则整句包进引号即可逃过本扫描；缓解：文件白名单与行内豁免词
+#   照旧叠加，引述豁免不扩大到整行，且引号外同串仍红；真红条文应落在无引号的规则正文里。
+QUOTE_PAIRS = [("「", "」"), ("『", "』"), ("“", "”"), ('"', '"'), ("`", "`")]
+# 回指词：标记本句在回指旧文/旧名；仅作语境提示，不单独豁免（见上方边界）。
+QUOTE_REF_WORDS = ["一字未动", "原文", "引述", "回指", "改名"]
+
+
+def _quote_spans(line):
+    """行内配对引号的内容区间 [(start, end), ...]，左到右非重叠；不成对的引号忽略。"""
+    spans = []
+    i, n = 0, len(line)
+    while i < n:
+        opener = next((op for op, _ in QUOTE_PAIRS if line[i] == op), None)
+        if opener is None:
+            i += 1
+            continue
+        closer = dict(QUOTE_PAIRS)[opener]
+        j = line.find(closer, i + 1)
+        if j == -1:
+            i += 1
+            continue
+        spans.append((i + 1, j))
+        i = j + 1
+    return spans
+
+
+def _span_quoted(line, start, end):
+    """命中区间 [start, end) 是否整段落在某对引号区间内。"""
+    return any(s <= start and end <= e for s, e in _quote_spans(line))
 
 # 文件级白名单：证据性 / 留档性文档，旧串只作回溯引用，不接新判定
 WHITELIST_FILE = [
@@ -194,8 +235,16 @@ def scan_rejected(root=ROOT):
                 if any(w in line for w in EXEMPT_WORDS):
                     continue
                 for name, pat in REJECTED:
-                    if pat.search(line):
+                    bare_hit = None
+                    for m in pat.finditer(line):
+                        if _span_quoted(line, m.start(), m.end()):
+                            # 引述豁免：命中串整段在引号/反引号内，是回溯引用，不报红
+                            continue
+                        bare_hit = m
+                        break
+                    if bare_hit is not None:
                         hits.append((rel, lineno, name, line.strip()[:80]))
+                        break
     return hits, scanned
 
 
@@ -273,21 +322,35 @@ def selftest():
     w("docs/规则总账.md", ledger_ok)
     w("docs/规则冲突清单.md", conflict_ok)
     w("docs/台账-三件缺项.md", gap_ok)
+    # 引述豁免回归夹具（2026-11-26 ㉓ 假红收口）：
+    # (a) 两位数槽位计数「在飞 23 槽」不得被判成并发上限旧口径；
+    # (b) 引号内旧段落名回指「有无 APK」不算裸奔。
+    w("docs/自检-引述豁免.md",
+      "# 引述豁免回归\n"
+      "- 在飞 23 槽：Q-63 点字详情改走半屏。\n"
+      "- 其余章节（含「有无 APK」行）一字未动。\n")
 
     ok, counts, problems, scanned = run_checks(tmp)
     assert ok, f"合规夹具应 PASS，实际 FAIL：{problems}"
+    assert not problems["E否决串裸奔"], f"引述/计数夹具不应命中 E 组：{problems['E否决串裸奔']}"
     print("[selftest] 合规夹具 PASS 通路 OK：", counts)
+    print("[selftest] 回归 (a)「在飞 23 槽」计数 PASS；(b) 引号内「有无 APK」引述 PASS")
 
     # FAIL 夹具：总账缺锚点列值、冲突缺裁决、缺项超期、否决串裸奔
     w("docs/规则总账.md", ledger_ok.replace("总纲:198", ""))
     w("docs/规则冲突清单.md", conflict_ok.replace("以后令为准", "待定"))
     w("docs/台账-三件缺项.md", gap_ok.replace("2026-11-26", "2026-11-20"))
     w("docs/临时-裸奔.md", "# 留档\n进度只报三布尔含 APK。\n")
+    # (c) 裸奔旧条文：引号外的「满编 3 槽」必须 FAIL，引述豁免不得放行。
+    w("docs/自检-裸奔槽位.md", "进度满编 3 槽，两个写一个查。\n")
     ok2, _, problems2, _ = run_checks(tmp)
     assert not ok2, "违规夹具应 FAIL，实际 PASS"
     fail_groups = [k for k, v in problems2.items() if v]
     print("[selftest] 违规夹具 FAIL 通路 OK，命中组：", fail_groups)
     assert set(["A总账结构", "B编号覆盖", "C冲突裁决", "D缺项逾期", "E否决串裸奔"]) & set(fail_groups)
+    e_hits = problems2["E否决串裸奔"]
+    assert any("满编 3 槽" in h for h in e_hits), f"裸奔槽位夹具必须被 E 组抓到：{e_hits}"
+    print("[selftest] 回归 (c) 裸奔「满编 3 槽」FAIL 通路 OK")
 
     import shutil
     shutil.rmtree(tmp)

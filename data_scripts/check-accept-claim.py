@@ -19,8 +19,10 @@ def main(repo: str) -> int:
     for f in base.rglob('*.md'):
         try:
             txt = f.read_text(encoding='utf-8', errors='strict')
-        except OSError:
-            continue
+        except OSError as e:
+            # 读不了的文件不许静默跳过（M-49）：跳过＝判 PASS，而"读不到"恰恰最该红。
+            print(f'FAIL {f.relative_to(base)}：读取失败（{type(e).__name__}: {e}），不得按不可读文件判 PASS')
+            return 1
         except UnicodeDecodeError as e:
             print(f'FAIL {f.relative_to(base)}：非法 UTF-8（第 {e.start} 字节起），不得按可读文件判 PASS')
             return 1

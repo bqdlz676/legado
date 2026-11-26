@@ -276,7 +276,7 @@ def build_snapshot(queue_items: list[dict]) -> str:
     fly_txt = "、".join(t for t, _ in fly[:5]) or "无"
     if len(fly) > 5:
         fly_txt += " 等"
-    lines.append(f"- 在飞 {len(fly)} 槽：{fly_txt}")
+    lines.append(f"- 在飞 {len(fly)} 个派单：{fly_txt}")
     lines.append("- 队列队首（PENDING 按序，其次 RUNNING，前三项）：" + (" → ".join(pend[:3]) if pend else "无 PENDING/RUNNING"))
     lines.append("- STEP 0 结论：" + "；".join(f"{n} {c}" for n, c in step0))
     lines.append("")

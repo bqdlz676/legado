@@ -14,7 +14,8 @@ import shutil
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TARGETS = ['docs/机制-总控必读.md', 'docs/落文-规矩总纲.md',
-           'docs/机制-防限流彻底方案.md', 'docs/派单队列.md']
+           'docs/机制-防限流彻底方案.md', 'docs/派单队列.md',
+           'docs/规则总账.md', 'docs/规则全集.md', 'docs/规则逻辑链.md', 'docs/接手/00-入口.md']
 OKWORDS = ('作废', '不许', '删除', '禁止', '禁用', '不使用')
 
 
