@@ -71,6 +71,35 @@ def evaluate(text: str):
     return e1, e2, e3
 
 
+def verify_e2(text: str, root: str):
+    """E2 命中必须回源：引用的 文件:行 要真存在且行号在文件长度内（M-31 幻影路径同族）。
+
+    为什么：旧判据只数 `文件:行` 的字符串形态，随便写 `a.kt:123` 就能凑够 E2——
+    证据成了排版，不是事实。这里按仓库根解析，允许纯文件名（在 app/ 与 data_scripts/ 下模糊找）。
+    """
+    ok, phantom = 0, []
+    for m in E2_RE.finditer(text):
+        ref = m.group(0)
+        path_part, _, line_part = ref.rpartition(':')
+        cands = [os.path.join(root, path_part)]
+        if not os.path.isabs(path_part):
+            cands += [os.path.join(root, d, path_part) for d in ('app', 'data_scripts')]
+        hit = next((c for c in cands if os.path.isfile(c)), None)
+        if not hit:
+            phantom.append(ref)
+            continue
+        try:
+            n = sum(1 for _ in open(hit, encoding='utf-8', errors='replace'))
+        except OSError:
+            phantom.append(ref)
+            continue
+        if int(line_part) <= n:
+            ok += 1
+        else:
+            phantom.append(ref + '（行号越界，文件仅 %d 行）' % n)
+    return ok, phantom
+
+
 def skip_legacy(text: str) -> bool:
     """规则上线前交付的报告：文件内明写「证据三件套留档」即豁免。
 
@@ -95,9 +124,10 @@ def check_file(path: str):
     if skip_legacy(text):
         return {'path': path, 'ok': True, 'counts': (0, 0, 0), 'missing': [], 'readable': True}
     e1, e2, e3 = evaluate(text)
-    missing = [name for name, hit in (('E1', e1 > 0), ('E2', e2 > 0), ('E3', e3 > 0)) if not hit]
+    e2_ok, phantom = verify_e2(text, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    missing = [name for name, hit in (('E1', e1 > 0), ('E2', e2_ok > 0), ('E3', e3 > 0)) if not hit]
     return {'path': path, 'ok': not missing, 'counts': (e1, e2, e3),
-            'missing': missing, 'readable': True}
+            'missing': missing, 'readable': True, 'e2_ok': e2_ok, 'phantom': phantom}
 
 
 def main(argv=None):
@@ -136,7 +166,10 @@ def main(argv=None):
                 print(f"── {path}  → FAIL（文件不存在，E1/E2/E3 全缺）")
             else:
                 miss_txt = '、'.join(f"{m} {E_LABELS[m]}" for m in res['missing'])
-                print(f"── {path}  E1={e1} E2={e2} E3={e3} → FAIL（缺 {miss_txt}）")
+                extra = ''
+                if res.get('phantom'):
+                    extra = '；幻影/越界 %d 处：%s' % (len(res['phantom']), '、'.join(res['phantom'][:3]))
+                print(f"── {path}  E1={e1} E2={e2}(回源{res.get('e2_ok', 0)}) E3={e3} → FAIL（缺 {miss_txt}）{extra}")
 
     print(f"汇总: PASS={passed} FAIL={failed}（共 {passed + failed} 份）")
     return 0 if failed == 0 else 1

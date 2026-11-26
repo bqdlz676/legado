@@ -13,8 +13,9 @@ import tempfile
 import shutil
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TARGETS = ['docs/机制-总控必读.md', 'docs/落文-规矩总纲.md']
-OKWORDS = ('作废', '不许', '删除', '禁止', '不使用')
+TARGETS = ['docs/机制-总控必读.md', 'docs/落文-规矩总纲.md',
+           'docs/机制-防限流彻底方案.md', 'docs/派单队列.md']
+OKWORDS = ('作废', '不许', '删除', '禁止', '禁用', '不使用')
 
 
 def scan(root=ROOT):
