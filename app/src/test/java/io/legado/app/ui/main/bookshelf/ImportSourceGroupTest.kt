@@ -68,7 +68,9 @@ class ImportSourceGroupTest {
         val longKey = "example.com/" + "x".repeat(60)
         val display = importGroupDisplayName(longKey)
         assertTrue(display.length <= 40)
-        assertEquals("a  b", importGroupDisplayName("a\n\t  b"))
+        // 口径对齐 ImportSourceGroup.importGroupDisplayName 的 Regex("\\s+") → 单空格折叠：
+        // 连续空白（含换行/制表）一律压成一个空格，故期望 "a b" 而不是保留双空格。
+        assertEquals("a b", importGroupDisplayName("a\n\t  b"))
     }
 
     @Test
