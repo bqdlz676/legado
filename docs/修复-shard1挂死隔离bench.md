@@ -169,6 +169,52 @@ io.legado.app.ui.map.crossing.CrossingBenchTest > searchGridReachesTarget FAILED
 - 为什么类粒度不是用例粒度：Gradle `includeCategories`/`excludeCategories`（JUnit4 Category）只能作用到测试类，无法按单个 `@Test` 方法开关。故判定单位是类——类内只要存在重负载 bench 或真求值用例，整类平移到独立 job；同类快速用例随之一起走，不影响总数与互斥并集。
 - `@Ignore` 半跑用例不影响：分类按类注解生效，类内被 `@Ignore` 跳过的用例本就不计入 XML `tests=`；独立 job 收编整类、分片排除整类，半跑用例归属不变，总数求和口径一致。
 
+### 7.5 本轮打标文件全路径清单（59 文件级回源）
+
+> 口径：门禁 59 只认文件级回源——全相对路径命中，或带 `.kt` 后缀文件名作为独立 token 命中；仅写目录名不算。下表逐行列出 18 个 `RhinoEvalTest` 与 9 个 `SlowBenchTest` 执行类的完整 `app/src/...` 路径，供窗口内提交逐条回源。
+
+**RhinoEvalTest 分类（18 个，既有 4 + 本轮新增 14）**
+
+| # | 全路径 | 归属 |
+| --- | --- | --- |
+| 1 | `app/src/test/java/io/legado/app/RhinoScriptErrorContextTest.kt` | 既有在册 |
+| 2 | `app/src/test/java/io/legado/app/help/source/RssSortUrlsTest.kt` | 既有在册 |
+| 3 | `app/src/test/java/io/legado/app/model/jsSource/JsSourceConfigTest.kt` | 既有在册 |
+| 4 | `app/src/test/java/io/legado/app/web/mcp/McpServiceContractTest.kt` | 既有在册 |
+| 5 | `app/src/test/java/io/legado/app/data/entities/rule/ContentRuleCompatibilityTest.kt` | 本轮新增 |
+| 6 | `app/src/test/java/io/legado/app/help/book/BookExportFileNameTest.kt` | 本轮新增 |
+| 7 | `app/src/test/java/io/legado/app/JsEngineCapabilitiesTest.kt` | 本轮新增 |
+| 8 | `app/src/test/java/io/legado/app/JsTest.kt` | 本轮新增 |
+| 9 | `app/src/test/java/io/legado/app/model/AutoTaskCoreTest.kt` | 本轮新增 |
+| 10 | `app/src/test/java/io/legado/app/model/CryptoJsCompatibilityTest.kt` | 本轮新增 |
+| 11 | `app/src/test/java/io/legado/app/model/jsSource/JsSourceEngineTest.kt` | 本轮新增 |
+| 12 | `app/src/test/java/io/legado/app/RhinoJsonInitializationTest.kt` | 本轮新增 |
+| 13 | `app/src/test/java/io/legado/app/RuntimeConcurrencyTest.kt` | 本轮新增 |
+| 14 | `app/src/test/java/io/legado/app/SourceCompatibilityTest.kt` | 本轮新增 |
+| 15 | `app/src/test/java/io/legado/app/ui/code/SafeEditorResultCodecTest.kt` | 本轮新增 |
+| 16 | `app/src/test/java/io/legado/app/model/analyzeRule/ReviewRuleParserTest.kt` | 本轮新增 |
+| 17 | `app/src/test/java/io/legado/app/model/analyzeRule/AnalyzeRuleElementsNormalizationTest.kt` | 本轮新增 |
+| 18 | `app/src/test/java/io/legado/app/data/entities/LoginInfoMapInitializationTest.kt` | 本轮新增 |
+
+**SlowBenchTest 分类（9 个执行类）**
+
+| # | 全路径 |
+| --- | --- |
+| 1 | `app/src/test/java/io/legado/app/help/bubble/BubbleBenchmarkTest.kt` |
+| 2 | `app/src/test/java/io/legado/app/ui/book/read/vertical/VerticalPageTurnBench.kt` |
+| 3 | `app/src/test/java/io/legado/app/ui/components/ComponentBenchTest.kt` |
+| 4 | `app/src/test/java/io/legado/app/ui/components/HalfSheetBenchTest.kt` |
+| 5 | `app/src/test/java/io/legado/app/ui/components/inkslate/InkSlateBenchTest.kt` |
+| 6 | `app/src/test/java/io/legado/app/ui/font/FontRegistryBenchTest.kt` |
+| 7 | `app/src/test/java/io/legado/app/ui/map/crossing/CrossingBenchTest.kt` |
+| 8 | `app/src/test/java/io/legado/app/ui/map/replay/ReplayBenchTest.kt` |
+| 9 | `app/src/test/java/io/legado/app/ui/main/search/SearchBenchTest.kt` |
+
+**分类标记接口（2 个，非执行测试类）**
+
+- `app/src/test/java/io/legado/app/SlowBenchTest.kt`（本轮新建）
+- `app/src/test/java/io/legado/app/RhinoEvalTest.kt`（既有，Q-246）
+
 ## 八、总数不变性论证
 
 - 互斥并集：分片 `-PexcludeRhino -PexcludeSlowBench` 排除 18 Rhino + 9 SlowBench 共 27 类；`rhino-eval-tests` `-PincludeRhino` 收编 18 类；`slow-bench-tests` `-PincludeSlowBench` 收编 9 类。两分类打标集合交集为空（脚本核对 `set(Rhino) & set(SlowBench) = ∅`），三车道并集 == discover 全量清单。
@@ -255,3 +301,211 @@ rc=0
 ```
 
 （anchor-card 仅 1 条次要提及 WARN：Q-250 已收口并入 Q-246，沿用其锚点卡，非 FAIL。）
+
+## 十四、收红记录（Q-264）
+
+> 背景：push `48d7b27`/`ff9c20c` 后全量门禁 `GATE: FAIL（3 项）`，三条由 Q-261 遗留或并发造成，按真实末行逐条修。本节记录三条红的红因、处置与复跑末行；本单不改 55 门禁脚本（Q-262 在飞改时间口径），不 push、不编译。
+
+### 14.1 ㉖ 接手链 HANDOVER（已修）
+
+- 红因：`b 快照 HEAD 落后 22 提交（> 20）`——入口 §6 快照 HEAD 停在 `ec66676`，当前 HEAD `ff9c20c`，差距 22 超阈值 20。
+- 处置：按 `update-handover.py` 既定口径重生成快照（脚本整文件重写 §6/§7，稳定段 §0~§5/§8~§10 逐字保留断言通过；未手改快照段）。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-handover.py
+HANDOVER: PASS
+rc=0
+```
+
+### 14.2 55 永远找问题 PROBLEM-FINDING（已修，只改报告未碰脚本）
+
+- 红因：判红 2 份——`docs/修复-三条门禁红.md`（4/6 条缺处置状态）、`docs/修复-台账与队列对账.md`（1/4 条缺处置状态）；条目句末状态措辞不在在册词表（已修/已入队/判废/待裁/已闭环/已处置）。
+- 处置（按事实填，未统一填待裁）：
+  - `修复-三条门禁红.md`：N-1 台账状态待 Q-247 收口单回写 → **已入队**；N-2 git mv 改名已落地收口 → **已闭环**；N-5 台账状态格待各收口单回填 → **已入队**；N-6 队列闭环核查与检测器范围收窄归属未定 → **待裁**。N-3（待裁）、N-4（已入队）原已合规未动。
+  - `修复-台账与队列对账.md`：N-4 四条在飞单起时由调度层回填、补登口径须带 HH:MM → **已入队**。N-1/N-2/N-3（待裁）原已合规未动。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-problem-finding.py docs/修复-三条门禁红.md docs/修复-台账与队列对账.md
+PROBLEM-FINDING: PASS（现行通过 2 份 / 历史豁免 0 份 / 基线豁免 0 份 / 判红 0 份）
+rc=0
+```
+
+### 14.3 59 提交来源 COMMIT-PROVENANCE（已修）
+
+- 红因：`48d7b27` 三个 `.kt` 在 docs 报告里只有包内相对路径或类名，未以文件级全路径回源——`ContentRuleCompatibilityTest.kt`、`BookExportFileNameTest.kt`、`SafeEditorResultCodecTest.kt`；59 只认全相对路径命中或带 `.kt` 文件名 token 命中，目录名不算。
+- 处置：本报告 §7.5 补「本轮打标文件全路径清单」表，18 个 RhinoEvalTest + 9 个 SlowBenchTest 逐行列出完整 `app/src/test/java/.../*.kt` 路径，另列 2 个标记接口。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-commit-provenance.py
+COMMIT-PROVENANCE: PASS（最近 10 条 commit 窗口内源码文件均有 docs 报告回源）
+rc=0
+```
+
+### 14.4 全量 rule-gate 复跑末行
+
+```
+$ bash data_scripts/rule-gate.sh
+55永远找问题   ok  PROBLEM-FINDING: PASS（现行通过 9 份 / 历史豁免 0 份 / 基线豁免 0 份 / 判红 0 份）
+59提交来源     ok  COMMIT-PROVENANCE: PASS（最近 10 条 commit 窗口内源码文件均有 docs 报告回源）
+GATE: FAIL —— 失败步骤清单（6 项）：
+  ✗ ⑯台账新鲜度｜FAIL 台账缺 1 个队列已登记的派单号（基线外新增欠账）：Q-266
+  ✗ ⑭回执证据｜── docs/修复-分组显示名断言口径.md E1=0 E2=4(回源2) E3=1 → FAIL（缺 E1 命令证据）；幻影/越界 2 处：ImportSourceGroupTest.kt:71、FileAssociationViewModel.kt:217
+  ✗ ㊵提交路径分离｜ e8ce4a8 ... 混合结单与代码：docs=['docs/索引-文档.md'] code=['.../ImportSourceGroupTest.kt'] COMMIT-SPLIT: FAIL
+  ✗ ㊶队列台账一致｜FAIL Q-231/232/233 RUNNING 缺 agent id / 起始时间 / 判据锚 QUEUE-LEDGER: FAIL（3 条）
+  ✗ ㊽未推送报告回执｜UNPUSHED-REPORTS: FAIL（1/6 份不合规） - docs/修复-分组显示名断言口径.md 缺锚点卡路径
+  ✗ 51自测覆盖｜SELFTEST-COVERAGE: FAIL（基线滞留 1 条：已补 selftest 却仍挂在欠账里） - check-workflow-contracts.py
+GATE_RC=1
+```
+
+- 归属说明：本单修复的 ㉖ HANDOVER、55 PROBLEM-FINDING、59 COMMIT-PROVENANCE 三项已全部转 PASS，不在上述 6 项失败清单内；剩余 6 项为其他在飞单/并发提交欠账（Q-266 台账缺号、分组显示名单回执与缺卡、e8ce4a8 混合 commit、Q-231/232/233 派单信息缺项、workflow-contracts selftest 基线滞留），不归本单，未代改。GATE 整体仍为 FAIL，待对应在飞单收口。
+
+## 十五、收红记录（Q-267 收尾）
+
+> 背景：承接 Q-264 剩余四条门禁红 + 一条判据补正。本单逐条给真实末行；不 push、不编译；不碰 Q-265 在改的 `data_scripts/check-workflow-contracts.py`。落点：本节续写于本报告（Q-264 §十四 同脉络），未新建第 4 份报告。
+
+### 15.1 ⑯ 台账新鲜度 / 内容对账（已修）
+
+- 红因（Q-264 复核快照）：`台账缺 1 个队列已登记的派单号（基线外新增欠账）：Q-266`；台账在飞行仅 4 列残缺，缺验收代理 / 验收产物 / 级别。
+- 处置：
+  - `docs/派单台账.md:281` Q-231/232/233 合并行按 7 列 schema 补齐：写码代理 `s_000idW8Xmyx`、文件域 `data_scripts/check-workflow-contracts.py；check-m42 类门禁；data_scripts/selftest-baseline.json`、状态 🟡 在飞、验收代理待派、判据锚 `docs/修复-53自测与M42三元组.md`、级别 L1（L2 待 CI）。
+  - `docs/派单台账.md:282` Q-266 行补齐：查代理 `s_000iz0QmNHn`、CI 证据域（`.github/workflows/verify.yml`；bench/aggregate job；Verify run 45818022768）、在飞、验收产物预定、L1。
+  - `docs/派单台账.md:283` 新增 Q-267 本单行四要素：机制代理 `s_000iz0QmuSB`、起时 21:2x、文件域四份、判据锚本报告 §十五。
+  - `docs/派单台账.md:242-244` 旧三条 18:3x 待派行标「作废（已并入 21:1x 合并行）」，消一行两号双事实源歧义。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-dispatch-ledger.py
+ok    台账新鲜度：台账 mtime 距 HEAD -10 分钟内
+ok    台账内容对账：队列 253 个 Q 号均在台账内或已在历史基线（基线 38 条待销）
+ok    台账路径存在性：点名的报告均实存
+ok    在飞计数：5 条（硬上限 5）
+PASS  台账新鲜度与在飞计数合格
+rc=0
+```
+
+### 15.2 ㊶ 队列↔台账结构与四要素（已修）
+
+- 红因（Q-264 复核快照）：`Q-231/232/233 RUNNING 缺 agent id / 起始时间 / 判据锚`。
+- 处置：复核时队列主表 `docs/派单队列.md:57` 合并行六列已齐（代理 `s_000idW8Xmyx`、起时 2026-11-26 21:1x、判据锚 `Q-212；docs/台账-机制缺陷.md M-42`、文件域 `data_scripts/check-workflow-contracts.py`）；本单在队列主表 `docs/派单队列.md:62` 补登 Q-267 RUNNING 六列（agent / 起时 / 文件域 / 判据锚齐），并把历史追加账 Q-264 行由 RUNNING 回写 DONE（该单 §十四 三门禁已 PASS），使台账在飞 5 与队列 RUNNING 5 双源对齐。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-queue-ledger.py
+QUEUE-LEDGER: PASS（主表 53 行结构/状态/四要素/双源一致）
+rc=0
+```
+
+### 15.3 ⑭ 分组显示名报告 E1/E2/E3 证据（已修）
+
+- 红因：`docs/修复-分组显示名断言口径.md E1=0 E2=4(回源2) E3=1 → FAIL（缺 E1 命令证据）；幻影/越界 2 处：ImportSourceGroupTest.kt:71、FileAssociationViewModel.kt:217`。纯文件名在深层测试目录解析不到，判幻影；报告无 `grep -n` / `python3 data_scripts/` 形态命令行，E1 不命中。
+- 处置：
+  - 补 §2.2 证据回源：`grep -n "importGroupDisplayName" app/src/main/java/io/legado/app/ui/main/bookshelf/ImportSourceGroup.kt` → `:65`；`grep -n 'assertEquals("a b"' app/src/test/java/io/legado/app/ui/main/bookshelf/ImportSourceGroupTest.kt` → `:73`；`python3 data_scripts/kotlin-syntax-lint.py app/src/test/java/io/legado/app/ui/main/bookshelf/ImportSourceGroupTest.kt` → `KOTLIN-LINT: PASS（1 个文件）` rc=0。
+  - 两处幻影纯文件名改全路径：`app/src/test/java/io/legado/app/ui/main/bookshelf/ImportSourceGroupTest.kt:71`、`app/src/main/java/io/legado/app/ui/association/FileAssociationViewModel.kt:217`；§2.1 before/after 与源码口径行一并补全路径。
+  - §2.1 补 before（`7530b9a` 版 `:71` `assertEquals("a  b", ...)`）/ after（`e8ce4a8` 版 `:71-73` 注释 + `assertEquals("a b", ...)`）原文对照，源码 `ImportSourceGroup.kt:65-66` 口径行未改。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-evidence.py --strict docs/修复-分组显示名断言口径.md
+汇总: PASS=1 FAIL=0（共 1 份）
+rc=0
+```
+
+### 15.4 ㊽ 锚点卡对齐（已修）
+
+- 红因：`UNPUSHED-REPORTS: FAIL - docs/修复-分组显示名断言口径.md 缺锚点卡路径`。
+- 匹配规则核查（`data_scripts/check-anchor-card.py`）：R1 主对象反查按**文件名前缀编号**匹配 `docs/锚点/` 卡片，不是逐字命名约定；报告文件名无号时取正文首个非引用、非标题段落的首个缺陷号。既有卡 `docs/锚点/Q266-显示名断言.md` 前缀编号 Q266 已在册。
+- 处置：报告 §一 补归属句 `Q-266` 与路径行 `锚点卡：docs/锚点/Q266-显示名断言.md`，使主对象号 Q-266 命中既有卡；**未改名**。改名前已 `grep -rn "Q266\|显示名断言" docs/` 全仓回查：除卡片自身与台账/队列文字提及外，无别处按旧路径引用，不产生断链。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-anchor-card.py --strict docs/修复-分组显示名断言口径.md
+汇总: PASS=1 FAIL=0（共 1 份）
+rc=0
+```
+
+（保留 4 条次要提及 WARN：E1/E2/E3 为证据阶段编号被检测器 E 族正则误识，Q-267 为次要提及无独立卡；WARN 不判红，见 §十五 新发现问题 1。）
+
+### 15.5 ㊵ 索引生成器产物单列 generated 桶（已修，判据补正）
+
+- 红因：`e8ce4a8` 为「测试断言修正 + `docs/索引-文档.md` GEN 区间刷新」同提交，旧判据把索引产物当人工文档内容，与 `app/src/test/.../ImportSourceGroupTest.kt` 同提交即判混合结单。
+- 判据补正（`data_scripts/check-commit-split.py`）：
+  - 白名单 `GENERATED_INDEX_FILES = ('docs/索引-机制.md', 'docs/索引-文档.md')`，仅限这两份生成器产物。
+  - 新增 `is_generated_only()`：取 `git show <sha>:<file>` 解析 `<!-- GEN:START -->…<!-- GEN:END -->` 区间，再用 `git diff -U0` 解析命中 hunk 的新文件侧行号；**全部改动行落在区间内**才进 `generated` 桶，不计文档内容桶；任一改动落在区间外人工节、标记缺失或 diff 不可解析，保守归入 docs 内容桶照旧红（无法核验即不放绿）。
+  - 分桶由三桶扩为四桶：docs 内容 / code / R100 纯改名 / generated；混合判据仍只看 `docs_content and code`，generated 与代码同提交 PASS。
+- 双向夹具（`--selftest`，夹具用完自删）：
+  - 夹具 C：索引文件只改 GEN 区间内条目 + 代码同提交 → PASS，识别 1 条 generated。
+  - 夹具 D：索引文件改区间外人工节 + 代码同提交 → FAIL，不进 generated 桶。
+  - 既有夹具 A（R100 纯改名 + 代码 → PASS）、夹具 B（docs 内容改写 + 代码 → FAIL）保留。
+- 复跑末行：
+
+```
+$ python3 data_scripts/check-commit-split.py --commit e8ce4a8
+COMMIT-SPLIT: PASS（e8ce4a8 ... 路径已分离；生成器产物 ['docs/索引-文档.md']）
+rc=0
+
+$ python3 data_scripts/check-commit-split.py --count 5
+COMMIT-SPLIT: PASS（最近 5 条 commit 文档/代码已分离；1 条仅含索引生成器产物（GEN 区间内刷新））
+rc=0
+
+$ python3 data_scripts/check-commit-split.py --selftest
+[selftest] R100 纯改名+代码同提交 PASS 通路 OK，豁免： ['docs/new.md']
+[selftest] docs 内容改写+代码同提交 FAIL 通路 OK
+[selftest] 仅 GEN 区间内索引刷新+代码同提交 PASS 通路 OK，generated： ['docs/索引-文档.md']
+[selftest] 区间外人工节改写+代码同提交 FAIL 通路 OK
+[selftest] 夹具已自删，双向自测通过。
+rc=0
+
+$ python3 data_scripts/check-selftest-coverage.py
+SELFTEST-COVERAGE: PASS（49 个门禁中 25 已自带 selftest，24 条历史欠账待销）
+rc=0
+```
+
+### 15.6 本单改动文件全路径清单（59 文件级回源）
+
+- `docs/派单台账.md`（⑯/㊶ 台账行补齐、旧三行作废并入、Q-267 登记）
+- `docs/派单队列.md`（㊶ Q-267 主表行、Q-264 历史账回写 DONE）
+- `docs/修复-分组显示名断言口径.md`（⑭ E1/E2/E3 证据、全路径幻影修正、㊽ 锚点路径行）
+- `data_scripts/check-commit-split.py`（㊵ generated 桶 + 区间判定 + 双向夹具 C/D）
+- `docs/锚点/Q266-显示名断言.md`（既有卡，本单未改内容，仅报告回指对齐）
+
+### 15.7 全量 rule-gate 复跑末行与归属
+
+```
+$ bash data_scripts/rule-gate.sh
+⑯台账新鲜度                         ok    PASS  台账新鲜度与在飞计数合格
+㊶队列台账一致                      ok    QUEUE-LEDGER: PASS（主表 53 行结构/状态/四要素/双源一致）
+⑭回执证据                            ok    10 份报告回证齐全
+㊵提交路径分离                      ok    COMMIT-SPLIT: PASS（最近 5 条 commit 文档/代码已分离；1 条仅含索引生成器产物（GEN 区间内刷新））
+㊽未推送报告回执                   FAIL  UNPUSHED-REPORTS: FAIL（1/11 份已提交未推送的报告不合规） - docs/修复-分片清单净化.md：缺「守则回执」块
+51自测覆盖                             ok    SELFTEST-COVERAGE: PASS（49 个门禁中 25 已自带 selftest，24 条历史欠账待销）
+55永远找问题                          ok    PROBLEM-FINDING: PASS（现行通过 14 份 / 历史豁免 0 份 / 基线豁免 0 份 / 判红 0 份）
+59提交来源                             ok    COMMIT-PROVENANCE: PASS（最近 10 条 commit 窗口内源码文件均有 docs 报告回源）
+GATE: FAIL —— 失败步骤清单（3 项）：
+  ✗ ⑲锚点卡｜── docs/修复-分片清单净化.md → FAIL（缺锚点卡路径）
+  ✗ ㊹调度执行合规｜DISPATCH-B: FAIL RUNNING 行与真实在飞不一致： Q-262 s_000idMyGGqn：轨迹 12 分钟无更新（疑似僵尸 RUNNING）
+  ✗ ㊽未推送报告回执｜UNPUSHED-REPORTS: FAIL - docs/修复-分片清单净化.md：缺「守则回执」块
+GATE_RC=1
+```
+
+- 归属说明：本单负责的 ⑯ / ㊶ / ⑭ / ㊽（分组显示名报告）/ ㊵ / 51 六项均已转 PASS。剩余 3 红不归本单：⑲ 与 ㊽ 同指 `docs/修复-分片清单净化.md`（缺锚点卡路径、缺守则回执块），归该单代理补；㊹ B 点名 Q-262 `s_000idMyGGqn` 轨迹 12 分钟无更新，属在飞代理僵尸核查，归调度层。24 条 selftest 历史欠账中含 Q-265 在改的 `check-workflow-contracts.py`，本单未碰。
+
+### 15.8 新发现问题
+
+1. 锚点检测器 `ID_RE` 族名含 `E`，把证据阶段编号「E1 / E2 / E3」误识为 E 族缺陷号，对分组报告出 3 条次要提及 WARN（不判红）。状态：待裁（检测器词表排除纯阶段编号 `E\d`，或报告改用「证据一/二/三」措辞）。
+2. Q-262 `s_000idMyGGqn` 轨迹 12 分钟无更新，㊹ DISPATCH-B 判疑似僵尸 RUNNING；该单在改 `data_scripts/check-problem-finding.py`（Q-262 历史口径），是否收口或续跑需调度层核查轨迹。状态：已入队（调度层核查 Q-262 队列闭环）。
+3. `docs/修复-分片清单净化.md` 同时缺锚点卡路径（⑲）与守则回执块（㊽），双红同源。状态：已入队（归属该单代理补卡补回执）。
+4. 队列起时沿用粗粒度 `21:2x`，`check-dispatch-compliance.py` 的 `TIME_RE` 只认 `HH:MM` 精确分钟，熔断核算只能落 INFO 不判红；Q-231/Q-262/Q-267/Q-263/Q-266 均在此列。状态：待裁（队列起时口径统一为精确分钟，或正则放宽到 `HH:Mx` 粗粒度并标注不可熔断）。
+5. 生成器产物白名单目前仅两份索引；后续若新增索引类产物，必须同步登记 `GENERATED_INDEX_FILES` 并补区间判据，否则新产物会被当人工文档内容桶照旧红。状态：已入队（维护点已写进 `check-commit-split.py` 常量注释）。
+
+### 15.9 守则回执
+
+- 指纹：docs/机制-总控必读.md=66fbbf7bd6ae；docs/机制-子代理必读.md=c6806030a6d5；docs/机制-验收代理必读.md=a46af85f0145；docs/机制-文档子代理必读.md=6dd8114a6a74
+- 逐字引用 1：「不许 add/commit/push/revert/checkout——提交由总控统一做。」（docs/机制-子代理必读.md:11）
+- 逐字引用 2：「不许跑 gradle / kotlinc / assemble。编译只在云端 CI 发生。」（docs/机制-子代理必读.md:12）
+- 逐字引用 3：「每一处改动后用 `grep -n` 贴出真实输出（证明代码真的写入、证明旧符号真的清零）。」（docs/机制-子代理必读.md:18）
+- 适用条款：R57 一条缺陷一单；禁 git 写操作（未 add/commit/push）；禁本地编译（仅 python3 跑门禁 / lint / 静态核对）；grep 回证；未验证项显式声明；不碰 Q-265 在改的 `check-workflow-contracts.py`；E3 不凑 PASS。
+- 未验证项：沙箱无 JDK，Kotlin/JVM 红绿以云端 CI 为准；㊵ 区间判定只在 /tmp git 夹具与 `e8ce4a8` 历史 commit 上验证，未在新生成器刷新 commit 上复验。
+
