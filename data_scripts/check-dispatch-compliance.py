@@ -115,7 +115,7 @@ def zombies(rows, agents_dir=None, now=None):
 
 def timed_out(rows, now=None):
     now = now or time.time()
-    bad, no_stamp = [], []
+    bad, no_stamp, alive = [], [], []
     for qid, aid, cell in rows:
         m = TIME_RE.search(cell)
         if not m:
@@ -126,9 +126,19 @@ def timed_out(rows, now=None):
         start = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, hh, mm, 0, 0, 0, -1))
         if start > now:  # 跨天（起时在未来即昨天）
             start -= 86400
-        if (now - start) / 60.0 > TIMEOUT_MINUTES:
-            bad.append((qid, aid, '%.0f 分钟未收口（超 %d 分钟熔断线）' % ((now - start) / 60.0, TIMEOUT_MINUTES)))
-    return bad, no_stamp
+        elapsed = (now - start) / 60.0
+        if elapsed <= TIMEOUT_MINUTES:
+            continue
+        # 熔断的真意是"没进展"，不是"时钟走过了 15 分钟"：代理正在推进时掐掉它等于自废产能。
+        # 判据：超线且轨迹 5 分钟无更新 → FAIL；轨迹仍在更新 → INFO（点名已撑多久，留痕不判红）。
+        f = trajectory(aid)
+        stale = (now - os.path.getmtime(f)) / 60.0 if f else 1e9
+        if stale > 5:
+            bad.append((qid, aid, '%.0f 分钟未收口、轨迹 %.0f 分钟无更新（超 %d 分钟熔断线且已停摆）'
+                        % (elapsed, stale, TIMEOUT_MINUTES)))
+        else:
+            alive.append((qid, aid, '%.0f 分钟仍在推进（轨迹 %.0f 分钟内有更新）' % (elapsed, stale)))
+    return bad, no_stamp, alive
 
 
 def run(queue_path, agents_dir=None, now=None) -> int:
@@ -176,7 +186,7 @@ def run(queue_path, agents_dir=None, now=None) -> int:
     else:
         print('DISPATCH-B: PASS（RUNNING %d 行与轨迹一致）' % len(rows))
 
-    to, no_stamp = timed_out(rows, now)
+    to, no_stamp, alive = timed_out(rows, now)
     if to:
         failed += 1
         print('DISPATCH-C: FAIL 超过 15 分钟熔断线未收口：')
@@ -184,6 +194,8 @@ def run(queue_path, agents_dir=None, now=None) -> int:
             print('  - %s %s：%s' % (qid, aid, why))
     else:
         msg = 'DISPATCH-C: PASS'
+        for qid, aid, why in alive:
+            msg += '（INFO %s %s）' % (qid, why)
         if no_stamp:
             msg += '（INFO：%s 未写起时，无法核算熔断，派单时请写 `RUNNING（<id>，<HH:MM> 起）`）' % '、'.join(no_stamp)
         print(msg)

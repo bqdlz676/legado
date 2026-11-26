@@ -464,6 +464,11 @@ if [ $? -eq 0 ]; then ok "㊽未推送报告回执" "$(echo "$UR48" | grep 'UNPU
 VC49=$(python3 data_scripts/check-vacuous-pass.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊾空集不判PASS" "$(echo "$VC49" | grep 'VACUOUS-PASS: PASS')"; else bad "㊾空集不判PASS" "$(echo "$VC49" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# ㊿ 规则文本不许再教人挂起（F-124，用户 2026-11-26「把wait agent删了」）。
+#   为什么：文本里留着"用 wait_agent 阻塞"的条款，主控照着做就是空等；文本必须与口令同源。
+NW50=$(python3 data_scripts/check-no-wait-rule.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊿无等待条款" "$(echo "$NW50" | grep 'NO-WAIT-RULE: PASS')"; else bad "㊿无等待条款" "$(echo "$NW50" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
