@@ -93,7 +93,9 @@ class HomeFastScrollerContractTest {
         assertTrue(shelfFragment.contains("ComposeView"))
         assertTrue(shelfFragment.contains("BookshelfScreen("))
         assertTrue(shelfScreen.contains("fun BookshelfScreen("))
-        assertTrue(mainActivity.contains("InkShelfFragment"))
+        // B2：宿主 Activity 已改挂 Compose 主壳 MainShell；书架单路入口仍由 InkShelfFragment →
+        // BookshelfScreen 承担，壳内只定挂载位（B3 接线后替换槽位内容）。
+        assertTrue(mainActivity.contains("MainShell"))
 
         // 负向：新书架源码不得残留旧双路 FastScroller / RecyclerView 绑定 / 旧分路类名与旧布局名。
         listOf(shelfFragment, shelfScreen).forEach { source ->

@@ -73,20 +73,24 @@ class ShelfSearchD25Test {
         assertEquals("重新展开不应带上次关键词", "", state.query)
     }
 
-    // 3. 设置 Tab 幂等入栈：源码回证 switchTab 在已在目标页时不重复切换 / 不压 Activity。
+    // 3. 设置 Tab 幂等入栈：源码回证 switchTab 在已在目标槽位时不重复切换 / 不压 Activity。
+    // B2 壳化后守卫落在壳态 MainShellState；旧 ViewPager 条件串随旧壳迁出。
     @Test
     fun `settings tab switch is idempotent without pushing activity`() {
+        val stateFile = File(javaRoot, "io/legado/app/ui/main/shell/MainShellState.kt").readText()
+        val guard = stateFile.indexOf("if (selectedTab.ordinal != position)")
+        assertTrue("switchTab 必须先判当前槽位再切换", guard >= 0)
+
         val activity = File(javaRoot, "io/legado/app/ui/main/MainActivity.kt").readText()
-        val guard = activity.indexOf("if (binding.viewPagerMain.currentItem != position)")
-        assertTrue("switchTab 必须先判当前页再切换", guard >= 0)
+        assertFalse("旧画板导航分支必须清零", activity.indexOf("menu_paint") >= 0)
 
-        val paintBranch = activity.indexOf("menu_paint")
-        assertFalse("旧画板导航分支必须清零", paintBranch >= 0)
-
-        // 锚定监听分支本体（菜单槽位映射表中的同名 id 不算），确认不起 Activity。
-        val settingsBlock = activity.substringAfter("R.id.menu_my_config ->")
-        assertTrue("设置 Tab 只切 ViewPager 槽位，不起 Activity",
-            !settingsBlock.substringBefore("else -> false").contains("startActivity"))
+        // 壳内全部源码只做槽位切换，不向返回栈压入 Activity。
+        val shellRoot = File(javaRoot, "io/legado/app/ui/main/shell")
+        shellRoot.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { source ->
+                assertTrue("槽位切换不得 startActivity", !source.readText().contains("startActivity"))
+            }
     }
 
     // 4. 导航图标资源恰好 3 枚（书架 / 发现 / 设置，规格切片 ic_tab_*），旧人像 / 画板 / RSS / 填充齿轮清零。

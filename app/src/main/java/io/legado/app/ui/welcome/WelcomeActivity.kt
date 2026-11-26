@@ -18,7 +18,8 @@ import io.legado.app.ui.main.MainActivity
  * 不检测网络、不播放声音（启动动画原文「不做的」）。
  *
  * 导航说明：最后阅读直达分支（旧版 lastReadBook → ReadBookActivity）属共享入口接线，
- * 留主控 merge 时接回；本类只负责动画收口后落 [MainActivity]。
+ * 留主控 merge 时接回；本类只负责动画收口后落 [MainActivity]——B2 Compose 主壳宿主，
+ * 默认书架槽（2.8s 编排结束必进书架，不等待后台初始化）。
  */
 open class WelcomeActivity : ComponentActivity() {
 
