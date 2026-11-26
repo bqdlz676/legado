@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 QUEUE = ROOT / 'docs' / '派单队列.md'
 POLLUTION_RE = re.compile(r'(临时|坏样本|neg-|regress-|zzq)', re.I)
 FIXTURE_OK = 'data_scripts/fixtures/'
-# 出处：ZOMBIE 10 分钟＝`docs/机制-总控必读.md` §17/F-94「90 秒存活校验 + 轨迹长期无更新即判废」的松弛线；
+# 出处：ZOMBIE 10 分钟＝`docs/机制-总控必读.md` :141 小节/F-94「90 秒存活校验 + 轨迹长期无更新即判废」的松弛线；
 # TIMEOUT 15 分钟＝§2「每单写死 15 分钟熔断」。两者都是调度口径常量，改口径必须先改口径再改这里。
 ZOMBIE_MINUTES = 10
 TIMEOUT_MINUTES = 15
