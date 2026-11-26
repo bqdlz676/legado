@@ -1,0 +1,115 @@
+# 影子对照：单 job 全量 vs 现役 4 分片（只手动触发，永不进 push 链路）
+#
+# 为什么单独开一个 workflow 而不改现役 verify.yml：
+# 改 CI 拓扑是风险动作——单 job 可能撞 45 分钟上限、丢失"分片并集=全集"的交叉核对。
+# 所以要动它之前，先在影子路径上跑等价性证明：
+#   同一个 commit 上，本 workflow 单 job 跑全量单测，输出 XML 级统计；与现役 verify 的
+#   4 分片汇总结果按 tests/failures/errors/skipped + 类名集合逐项比对。连续 N 个 commit
+#   零差异，才有资格把默认切到单 job；有差异就永远不切。这就是"用实验替代赌"。
+#
+# 风险隔离：本 workflow 只有 workflow_dispatch 触发，不挂 push/PR，不参与绿红判定，
+# 也不与 verify 共享 concurrency group（不会 cancel 现役 run）。
+name: Shadow · single-job full tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要对照的 commit（留空则用触发时的 ref）'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shadow-single-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  single-job-full:
+    name: Single job full unit tests (shadow)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60    # 影子给更宽时限，只为测真实耗时；超时即证明单 job 不可行，结论直接记"不切"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Record wall-clock start
+        run: echo "START=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 21 (preinstalled, no network)
+        run: |
+          set -euo pipefail
+          for H in "${JAVA_HOME_21_X64:-}" "${JAVA_HOME_21_ARM64:-}"; do
+            if [ -n "$H" ] && [ -x "$H/bin/java" ]; then
+              echo "JAVA_HOME=$H" >> "$GITHUB_ENV"; echo "$H/bin" >> "$GITHUB_PATH"; exit 0
+            fi
+          done
+          curl -fsSL -o /tmp/jdk21.tar.gz "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"
+          mkdir -p /opt/jdk21 && tar -xzf /tmp/jdk21.tar.gz -C /opt/jdk21 --strip-components=1
+          echo "JAVA_HOME=/opt/jdk21" >> "$GITHUB_ENV"; echo "/opt/jdk21/bin" >> "$GITHUB_PATH"
+
+      - name: Install SDK components (skip when image preinstalled)
+        run: |
+          set -e
+          if [ -d "${ANDROID_HOME}/platforms/android-36" ] && [ -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            echo "SDK 已预装，跳过"; exit 0
+          fi
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Cache Gradle wrapper, modules and build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: shadow-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'gradle.properties') }}
+          restore-keys: shadow-
+
+      - name: Run full unit tests
+        run: |
+          set -uo pipefail
+          chmod +x gradlew
+          ./gradlew :app:testAppDebugUnitTest --no-daemon --build-cache --stacktrace 2>&1 | tee shadow.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Emit shadow stats (XML 级)
+        if: always()
+        run: |
+          python3 - <<'PY' | tee shadow-stats.json
+          import glob, json
+          import xml.etree.ElementTree as ET
+          total = failures = errors = skipped = 0
+          classes = set()
+          for x in glob.glob('app/build/test-results/testAppDebugUnitTest/*.xml'):
+              root = ET.parse(x).getroot()
+              suites = [root] if root.tag == 'testsuite' else root.findall('testsuite')
+              for s in suites:
+                  total += int(s.get('tests', 0)); failures += int(s.get('failures', 0))
+                  errors += int(s.get('errors', 0)); skipped += int(s.get('skipped', 0))
+                  for tc in s.findall('testcase'):
+                      cn = tc.get('classname')
+                      if cn:
+                          classes.add(cn)
+          print(json.dumps({'total': total, 'failures': failures, 'errors': errors,
+                            'skipped': skipped, 'classes': len(classes),
+                            'sorted_classes_hash': hash(tuple(sorted(classes)))}, ensure_ascii=False))
+          PY
+          echo "WALL=$(($(date +%s) - START))s" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "对照口径：本文件 total/failures/errors/skipped/classes 与现役 verify 的 aggregate 输出逐项比对；差异为 0 连续 N 个 commit 才可切默认，差异非 0 则永不切。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload shadow log and stats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-single-job
+          path: |
+            shadow.log
+            shadow-stats.json
+          if-no-files-found: warn

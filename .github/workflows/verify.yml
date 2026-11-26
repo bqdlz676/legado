@@ -76,9 +76,14 @@ jobs:
           done
           echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
-      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+      - name: Install SDK components (skip when image preinstalled)
         run: |
           set -e
+          # 快路径：镜像已带 platform 36 + build-tools 36.0.0 就直接跳过（每 job 省 30~60s，
+          # 6 个 job 合计一轮省 3~6 分钟）。组件缺失才走原 retry 安装，安装语义一字未改。
+          if [ -d "${ANDROID_HOME}/platforms/android-36" ] && [ -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            echo "SDK 组件已预装，跳过 sdkmanager"; exit 0
+          fi
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
           echo "Using sdkmanager: $SDKMANAGER"
@@ -111,7 +116,7 @@ jobs:
             ~/.gradle/wrapper
           # key = distributionUrl 指纹 + 全部 build.gradle* / 版本目录 / wrapper 配置 hash；
           # restore-keys 先同 Gradle 版本前缀回退，再裸前缀回退，保证依赖变更后可部分复用。
-          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'gradle.properties') }}
           restore-keys: |
             gradle-${{ steps.cachekey.outputs.dist-hash }}-
             gradle-
@@ -132,7 +137,7 @@ jobs:
         run: |
           set -uo pipefail
           # 保留完整日志用于失败诊断：管道 tee 让日志落盘，PIPESTATUS 取 gradle 真实退出码。
-          ./gradlew :app:compileAppDebugUnitTestKotlin :app:compileAppDebugUnitTestJavaWithJavac --no-daemon --stacktrace 2>&1 | tee gradle-discover.log
+          ./gradlew :app:compileAppDebugUnitTestKotlin :app:compileAppDebugUnitTestJavaWithJavac --no-daemon --build-cache --stacktrace 2>&1 | tee gradle-discover.log
           exit "${PIPESTATUS[0]}"
 
       - name: Dump discover failure diagnostics
@@ -244,9 +249,14 @@ jobs:
           done
           echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
-      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+      - name: Install SDK components (skip when image preinstalled)
         run: |
           set -e
+          # 快路径：镜像已带 platform 36 + build-tools 36.0.0 就直接跳过（每 job 省 30~60s，
+          # 6 个 job 合计一轮省 3~6 分钟）。组件缺失才走原 retry 安装，安装语义一字未改。
+          if [ -d "${ANDROID_HOME}/platforms/android-36" ] && [ -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            echo "SDK 组件已预装，跳过 sdkmanager"; exit 0
+          fi
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -274,7 +284,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'gradle.properties') }}
           restore-keys: |
             gradle-${{ steps.cachekey.outputs.dist-hash }}-
             gradle-
@@ -301,7 +311,7 @@ jobs:
           echo "shard ${{ matrix.shard }}/4: ${#CLASSES[@]} classes"
           # 不用 set -e：tee 之后要按 PIPESTATUS[0] 取 gradle 的真实退出码，
           # 否则失败信息会被管道吞掉、红因只剩一个空退出码。
-          ./gradlew :app:testAppDebugUnitTest --no-daemon --stacktrace "${ARGS[@]}" 2>&1 | tee "gradle-shard-${{ matrix.shard }}.log"
+          ./gradlew :app:testAppDebugUnitTest --no-daemon --build-cache --stacktrace "${ARGS[@]}" 2>&1 | tee "gradle-shard-${{ matrix.shard }}.log"
           exit "${PIPESTATUS[0]}"
 
       - name: Dump shard failure diagnostics
@@ -468,9 +478,14 @@ jobs:
           done
           echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
-      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+      - name: Install SDK components (skip when image preinstalled)
         run: |
           set -e
+          # 快路径：镜像已带 platform 36 + build-tools 36.0.0 就直接跳过（每 job 省 30~60s，
+          # 6 个 job 合计一轮省 3~6 分钟）。组件缺失才走原 retry 安装，安装语义一字未改。
+          if [ -d "${ANDROID_HOME}/platforms/android-36" ] && [ -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            echo "SDK 组件已预装，跳过 sdkmanager"; exit 0
+          fi
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -498,7 +513,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'gradle.properties') }}
           restore-keys: |
             gradle-${{ steps.cachekey.outputs.dist-hash }}-
             gradle-
@@ -507,7 +522,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run all module unit tests and benches (baseline full)
-        run: ./gradlew testAppDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew testAppDebugUnitTest --no-daemon --build-cache --stacktrace
 
       - name: Upload baseline JUnit XML results
         uses: actions/upload-artifact@v4
