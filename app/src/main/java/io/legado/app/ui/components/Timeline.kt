@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
@@ -31,6 +32,11 @@ import io.legado.app.ui.components.contract.ComponentVisualState
  *
  * 纪年页与人物 Sheet 共用同一组件，只换数据。当前节点暖金，其余古铜；
  * 左右箭头在边界处禁用。空数据 / 离线 / 加载均有兜底，不允许空白态。
+ *
+ * 状态取唯一契约模型 [ComponentVisualState]：箭头闸门与整行压淡一律读契约
+ * [ComponentVisualState.eventsAllowed] / [ComponentVisualState.contentAlpha]，
+ * 不再只看模型边界布尔。DISABLED 箭头不可点且整行按契约 0.30 压淡；
+ * OFFLINE / LOADING 容器本体不放行箭头；EMPTY 走空态兜底且仍可点。
  */
 data class RegimeRow(
     val regime: String,
@@ -71,6 +77,16 @@ data class TimelineModel(
     }
 }
 
+/**
+ * 箭头可点闸（纯函数，普通 JVM 单测可直接断言）：契约事件许可与模型边界同时成立才放行。
+ *
+ * 为什么直读契约 `eventsAllowed`：DISABLED / OFFLINE / LOADING 契约登记 `eventsAllowed=false`，
+ * 容器本体箭头一律吞掉回调；EMPTY / DEFAULT / HOVERED / PRESSED / SELECTED 放行，再叠加模型
+ * 边界（首节点不可回、末节点不可进）。不另写一套可点布尔，避免与契约口径漂移。
+ */
+internal fun timelineArrowAllowed(state: ComponentVisualState, canNavigate: Boolean): Boolean =
+    state.eventsAllowed && canNavigate
+
 @Composable
 fun InkTimeline(
     model: TimelineModel,
@@ -98,7 +114,7 @@ fun InkTimeline(
             compact = true,
         )
 
-        else -> TimelineBody(model, modifier, onPrev, onNext)
+        else -> TimelineBody(model, modifier, state, onPrev, onNext)
     }
 }
 
@@ -106,11 +122,14 @@ fun InkTimeline(
 private fun TimelineBody(
     model: TimelineModel,
     modifier: Modifier,
+    state: ComponentVisualState,
     onPrev: () -> Unit,
     onNext: () -> Unit,
 ) {
     val node = model.current() ?: return
-    Column(modifier = modifier.fillMaxWidth().padding(16.dp)) {
+    // 整行压淡直读契约 contentAlpha：DISABLED 落 0.30，其余态 1f；alpha 是静态透明度，
+    // 不依赖动画时长，低端机 reduce-motion 下压淡仍然成立。
+    Column(modifier = modifier.fillMaxWidth().padding(16.dp).alpha(state.contentAlpha)) {
         Row(verticalAlignment = Alignment.Top) {
             // 竖线 + 节点列
             Column(
@@ -190,7 +209,11 @@ private fun TimelineBody(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TimelineArrow(forward = false, enabled = model.canGoBack, onClick = onPrev)
+            TimelineArrow(
+                forward = false,
+                enabled = timelineArrowAllowed(state, model.canGoBack),
+                onClick = onPrev,
+            )
             androidx.compose.foundation.text.BasicText(
                 text = "${model.index + 1} / ${model.nodes.size}",
                 style = TextStyle(
@@ -199,7 +222,11 @@ private fun TimelineBody(
                     fontFamily = FontFamily.Serif,
                 ),
             )
-            TimelineArrow(forward = true, enabled = model.canGoForward, onClick = onNext)
+            TimelineArrow(
+                forward = true,
+                enabled = timelineArrowAllowed(state, model.canGoForward),
+                onClick = onNext,
+            )
         }
     }
 }

@@ -59,12 +59,12 @@ class ComponentStateTest {
     }
 
     @Test
-    fun `禁用 加载 离线快照不放行点击 空数据与默认快照放行`() {
-        assertFalse(InkInteraction.Disabled.clickEnabled)
-        assertFalse(InkInteraction.Loading.clickEnabled)
-        assertFalse(InkInteraction.Offline.clickEnabled)
-        assertTrue(InkInteraction.Empty.clickEnabled)
-        assertTrue(InkInteraction.Default.clickEnabled)
+    fun `禁用 加载 离线快照解析态不放行事件 空数据与默认快照放行`() {
+        assertFalse(InkInteraction.Disabled.resolve().eventsAllowed)
+        assertFalse(InkInteraction.Loading.resolve().eventsAllowed)
+        assertFalse(InkInteraction.Offline.resolve().eventsAllowed)
+        assertTrue(InkInteraction.Empty.resolve().eventsAllowed)
+        assertTrue(InkInteraction.Default.resolve().eventsAllowed)
     }
 
     @Test
@@ -85,10 +85,16 @@ class ComponentStateTest {
     }
 
     @Test
-    fun `禁用快照压淡到契约禁用档透明度 其余快照不压淡`() {
-        assertEquals(ComponentVisualState.DISABLED.contentAlpha, InkInteraction.Disabled.contentAlpha, 1e-6f)
-        assertEquals(1f, InkInteraction.Default.contentAlpha, 1e-6f)
-        assertEquals(1f, InkInteraction.Loading.contentAlpha, 1e-6f)
+    fun `快照解析态透明度直读契约枚举 禁用压淡 其余不压淡`() {
+        assertEquals(
+            ComponentVisualState.DISABLED.contentAlpha,
+            InkInteraction.Disabled.resolve().contentAlpha,
+            1e-6f,
+        )
+        assertEquals(1f, InkInteraction.Default.resolve().contentAlpha, 1e-6f)
+        assertEquals(1f, InkInteraction.Loading.resolve().contentAlpha, 1e-6f)
+        assertEquals(1f, InkInteraction.Offline.resolve().contentAlpha, 1e-6f)
+        assertEquals(1f, InkInteraction.Empty.resolve().contentAlpha, 1e-6f)
     }
 
     @Test

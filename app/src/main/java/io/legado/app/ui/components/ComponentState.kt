@@ -55,22 +55,19 @@ data class InkInteraction(
         else -> ComponentVisualState.DEFAULT
     }
 
-    /** 是否允许触发点击回调：禁用 / 加载 / 离线都不响应（口径同契约对应档 eventsAllowed）。 */
-    val clickEnabled: Boolean
-        get() = !disabled && !loading && !offline
-
-    /** 墨触朱砂覆盖透明度（悬浮 8%，按下 16%；非可交互态不泛色）。 */
+    /**
+     * 墨触朱砂覆盖透明度（悬浮 8%，按下 16%；非可交互态不泛色）。
+     *
+     * 可交互闸直读 `resolve().eventsAllowed`（契约单源），快照层不再另写
+     * `!disabled && !loading && !offline` 平行布尔，避免两套口径漂移。
+     */
     val accentOverlayAlpha: Float
         get() = when {
-            !clickEnabled -> 0f
+            !resolve().eventsAllowed -> 0f
             pressed -> ComponentPalette.PRESS_DOWN_ACCENT_ALPHA
             hovered -> ComponentPalette.PRESS_HOVER_ACCENT_ALPHA
             else -> 0f
         }
-
-    /** 禁用态整体透明度（云灰 30%，取契约 DISABLED.contentAlpha 单源），其余态不压透明度。 */
-    val contentAlpha: Float
-        get() = if (disabled) ComponentVisualState.DISABLED.contentAlpha else 1f
 
     companion object {
         val Default: InkInteraction = InkInteraction()

@@ -39,6 +39,10 @@ import io.legado.app.utils.toastOnUi
  *
  * 按 extra `configTag` 路由到对应分区 Composable；文件 / 图片 / 二维码选择契约在本 Activity
  * 注册，分区只通过 [SectionActions] 发动作。旧版的偏好搜索索引随 Preference 树一并移除。
+ *
+ * 〔B3 收口留痕（R20 / A3 先接后删）〕新设置面 = [io.legado.app.ui.config.b3.B3SettingScreen]，
+ * 挂主壳第三槽；本 Activity 属旧半成品宿主，待新设置面接线验收通过后按三口径扫描删除，
+ * 本单不提前物理删除，避免留下设置空窗。旧直达入口仅余 `ui/main/my/` 旧 Fragment（已与新壳脱钩）。
  */
 class ConfigActivity : AppCompatActivity() {
 

@@ -98,6 +98,6 @@ private fun ShellPageTransition(
         label = "mainShellPage",
         modifier = modifier,
     ) { tab ->
-        ShellPageSlot(tab)
+        ShellPageSlot(tab, reduceMotion = reduceMotion)
     }
 }

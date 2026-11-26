@@ -24,7 +24,7 @@ enum class ShellTab(
     /** 发现槽：书源 / RSS 入口，页面编排归 B5 发现批次。 */
     EXPLORE(R.string.discovery, R.drawable.ic_tab_discover_e, R.drawable.ic_tab_discover_s),
 
-    /** 设置槽：偏好 / 关于 / 归档，页面编排归 B6 设置批次。 */
+    /** 设置槽：偏好 / 关于 / 归档，页面编排归 B3 设置批次（编号漂移回写 N7）。 */
     SETTINGS(R.string.setting, R.drawable.ic_tab_settings_e, R.drawable.ic_tab_settings_s);
 
     companion object {

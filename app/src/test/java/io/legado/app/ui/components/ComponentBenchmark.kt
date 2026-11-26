@@ -95,10 +95,10 @@ object ComponentBenchmark {
             InkInteraction.Offline,
         )
         states.forEach {
-            it.resolve()
-            it.clickEnabled
+            val visual = it.resolve()
+            visual.eventsAllowed
+            visual.contentAlpha
             it.accentOverlayAlpha
-            it.contentAlpha
         }
     }
 
