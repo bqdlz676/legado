@@ -6,14 +6,25 @@
 "冻结时那一屏的截图与资产没漂"，所以冻结轮的截图 + 资产 sha256 必须落基线文件，
 本脚本逐条复核。
 
-判据：
+双层登记（源码层 + 帧像素层，2026-11-27 扩；N2 收口：旧版只锁源码契约形状，锁不住画面）：
+  - 源码层：测试套件源码、帧契约清单文本等仓库内资产，哈希漂移即 FAIL（既有语义不动）。
+  - 帧层：CI Paparazzi 产出的 golden PNG 帧，哈希锁画面像素；帧由 CI artifact 产出，
+    仓内本地常态缺席，故帧缺席只 WARN 点名、不打红；帧在本地存在但哈希不符才 FAIL。
+
+判据（逐分支退出码）：
   - 基线文件不存在或为空 → WARN（工序未启动，P0/P1 尚未走到 P3），退出码 0，不算 FAIL。
-  - 基线存在且非空 → 逐条校验被登记资产/截图的 sha256 与当前文件一致；
-    任一不一致判 FAIL，并输出"哪一屏/哪个资产被破坏"；退出码 1。
+  - 源码层条目丢失（文件不存在）→ FAIL 点名路径，退出码 1（既有语义不动）。
+  - 源码层哈希不一致 → FAIL 点名前后 12 位，退出码 1（既有语义不动）。
+  - 帧层 PNG 存在且哈希一致 → 计入匹配，不单独出声。
+  - 帧层 PNG 存在但哈希与登记不符 → FAIL 点名帧标签与路径，退出码 1。
+  - 帧层已登记但 PNG 本地缺席 → WARN 点名帧标签与路径（不许静默跳过），退出码 0；
+    若同次复核另有 FAIL 项，退出码仍为 1，WARN 行照常列出。
+  - 无任何 FAIL、仅帧缺席 WARN → 退出码 0；源码层 + 帧层全匹配 → PASS 退出码 0。
   - --freeze <路径...>：把一批截图目录与对应资产文件（递归）哈希登记进基线文件，
-    供 P3 冻结使用（覆盖写，一次冻结 = 一轮通过轮的完整快照）。
-  - --selftest：造两个临时文件（一致 / 不一致各一）跑通两种判定，跑完自删，
-    输出 PASS/FAIL 原文。
+    供 P3 冻结使用（覆盖写，一次冻结 = 一轮通过轮的完整快照）。PNG 存在才登记帧层；
+    PNG 本地缺席则只登记源码层，不报错、不写幽灵帧条目。
+  - --selftest：临时目录造真夹具（源码好样本 / 源码失配 FAIL / 帧失配 FAIL /
+    帧缺席 WARN / 无基线 WARN）跑通各向判定，跑完自删，输出 PASS/FAIL 原文。
   - --ux [源码根]：UX 九维静态审计（对应 docs/工序-观感打磨.md 四补节）。能静态判的
     机械判（字号/间距/热区/反馈延迟/占位与兜底关键词配对）；判不了的维显式登记
     DEFER（需帧像素 / 需人眼 / 需真机 bench），不许假装判了。FAIL 退出 1；
@@ -21,14 +32,21 @@
   - --selftest 同时覆盖 UX 双向通路：违例夹具 → FAIL 点名；正常夹具 → PASS，
     且 DEFER 项必须出现在输出里。
 
-门禁接入：本脚本暂未接入 data_scripts/rule-gate.sh；待总控接入为 ⑳ 门禁
-（在 rule-gate.sh 增一行调用即可，本文件不改 rule-gate.sh）。
+门禁接入：本脚本由 data_scripts/rule-gate.sh 第 52 项调用；本文件不改 rule-gate.sh。
 
-基线格式：标准 sha256sum 两行式 `<64位哈希>  <路径>`；`#` 开头为注释行；
-路径优先按仓库根相对解析，解析不到再按绝对路径解析。
+基线格式（向后兼容：旧版源码行原样可解析）：
+  - 源码层行：`<64位哈希>  <相对路径>`（标准 sha256sum 两行式，与旧版逐字一致）。
+  - 帧层行：`frame:<组>/<方法名>  <64位哈希>  <相对PNG路径>`；
+    组 / 方法名取自 screenshot/frames-baseline.json 的 block / method；
+    清单查不到时回落 `frame:<PNG文件名去扩展名>`。
+  - `#` 开头为注释行；路径优先按仓库根相对解析，解析不到再按绝对路径解析。
+解析正则（与 load_baseline 实现一致）：
+  - 帧层：`^frame:(?P<label>\\S+)\\s{2}(?P<hash>[0-9a-f]{64})\\s{2}(?P<path>\\S.*)$`
+  - 源码层：`^(?P<hash>[0-9a-f]{64})\\s{2}(?P<path>\\S.*)$`（双空格切不开时回落空白切分）。
 """
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -38,6 +56,13 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASELINE = os.path.join(ROOT, "docs", ".visual_baseline.sha256")
+# 帧契约清单：帧层标签 <组>/<方法名> 的唯一事实源（与 frame-manifest.py 同 schema）。
+FRAME_MANIFEST = os.path.join(ROOT, "screenshot", "frames-baseline.json")
+
+# 帧层行：frame:<组>/<方法名>  <哈希>  <PNG 相对路径>；源码层行保持旧版 sha256sum 两行式。
+# 为什么标签前置 frame: 前缀：与源码层行同文件混排时，解析器按前缀分流两层，不必另开文件。
+RE_FRAME_LINE = re.compile(r"^frame:(?P<label>\S+)\s{2}(?P<hash>[0-9a-f]{64})\s{2}(?P<path>\S.*)$")
+RE_SRC_LINE = re.compile(r"^(?P<hash>[0-9a-f]{64})\s{2}(?P<path>\S.*)$")
 
 
 def sha256_file(path: str) -> str:
@@ -60,26 +85,58 @@ def resolve_path(rel: str) -> str:
     return cand if os.path.exists(cand) else rel
 
 
+def load_frame_manifest() -> dict[str, tuple[str, str]]:
+    """读帧契约清单，返回 {PNG 相对路径: (block, method)}；清单缺失/坏 JSON 返回空表。
+
+    为什么降级为空表而不是 FAIL：清单解析失败不应让基线守卫自己崩；帧标签回落文件名，
+    哈希复核通路不受影响（标签只用于点名与可读性）。
+    """
+    mapping: dict[str, tuple[str, str]] = {}
+    try:
+        with open(FRAME_MANIFEST, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        for fr in doc.get("frames", []):
+            op = fr.get("outputPath")
+            if op:
+                mapping[op] = (fr.get("block") or "unknown", fr.get("method") or "unknown")
+    except (OSError, ValueError, AttributeError):
+        pass
+    return mapping
+
+
 def load_baseline(baseline: str):
-    """解析基线文件，返回 [(hash, path), ...]；空/缺失返回空列表。"""
-    entries: list[tuple[str, str]] = []
+    """解析基线文件，返回条目列表；每条为 dict：
+    {"layer": "src"|"frame", "hash": str, "path": str, "label": str}。
+    空/缺失返回空列表；旧版源码行原样解析为 src 层（向后兼容）。"""
+    entries: list[dict[str, str]] = []
     if not os.path.isfile(baseline) or os.path.getsize(baseline) == 0:
         return entries
     for line in open(baseline, encoding="utf-8"):
         line = line.rstrip("\n")
         if not line.strip() or line.lstrip().startswith("#"):
             continue
-        parts = line.split("  ", 1)
-        if len(parts) != 2:
-            parts = line.split(None, 1)
-        if len(parts) != 2 or len(parts[0]) != 64:
-            continue  # 格式坏行不静默吞，verify 阶段在缺失/不一致里体现
-        entries.append((parts[0].strip(), parts[1].strip()))
+        m_frame = RE_FRAME_LINE.match(line)
+        if m_frame:
+            entries.append({"layer": "frame", "hash": m_frame.group("hash").strip(),
+                            "path": m_frame.group("path").strip(),
+                            "label": m_frame.group("label").strip()})
+            continue
+        m_src = RE_SRC_LINE.match(line)
+        if m_src:
+            hash_v, rel_v = m_src.group("hash").strip(), m_src.group("path").strip()
+        else:
+            parts = line.split("  ", 1)
+            if len(parts) != 2:
+                parts = line.split(None, 1)
+            if len(parts) != 2 or len(parts[0]) != 64:
+                continue  # 格式坏行不静默吞，verify 阶段在缺失/不一致里体现
+            hash_v, rel_v = parts[0].strip(), parts[1].strip()
+        entries.append({"layer": "src", "hash": hash_v, "path": rel_v, "label": ""})
     return entries
 
 
 def verify(baseline: str) -> int:
-    """复核基线；返回退出码 0/1。WARN（无基线）退出 0。"""
+    """复核基线；返回退出码 0/1。WARN（无基线 / 帧缺席）退出 0；任一 FAIL 退出 1。"""
     if not os.path.isfile(baseline) or os.path.getsize(baseline) == 0:
         print("WARN  观感基线不存在或为空：工序未启动（P0 截图基建前判 WARN，不算 FAIL）")
         return 0
@@ -89,37 +146,77 @@ def verify(baseline: str) -> int:
         print("WARN  观感基线无有效登记项：P3 尚未冻结，不算 FAIL")
         return 0
 
-    broken: list[str] = []
-    missing: list[str] = []
-    for registered, rel in entries:
+    src_missing: list[str] = []
+    src_broken: list[str] = []
+    frame_broken: list[dict[str, str]] = []
+    frame_missing: list[dict[str, str]] = []
+    for e in entries:
+        registered, rel = e["hash"], e["path"]
         actual_path = resolve_path(rel)
         if not os.path.isfile(actual_path):
-            missing.append(rel)
+            # 帧缺席是本地常态（帧由 CI artifact 产出，仓内不存 PNG）：WARN 点名，不静默；
+            # 源码条目丢失仍是 FAIL（冻结资产被删/移走，不属本地缺席常态）。
+            if e["layer"] == "frame":
+                frame_missing.append(e)
+            else:
+                src_missing.append(rel)
             continue
         current = sha256_file(actual_path)
         if current != registered:
-            broken.append(
-                f"{rel}（登记 {registered[:12]}…，当前 {current[:12] if current else '读不到'}…）"
-            )
+            if e["layer"] == "frame":
+                frame_broken.append(e)
+            else:
+                src_broken.append(
+                    f"{rel}（登记 {registered[:12]}…，当前 {current[:12] if current else '读不到'}…）"
+                )
 
-    for rel in missing:
+    for rel in src_missing:
         print(f"FAIL  观感基线被破坏：{rel} 已丢失（冻结屏/资产不存在）")
-    for item in broken:
+    for item in src_broken:
         print(f"FAIL  观感基线被破坏：{item}")
+    for e in frame_broken:
+        cur = sha256_file(resolve_path(e["path"]))
+        print(f"FAIL  观感基线帧被破坏：frame:{e['label']}（{e['path']}）"
+              f"登记 {e['hash'][:12]}…，当前 {cur[:12] if cur else '读不到'}…")
+    for e in frame_missing:
+        # 不许静默：每条缺席帧都点名标签与路径；本地未渲染 / 未取到 artifact 同归此路。
+        print(f"WARN  观感基线帧缺席：frame:{e['label']}（{e['path']}）"
+              "本地未渲染或未取到 CI artifact，待帧落盘后复核（不静默跳过）")
 
-    if missing or broken:
-        print(f"FAIL  观感基线复核未过：{len(missing)} 项丢失、{len(broken)} 项哈希不一致；"
-              "破冻结即 FAIL，须复验不得破坏已冻结屏")
+    fail_n = len(src_missing) + len(src_broken) + len(frame_broken)
+    if fail_n:
+        print(f"FAIL  观感基线复核未过：源码 {len(src_missing)} 项丢失、{len(src_broken)} 项哈希不一致；"
+              f"帧层 {len(frame_broken)} 项哈希不一致；破冻结即 FAIL，须复验不得破坏已冻结屏")
         return 1
-    print(f"PASS  观感基线复核一致：{len(entries)} 项登记资产/截图哈希全部匹配")
+    if frame_missing:
+        src_n = sum(1 for e in entries if e["layer"] == "src")
+        print(f"WARN  观感基线：源码层 {src_n} 项一致；帧层 {len(frame_missing)} 项本地缺席"
+              "（本地无 PNG 常态，待 CI 帧落盘后复核；缺席帧不置 FAIL，已逐条点名）")
+        return 0
+    src_n = sum(1 for e in entries if e["layer"] == "src")
+    frame_n = len(entries) - src_n
+    if frame_n:
+        print(f"PASS  观感基线复核一致：源码层 {src_n} 项 + 帧层 {frame_n} 项哈希全部匹配")
+    else:
+        print(f"PASS  观感基线复核一致：{src_n} 项登记资产/截图哈希全部匹配")
     return 0
 
 
 def freeze(paths: list[str], baseline: str, note: str = "") -> int:
-    """把给定文件/目录（递归）登记进基线文件，覆盖写；返回退出码。"""
+    """把给定文件/目录（递归）登记进基线文件，覆盖写；返回退出码。
+
+    双层口径：.png 走帧层（frame:<组>/<方法> 前缀，标签查帧契约清单）；其余走源码层。
+    PNG 本地缺席是常态（帧由 CI artifact 产出，仓内不存）：缺席帧跳过登记、不报错，
+    也不写幽灵帧条目；非 PNG 输入不存在仍是调用错误，保持旧 FAIL 守卫。
+    """
     files: list[str] = []
+    skipped_frames: list[str] = []
+    manifest = load_frame_manifest()
     for raw in paths:
         if not os.path.exists(raw):
+            if _looks_like_frame_path(raw):
+                skipped_frames.append(raw)
+                continue
             print(f"FAIL  freeze 输入不存在：{raw}")
             return 1
         if os.path.isfile(raw):
@@ -134,21 +231,45 @@ def freeze(paths: list[str], baseline: str, note: str = "") -> int:
 
     os.makedirs(os.path.dirname(baseline), exist_ok=True)
     lines = [f"# 观感基线冻结（P3）：{time.strftime('%Y-%m-%d %H:%M:%S')} {note}".rstrip()]
+    src_lines: list[str] = []
+    frame_lines: list[str] = []
     for f in sorted(set(files)):
         h = sha256_file(f)
         if not h:
             print(f"FAIL  freeze 读取失败：{f}")
             return 1
         rel = os.path.relpath(f, ROOT) if os.path.abspath(f).startswith(ROOT) else os.path.abspath(f)
-        lines.append(f"{h}  {rel}")
+        if f.lower().endswith(".png"):
+            block, method = manifest.get(rel, ("unknown", os.path.splitext(os.path.basename(f))[0]))
+            frame_lines.append(f"frame:{block}/{method}  {h}  {rel}")
+        else:
+            src_lines.append(f"{h}  {rel}")
+    lines.extend(src_lines)
+    lines.extend(frame_lines)
     with open(baseline, "w", encoding="utf-8") as out:
         out.write("\n".join(lines) + "\n")
-    print(f"PASS  观感基线已冻结：{len(files)} 项登记 → {os.path.relpath(baseline, ROOT)}")
+    msg = (f"PASS  观感基线已冻结：源码层 {len(src_lines)} 项 + 帧层 {len(frame_lines)} 项登记 "
+           f"→ {os.path.relpath(baseline, ROOT)}")
+    if skipped_frames:
+        msg += f"；{len(skipped_frames)} 个本地缺席帧未登记（待 CI 帧落盘后重冻）"
+    print(msg)
     return 0
 
 
+def _looks_like_frame_path(raw: str) -> bool:
+    """判断不存在的输入是否属于帧产物（PNG 或快照/帧目录）；是则缺席降级不报错。
+
+    为什么收窄到路径特征而非一律放行：源码/资产路径不存在仍是派单或路径写错，必须 FAIL。
+    """
+    low = raw.lower()
+    if low.endswith(".png"):
+        return True
+    return any(part in low for part in ("snapshots", "images", "screenshots"))
+
+
 def selftest() -> int:
-    """造一致/不一致临时文件各一，跑通 PASS 与 FAIL 两种判定，跑完自删。"""
+    """三向以上自测：源码好样本 PASS / 源码失配 FAIL / 帧失配 FAIL / 帧缺席 WARN /
+    无基线 WARN；全部夹具落在 mkdtemp 临时目录，finally 自删。"""
     tmp = tempfile.mkdtemp(prefix="visual-baseline-selftest-")
     tmp_baseline = os.path.join(tmp, "baseline.sha256")
     good = os.path.join(tmp, "good-screen.png")
@@ -164,7 +285,7 @@ def selftest() -> int:
         with open(tmp_baseline, "w", encoding="utf-8") as f:
             f.write(f"{good_hash}  {good}\n{bad_hash_old}  {bad}\n")
 
-        # 判定 1：坏文件改动后，verify 应 FAIL 且点名 bad-asset.json；good 不得被报。
+        # 判定 1：源码坏文件改动后，verify 应 FAIL 且点名 bad-asset.json；good 不得被报。
         with open(bad, "w", encoding="utf-8") as f:
             f.write("changed-after-freeze")
         # verify 直接打印，抓取输出用于断言
@@ -174,7 +295,7 @@ def selftest() -> int:
         with contextlib.redirect_stdout(buf):
             rc1 = verify(tmp_baseline)
         out1 = buf.getvalue()
-        assert rc1 == 1, f"不一致场景应 FAIL，实际 rc={rc1}"
+        assert rc1 == 1, f"源码失配场景应 FAIL，实际 rc={rc1}"
         assert "bad-asset.json" in out1, f"FAIL 输出未点名被破坏屏：\n{out1}"
         assert "good-screen.png" not in out1, f"一致文件被误报：\n{out1}"
 
@@ -186,7 +307,52 @@ def selftest() -> int:
         assert rc2 == 0, f"无基线应 WARN 且 exit 0，实际 rc={rc2}"
         assert "WARN" in out2, f"缺基线未输出 WARN：\n{out2}"
 
-        print("PASS  selftest：不一致场景 FAIL 且点名被破坏屏；无基线场景 WARN 且 exit 0")
+        # 判定 3：无 PNG 的好样本（仅源码登记，本地无帧常态）→ PASS rc=0，必须保持绿。
+        good_only = os.path.join(tmp, "baseline-good-only.sha256")
+        with open(good_only, "w", encoding="utf-8") as f:
+            f.write(f"{good_hash}  {good}\n")
+        buf3 = io.StringIO()
+        with contextlib.redirect_stdout(buf3):
+            rc3 = verify(good_only)
+        out3 = buf3.getvalue()
+        assert rc3 == 0, f"无 PNG 好样本应 PASS，实际 rc={rc3}"
+        assert "PASS" in out3, f"好样本未输出 PASS：\n{out3}"
+
+        # 判定 4：帧层 PNG 存在但哈希失配 → FAIL 点名帧标签与路径（假 PNG，几个字节即可）。
+        frames_dir = os.path.join(tmp, "frames")
+        os.makedirs(frames_dir)
+        frame_png = os.path.join(frames_dir, "io_legado_ci_shellMismatch.png")
+        with open(frame_png, "wb") as f:
+            f.write(b"\x89PNG\r\n\x1a\nfake-png-v1")
+        frame_hash = sha256_file(frame_png)
+        frame_base = os.path.join(tmp, "baseline-frame-broken.sha256")
+        with open(frame_base, "w", encoding="utf-8") as f:
+            f.write(f"{good_hash}  {good}\nframe:shell/shellMismatch  {frame_hash}  {frame_png}\n")
+        with open(frame_png, "wb") as f:  # 冻结后改动像素 → 帧哈希失配
+            f.write(b"\x89PNG\r\n\x1a\nfake-png-v2-changed")
+        buf4 = io.StringIO()
+        with contextlib.redirect_stdout(buf4):
+            rc4 = verify(frame_base)
+        out4 = buf4.getvalue()
+        assert rc4 == 1, f"帧失配应 FAIL，实际 rc={rc4}"
+        assert "shellMismatch" in out4, f"FAIL 未点名帧标签：\n{out4}"
+        assert os.path.basename(frame_png) in out4, f"FAIL 未点名帧路径：\n{out4}"
+
+        # 判定 5：帧已登记但 PNG 缺席 → WARN 点名帧名，rc=0（不许静默跳过）。
+        ghost_png = os.path.join(frames_dir, "io_legado_ci_shellGhost.png")
+        ghost_hash = hashlib.sha256(b"ghost-registered-bytes").hexdigest()
+        ghost_base = os.path.join(tmp, "baseline-frame-missing.sha256")
+        with open(ghost_base, "w", encoding="utf-8") as f:
+            f.write(f"{good_hash}  {good}\nframe:shell/shellGhost  {ghost_hash}  {ghost_png}\n")
+        buf5 = io.StringIO()
+        with contextlib.redirect_stdout(buf5):
+            rc5 = verify(ghost_base)
+        out5 = buf5.getvalue()
+        assert rc5 == 0, f"帧缺席应 WARN 且 exit 0，实际 rc={rc5}"
+        assert "WARN" in out5 and "shellGhost" in out5, f"帧缺席未点名 WARN：\n{out5}"
+
+        print("PASS  selftest：源码失配 FAIL 点名；无 PNG 好样本 PASS；帧失配 FAIL 点名；"
+              "帧缺席 WARN 点名且 exit 0；无基线 WARN 且 exit 0")
         return 0
     except AssertionError as exc:
         print(f"FAIL  selftest：{exc}")
