@@ -130,11 +130,37 @@ def check_file(path: str):
             'missing': missing, 'readable': True, 'e2_ok': e2_ok, 'phantom': phantom}
 
 
+def selftest():
+    """双向证伪：假 文件:行 必须 FAIL，真 文件:行 必须 PASS（M-48 要求）。"""
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp(prefix='evi-')
+    try:
+        good = os.path.join(tmp, 'good.md')
+        open(good, 'w', encoding='utf-8').write(
+            '# 样本\n\n- grep -n README /home/user/Doubao/chats/38454122521460994/legado/data_scripts/check-evidence.py:1 通过 PASS\n')
+        fake = os.path.join(tmp, 'fake.md')
+        open(fake, 'w', encoding='utf-8').write(
+            '# 假证据\n\n- grep -n fake app/src/Fake.kt:999 通过 PASS\n')
+        ok_good = check_file(good)['ok']
+        ok_fake = check_file(fake)['ok']
+        good_pass = ok_good
+        fake_red = not ok_fake
+        print('SELFTEST: %s（真路径文件 %s，假路径文件 %s）'
+              % ('PASS' if (good_pass and fake_red) else 'FAIL',
+                 'PASS' if good_pass else 'FAIL', 'FAIL' if fake_red else 'PASS'))
+        return 0 if (good_pass and fake_red) else 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='回执证据守卫：E1/E2/E3 三条同时成立才 PASS')
+    parser.add_argument('--selftest', action='store_true', help='双向自测后退出（真路径 PASS / 假路径 FAIL）')
     parser.add_argument('--strict', action='store_true', help='只打印 FAIL 明细，PASS 行不展开')
     parser.add_argument('reports', nargs='*', help='报告文件；缺省批量体检 docs/修复-*.md 与 docs/验收-*.md')
     args = parser.parse_args(argv)
+    if args.selftest:
+        return selftest()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if args.reports:
