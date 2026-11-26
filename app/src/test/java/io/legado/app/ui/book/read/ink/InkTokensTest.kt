@@ -65,9 +65,10 @@ class InkTokensTest {
         // 翻页单帧 ≤16ms；气泡热路径 ≤80ms。
         assertEquals(16.0, InkTokens.FRAME_BUDGET_MS, 0.0)
         assertEquals(80.0, InkTokens.BUBBLE_HOT_BUDGET_MS, 0.0)
-        // 冷启 → 书架 ≤1.8s；阅读峰值内存 ≤180MB；字体子集 ≤200KB。
+        // 冷启 → 书架 ≤1.8s；峰值内存三档 ≤100 / 100–120 / >120MB；字体子集 ≤200KB。
         assertEquals(1800.0, InkTokens.COLD_START_TO_BOOKSHELF_MS, 0.0)
-        assertEquals(180.0, InkTokens.PEAK_MEMORY_MB, 0.0)
+        assertEquals(100.0, InkTokens.MEMORY_PEAK_PASS_MB, 0.0)
+        assertEquals(120.0, InkTokens.MEMORY_PEAK_WARN_MB, 0.0)
         assertEquals(200.0, InkTokens.FONT_SUBSET_MAX_KB, 0.0)
         // 章节排版缓存只留前后各 3 章。
         assertEquals(3, InkTokens.CHAPTER_CACHE_RADIUS)

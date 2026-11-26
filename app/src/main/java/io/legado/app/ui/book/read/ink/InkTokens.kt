@@ -247,8 +247,8 @@ object InkTokens {
     /** 冷启动 → 书架可交互红线 ≤1.8s（切片-08 启动速度；bench 写死断言）。 */
     const val COLD_START_TO_BOOKSHELF_MS: Double = 1800.0
 
-    /** 阅读页峰值内存红线 ≤180MB（切片-08 内存；bench 写死断言）。 */
-    const val PEAK_MEMORY_MB: Double = 180.0
+    /** 峰值内存三档判定（切片-21:27，bench 写死断言）：≤100MB 过；100–120MB 注「待优化」挂账；>120MB 打回；旧单档红线已作废。 */
+    const val MEMORY_PEAK_PASS_MB: Double = 100.0; const val MEMORY_PEAK_WARN_MB: Double = 120.0
 
     /** 字体子集首屏体积红线 ≤200KB（切片-14 / 切片-08 字体加载；bench 写死断言）。 */
     const val FONT_SUBSET_MAX_KB: Double = 200.0
