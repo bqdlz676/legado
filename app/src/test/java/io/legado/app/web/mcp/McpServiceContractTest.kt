@@ -1,6 +1,7 @@
 package io.legado.app.web.mcp
 
 import com.script.rhino.runScriptWithContext
+import io.legado.app.RhinoEvalTest
 import io.legado.app.data.entities.BookSource
 import io.legado.app.model.jsSource.JsSourceEngine
 import kotlinx.coroutines.Dispatchers
@@ -15,9 +16,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.experimental.categories.Category
 import java.io.File
 import java.net.URI
 
+@Category(RhinoEvalTest::class)
 class McpServiceContractTest {
 
     @Test

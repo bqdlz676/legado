@@ -1,5 +1,6 @@
 package io.legado.app.help.source
 
+import io.legado.app.RhinoEvalTest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -7,7 +8,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class RssSortUrlsTest {
 
     private val sourceUrl = "https://example.com/feed"

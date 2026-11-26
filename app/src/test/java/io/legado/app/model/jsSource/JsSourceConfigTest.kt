@@ -1,5 +1,6 @@
 package io.legado.app.model.jsSource
 
+import io.legado.app.RhinoEvalTest
 import io.legado.app.constant.BookSourceType
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.data.entities.rule.RowUi
@@ -16,7 +17,9 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class JsSourceConfigTest {
 
     private val validScript = """

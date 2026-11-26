@@ -7,7 +7,9 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.experimental.categories.Category
 
+@Category(RhinoEvalTest::class)
 class RhinoScriptErrorContextTest {
 
     // 超时护栏：Rhino eval/compile 是阻塞同步调用，协程 withTimeout 无法中断阻塞在 Rhino 内的线程，

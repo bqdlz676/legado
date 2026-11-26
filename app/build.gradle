@@ -219,6 +219,14 @@ tasks.withType(Test).configureEach {
     jvmArgumentProviders.add({
         ["-javaagent:${mockitoAgent.asPath}"]
     } as org.gradle.process.CommandLineArgumentProvider)
+    // Q-246：Rhino 阻塞求值类测试隔离。-PexcludeRhino 供 4 分片排除；
+    // -PincludeRhino 供专用 rhino-eval-tests job 只跑该分类。两者互斥，CI 命令行分别传入。
+    if (project.hasProperty('excludeRhino')) {
+        excludeCategories 'io.legado.app.RhinoEvalTest'
+    }
+    if (project.hasProperty('includeRhino')) {
+        includeCategories 'io.legado.app.RhinoEvalTest'
+    }
 }
 
 dependencies {
