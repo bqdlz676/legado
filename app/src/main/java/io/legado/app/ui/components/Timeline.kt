@@ -35,8 +35,9 @@ import io.legado.app.ui.components.contract.ComponentVisualState
  *
  * 状态取唯一契约模型 [ComponentVisualState]：箭头闸门与整行压淡一律读契约
  * [ComponentVisualState.eventsAllowed] / [ComponentVisualState.contentAlpha]，
- * 不再只看模型边界布尔。DISABLED 箭头不可点且整行按契约 0.30 压淡；
- * OFFLINE / LOADING 容器本体不放行箭头；EMPTY 走空态兜底且仍可点。
+ * 不再只看模型边界布尔。显式 state 与 offline 布尔取并集（与 InkButton 同口径）：
+ * 只传 offline 布尔而不显式传 state 时，该布尔也并入事件闸。DISABLED 箭头不可点且整行按
+ * 契约 0.30 压淡；OFFLINE / LOADING 容器本体不放行箭头；EMPTY 走空态兜底且仍可点、不压淡。
  */
 data class RegimeRow(
     val regime: String,
@@ -78,14 +79,34 @@ data class TimelineModel(
 }
 
 /**
- * 箭头可点闸（纯函数，普通 JVM 单测可直接断言）：契约事件许可与模型边界同时成立才放行。
+ * Body 事件闸（纯函数，普通 JVM 单测可直接断言）：契约事件许可与离线布尔取并集。
  *
- * 为什么直读契约 `eventsAllowed`：DISABLED / OFFLINE / LOADING 契约登记 `eventsAllowed=false`，
- * 容器本体箭头一律吞掉回调；EMPTY / DEFAULT / HOVERED / PRESSED / SELECTED 放行，再叠加模型
- * 边界（首节点不可回、末节点不可进）。不另写一套可点布尔，避免与契约口径漂移。
+ * 并集口径与 [InkButton] 一致：显式传 [state] 时按契约枚举 [ComponentVisualState.eventsAllowed]
+ * 裁决；只传 `offline` 布尔而不显式传 state 时，该布尔也并入闸门——offline=true 视同 OFFLINE
+ * 禁点。DISABLED / OFFLINE / LOADING 契约登记 `eventsAllowed=false`，容器本体吞掉回调；
+ * EMPTY / DEFAULT / HOVERED / PRESSED / SELECTED 放行。不另写一套可点布尔，避免与契约口径漂移。
  */
-internal fun timelineArrowAllowed(state: ComponentVisualState, canNavigate: Boolean): Boolean =
-    state.eventsAllowed && canNavigate
+internal fun timelineBodyEventsAllowed(state: ComponentVisualState, offline: Boolean): Boolean =
+    state.eventsAllowed && !offline
+
+/**
+ * 箭头可点闸（纯函数，普通 JVM 单测可直接断言）：Body 事件闸再叠加模型边界
+ * （首节点不可回、末节点不可进），两者同时成立才放行。
+ */
+internal fun timelineArrowAllowed(
+    state: ComponentVisualState,
+    offline: Boolean,
+    canNavigate: Boolean,
+): Boolean = timelineBodyEventsAllowed(state, offline) && canNavigate
+
+/**
+ * Body 压淡系数（纯函数，普通 JVM 单测可直接断言）：只读契约 [ComponentVisualState.contentAlpha]。
+ *
+ * 离线布尔不另造压淡系数：契约 OFFLINE / LOADING / EMPTY 的 contentAlpha 均为 1f，离线 / 加载 /
+ * 空态不得套 DISABLED 的 0.30；压淡误伤只可能来自契约 DISABLED 档。
+ */
+internal fun timelineContentAlpha(state: ComponentVisualState, offline: Boolean): Float =
+    state.contentAlpha
 
 @Composable
 fun InkTimeline(
@@ -114,7 +135,7 @@ fun InkTimeline(
             compact = true,
         )
 
-        else -> TimelineBody(model, modifier, state, onPrev, onNext)
+        else -> TimelineBody(model, modifier, state, effectiveOffline, onPrev, onNext)
     }
 }
 
@@ -123,13 +144,16 @@ private fun TimelineBody(
     model: TimelineModel,
     modifier: Modifier,
     state: ComponentVisualState,
+    offline: Boolean,
     onPrev: () -> Unit,
     onNext: () -> Unit,
 ) {
     val node = model.current() ?: return
     // 整行压淡直读契约 contentAlpha：DISABLED 落 0.30，其余态 1f；alpha 是静态透明度，
-    // 不依赖动画时长，低端机 reduce-motion 下压淡仍然成立。
-    Column(modifier = modifier.fillMaxWidth().padding(16.dp).alpha(state.contentAlpha)) {
+    // 不依赖动画时长，低端机 reduce-motion 下压淡仍然成立。离线布尔不压淡，见 timelineContentAlpha。
+    Column(
+        modifier = modifier.fillMaxWidth().padding(16.dp).alpha(timelineContentAlpha(state, offline)),
+    ) {
         Row(verticalAlignment = Alignment.Top) {
             // 竖线 + 节点列
             Column(
@@ -211,7 +235,7 @@ private fun TimelineBody(
         ) {
             TimelineArrow(
                 forward = false,
-                enabled = timelineArrowAllowed(state, model.canGoBack),
+                enabled = timelineArrowAllowed(state, offline, model.canGoBack),
                 onClick = onPrev,
             )
             androidx.compose.foundation.text.BasicText(
@@ -224,7 +248,7 @@ private fun TimelineBody(
             )
             TimelineArrow(
                 forward = true,
-                enabled = timelineArrowAllowed(state, model.canGoForward),
+                enabled = timelineArrowAllowed(state, offline, model.canGoForward),
                 onClick = onNext,
             )
         }
