@@ -37,24 +37,45 @@ OLD_PATTERNS = [
 ]
 NEW_MARK = "僵尸锁可删"
 
-# 证据/历史类文件名子串豁免：这些文件里的旧串是回溯引用或事故留档，不是现行规则条文。
-WHITELIST_FILE = [
-    "复盘-", "形成史", "分析-", "验收-", "修复-", "锚点", "交接-", "流水", "自检",
-    "审计", "留档", "备案", "索引", "诊断-", "规则冲突清单",
-]
+# 旧实现按文件名前缀豁免（复盘-/验收-/修复-…）＝可伪造身份：新建一个 复盘-*.md 就能藏裸句。
+# 改成行内引述判定：旧串必须在引号/反引号内，且本行另有回溯词，才当引述；裸句一律红。
+QUOTE_REF_WORDS = ["旧口径", "原文", "此前", "曾", "已改", "作废", "事故", "复盘", "引述", "转写"]
 
 
-def _whitelisted(rel: str) -> bool:
-    """证据/历史类豁免。以「-」结尾的词按文件名前缀匹配（如 复盘-），其余按路径子串匹配；
-    为什么前缀匹配：事故-停工事故复盘-… 文件名中段含「复盘-」子串，若按子串会被提前豁免、
-    绕过事故件必须走基线的要求。"""
-    base = os.path.basename(rel)
-    for w in WHITELIST_FILE:
-        if w.endswith("-"):
-            if base.startswith(w):
+
+_REF_FILES = None
+
+
+def _ref_file_ok(rel: str) -> bool:
+    """引述件豁免：路径与内容 sha256 都必须命中 exempt-files.json（Q-241 口径，绑定身份）。
+    为什么不用文件名前缀：新建一个「复盘-*.md」就能藏裸句，前缀＝可伪造身份（㊼ 同族坑）。"""
+    global _REF_FILES
+    if _REF_FILES is None:
+        try:
+            data = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "lock-ref-files.json"), encoding="utf-8"))
+            _REF_FILES = data.get("files", []) if isinstance(data, dict) else []
+        except (OSError, ValueError):
+            _REF_FILES = []
+    full = os.path.join(ROOT, rel)
+    try:
+        sha = hashlib.sha256(open(full, encoding="utf-8").read().encode()).hexdigest()[:12]
+    except OSError:
+        return False
+    return any(e.get("path") == rel and e.get("sha") == sha for e in _REF_FILES)
+
+def _quoted_reference(line: str, match_text: str) -> bool:
+    """旧串是否只是引述：匹配文本必须落在配对引号/反引号内，且本行带回溯词。"""
+    if not any(w in line for w in QUOTE_REF_WORDS):
+        return False
+    for a, b in (('`', '`'), ('"', '"'), ('「', '」'), ('“', '”')):
+        idx = line.find(a)
+        while idx != -1:
+            end = line.find(b, idx + 1)
+            if end == -1:
+                break
+            if match_text in line[idx + 1:end]:
                 return True
-        elif w in rel:
-            return True
+            idx = line.find(a, end + 1)
     return False
 
 
@@ -105,8 +126,6 @@ def scan(root=ROOT, baseline=None):
             path = os.path.join(dirpath, fn)
             rel = os.path.relpath(path, root)
             scanned += 1
-            if _whitelisted(rel):
-                continue
             try:
                 with open(path, encoding="utf-8", errors="strict") as f:
                     text = f.read()
@@ -122,6 +141,11 @@ def scan(root=ROOT, baseline=None):
                     continue
                 old = next((name for name, pat in OLD_PATTERNS if pat.search(line)), None)
                 if old is None or NEW_MARK in line:
+                    continue
+                m = next((pat.search(line) for name, pat in OLD_PATTERNS if name == old), None)
+                if _quoted_reference(line, m.group(0) if m else ''):
+                    continue
+                if _ref_file_ok(rel) and any(c in line for c in '`「」“”'):
                     continue
                 if _baseline_key(rel, line) in baseline:
                     exempt_base.append((rel, lineno, old, line.strip()[:80]))
@@ -144,7 +168,7 @@ def selftest():
     # PASS 夹具 1：新口径同句带「僵尸锁可删」。
     w("docs/规则-新口径.md",
       "F-102：撞锁先 sleep 重试；确认无 git 进程且锁为 0 字节的僵尸锁可删；攒批一次 push。\n")
-    # PASS 夹具 2：复盘类文件名子串豁免，旧串只作事故留档。
+    # FAIL 夹具 0（新语义）：文件名带「复盘-」但行是裸句——旧实现按前缀放行，现在必须红。
     w("docs/复盘-历史留档.md", "C1 撞锁 sleep 重试禁删锁（1dc6ead 重试成功）。\n")
     # PASS 夹具 3：基线豁免行（内容哈希入基线）。
     hist_line = "S-05 撞锁 sleep 重试禁删锁（历史事故留档）。"
@@ -152,7 +176,9 @@ def selftest():
     hist_key = f"docs/事故-历史基线.md:{_line_hash(hist_line)}"
 
     hits, scanned, exempt = scan(tmp, baseline={hist_key})
-    assert not hits, f"合规夹具不应命中：{hits}"
+    # 除「复盘-」裸句夹具外不应有命中：引述件豁免只在真仓 ref-files 生效，夹具里按裸句判红。
+    stray = [h for h in hits if h[0] != "docs/复盘-历史留档.md"]
+    assert not stray, f"合规夹具不应命中：{stray}"
     assert any(e[0] == "docs/事故-历史基线.md" for e in exempt), f"基线豁免未留痕：{exempt}"
     print(f"[selftest] 合规夹具 PASS 通路 OK：扫描 {scanned} 份，基线豁免 {len(exempt)} 处")
 

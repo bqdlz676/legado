@@ -1,7 +1,22 @@
 [
-  "docs/修复-InkContentEditState-平台签名撞名.md",
-  "docs/修复-全仓非UTF8复扫.md",
-  "docs/修复-吞异常三文件.md",
-  "docs/修复-空集假绿检测器.md",
-  "docs/分析-不等待七阶推演.md"
+ {
+  "path": "docs/修复-InkContentEditState-平台签名撞名.md",
+  "sha": "d4688ae8cef3"
+ },
+ {
+  "path": "docs/修复-全仓非UTF8复扫.md",
+  "sha": "bd72d4b73581"
+ },
+ {
+  "path": "docs/修复-吞异常三文件.md",
+  "sha": "036778484ccd"
+ },
+ {
+  "path": "docs/修复-空集假绿检测器.md",
+  "sha": "6bc51423956d"
+ },
+ {
+  "path": "docs/分析-不等待七阶推演.md",
+  "sha": "683f20428aff"
+ }
 ]
