@@ -88,4 +88,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        # 被 head/tail 截断属正常使用方式，不是错误。
+        os._exit(0)

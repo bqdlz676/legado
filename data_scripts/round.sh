@@ -9,4 +9,4 @@ python3 data_scripts/queue-sync.py "$@"
 echo ---
 python3 data_scripts/debt-ratchet.py | tail -2
 echo ---
-python3 data_scripts/pyramid.py | head -8
+python3 data_scripts/pyramid.py | tail -10
