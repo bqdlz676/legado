@@ -3,6 +3,8 @@
 > 边界：本单只改 `app/src/main/AndroidManifest.xml` 两处 `exported`，新增一条 manifest 契约测试；`ReaderProvider` 一律不动（signature 权限另案）。未 git 写、未本地编译，仅跑 `kotlin-syntax-lint.py` 与 grep 回证。
 > 锚点卡：docs/锚点/Q241-exported收口.md。
 
+> **口径已失效（2026-11-26，Q-282）**：`ReaderProvider`（含 `readerProvider` authority、`ReaderProviderRoutes` 路由表/分发、`ReaderProviderRoutesTest`）已封死并整体清除，详见 `docs/修复-清除ReaderProvider.md`；本段保留为历史记录，勿据以施工。
+
 ## 一、任务与产物
 
 - 改动 1：`AndroidManifest.xml:139` `.ui.main.MainActivity` `exported` `true → false`。

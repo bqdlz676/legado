@@ -3,6 +3,8 @@
 > 边界：本单为只读安全审计，**未改动 `app/src/main/AndroidManifest.xml` 任何一行**；未 git 写、未编译。判定依据为 manifest 声明 + 主源码拉起/路由证据，行号一律 `文件:行` 可回源。
 > 锚点卡：docs/锚点/Q239-exported审计.md。
 
+> **口径已失效（2026-11-26，Q-282）**：`ReaderProvider`（含 `readerProvider` authority、`ReaderProviderRoutes` 路由表/分发、`ReaderProviderRoutesTest`）已封死并整体清除，详见 `docs/修复-清除ReaderProvider.md`；本段保留为历史记录，勿据以施工。
+
 ## 一、核查范围与方法
 
 - 扫描命令：`grep -n 'android:exported="true"' app/src/main/AndroidManifest.xml`，命中 **16 处**，行号：`:48`、`:60`、`:73`、`:86`、`:99`、`:112`、`:125`、`:139`、`:186`、`:435`、`:457`、`:482`、`:625`、`:655`、`:660`、`:670`。

@@ -5,6 +5,7 @@
 ## 一、事实锚点（逐字，含 文件:行）
 
 - 类清单口径：discover 产物 `test-class-lists` 内 `shard-2.txt`，160 条；158 条命中源文件，2 条无源（`HalfSheetBenchReport`、`SearchBenchReport`）。
+- 最终状态：job `139849477456` completed/cancelled `10:34:42Z → 11:19:56Z`（2714s / 45m14s）；测试窗 `10:39:14.772Z → 11:19:54.856Z`（2440.1s），无逐用例进度、无 XML；4 java 孤儿 + 1 tee。远端命令不带 `-PexcludeRhino`，无独立 rhino job，Rhino 候选本轮在分片内执行。
 - 首行布尔：**否**——未定位到单一最可疑类。
 - `JsSourceConfigTest.kt:468` `@Test(timeout = 5_000)`；`:474` `runBlocking {`；`:475` `withTimeout(500) {`；`:476` `extract("while (true) {}", currentCoroutineContext())`。40 例仅此 1 例护栏。
 - `McpServiceContractTest.kt:273` `@Test(timeout = 5_000)`；`:276` `runBlocking {`；`:277` `withTimeout(250) {`；`:278` `evaluate(BookSource(), "while (true) {}")`；助手 `:351-356` `runScriptWithContext { source.evalJS(js) }`。8 例仅此 1 例护栏。
@@ -25,7 +26,7 @@
 
 ## 三、边界与取舍
 
-- in-progress job 日志 404（`BlobNotFound`），拿不到当前执行用例名；Top3 为静态风险排序，待 XML / 日志落地后复核。
+- 结束后日志仍无逐用例进度行、无 XML，挂死用例名不可考；Top3 为静态风险排序，待后续完整跑出的分片 XML 或离线复现后复核。
 - 扫描特征集覆盖常见阻塞原语；未覆盖反射、JNI、第三方库内部线程，相关面在缺口节声明。
 - 压测类是否移出单测分片属架构取舍，本单只给建议，不动代码。
 

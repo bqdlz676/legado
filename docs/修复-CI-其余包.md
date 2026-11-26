@@ -3,6 +3,8 @@
 
 # 修复 · CI 其余包（book/source · about · replace · dict · file）
 
+> **口径已失效（2026-11-26，Q-280）**：旧关于页 `AboutActivity` 已整体删除，详见 `docs/修复-删除关于页.md`；本段保留为历史记录，勿据以施工。
+
 - 依据：CI run 45188065059 / job build；错误清单 `docs/CI日志-da571c9-错误清单.txt`（HEAD da571c9）。
 - 范围：任务书点名 12 个文件 + 1 个同包配套文件（`CheckAppUpdate.kt`，为 AboutActivity 补 Activity 侧同位重载，属 `ui/about/**`）。
 - 目标错误：64 条（清单内按文件名过滤实测 64 行，与任务书计数一致）。

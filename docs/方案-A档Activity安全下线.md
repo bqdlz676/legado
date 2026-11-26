@@ -5,6 +5,8 @@
 > 边界：本单只读预研，未改一行代码、未跑本地编译、未 push；方案等 CI 全绿后再当施工图执行。证据不足处标「待运行期确认」，不猜。
 > 锚点卡：docs/锚点/Q260-下线方案.md。
 
+> **口径已失效（2026-11-26，Q-280）**：旧关于页 `AboutActivity` 已整体删除，详见 `docs/修复-删除关于页.md`；本段保留为历史记录，勿据以施工。
+
 ## 一、基线事实（三 Activity 现状）
 
 | Activity | 声明位置 | 基类 | manifest 行 | intent-filter / exported |
@@ -15,6 +17,13 @@
 
 - 三页 manifest 块均无 `<intent-filter>`、无 scheme/host/action 深链声明；全仓无 `Class.forName` / `setClassName` / `ComponentName` 拼出这三个类名（仅有的 `setClassName` 在 `PermissionActivity.kt:129` 系统设置、`TextActionMenu.kt:250` 第三方应用信息，与本三页无关）。
 - 名称撞名提示：`model/remote/RemoteBookWebDav`（WebDAV 数据模型）与 `ui/book/import/remote/`（UI 包）只是同名前缀，`model` 层不 import UI remote 包，下线 UI 包不得动 WebDAV 数据层。
+- 跨切面零命中证据（穷举面，逐条回源）：
+  - 快捷方式：`api/ShortCuts.kt:21` 快捷意图只指向 `MainActivity`，`:31` 朗读快捷意图指向 `SharedReceiverActivity`；无三页目标。
+  - 通知 / `PendingIntent`：全仓 `PendingIntent` 构造点无三页类名（grep 三 Activity 名零命中）。
+  - `MediaButtonReceiver`：`receiver/MediaButtonReceiver.kt:27` 为朗读按键接收器，manifest `:659` 注册，与三页无关。
+  - `AutoTask*`：`model/AutoTask.kt`、`AutoTaskRunner.kt`、`AutoTaskProtocol.kt` 及 `App.kt`、`AppDatabase.kt`、`Restore.kt` 均不引用三 Activity 类名（grep 零命中）。
+  - JS 桥 / WebView：`setClassName` 仅 `PermissionActivity.kt:129`、`TextActionMenu.kt:250`；`Class.forName` 仅 `utils/FileDocExtensions.kt:66`；均与三页无关，WebView 桥接代码无三页类名字符串。
+  - 截图源集：`app/src` 下无 screenshot / shot 源集目录，三页名在测试截图资产零命中。
 
 ## 二、`AboutActivity`（关于页旧 Compose 宿主）
 

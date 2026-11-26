@@ -4,12 +4,14 @@
 > 边界：只读核查，未改任何代码、未改脚本与既有文档；没拿到运行期证据的条目标「待运行期确认」，不猜。
 > 锚点卡：docs/锚点/Q236-旧Activity清点.md。
 
+> **口径已失效（2026-11-26，Q-280）**：旧关于页 `AboutActivity` 已整体删除，详见 `docs/修复-删除关于页.md`；本段保留为历史记录，勿据以施工。
+
 ## 一、清点口径与总数
 
-- 仓内 Activity 相关 kt 文件 70 份；剔除抽象基类、`ActivityResultContract`/契约工具类后，具体 Activity 类 **62 个**；另 4 个抽象基类不可独立下线。
+- 仓内 Activity 相关 kt 文件 70 份；脚本匹配到 64 个类声明，剔除 2 个契约类（`TocActivityResult`、`SelectImageContract`）后为 **62 个 Activity 类**；其中 `BaseReadBookActivity` 为抽象基类，另有 `BaseActivity`、`VMBaseActivity`、`BaseImportBookActivity` 3 个抽象基类在独立文件中，抽象基类合计 4 个，具体屏幕 Activity 61 个。
 - 形态判据：基类为 `ComponentActivity` 且 `setContent` 自绘＝新 Ink 壳；`VMBaseActivity`/`BaseActivity`/`FragmentActivity`/`AppCompatActivity` 承载 ViewBinding 或旧视图＝旧栈；`setContent` 但挂在旧基类上＝混合 Compose 宿主。
 - 运行期证据优先级：manifest 注册与 intent-filter ＞ 新栈宿主 Fragment/调度器拉起 ＞ 服务/契约/通知 PendingIntent ＞ 旧 Fragment 拉起 ＞ 仅 import/类型强转。
-- 三份旧 Fragment（`MyFragment`、`ExploreFragment`、`RssFragment`）在 `MainActivity` 适配器中均无实例化引用（`MainActivity.kt:529` 只产出 `MyInkFragment`，:525 `InkShelfFragment`，:527 `ExploreInkFragment`），判定为孤儿旧宿主；仅由它们拉起的 Activity 入口视为待确认，不直接判死。
+- 三份旧 Fragment（`MyFragment`、`ExploreFragment`、`RssFragment`）在 `MainActivity` 适配器中均无实例化引用（`MainActivity.kt:527` 产出 `InkShelfFragment`、:528 `ExploreInkFragment`、:529 `MyInkFragment`），判定为孤儿旧宿主；仅由它们拉起的 Activity 入口视为待确认，不直接判死。
 
 ## 二、同名 / 同屏双实现判定（核心结论）
 
@@ -56,11 +58,11 @@
 4. `book/read/ink/InkTimelineActivity.kt`（行 51）——纪年时间轴，`InkActionDispatcher.kt:95`。
 5. `about/AboutInkActivity.kt`（行 50）——关于页新壳，见 2.1。
 
-### 3.3 旧栈 / 混合壳存活（被新栈宿主、服务、契约或活动桥拉起，27）
+### 3.3 旧栈 / 混合壳存活（被新栈宿主、服务、契约或活动桥拉起，35）
 
 | Activity（文件 行） | 形态 | 拉起方证据（文件:行） | 判定 |
 |---|---|---|---|
-| `book/audio/AudioPlayActivity.kt`（85） | VMBase/View | `ContextExtensions.kt:72`、`BookInfoActivity.kt:1502`、`MediaButtonReceiver.kt:110`、`FragmentExtensions.kt:100` | 存活（音频路由） |
+| `book/audio/AudioPlayActivity.kt`（85） | VMBase/View | `ContextExtensions.kt:72`、`BookInfoActivity.kt:1502`、`FragmentExtensions.kt:100`；`MediaButtonReceiver.kt:110` 为 `isExistActivity` 存在性判定 | 存活（音频路由） |
 | `book/manga/ReadMangaActivity.kt`（89） | VMBase/View | `ContextExtensions.kt:73`、`FragmentExtensions.kt:101`、`BookInfoActivity.kt:1515` | 存活（漫画路由） |
 | `video/VideoPlayerActivity.kt`（96） | VMBase/View | `ContextExtensions.kt:71`、`VideoPlayService.kt:601`、`BookInfoActivity.kt:1507`、`SourceHelp.kt:198`、`ReadRss.kt:39` | 存活（视频路由） |
 | `book/import/local/ImportBookActivity.kt`（52） | BaseImport | `InkShelfFragment.kt:221`、`MyInkFragment.kt:76` | 存活（新书架入口） |
@@ -88,8 +90,15 @@
 | `login/SourceLoginActivity.kt`（13） | VMBase/View | `AutoTaskEditActivity.kt:130`、`AudioPlayActivity.kt:214`、`BookInfoActivity.kt:379` | 存活（登录链内） |
 | `lib/permission/PermissionActivity.kt`（25） | AppCompat/View | `Request.kt:84,169,176,185`（权限契约） | 存活 |
 | `receiver/SharedReceiverActivity.kt`（13） | AppCompat/View | manifest `PROCESS_TEXT`/`SEND` 外部入口；`ShortCuts.kt` | 存活（外部分享） |
+| `browser/WebViewActivity.kt`（74） | VMBase/View | `SourceVerificationHelp.kt:362`、`MangaMenu.kt:179`；`ReadBookActivity.kt:2428` 为旧壳入口 | 存活（验码/漫画链内） |
+| `config/BottomBarSkinActivity.kt`（67） | AppCompat+Compose | `config/sections/ThemeSection.kt:104`；该段由 `ConfigActivity.kt:128` 装载 | 存活（设置 Compose 段内） |
+| `config/BottomBarSkinAssignActivity.kt`（61） | AppCompat+Compose | `BottomBarSkinActivity.kt:89,152` | 存活（链内） |
+| `main/BattleActivity.kt`（21） | AppCompat+Compose | `PlaceMapActivity.kt:34` | 存活（地图链内） |
+| `main/PersonDetailActivity.kt`（25） | AppCompat+Compose | `InkActionDispatcher.kt:83`、`RelationActivity.kt:200` | 存活（调度器活入口） |
+| `main/PlaceMapActivity.kt`（24） | AppCompat+Compose | `InkActionDispatcher.kt:78`、`ExploreInkFragment.kt:75` | 存活（调度器/新发现页入口） |
+| `main/RelationActivity.kt`（36） | AppCompat+Compose | `InkActionDispatcher.kt:90`；`ReadBookActivity.kt:1168` 为旧壳入口 | 存活（调度器活入口；旧阅读壳入口随壳失效） |
 
-### 3.4 入口仅挂孤儿旧 Fragment / 静态证据不足（待运行期确认，18）
+### 3.4 入口仅挂孤儿旧 Fragment / 旧阅读壳 / 静态证据不足（待运行期确认，20）
 
 | Activity（文件 行） | 现有静态引用 | 疑点 |
 |---|---|---|
@@ -100,13 +109,15 @@
 | `config/DictRuleActivity.kt`（30） | 仅 `MyFragment.kt:256` | 规则管理入口是否另有对话框可达，待确认 |
 | `book/toc/rule/TxtTocRuleActivity.kt`（53） | 仅 `MyFragment.kt:257` | 同上 |
 | `book/explore/ExploreShowActivity.kt`（36） | `ExploreFragment.kt:298`（孤儿）、`RssJsExtensions.kt:241`（JS 桥） | JS 桥是否被真实规则调用，待运行期确认 |
+| `book/searchContent/SearchContentActivity.kt`（47） | 仅 `ReadBookActivity.kt:266` 契约拉起 | 入口挂旧阅读壳；新阅读壳是否提供章内搜索入口，待运行期确认 |
+| `highlight/HighlightRuleActivity.kt`（48） | 仅 `ReadBookActivity.kt:1169,1670` 菜单/动作拉起 | 同上，旧壳菜单入口；新壳是否接入高亮规则管理待确认 |
 | `rss/manage/RssSourceActivity.kt`（59） | `RssFragment.kt:92`（孤儿） | RSS 入口链 |
 | `rss/favorites/RssFavoritesActivity.kt`（33） | `RssFragment.kt:93`（孤儿） | 同上 |
 | `rss/article/RssSortActivity.kt`（43） | `RssFragment.kt:199`；`RssSortActivity.kt:457` 自拉起 | 自拉起需先有入口 |
 | `rss/subscription/RuleSubActivity.kt`（38） | `RssFragment.kt:136`（孤儿） | 同上 |
 | `rss/source/edit/RssSourceEditActivity.kt`（70） | `RssFragment.kt:226`、`RssSortActivity.kt:54`、`ReadRssActivity.kt:169`、`RssSourceActivity.kt:128` | 链内，根入口待确认 |
 | `rss/source/debug/RssSourceDebugActivity.kt`（32） | `RssSourceEditActivity.kt:264` | 链内 |
-| `rss/read/ReadRssActivity.kt`（117） | `ReadRssActivity.kt:924,939` 自拉起；旧 `RssFragment` 入口 | 根入口待确认 |
+| `rss/read/ReadRssActivity.kt`（117） | `RssFragment.kt:186,203` 入口；`ReadRssActivity.kt:924,939` 自拉起 | 根入口挂孤儿 `RssFragment`，待确认 |
 | `book/cache/CacheActivity.kt`（70） | `CacheBookService.kt:55`、`ExportBookService.kt:271` 通知 PendingIntent | 通知点击可达，存活；但无前台菜单入口，待确认是否仍发通知 |
 | `main/PaintActivity.kt`（78） | manifest :174 已注册；仓内无 `::class`/`startActivity` 拉起 | 可能由 PendingIntent/深链/未提交分支拉起，待运行期确认 |
 | `book/manage/BookshelfManageActivity.kt`（70） | 仓内无外部拉起（仅自引用） | 孤儿候选，见第四节 A 档 |
@@ -141,7 +152,7 @@
 
 ### C 档：存活不动
 
-- 3.2 新 Ink 栈 5 个；3.3 旧栈/混合壳存活 27 个；3.1 抽象基类 4 个。
+- 3.2 新 Ink 栈 5 个；3.3 旧栈/混合壳存活 35 个；3.1 抽象基类 4 个。
 
 ## 五、新发现问题
 
@@ -150,13 +161,13 @@
 3. `MyInkFragment.kt:19` 残留 `import AboutActivity` 未使用（已修候选，待随 AboutActivity 下线一并清）；同类未用 import 建议交由 lint 统一扫。
 4. `PaintActivity` 已注册 manifest 但仓内无代码拉起（待裁）：需运行期确认是否存在 PendingIntent/深链/未提交分支引用；在确认前不得按孤儿删除。
 5. 清点口径局限（已记录）：本次为静态扫描，JS 桥（`JsExtensions`/`RssJsExtensions`）字符串化路由、通知 PendingIntent、外部 intent-filter 入口无法静态穷举；B 档条目均须运行期点击复核，结论以运行期证据为准。
-6. 计数口径提示（已记录）：派单所述「47 个旧 Activity」与仓内实测不符——具体 Activity 62 个，其中旧栈/混合壳约 45 个、新 Ink 栈 5 个、双实现旧壳 2 个；47 可能为某一历史时点或某一子集口径，建议总控核对原始计数来源。
+6. 计数口径提示（已记录）：派单所述「47 个旧 Activity」与仓内实测不符——实测 Activity 类 62 个（含 1 个阅读抽象基类），具体屏幕 61 个：新 Ink 栈 5、旧栈/混合壳存活 35、待运行期确认 20、阅读旧壳 1；47 可能为某一历史时点或某一子集口径，建议总控核对原始计数来源。
 
 ## 六、边界与未验证项
 
 1. 本单只读：未改 kt/脚本/文档，未跑编译与单测，未执行 git 写操作。
 2. 未在真机/模拟器点验任何页面跳转；运行期路由以代码引用、manifest、契约为准，存疑条目均标「待运行期确认」。
-3. 测试源集 `app/src/test` 不在本次清点范围；契约类 `TocActivityResult`、`SelectImageContract`、`ActivityResultLauncherAwait` 不计入 Activity 屏幕。
+3. 测试源集 `app/src/test` 不在本次清点范围；契约类 `TocActivityResult`、`SelectImageContract`（见 `ActivityResultContracts.kt`）不计入 Activity 屏幕。
 
 ## 守则回执
 

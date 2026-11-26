@@ -2,6 +2,8 @@
 
 > 对象：`app/src/main/AndroidManifest.xml` 两处 `exported` 收口 + 契约测试 `app/src/test/java/io/legado/app/security/ManifestExportedContractTest.kt`；回执报告 `docs/修复-exported两处收口.md`。
 
+> **口径已失效（2026-11-26，Q-282）**：`ReaderProvider`（含 `readerProvider` authority、`ReaderProviderRoutes` 路由表/分发、`ReaderProviderRoutesTest`）已封死并整体清除，详见 `docs/修复-清除ReaderProvider.md`；本段保留为历史记录，勿据以施工。
+
 ## 一、事实锚点（逐字，含 文件:行）
 
 - 改动 1：`AndroidManifest.xml:136` `.ui.main.MainActivity`，`:139` `android:exported="false"`；内部拉起 `WelcomeActivity.kt:48`、`ShortCuts.kt:21`、`SharedReceiverActivity.kt:55`、`ShelfSearchHandoff.kt:75`。

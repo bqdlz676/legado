@@ -2,9 +2,9 @@
 
 - **首行布尔：是否已定位到单一最可疑类：否。** 160 个分片类全量静态扫描后，未发现可单独解释"整个 test worker 永久挂住"的无界阻塞点；残留风险集中在 3 组候选，见 §四。
 - 核验仓库：`bqdlz676/legado`（本地路径 `/home/user/Doubao/chats/38454122521460994/legado`）
-- 在飞 run：Verify `45801836915`（head sha `a398229874cbfc7002ace661fb2dba6e7a091e3f`）；shard 2/4 job `139849477456`，`10:34:42Z` 起跑，取证时刻仍 `in_progress`（测试步骤 `Run shard unit tests and benches` 自 `10:35:18Z` 未结束）。
+- 复核 run：Verify `45801836915`（head sha `a398229874cbfc7002ace661fb2dba6e7a091e3f`）；shard 2/4 job `139849477456` 最终 **completed / cancelled**，`10:34:42Z → 11:19:56Z`（2714s / 45m14s，命中 `verify.yml:213` `timeout-minutes: 45`）；测试任务 `:app:testAppDebugUnitTest` `10:39:14.772Z → 11:19:54.856Z`（2440.1s / 40m40.1s），窗内无逐用例进度行，无 XML 产物；清理期终止 4 个 java 孤儿 + 1 个 tee。静态定位结论不变；挂死用例名仍为证据缺口。
 - 类清单口径：**discover 产物** `test-class-lists` artifact 内 `shard-2.txt`（run `45801836915` 下载，`/tmp/listsx/shard-2.txt`），160 条；非字母序近似分片。`/tmp/cl/shard-2.txt` 已不存在，未采用。
-- 核验方式：只读静态扫描，未改任何测试文件，未编译、未跑本地单测、无 git 写操作。
+- 核验方式：只读静态扫描，未改任何测试文件，未编译、未跑本地单测、无 git 写操作。下文 `文件:行` 锚定本地工作树；远端 `a398229` 同名文件个别行号差 1（远端行号在 Q-228 报告 §7.2 并列）。
 - 锚点卡：docs/锚点/Q243-shard2定位.md
 
 ## 一、扫描口径与覆盖
@@ -12,6 +12,7 @@
 - 清单 160 条，按 FQN 映射 `app/src/test/java/<包路径>.kt`：158 条命中源文件，2 条无源文件（见 §五-3）。
 - 扫描特征（逐文件逐行）：`while(true)`、`Thread.sleep` / `SystemClock.sleep`、`CountDownLatch.await()` 无超时、`awaitTermination()` 无超时、`runBlocking` 包外部回调、`Future.get()` 无超时、`Thread(` 创建、`Executors` / `ExecutorService` / `GlobalScope` / `CoroutineScope`、阻塞队列 `.take()`、裸 `.join()`、网络直连（`Socket` / `openConnection` / `HttpURLConnection` / `ServerSocket` / `URL(`）、`delay(`、`ProcessBuilder` / `Runtime.exec`、`Semaphore` / `CompletableDeferred` / `Channel.receive`。
 - 护栏现状：分片内带 JUnit `@Test(timeout=)` 的文件 4 个——`RhinoScriptErrorContextTest`（4 例 5_000ms）、`RssSortUrlsTest`（8 例 5_000ms）、`JsSourceConfigTest`（40 例中仅 1 例 5_000ms）、`McpServiceContractTest`（8 例中仅 1 例 5_000ms）。
+- 远端执行口径（job 日志行 251 原文）：`./gradlew :app:testAppDebugUnitTest --no-daemon --build-cache --stacktrace "${ARGS[@]}"`，**不带** `-PexcludeRhino`；远端 a398229 工作流无独立 `rhino-eval-tests` job。本轮 160 类全部在分片内求值，Rhino 候选在分片内是**活的**；Q-246 分类隔离（`excludeCategories RhinoEvalTest` + 独立 job）仅存在于本地未推送工作树，不解释本轮挂死。
 
 ## 二、命中类逐条核查（文件:行 + 阻塞机制 + 护栏状态 + 判定）
 
@@ -73,16 +74,17 @@
 
 ## 五、取证缺口与未排除项
 
-1. 静态扫描无法看到 Gradle worker 内当前正在执行哪个用例：job 日志在 `in_progress` 阶段返回 `BlobNotFound`（404），无逐用例进度行；挂死用例名须待分片结束后从 JUnit XML / job 日志定位。
+1. 静态扫描无法看到 Gradle worker 内正在执行哪个用例：本轮结束后 job 日志仍无逐用例进度行，无 `test-results-shard-2` XML，失败诊断步骤 `if: failure()` 对 `cancelled` 不触发；挂死用例名本轮不可定位，须待后续完整跑出的分片 XML 或离线复现。
 2. 未排除"测试类静态初始化块 / 单例首次装配"阻塞：扫描覆盖方法体特征，未逐类追踪 `companion object` 静态初始化链路；若挂死发生在类加载期，用例级护栏不生效。
 3. 两条无源清单条目：`io.legado.app.ui.components.HalfSheetBenchReport`、`io.legado.app.ui.main.search.SearchBenchReport`；源树对应文件为 `HalfSheetBenchmark.kt` / `SearchBenchmark.kt`，疑为编译产物清单缓存残留（见 §五-3 新发现问题）。
-4. 本轮 shard 2 尚未结束，本报告结论为静态定位；Top3 排序不代表 CI 实证。
+4. 本轮 shard 2 已确认挂死至 45 分钟超时取消（§首行），但 Top3 排序仍是静态嫌疑，不代表 CI 已实证挂死用例。
 
 ## 新发现问题（2026-11-26，Q-243）
 
 1. Q-220 护栏只覆盖 Rhino / Rss / Mcp 三个文件，shard 2 内 `JsSourceConfigTest`（40 例仅 1 例护栏）、`McpServiceContractTest`（8 例仅 1 例护栏）、三个 bench 类与 `OkHttpRetryTest` 均无 JUnit 超时 —— 待裁：按 §四 Top3 决定补护栏范围，压测类是否移出单测分片。
 2. 协程 `withTimeout` 不能抢占 Rhino 指令边界之间的不可中断调用；JUnit 看门线程不能杀死残留工作线程 —— 已入队：评估独立线程池 `future.get` 硬超时 + `shutdownNow` 兜底，或 Rhino 观察器叠加墙钟截止。
 3. discover 清单混入 `HalfSheetBenchReport` / `SearchBenchReport` 两个无源类名（源文件为 `*Benchmark.kt`），疑为构建缓存枚举残留 —— 已入队：discover 步骤核对编译产物清单来源。
+4. shard 2 挂死第三次复现（b744fb4 45m15s 超时取消；575ede0 13m50s 被连推取消；a398229 45m14s 超时取消），Q-220 三文件护栏已在远端树但未能避免 worker 挂死；Q-246 Rhino 分类隔离尚未推送上线 —— 待裁：隔离改动上线后复测，若仍挂死再按 Top3 扩护栏。
 
 ## 守则回执
 

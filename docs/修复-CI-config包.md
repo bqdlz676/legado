@@ -6,6 +6,8 @@
 > 任务范围：只修 `app/src/main/java/io/legado/app/ui/config/**` 内的编译错误；其它包 111 条错误一律未动（见末尾交接）。
 > 本机无 Android SDK、禁跑 gradle / kotlinc / assemble，本轮全部为**静态自证**；是否真正编译通过，以下一轮云端 CI 为准。
 
+> **口径已失效（2026-11-26，Q-280）**：旧关于页 `AboutActivity` 已整体删除，详见 `docs/修复-删除关于页.md`；本段保留为历史记录，勿据以施工。
+
 ## 1. 任务与范围
 
 - 一手证据：`docs/CI日志-da571c9-错误清单.txt`（273 条去重）。其中前缀为 `app/src/main/java/io/legado/app/ui/config/` 的 **162 条**，分布在 15 个既有文件 + 本轮新增 1 个文件。

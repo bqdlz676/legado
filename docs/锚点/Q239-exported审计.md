@@ -2,6 +2,8 @@
 
 > 对象：`app/src/main/AndroidManifest.xml` 全部 16 处 `android:exported="true"`；回执报告 `docs/审计-exported16处.md`。本单只读，未改 manifest。
 
+> **口径已失效（2026-11-26，Q-282）**：`ReaderProvider`（含 `readerProvider` authority、`ReaderProviderRoutes` 路由表/分发、`ReaderProviderRoutesTest`）已封死并整体清除，详见 `docs/修复-清除ReaderProvider.md`；本段保留为历史记录，勿据以施工。
+
 ## 一、事实锚点（逐字，含 文件:行）
 
 - 必要 启动器：`AndroidManifest.xml:47` `WelcomeActivity`（`:50-54` MAIN+LAUNCHER）；`:58/:71/:84/:97/:110/:123` `Launcher1~6`，均 `enabled="false"` + MAIN+LAUNCHER（`:63-67` 等）。
