@@ -52,7 +52,7 @@
 
 ### 2.5 计数口径更正（与任务书转述的出入，以源码为准）
 
-- 任务书转述「RhinoScriptErrorContextTest.kt 11 处 evaluateString」：该计数是正则宽匹配（import、`Context`、`eval` 等一并计入）。真实 Rhino 调用入口 5 处——`:22` `eval`、`:42` `evalSuspend`、`:60` `compile`、`:83` `compile(definitions).eval(scope)`、`:86` `compile("outer();").eval(scope)`；4 个测试方法全部加护栏，入口覆盖无遗漏。
+- 任务书转述「RhinoScriptErrorContextTest.kt 11 处 evaluateString」：该计数是正则宽匹配（import、`Context`、`eval` 等一并计入）。真实 Rhino 调用入口 5 处（本单改后工作树行号）——`:24` `eval`、`:44` `evalSuspend`、`:62` `compile`、`:85` `compile(definitions).eval(scope)`、`:88` `compile("outer();").eval(scope)`；4 个测试方法全部加护栏，入口覆盖无遗漏。
 - 任务书转述「RssSortUrlsTest.kt 8 处 runBlocking」：源码真实 `runBlocking` 为 7 处，另有 1 个方法为纯字符串解析（`:17`）；8 个 `@Test` 全部加护栏。
 
 ## 三、grep 回证（改动后真实输出）
@@ -105,7 +105,7 @@ timeout=8 plain=0
 
 - 选型：JUnit4 `@Test(timeout = …)`，未用协程 `withTimeout`。`modules/rhino/src/main/java/com/script/rhino/RhinoScriptEngine.kt` 锚点：`:43` `fun eval(...)`、`:164` `fun compile(...)` 为阻塞同步，`:100` `suspend fun evalSuspend(...)` 虽为 suspend，但其内部脚本执行仍落在 Rhino 线程；`withTimeout` 只能在协程挂起点响应取消，无法中断阻塞在 Rhino 内的线程。JUnit4 看门线程在 runner 层限时，超时即把该用例判失败，不依赖被测代码主动响应取消。
 - 同仓先例：`app/src/test/java/io/legado/app/model/jsSource/JsSourceConfigTest.kt:469`、`app/src/test/java/io/legado/app/web/mcp/McpServiceContractTest.kt:273` 已用 `@Test(timeout = 5_000)`，本单口径与之对齐。
-- 取值：Rhino / Rss 取 `5_000` ms——这两个文件内脚本均为立即抛错、编译错误或固定回调字符串，正常执行毫秒级，5s 余量千倍以上；Mcp 取 `10_000` ms——Ktor `testApplication` 引擎启动叠加最多 9 个 `client.request`，给高负载 runner 留启动抖动余量。
+- 取值：Rhino / Rss 取 `5_000` ms——这两个文件内脚本均为立即抛错、编译错误或固定回调字符串，正常执行毫秒级，5s 余量千倍以上；Mcp 取 `10_000` ms——Ktor `testApplication` 引擎启动，最重用例循环展开最多 8 次 `client.request`（3 方法 × 2 token + 2 个显式路径），给高负载 runner 留启动抖动余量。
 
 ## 五、二阶三阶影响
 
@@ -140,6 +140,7 @@ timeout=8 plain=0
 - `Pathfinder.kt`：一字未改（任务书第 3 条；前序核验已静态核查 `:155` 比较器带次级键、`:187-191` 严格更小才改写，本单不复议）。
 - 基线影子 job 的上传步骤 `verify.yml:546` 仍为非递归 glob，不属本单单测分片步骤范围，未动。
 - 未新增任何 `data_scripts/` 脚本；未改 `docs/机制-*` 守则文件。
+- 派生索引：按文档规矩 §5 重跑 `python3 data_scripts/docs-index.py --write` 刷新 `docs/索引-文档.md`，仅新增指路条目（含本报告与并发在途文档），不含结论复制；`docs/索引-机制.md` 只索引规则全集，本单不涉及，未重跑。
 
 ## 七、未验证项声明
 
@@ -149,7 +150,36 @@ timeout=8 plain=0
 
 ## 八、机检输出
 
-（本节在文档落盘后实跑两道门禁，命令与输出粘贴于此。）
+### 8.1 锚点卡守卫（`--strict`，只打印 FAIL）
+
+命令：`python3 data_scripts/check-anchor-card.py --strict docs/修复-CI取证与超时护栏.md`
+
+```text
+汇总: PASS=1 FAIL=0（共 1 份）
+RC=0
+```
+
+非 strict 复跑：`── docs/修复-CI取证与超时护栏.md  → PASS`，无 WARN（主对象 Q-220 反查到 `docs/锚点/Q220-CI取证与超时护栏.md`；正文无其他缺卡次要编号）。
+
+### 8.2 回执块机检（onboarding）
+
+CLI 入口：`python3 data_scripts/check-onboarding.py`
+
+```text
+ONBOARD: PASS（本轮无报告改动）
+RC=0
+```
+
+说明：CLI 按 `git status --porcelain` 通配扫描，中文文件名经 git 八进制转义后 `fnmatch` 匹配漏判，故 CLI 口径为「本轮无报告改动」。回执块本身按前序核验报告同口径直跑单文件：
+
+```text
+$ python3 -c "import importlib.util, sys; spec=importlib.util.spec_from_file_location('co','data_scripts/check-onboarding.py'); co=importlib.util.module_from_spec(spec); spec.loader.exec_module(co); probs=co.check_report('docs/修复-CI取证与超时护栏.md'); print('PROBLEMS:', probs); print('RESULT:', 'PASS' if not probs else 'FAIL'); sys.exit(0 if not probs else 1)"
+PROBLEMS: []
+RESULT: PASS
+RC=0
+```
+
+回执块结论：四枚指纹至少一枚命中现行磁盘版本（四枚均与 `--emit` 当前值一致）；3 条逐字引用全部回源命中；「适用条款」行在位。
 
 ## 守则回执
 
@@ -159,3 +189,9 @@ timeout=8 plain=0
 2. `docs/机制-子代理必读.md:12`：「不许跑 gradle / kotlinc / assemble。编译只在云端 CI 发生。」
 3. `docs/机制-总控必读.md:108`：「回源（回源成本 ≪ 记忆成本）」
 - 适用条款：文件域独占——只改 verify.yml 与三个指定测试文件，未碰他人并发改动与生产代码；禁 git 写操作——全程未 add/commit/push/revert/checkout；禁本地编译——未跑 gradle/kotlinc/assemble；锚点强制——所有改动落点带 `文件:行`，源码行号以 b744fb4 锚点与工作树 grep 回证为准；证据不足写明缺口——护栏实际拦截效果、XML 产物形态列为未验证项，不替 CI 编结论；一条缺陷一单——Q-220 只收口取证补传与超时护栏，不改 Pathfinder 红因本体。
+
+## 新发现问题（2026-11-26 总控追补，F8）
+
+1. 本报告初版缺 F8 节被门禁 55 判红 —— 已修：本节补入，后续交付一落盘即带问题节。
+2. 三处 Glide 测试加载真实 JSON 走磁盘 IO，若 CI 磁盘慢会放大挂死窗口 —— 已入队：下一单评估改用内存 fixture。
+3. shard 挂死是"无超时"而非"慢"，改断言没用 —— 已修：以超时护栏处置，不改业务断言。

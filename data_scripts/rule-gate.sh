@@ -496,6 +496,11 @@ echo
 PF55=$(python3 data_scripts/check-problem-finding.py 2>&1)
 if [ $? -eq 0 ]; then ok "55永远找问题" "$(echo "$PF55" | grep 'PROBLEM-FINDING: PASS' | head -1)"; else bad "55永远找问题" "$(echo "$PF55" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# 56 锁口径反向扫描（Q-221 新增；撞锁条文此前无任何机检，属 F8 交出的新问题）。
+#   为什么：规则文本里"禁删锁"与门禁第1步"僵尸锁可删"冲突，人眼扫才被发现，必须机检。
+LK56=$(python3 data_scripts/check-lock-rule.py 2>&1)
+if [ $? -eq 0 ]; then ok "56锁口径" "$(echo "$LK56" | grep 'LOCK-RULE: PASS' | head -1)"; else bad "56锁口径" "$(echo "$LK56" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
 if [ ${#SKIP_LEGACY[@]} -gt 0 ]; then
   echo "SKIP-LEGACY 合计 ${#SKIP_LEGACY[@]} 份（存量件仅头部留痕，⑲/⑭/⑮ 豁免）："
