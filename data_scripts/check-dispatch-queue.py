@@ -15,7 +15,7 @@
      积压 → FAIL（有活不派）；无积压时低占用属正常周转。
 
 边界：门禁是工作区快照，"连续两轮"无法在单次脚本运行内累计；E3/E4 按当前
-积压有无判空转，轮次连续性由调度层每轮 wait_agent 返回后复核。
+积压有无判空转，轮次连续性由调度层每次调度快照（工具调用顺带读取）复核，禁止挂起。
 """
 import datetime
 import os
@@ -29,24 +29,34 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QUEUE = os.path.join(ROOT, "docs", "派单队列.md")
 LEDGER = os.path.join(ROOT, "docs", "派单台账.md")
 TIER = os.path.join(ROOT, "docs", "并发档位.md")
-STALE_MINUTES = 60  # 一轮调度（一次 wait_agent 返回）的时间代理阈值
+STALE_MINUTES = 60  # 一轮调度（一次调度快照）的时间代理阈值
 
 
 def parse_rows(text: str):
     """返回队列数据行 dict 列表；跳过表头/分隔线/空行。"""
     rows = []
+    # 列数不许硬门槛（M-50，2026-11-26 实测）：旧口径 `len(cells) < 6: continue` 把 4 列行整行丢弃，
+    # Q-211~216 六条 RUNNING 因此对 ⑱ 完全不可见，㉚ 打印"RUNNING 0"却实际六个代理在飞。
+    # 现口径：≥3 列即入册，状态格按"含状态词的那一格"定位（与 ㊹ 同一套判定）。
+    statuses = ("PENDING", "RUNNING", "DONE", "BLOCKED")
     for line in text.splitlines():
         if not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 6:
+        if len(cells) < 3:
             continue
         if cells[0] in ("序号",) or set(cells[0]) <= set("-: "):
             continue
+        st = next((c for c in cells if re.match(r"^(%s)\b" % "|".join(statuses), c.upper())), "")
+        if not st:
+            continue  # 无状态格 = 说明行/正文行，不冒充派单行
+        idx = cells.index(st)
         rows.append({
-            "id": cells[0], "title": cells[1], "created": cells[2],
-            "status": cells[3], "kind": qstats.__globals__["classify"](cells[3]),
-            "dep": cells[4], "domain": cells[5],
+            "id": cells[0], "title": cells[1] if len(cells) > 1 else "",
+            "created": cells[2] if idx > 2 else "",
+            "status": st, "kind": qstats.__globals__["classify"](st),
+            "dep": cells[idx + 1] if len(cells) > idx + 1 else "",
+            "domain": cells[idx + 2] if len(cells) > idx + 2 else "",
         })
     return rows
 
