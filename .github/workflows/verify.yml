@@ -339,11 +339,26 @@ jobs:
             echo "::error::shard ${{ matrix.shard }}/4 无匹配失败用例行,尾部: $(tail -6 "$LOG" 2>/dev/null | tr '\n' ';' | cut -c1-700)"
           fi
 
+      # 绿跑 XML：供 test-aggregate 下载求和（pattern: test-results-shard-*），
+      # 故本步骤保持默认 success() 条件——aggregate 只在全绿时运行，失败分片的 XML 由下面失败专用步骤兜底。
+      # 路径放宽为递归 **：Gradle 报告可能落在变体子目录，非递归 *.xml 会漏传（run 45783964800 shard-1 取证缺口即此机制之一）。
       - name: Upload shard JUnit XML results
         uses: actions/upload-artifact@v4
         with:
           name: test-results-shard-${{ matrix.shard }}
-          path: app/build/test-results/testAppDebugUnitTest/*.xml
+          path: app/build/test-results/**/*.xml
+          if-no-files-found: warn
+
+      # 失败专用取证：测试步骤一旦失败，默认 success() 条件的上传步骤会被跳过，
+      # 导致失败分片的 JUnit XML（含 <failure> 的 expected/actual 与堆栈）不出现在产物列表。
+      # 本步骤显式 if: failure() 兜底，artifact 名带 -failed 后缀，仍含 shard 号；
+      # aggregate 仅在全绿时运行，不会与本产物 pattern 撞车。
+      - name: Upload failed-shard JUnit XML (failure-only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-shard-${{ matrix.shard }}-failed
+          path: app/build/test-results/**/*.xml
           if-no-files-found: warn
 
   # ---------- 汇总：needs 全部分片，求和 XML tests= 并硬断言基线 ----------

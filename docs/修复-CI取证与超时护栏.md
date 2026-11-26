@@ -1,7 +1,7 @@
 # 修复-Q-220：CI 失败分片 XML 取证补传与三测试超时护栏
 
 - 被改文件：4 个——`.github/workflows/verify.yml`、`app/src/test/java/io/legado/app/RhinoScriptErrorContextTest.kt`、`app/src/test/java/io/legado/app/web/mcp/McpApplicationTest.kt`、`app/src/test/java/io/legado/app/help/source/RssSortUrlsTest.kt`；新增文档 2 份（本报告 + 锚点卡）。
-- 判据：本单无新增 `check-*.py` 脚本；机检两道——`check-onboarding.py` 回执块、`check-anchor-card.py --strict` 锚点卡路径与编号反查。
+- 判据：本单无新增 `check-*.py` 脚本；机检三道——`check-onboarding.py` 回执块、`check-anchor-card.py --strict` 锚点卡路径与编号反查、`check-problem-finding.py` 问题清单小节。
 - 真跑门禁结论：见 §八，命令与真实输出落盘在本节。
 - 未验证项：3 项——本地无 JDK 未编译、未跑单测、CI 未重跑（护栏实际拦截效果与失败 XML 产物形态待云端复验）。
 
@@ -159,7 +159,7 @@ timeout=8 plain=0
 RC=0
 ```
 
-非 strict 复跑：`── docs/修复-CI取证与超时护栏.md  → PASS`，无 WARN（主对象 Q-220 反查到 `docs/锚点/Q220-CI取证与超时护栏.md`；正文无其他缺卡次要编号）。
+非 strict 复跑：`── docs/修复-CI取证与超时护栏.md  → PASS`。主对象 Q-220 反查到 `docs/锚点/Q220-CI取证与超时护栏.md`；另有 1 条 R2 次要提及 WARN：`F8` 为门禁条款号（非在册缺陷号），不要求独立锚点卡，按规则仅提示不判红。
 
 ### 8.2 回执块机检（onboarding）
 
@@ -180,6 +180,18 @@ RC=0
 ```
 
 回执块结论：四枚指纹至少一枚命中现行磁盘版本（四枚均与 `--emit` 当前值一致）；3 条逐字引用全部回源命中；「适用条款」行在位。
+
+### 8.3 问题清单小节门禁（check-problem-finding）
+
+命令：`python3 data_scripts/check-problem-finding.py "$(pwd)/docs/修复-CI取证与超时护栏.md"`（脚本 argv 须传绝对路径，相对路径会在 `relative_to` 处抛错，属脚本入参口径）
+
+```text
+INFO 历史欠账 5 份走基线（只许缩小）：修复-InkContentEditState-平台签名撞名.md、修复-全仓非UTF8复扫.md、修复-吞异常三文件.md、修复-空集假绿检测器.md、分析-不等待七阶推演.md
+PROBLEM-FINDING: PASS（1 份报告均带新发现问题与处置状态）
+RC=0
+```
+
+「新发现问题」小节处置状态：3 条——1 条门禁补节已修、1 条 Glide 磁盘 IO 风险已入队下一单、1 条挂死定性已修（超时护栏处置，不改业务断言）。
 
 ## 守则回执
 

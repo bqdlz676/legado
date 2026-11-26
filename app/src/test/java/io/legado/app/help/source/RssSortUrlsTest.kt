@@ -12,7 +12,9 @@ class RssSortUrlsTest {
 
     private val sourceUrl = "https://example.com/feed"
 
-    @Test
+    // 超时护栏：runBlocking 包裹脚本求值，求值回调若挂起会拖住测试线程；
+    // 5s 上限在 runner 层限时，超时即判失败，不再拖到分片 45 分钟兜底。
+    @Test(timeout = 5_000)
     fun `normal multi category values are parsed`() {
         assertEquals(
             listOf(
@@ -29,7 +31,7 @@ class RssSortUrlsTest {
         )
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `valid wrapped script result is parsed`() = runBlocking {
         var evaluatedScript: String? = null
 
@@ -45,7 +47,7 @@ class RssSortUrlsTest {
         assertEquals(2, result.size)
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `script exception falls back to source url`() = runBlocking {
         val result = resolveRssSortUrls(
             configuredSortUrl = "@js:throw new Error()",
@@ -57,7 +59,7 @@ class RssSortUrlsTest {
         assertEquals(listOf("" to sourceUrl), result)
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `at js prefix is removed before evaluation`() = runBlocking {
         var evaluatedScript: String? = null
 
@@ -72,7 +74,7 @@ class RssSortUrlsTest {
         assertEquals("return categories", evaluatedScript)
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `script cancellation is propagated`() {
         assertThrows(CancellationException::class.java) {
             runBlocking {
@@ -86,7 +88,7 @@ class RssSortUrlsTest {
         }
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `missing closing script tag falls back without evaluation`() = runBlocking {
         var evaluated = false
 
@@ -102,7 +104,7 @@ class RssSortUrlsTest {
         assertEquals(listOf("" to sourceUrl), result)
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `empty and invalid results fall back to source url`() = runBlocking {
         assertEquals(listOf("" to sourceUrl), parseRssSortUrls("", sourceUrl))
         assertEquals(listOf("" to sourceUrl), parseRssSortUrls("missing separator", sourceUrl))
@@ -112,7 +114,7 @@ class RssSortUrlsTest {
         )
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `cached script result avoids evaluation`() = runBlocking {
         var evaluated = false
 

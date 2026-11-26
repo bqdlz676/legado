@@ -10,7 +10,9 @@ import org.junit.Test
 
 class RhinoScriptErrorContextTest {
 
-    @Test
+    // 超时护栏：Rhino eval/compile 是阻塞同步调用，协程 withTimeout 无法中断阻塞在 Rhino 内的线程，
+    // 故用 JUnit4 @Test(timeout=) 在 runner 层限时；超时即判失败，不再拖到分片 45 分钟兜底。
+    @Test(timeout = 5_000)
     fun evalErrorIncludesSourceContext() {
         val script = """
             var prefix = 'ok';
@@ -31,7 +33,7 @@ class RhinoScriptErrorContextTest {
         assertTrue(exception.message.contains("  1: var prefix = 'ok';"))
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun evalSuspendErrorIncludesSourceContext() = runBlocking {
         val script = """
             var prefix = 'ok';
@@ -49,7 +51,7 @@ class RhinoScriptErrorContextTest {
         assertTrue(exception.message.contains("> 2: throw 'boom';"))
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun compileErrorKeepsLineAndColumn() {
         val script = """
             var prefix = 'ok';
@@ -68,7 +70,7 @@ class RhinoScriptErrorContextTest {
         assertTrue(exception.message.contains("> 2: var broken = ;"))
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun compiledScriptErrorUsesDefiningSourceContext() {
         val definitions = """
             function inner() {

@@ -18,7 +18,9 @@ import org.junit.Test
 
 class McpApplicationTest {
 
-    @Test
+    // 超时护栏：testApplication 内构建 MCP SDK Server，后台会话协程若泄漏会拖住测试线程；
+    // 10s 上限留出 Ktor 引擎启动余量，超时即判失败，不再拖到分片 45 分钟兜底。
+    @Test(timeout = 10_000)
     fun missingOrWrongTokenRejectsEveryMcpMethodBeforeParsing() = testApplication {
         application { testMcpApplication() }
 
@@ -51,7 +53,7 @@ class McpApplicationTest {
         assertEquals(HttpStatusCode.Unauthorized, encodedPath.status)
     }
 
-    @Test
+    @Test(timeout = 10_000)
     fun validTokenReachesTheSdkRoute() = testApplication {
         application { testMcpApplication() }
 
@@ -68,7 +70,7 @@ class McpApplicationTest {
         assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
     }
 
-    @Test
+    @Test(timeout = 10_000)
     fun disabledTokenProtectionAllowsMissingTokenButStillChecksHost() = testApplication {
         application { testMcpApplication(tokenRequired = false) }
 
@@ -101,7 +103,7 @@ class McpApplicationTest {
         assertEquals(HttpStatusCode.Forbidden, hostileOriginResponse.status)
     }
 
-    @Test
+    @Test(timeout = 10_000)
     fun validTokenStillRequiresAllowedHostAndOrigin() = testApplication {
         application { testMcpApplication() }
 
