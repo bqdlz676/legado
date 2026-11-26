@@ -37,7 +37,8 @@ def candidate_reports(root):
     out = set()
     base = git(root, 'rev-parse', '--verify', 'origin/main')
     if base.returncode == 0:
-        for line in git(root, 'diff', '--name-only', 'origin/main..HEAD').stdout.splitlines():
+        # 只判"本轮新增"的报告：存量件在各自那一轮已判过，重复判会让一次编码修复把历史件全拖进来。
+        for line in git(root, 'diff', '--diff-filter=A', '--name-only', 'origin/main..HEAD').stdout.splitlines():
             if REPORT_RE.match(line.strip()):
                 out.add(line.strip())
     else:
