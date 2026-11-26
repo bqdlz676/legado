@@ -211,7 +211,9 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
     needs: discover
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 超时 15 分钟：绿跑实测单片 ~5 分钟（268~320s），45 分钟只让"静默挂死"白等 40 分钟且拿不到证据；
+    # 收到 15 分钟后 job 取消 → 可直接下载 job 日志，用 testLogging 的 STARTED 行定位最后用例（Q-261 起有此日志）。
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
