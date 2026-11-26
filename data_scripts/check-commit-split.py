@@ -12,6 +12,13 @@ R100 纯改名豁免（Q-259）：`docs/ ↔ docs/` 且相似度 R100（零内�
 锚点卡/报告沿革段维护旧名→新名对应。豁免**仅限** R100 双侧 docs：
   - 同一 commit 只要还有一处非 R100 的 docs 内容改动（A/M/D/C/R<100）混进代码桶，照旧红；
   - 跨桶改名（docs↔app/src）不豁免；代码侧改名不豁免（本脚本只判 docs 内容 vs 代码）。
+
+生成器产物桶（Q-267）：`docs/索引-机制.md`、`docs/索引-文档.md` 是索引生成器
+（mechanism-index.py / docs-index.py）`--write` 刷新的产物，不是人工文档内容。这两个文件
+**且本次差异全部落在 `<!-- GEN:START -->…<!-- GEN:END -->` 标记区间内**的改动，单列
+`generated` 桶，不计入文档内容桶——即"代码断言修正 + 索引区间内刷新"同提交不再判混合。
+区间外（人工节）有改动则照旧进 docs 内容桶、与代码同提交即红；标记缺失或 diff 不可解析
+时保守归入 docs 内容桶，不静默放绿。
 边界：
   - 单文件紧急修复允许混合，但须在 commit message 写明（F-112 例外）；本脚本只做路径机械判据，
     豁免登记归人工台账，脚本不读 message 内容放水。
@@ -22,6 +29,7 @@ R100 纯改名豁免（Q-259）：`docs/ ↔ docs/` 且相似度 R100（零内�
 用法：`python3 data_scripts/check-commit-split.py [--count N] [--commit <sha>] [--selftest] [repo]`。
 """
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -33,6 +41,11 @@ CODE_PREFIX = 'app/src/'
 # 豁免档位：仅 R100（相似度 100%，零内容变化）的双侧 docs 改名不计文档桶；R90/R80 等带内容
 # 差异的改名仍按 docs 内容改动计——改名携带改写时交付语义已变，不能享受纯搬运豁免。
 PURE_RENAME_STATUS = 'R100'
+
+# 生成器产物白名单（仅限这两份索引；新增索引产物必须先在此登记并补区间判据，不得口头放行）。
+GENERATED_INDEX_FILES = ('docs/索引-机制.md', 'docs/索引-文档.md')
+GEN_START = '<!-- GEN:START -->'
+GEN_END = '<!-- GEN:END -->'
 
 
 def git(repo: str, *args):
@@ -61,12 +74,61 @@ def commit_changes(repo: str, sha: str):
     return changes
 
 
-def classify(changes):
-    """分三桶：docs 内容改动、代码改动、豁免的 docs↔docs R100 纯改名。
+def _gen_bounds(text: str):
+    """返回索引文件 GEN 区间的 0-based (start, end)；标记缺失/倒置返回 None。"""
+    lines = text.splitlines()
+    start = next((i for i, l in enumerate(lines) if l.strip() == GEN_START), None)
+    end = next((i for i, l in enumerate(lines) if l.strip() == GEN_END), None)
+    if start is None or end is None or start >= end:
+        return None
+    return start, end
+
+
+def _changed_new_lines(repo: str, sha: str, path: str):
+    """解析 `git diff -U0` 命中的新文件侧 1-based 行号集合；不可解析返回 None。"""
+    rc, out = git(repo, 'diff', '-U0', f'{sha}^', sha, '--', path)
+    if rc != 0:
+        return None
+    changed: set[int] = set()
+    for line in out.splitlines():
+        m = re.match(r'@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', line)
+        if m:
+            c = int(m.group(1))
+            d = int(m.group(2) or 1)
+            changed.update(range(c, c + d))
+    return changed
+
+
+def is_generated_only(repo: str, sha: str, path: str) -> bool:
+    """白名单索引文件的本次差异是否全部落在 GEN 区间内；任一不满足保守判 False（照旧红）。
+
+    为什么保守：标记缺失、diff 取不到、改动行落在人工节，都说明这次刷新越过了生成器边界，
+    不能放进 generated 桶洗白——无法核验即视为未通过。
+    """
+    if path not in GENERATED_INDEX_FILES:
+        return False
+    rc, out = git(repo, 'show', f'{sha}:{path}')
+    if rc != 0:
+        return False
+    bounds = _gen_bounds(out)
+    if bounds is None:
+        return False
+    start, end = bounds  # 0-based；区间内为 start < i < end
+    changed = _changed_new_lines(repo, sha, path)
+    if not changed:
+        return False
+    for n in changed:  # n 为 1-based，转 0-based 比较
+        if not (start < (n - 1) < end):
+            return False
+    return True
+
+
+def classify(changes, repo: str = '', sha: str = ''):
+    """分四桶：docs 内容改动、代码改动、豁免的 docs↔docs R100 纯改名、生成器产物。
 
     其他前缀（配置/脚本/资源等）维持原口径：不计入任一桶。
     """
-    docs_content, code, pure_renames = [], [], []
+    docs_content, code, pure_renames, generated = [], [], [], []
     for status, old, new in changes:
         old_doc = old.startswith(DOCS_PREFIX)
         new_doc = new.startswith(DOCS_PREFIX)
@@ -79,21 +141,26 @@ def classify(changes):
         if old_code or new_code:
             code.append(target)
         elif old_doc or new_doc:
-            docs_content.append(target)
+            if new in GENERATED_INDEX_FILES and is_generated_only(repo, sha, new):
+                generated.append(new)
+            else:
+                docs_content.append(target)
         # 其余前缀：两桶都不计
-    return docs_content, code, pure_renames
+    return docs_content, code, pure_renames, generated
 
 
 def inspect(repo: str, sha: str, subject: str):
-    """返回 (是否分离, 命中描述行, 豁免改名清单)；混合时描述行列出两侧路径供回源。"""
-    docs_content, code, pure_renames = classify(commit_changes(repo, sha))
+    """返回 (是否分离, 命中描述行, 豁免改名清单, 生成器产物清单)；混合时描述行列出两侧路径供回源。"""
+    docs_content, code, pure_renames, generated = classify(commit_changes(repo, sha), repo, sha)
     if docs_content and code:
         line = (f'  {sha[:7]} {subject} -> 混合结单与代码：'
                 f'docs={docs_content} code={code}')
         if pure_renames:
             line += f'（同提交纯改名 R100 已豁免：{pure_renames}）'
-        return False, line, pure_renames
-    return True, None, pure_renames
+        if generated:
+            line += f'（同提交生成器产物 generated 桶：{generated}）'
+        return False, line, pure_renames, generated
+    return True, None, pure_renames, generated
 
 
 def check_single(repo: str, sha: str) -> int:
@@ -102,12 +169,14 @@ def check_single(repo: str, sha: str) -> int:
         print(f'COMMIT-SPLIT: FAIL（无法解析 commit {sha}）')
         return 1
     full, subject = out.strip().split('\x1f', 1)
-    ok, line, renames = inspect(repo, full, subject)
+    ok, line, renames, generated = inspect(repo, full, subject)
     if not ok:
         print(line)
         print(f'COMMIT-SPLIT: FAIL（{full[:7]} 同时含 docs/ 内容改动与 app/src/，结单与代码未分离）')
         return 1
     note = f'；豁免纯改名 {renames}' if renames else ''
+    if generated:
+        note += f'；生成器产物 {generated}'
     print(f'COMMIT-SPLIT: PASS（{full[:7]} {subject} 路径已分离{note}）')
     return 0
 
@@ -128,12 +197,15 @@ def check_recent(repo: str, count: int) -> int:
 
     mixed = []
     exempted = 0
+    generated_only = 0
     for full, subject in commits:
-        ok, line, renames = inspect(repo, full, subject)
+        ok, line, renames, generated = inspect(repo, full, subject)
         if not ok:
             mixed.append(line)
         elif renames:
             exempted += 1
+        elif generated:
+            generated_only += 1
     for line in mixed:
         print(line)
     if mixed:
@@ -141,6 +213,8 @@ def check_recent(repo: str, count: int) -> int:
               f'app/src/，须逐路径分开提交）')
         return 1
     note = f'；其中 {exempted} 条仅含 docs↔docs R100 纯改名' if exempted else ''
+    if generated_only:
+        note += f'；{generated_only} 条仅含索引生成器产物（GEN 区间内刷新）'
     print(f'COMMIT-SPLIT: PASS（最近 {len(commits)} 条 commit 文档/代码已分离{note}）')
     return 0
 
@@ -187,7 +261,7 @@ def selftest() -> int:
         _sh(tmp, 'add', '-A')
         _sh(tmp, 'commit', '-q', '-m', 'rename docs + touch code')
         sha_a = _rev_parse(tmp)
-        ok_a, line_a, renames_a = inspect(tmp, sha_a, 'rename docs + touch code')
+        ok_a, line_a, renames_a, _gen_a = inspect(tmp, sha_a, 'rename docs + touch code')
         assert ok_a, f'R100 纯改名+代码同提交应 PASS，实际 FAIL：{line_a}'
         assert len(renames_a) == 1, f'夹具 A 应识别出 1 条 R100 改名，实际：{renames_a}'
         print('[selftest] R100 纯改名+代码同提交 PASS 通路 OK，豁免：', renames_a)
@@ -206,10 +280,49 @@ def selftest() -> int:
         _sh(tmp, 'add', '-A')
         _sh(tmp, 'commit', '-q', '-m', 'rewrite docs + touch code')
         sha_b = _rev_parse(tmp)
-        ok_b, line_b, renames_b = inspect(tmp, sha_b, 'rewrite docs + touch code')
+        ok_b, line_b, renames_b, _gen_b = inspect(tmp, sha_b, 'rewrite docs + touch code')
         assert not ok_b, 'docs 内容改写+代码同提交应 FAIL，实际 PASS'
         assert not renames_b, f'夹具 B 不应识别到 R100 改名，实际：{renames_b}'
         print('[selftest] docs 内容改写+代码同提交 FAIL 通路 OK，命中：', line_b.strip())
+
+        # 夹具 C：base 提交 → 索引文件只改 GEN 区间内条目 + 代码改动同提交 → 应 PASS（generated 桶）。
+        index_path = os.path.join(docs_dir, '索引-文档.md')
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write('# 索引-文档（夹具）\n> 人工维护区（区间外，逐字保留）\n'
+                    '<!-- GEN:START -->\n- 生成条目 v1\n<!-- GEN:END -->\n'
+                    '> 风险人工节（区间外）\n')
+        with open(os.path.join(code_dir, 'FixtureC.kt'), 'w', encoding='utf-8') as f:
+            f.write('fun c() = 1\n')
+        _sh(tmp, 'add', '-A')
+        _sh(tmp, 'commit', '-q', '-m', 'base C')
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write('# 索引-文档（夹具）\n> 人工维护区（区间外，逐字保留）\n'
+                    '<!-- GEN:START -->\n- 生成条目 v1\n- 生成条目 v2（区间内刷新）\n<!-- GEN:END -->\n'
+                    '> 风险人工节（区间外）\n')
+        with open(os.path.join(code_dir, 'FixtureC.kt'), 'w', encoding='utf-8') as f:
+            f.write('fun c() = 2\n')
+        _sh(tmp, 'add', '-A')
+        _sh(tmp, 'commit', '-q', '-m', 'gen index region + touch code')
+        sha_c = _rev_parse(tmp)
+        ok_c, line_c, _ren_c, gen_c = inspect(tmp, sha_c, 'gen index region + touch code')
+        assert ok_c, f'仅 GEN 区间内索引刷新+代码同提交应 PASS，实际 FAIL：{line_c}'
+        assert len(gen_c) == 1, f'夹具 C 应识别出 1 条 generated 产物，实际：{gen_c}'
+        print('[selftest] 仅 GEN 区间内索引刷新+代码同提交 PASS 通路 OK，generated：', gen_c)
+
+        # 夹具 D：索引文件改了区间外人工节 + 代码改动同提交 → 应 FAIL（人工节改动照旧进内容桶）。
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write('# 索引-文档（夹具）\n> 人工维护区被改写（区间外，交付语义已变）\n'
+                    '<!-- GEN:START -->\n- 生成条目 v1\n<!-- GEN:END -->\n'
+                    '> 风险人工节（区间外）\n')
+        with open(os.path.join(code_dir, 'FixtureC.kt'), 'w', encoding='utf-8') as f:
+            f.write('fun c() = 3\n')
+        _sh(tmp, 'add', '-A')
+        _sh(tmp, 'commit', '-q', '-m', 'rewrite manual section + touch code')
+        sha_d = _rev_parse(tmp)
+        ok_d, line_d, _ren_d, gen_d = inspect(tmp, sha_d, 'rewrite manual section + touch code')
+        assert not ok_d, '改区间外人工节+代码同提交应 FAIL，实际 PASS'
+        assert not gen_d, f'夹具 D 人工节改动不应进 generated 桶，实际：{gen_d}'
+        print('[selftest] 区间外人工节改写+代码同提交 FAIL 通路 OK，命中：', line_d.strip())
 
         print('[selftest] 夹具已自删，双向自测通过。')
         return 0

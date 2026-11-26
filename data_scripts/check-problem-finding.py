@@ -4,11 +4,20 @@
 
 为什么需要它：用户三次追问「继续找机制的问题」「你踏马没找全」「永远找问题解决问题提出问题呢」，
 说明"找问题"写在文档里靠自觉必然漂。判据必须落在报告正文上。
-判据（三选一不成立即红）：
-  ① 报告内有「新发现问题」小节（标题含"新发现问题"）；
-  ② 该节至少 1 条带编号的问题；
-  ③ 每条带处置状态词（已修／已入队／判废／待裁／已闭环）。
+判据（三条不成立即红）：
+  ① 报告内有「新发现问题」小节（标题去掉章节编号后，标题前部为"新发现问题"；
+     标题正文里引用该词不算节，如「样本 a：『新发现问题』…」）；
+  ② 该节至少 1 条带列表前缀的问题（`- `/`* `/`+ `/`1. `/`1- `/`B1- `/`| `）；
+  ③ 逐条判定：每一条正文自身必须含处置状态词（已修／已入队／判废／待裁／已闭环／已处置），
+     任一条缺状态词即红——不再允许一条状态词给全节空条目兜底（Q-257 收 Q-256 实测漏洞 a）。
 空旷豁免：写明"已穷举"且列出面清单（"穷举面：" 后非空）即 PASS，禁"未发现问题"一句话了事。
+
+历史口径（Q-262）：判红只落在规则生效之后进入仓库的报告上。
+  分界提交 = F8 落地提交 2d5dca65e2f43f9d5a79834109d169e527e1442a（ct 1795685975，
+  2026-11-26 17:39:35 +0800，见 `git log --oneline -- docs/落文-规矩总纲.md`）。
+  首现 committer time 早于该提交的报告属规则前存量，整包 F8 判据豁免（历史豁免，不要求「新发现问题」节）；
+  首现时间不可判（未跟踪 / git 不可用 / R100 改名链断）与分界之后的报告一律按上面三条现行判据，一条不放宽。
+  基线（路径+sha256[:12] 双匹配）只兜时间不可判 / R100 改名两类边界，不再为规则前存量批量洗白。
 
 Q-221 后三轮缺陷收口（Q-223）：
   ① 命令行传相对路径时 `relative_to(ROOT)` 抛 ValueError 崩溃——路径先 resolve，落盘打印失败则原样输出；
@@ -38,6 +47,13 @@ NAME_RE = re.compile(r'docs/(修复|验收|诊断|分析|门禁全量|CI核验|�
 STATE_WORDS = ('已修', '已入队', '判废', '待裁', '已闭环', '已处置')
 BASELINE = pathlib.Path(__file__).resolve().parent / 'problem-finding-baseline.json'
 EMPTY_OK = ('穷举面', '已穷举')
+
+# F8 规则落地提交（`git log --oneline -- docs/落文-规矩总纲.md` 定位的含 F8 那条）。
+# 为什么锚 committer time（%ct）：author time 可被提交者本地时钟漂移 / rebase 改写，
+# committer time 记录对象入库时刻；门禁要判的是"报告在规则生效后进入仓库"这一事实。
+F8_COMMIT = '2d5dca65e2f43f9d5a79834109d169e527e1442a'
+# 快照回落值：2026-11-26 17:39:35 +0800；git 不可用或提交找不到时才用它，正常启动时用 git 复核。
+F8_COMMIT_CT = 1795685975
 
 
 def _resolve_target(arg: str) -> pathlib.Path:
@@ -98,6 +114,84 @@ def _baseline_exempt(rel: str, cur_sha: str, entries: dict) -> bool:
     return rel in entries and entries[rel] == cur_sha
 
 
+def _f8_boundary_ct() -> int:
+    """取 F8 落地提交的 committer time 作分界；git 不可用 / 提交缺失时回落快照常量。"""
+    try:
+        r = subprocess.run(['git', 'show', '-s', '--format=%ct', F8_COMMIT],
+                           cwd=ROOT, capture_output=True, text=True)
+        out = [l for l in r.stdout.strip().splitlines() if l.isdigit()]
+        if out:
+            return int(out[0])
+    except Exception:
+        pass
+    return F8_COMMIT_CT
+
+
+def _bulk_add_ct() -> dict:
+    """一次性扫全史 A 事件：路径 -> 最早一次 add 的 committer time。
+    为什么批量：逐文件 `git log` 在 280 份报告上要拉起数百次子进程，门禁耗时不可接受；
+    必须带 `-c core.quotepath=false`，否则中文路径被转成八进制转义串，键匹配不上真实路径。"""
+    first: dict[str, int] = {}
+    try:
+        r = subprocess.run(['git', '-c', 'core.quotepath=false', 'log',
+                            '--diff-filter=A', '--format=%ct', '--name-only'],
+                           cwd=ROOT, capture_output=True, text=True)
+        cur = None
+        for line in r.stdout.splitlines():
+            if line.isdigit():
+                cur = int(line)
+            elif line.strip() and cur is not None:
+                p = line.strip().strip('"').strip("'")
+                if p not in first or cur < first[p]:
+                    first[p] = cur
+    except Exception:
+        pass
+    return first
+
+
+def _first_add_ct(rel: str, bulk: dict) -> int | None:
+    """报告首现 committer time。批量表先查；未命中（R100 改名链 / 删后重建）再 `--follow` 单查。
+    返回 None = 时间不可判（未跟踪、git 不可用、改名链断），交基线兜底，判定时默认从严。"""
+    if rel in bulk:
+        return bulk[rel]
+    try:
+        r = subprocess.run(['git', '-c', 'core.quotepath=false', 'log', '--follow',
+                            '--diff-filter=A', '--format=%ct', '-1', '--', rel],
+                           cwd=ROOT, capture_output=True, text=True)
+        out = [l for l in r.stdout.strip().splitlines() if l.isdigit()]
+        return int(out[0]) if out else None
+    except Exception:
+        return None
+
+
+def _time_bucket(rel: str, bulk: dict, boundary: int) -> tuple[str, int | None]:
+    """分桶：pre=分界前首现（历史豁免）；post=分界时及之后首现（现行判据）；unknown=时间不可判（从严+基线兜底）。
+    边界相等（首现就在 F8 落地提交本身）归 post：规则随该提交入库，同批产物按现行判据要求。"""
+    ct = _first_add_ct(rel, bulk)
+    if ct is None:
+        return 'unknown', None
+    return ('pre' if ct < boundary else 'post'), ct
+
+
+def _decide(rel: str, txt: str, data: bytes, base: dict, bulk: dict, boundary: int) -> tuple[str, str]:
+    """单份报告时间口径判定。返回 (tag, why)：
+      hist  规则前首现，历史豁免；
+      base  时间不可判 / 改名边界，基线路径+sha 双匹配豁免；
+      pass  现行判据通过；
+      rehash 在册但正文指纹不符（豁免失效，仍按 fail 处理，由调用方单列提示）；
+      fail  现行判据不通过。"""
+    bucket, ct = _time_bucket(rel, bulk, boundary)
+    if bucket == 'pre':
+        return 'hist', f'历史豁免：首现 ct={ct} 早于 F8 分界 ct={boundary}'
+    ok, why = judge(txt)
+    sha = _sha_bytes(data)
+    if not ok and _baseline_exempt(rel, sha, base):
+        return 'base', why
+    if not ok:
+        return ('rehash' if rel in base else 'fail'), why
+    return 'pass', why
+
+
 def report_paths() -> list[pathlib.Path]:
     out = []
     try:
@@ -119,8 +213,46 @@ def report_paths() -> list[pathlib.Path]:
     return sorted(set(out))
 
 
+# 条目起始前缀：无序列表、有序 `1.`、`1-`、缺陷号前缀 `B1-`/`Q257-`、表格行。
+ITEM_START = re.compile(r'^\s*(?:[-*+]|\d+\.|\d+-|[A-Za-z]\d+(?:R\d+)?-|\|)\s+')
+# 章节编号前缀：`一、` `1.` `1）` 等，剥离后再判标题主体。
+SECTION_NOISE = re.compile(r'^[一二三四五六七八九十百\d]+[、.）):]\s*')
+
+
+def _section_title(line: str) -> str:
+    """去掉 `## ` 与章节编号，返回标题主体文本。"""
+    s = re.sub(r'^#+\s*', '', line).strip()
+    return SECTION_NOISE.sub('', s).strip()
+
+
+def _find_section(text: str):
+    """定位「新发现问题」节标题；标题正文引用该词（词在引号/句中）不算节。"""
+    for m in re.finditer(r'(?m)^#+\s*.*$', text):
+        title = _section_title(m.group(0))
+        idx = title.find('新发现问题')
+        if idx == 0 or (0 < idx <= 6 and title[:idx].rstrip('：: 「『(') == ''):
+            return m
+    return None
+
+
+def _split_items(body: str) -> list[str]:
+    """把节正文按条目起始前缀切分；续行（缩进行/非空前缀行）并入当前条目。"""
+    items: list[str] = []
+    cur: str | None = None
+    for line in body.splitlines():
+        if ITEM_START.match(line):
+            if cur is not None:
+                items.append(cur)
+            cur = line
+        elif cur is not None and line.strip():
+            cur += '\n' + line
+    if cur is not None:
+        items.append(cur)
+    return items
+
+
 def judge(text: str) -> tuple[bool, str]:
-    m = re.search(r'(?m)^#+\s*.*新发现问题.*$', text)
+    m = _find_section(text)
     if not m:
         if any(k in text for k in EMPTY_OK):
             return True, '空旷豁免：已穷举面清单'
@@ -128,14 +260,16 @@ def judge(text: str) -> tuple[bool, str]:
     sec = text[m.end():]
     nxt = re.search(r'(?m)^#+\s', sec)
     body = sec[:nxt.start()] if nxt else sec
-    items = re.findall(r'(?m)^\s*(?:-|\*|\+|\d+\.|\|)\s*', body)
+    items = _split_items(body)
     if len(items) < 1:
         if any(k in body for k in EMPTY_OK):
             return True, '空旷豁免：已穷举面清单'
         return False, '「新发现问题」节内 0 条'
-    if not any(w in body for w in STATE_WORDS):
-        return False, '问题无处置状态（已修/已入队/判废/待裁/已闭环）'
-    return True, f'问题 {len(items)} 条，含处置状态'
+    missing = [it for it in items if not any(w in it for w in STATE_WORDS)]
+    if missing:
+        first = missing[0].splitlines()[0].strip()[:40]
+        return False, f'{len(missing)}/{len(items)} 条缺处置状态（如：{first}…）'
+    return True, f'问题 {len(items)} 条，逐条含处置状态'
 
 
 def main(argv: list[str]) -> int:
@@ -206,7 +340,56 @@ def main(argv: list[str]) -> int:
                 print(f'  SELFTEST FAIL 星号加粗条目未计 1 条：{star_why}')
                 ok = False
 
-            print('SELFTEST: ' + ('PASS（好样本 1 通过，坏样本 2 判红；相对路径/R 行/基线迁移指纹/星号条目夹具 OK）' if ok else 'FAIL'))
+            # Q-257 逐条判定三夹具：全条有状态 PASS；一条兜底其余空 FAIL；节内 0 条 FAIL。
+            all_state = '# 修复-U\n\n## 新发现问题\n1. 甲问题 —— 已修\n2. 乙问题 —— 待裁\n'
+            if not judge(all_state)[0]:
+                print('  SELFTEST FAIL 全条带状态样本应 PASS：', judge(all_state)[1])
+                ok = False
+            carry_one = '# 修复-V\n\n## 新发现问题\n1. 甲问题 —— 待裁\n2. 乙问题无状态词\n'
+            carry_ok, carry_why = judge(carry_one)
+            if carry_ok or '1/2' not in carry_why:
+                print(f'  SELFTEST FAIL 单条兜底样本应逐条判红：{carry_ok} {carry_why}')
+                ok = False
+            empty_sec = '# 修复-W\n\n## 新发现问题\n（本节未列条目）\n'
+            if judge(empty_sec)[0]:
+                print('  SELFTEST FAIL 节内 0 条应判红')
+                ok = False
+
+            # Q-262 历史口径四夹具：规则后缺节红；规则前存量缺节走历史豁免；规则后条目无状态词红；unknown+基线双匹配豁免。
+            boundary = F8_COMMIT_CT
+            bulk = {
+                'docs/after-new.md': boundary + 3600,    # 规则落地后首现
+                'docs/legacy-old.md': boundary - 3600,   # 规则落地前首现
+                'docs/after-item.md': boundary + 3600,   # 规则落地后首现
+            }
+            fx = {
+                'docs/after-new.md': bad,
+                'docs/legacy-old.md': bad,
+                'docs/after-item.md': bad2,
+                'docs/unknown-rename.md': bad,
+            }
+            fx_base = {'docs/unknown-rename.md': _sha_bytes(fx['docs/unknown-rename.md'].encode('utf-8'))}
+            tags: dict[str, str] = {}
+            for rel, content in fx.items():
+                tags[rel], _ = _decide(rel, content, content.encode('utf-8'), fx_base, bulk, boundary)
+            if tags['docs/after-new.md'] != 'fail':
+                print(f"  SELFTEST FAIL 规则后新报告缺节应判红：{tags['docs/after-new.md']}")
+                ok = False
+            if tags['docs/legacy-old.md'] != 'hist':
+                print(f"  SELFTEST FAIL 规则前存量缺节应历史豁免：{tags['docs/legacy-old.md']}")
+                ok = False
+            if tags['docs/after-item.md'] != 'fail':
+                print(f"  SELFTEST FAIL 规则后条目无状态词应判红：{tags['docs/after-item.md']}")
+                ok = False
+            if tags['docs/unknown-rename.md'] != 'base':
+                print(f"  SELFTEST FAIL 时间不可判 + 基线双匹配应豁免：{tags['docs/unknown-rename.md']}")
+                ok = False
+            hist_n = sum(1 for t in tags.values() if t == 'hist')
+            if hist_n != 1:
+                print(f'  SELFTEST FAIL 历史豁免计数应为 1，实得 {hist_n}')
+                ok = False
+
+            print('SELFTEST: ' + ('PASS（好样本 1 通过，坏样本 2 判红；相对路径/R 行/基线迁移指纹/星号条目/逐条判定/历史口径夹具 OK）' if ok else 'FAIL'))
             return 0 if ok else 1
     targets = [_resolve_target(a) for a in argv if a.endswith('.md')] or report_paths()
     base_raw = json.loads(BASELINE.read_text(encoding='utf-8')) if BASELINE.is_file() else []
@@ -219,8 +402,13 @@ def main(argv: list[str]) -> int:
         # 空集不许判 PASS（门禁 ㊾）：无报告可判=没东西被审，不是"合规"。
         print('EMPTY: 本轮无新增报告可判（空集不判 PASS）')
         return 2
-    fails = []
-    rehashed = []
+    bulk = _bulk_add_ct()
+    boundary = _f8_boundary_ct()
+    hist: list[str] = []       # 规则前首现，历史豁免
+    base_ex: list[str] = []    # 时间不可判 / R100 改名，基线双匹配豁免
+    passed: list[str] = []     # 现行判据通过
+    fails: list[str] = []
+    rehashed: list[str] = []
     for p in targets:
         try:
             data = p.read_bytes()
@@ -228,27 +416,34 @@ def main(argv: list[str]) -> int:
         except (OSError, UnicodeDecodeError) as e:
             fails.append(f'{_rel(p)}：不可读（{type(e).__name__}）')
             continue
-        ok, why = judge(txt)
         rel = _rel(p)
-        cur_sha = _sha_bytes(data)
-        if not ok and _baseline_exempt(rel, cur_sha, base):
-            continue
-        if not ok and rel in base:
+        tag, why = _decide(rel, txt, data, base, bulk, boundary)
+        if tag == 'hist':
+            hist.append(rel)
+        elif tag == 'base':
+            base_ex.append(rel)
+        elif tag == 'rehash':
             # 在册但正文指纹不符：内容被改坏，豁免失效，必须重判。
             rehashed.append(rel)
-        if not ok:
-            fails.append(f'{_rel(p)}：{why}')
+            fails.append(f'{rel}：{why}')
+        elif tag == 'fail':
+            fails.append(f'{rel}：{why}')
+        else:
+            passed.append(rel)
+    if hist:
+        print(f'INFO 历史豁免 {len(hist)} 份（F8 落地前首现，不要求「新发现问题」节）：'
+              + '、'.join(h.split("/")[-1] for h in hist))
+    if base_ex:
+        print(f'INFO 基线豁免 {len(base_ex)} 份（首现时间不可判 / R100 改名边界，路径+sha 双匹配）：'
+              + '、'.join(b.split("/")[-1] for b in base_ex))
     if rehashed:
         print('INFO 基线在册但内容已变、豁免已失效，转入重判：' + '、'.join(r.split("/")[-1] for r in rehashed))
     if fails:
-        print('PROBLEM-FINDING: FAIL')
+        print(f'PROBLEM-FINDING: FAIL（判红 {len(fails)} 份；现行通过 {len(passed)} 份 / 历史豁免 {len(hist)} 份 / 基线豁免 {len(base_ex)} 份）')
         for f in fails:
             print(f'  - {f}')
         return 1
-    hist = sorted(base)
-    if hist:
-        print(f'INFO 历史欠账 {len(hist)} 份走基线（只许缩小）：' + '、'.join(h.split("/")[-1] for h in hist))
-    print(f'PROBLEM-FINDING: PASS（{len(targets)} 份报告均带新发现问题与处置状态）')
+    print(f'PROBLEM-FINDING: PASS（现行通过 {len(passed)} 份 / 历史豁免 {len(hist)} 份 / 基线豁免 {len(base_ex)} 份 / 判红 0 份）')
     return 0
 
 

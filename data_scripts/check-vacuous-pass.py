@@ -77,6 +77,8 @@ SCALAR_NAMES = {
 
 # 精确豁免：键 = (文件相对路径, 变量名, 分支块 sha256[:12])，值 = 为什么可接受。
 # 代码块 = if 条件行 + 其后分支体行（去行尾空白后拼接）；改动任一行哈希即变，豁免自动失效。
+# 查表是三元组整键精确相等：不做文件名/路径前缀或目录级匹配（前缀可被改名伪造，见 ㊼）；
+# 历史豁免存量只许随代码变化而缩小，禁止把单条豁免放宽成整文件/整目录免检。
 ALLOWLIST = {
     # diff 型门禁：待检集合来自 git 改动面，本轮无改动 = 没有需要核验的对象，
     # 空集是真实状态而非接线漏传；与 CLI 逐报告传入的 files 性质不同。
@@ -153,10 +155,12 @@ def _verdict(body_text):
     return 'silent'
 
 
-def scan(scan_dir=SCAN_DIR, pattern='check-*.py'):
+def scan(scan_dir=SCAN_DIR, pattern='check-*.py', allowlist=ALLOWLIST):
     """返回命中列表：dict(file, line, var, print, verdict, allow, reason, hash)。
 
     pattern 可换：真仓只扫 check-*.py；selftest 在 /tmp 用 *.py 夹具。
+    allowlist 可换：真仓用模块级 ALLOWLIST；selftest 用本地三元组字典证伪豁免匹配。
+    为什么允许注入：豁免键匹配必须能被独立夹具打红/打绿，不能只在真仓全量样本上间接观察。
     """
     hits = []
     for p in sorted(pathlib.Path(scan_dir).glob(pattern)):
@@ -181,6 +185,7 @@ def scan(scan_dir=SCAN_DIR, pattern='check-*.py'):
             print_text = pm.group(1).strip() if pm else ''
             digest = _block_hash(line, body)
             key = (rel, var, digest)
+            reason = allowlist.get(key, '')
             hits.append({
                 'file': rel,
                 'line': i + 1,
@@ -188,8 +193,8 @@ def scan(scan_dir=SCAN_DIR, pattern='check-*.py'):
                 'print': print_text,
                 'verdict': _verdict(body_text),
                 'hash': digest,
-                'allow': key in ALLOWLIST,
-                'reason': ALLOWLIST.get(key, ''),
+                'allow': bool(reason),
+                'reason': reason,
             })
     return hits
 
@@ -263,7 +268,7 @@ def selftest():
         if bad_names != {'bad_pass.py'}:
             print('SELFTEST: FAIL（空集 PASS 样本未按预期被抓：%s）' % bad_names)
             return 1
-        print('PASS 1/3 空集 PASS 样本被点名（%s）'
+        print('PASS 1/7 空集 PASS 样本被点名（%s）'
               % ', '.join('%s:%d %s' % (h['file'].split('/')[-1], h['line'], h['var'])
                           for h in bad))
 
@@ -274,13 +279,13 @@ def selftest():
         if any(h['file'].endswith('good_warn.py') for h in bad):
             print('SELFTEST: FAIL（空集 WARN 被误判为假绿 FAIL）')
             return 1
-        print('PASS 2/3 空集 WARN 分支不入 FAIL，仅登记 WARN 桶')
+        print('PASS 2/7 空集 WARN 分支不入 FAIL，仅登记 WARN 桶')
 
         names = {h['file'].split('/')[-1] for h in hits}
         if 'good_exists.py' in names:
             print('SELFTEST: FAIL（exists()/startswith() 判断被误抓：%s）' % names)
             return 1
-        print('PASS 3/3 exists()/startswith() 存在性与字符串判断未被误抓')
+        print('PASS 3/7 exists()/startswith() 存在性与字符串判断未被误抓')
 
         # 反向加固：PASS 样本的 return 0 改成 return 1，机检必须随之放行。
         (tmp / 'bad_pass.py').write_text(
@@ -296,7 +301,67 @@ def selftest():
                for h in scan(tmp, '*.py') if h['verdict'] != 'warn'):
             print('SELFTEST: FAIL（return 1 后仍判红，判据未盯死 return 0）')
             return 1
-        print('PASS 4/4 分支改 return 1 后即放行，判据只盯空集 + return 0 组合')
+        print('PASS 4/7 分支改 return 1 后即放行，判据只盯空集 + return 0 组合')
+
+        # ---- M-42 三元组豁免键双向夹具：证伪"同文件不同位置 / 正文漂移仍被豁免"。
+        # 为什么单列：旧位置型/行号型豁免，上下增删行即漂移、同名文件另一处也被放过；
+        # 三元组必须三条全等才命中，任一槽位变化即失配重审。
+        ex_tmp = pathlib.Path(tempfile.mkdtemp(prefix='vacuous-pass-exempt-'))
+        try:
+            ex_file = ex_tmp / 'exempt_case.py'
+            ex_body = (
+                "import sys\n"
+                "def main():\n"
+                "    files = sys.argv[1:]\n"
+                "    if not files:\n"
+                "        print('PASS（空）')\n"
+                "        return 0\n"
+                "    return 1\n"
+            )
+            ex_file.write_text(ex_body, encoding='utf-8')
+            hits0 = scan(ex_tmp, '*.py', allowlist={})
+            h0 = next(h for h in hits0 if h['file'].endswith('exempt_case.py'))
+            if h0['verdict'] == 'warn' or h0['allow']:
+                print('SELFTEST: FAIL（豁免夹具基线异常：%s）' % h0)
+                return 1
+
+            # 夹具 5：三元组（相对路径 + 变量名 + 块哈希）完全一致 → 命中豁免，不入 FAIL 桶。
+            exact_map = {(h0['file'], h0['var'], h0['hash']): 'selftest：三元组完全一致豁免'}
+            hits5 = scan(ex_tmp, '*.py', allowlist=exact_map)
+            h5 = next(h for h in hits5 if h['file'].endswith('exempt_case.py'))
+            if not h5['allow']:
+                print('SELFTEST: FAIL（三元组完全一致仍未豁免：%s）' % h5)
+                return 1
+            if any(h['file'].endswith('exempt_case.py')
+                   for h in hits5 if h['verdict'] != 'warn' and not h['allow']):
+                print('SELFTEST: FAIL（命中豁免后仍进 FAIL 桶）')
+                return 1
+            print('PASS 5/7 三元组完全一致 → 豁免')
+
+            # 夹具 6：正文改一个标点 → 块哈希变化 → 豁免失配判红；路径/行号锚定做不到这点。
+            ex_file.write_text(ex_body.replace("PASS（空）", "PASS（空）。"), encoding='utf-8')
+            hits6 = scan(ex_tmp, '*.py', allowlist=exact_map)
+            h6 = next(h for h in hits6 if h['file'].endswith('exempt_case.py'))
+            if h6['allow']:
+                print('SELFTEST: FAIL（正文改标点后豁免仍命中，指纹未绑定正文：%s）' % h6)
+                return 1
+            if not any(h['file'].endswith('exempt_case.py')
+                       for h in hits6 if h['verdict'] != 'warn' and not h['allow']):
+                print('SELFTEST: FAIL（正文漂移后未判红）')
+                return 1
+            print('PASS 6/7 正文改一字符 → 哈希失配，判红')
+
+            # 夹具 7：路径相同、块哈希相同，变量名不同 → 三元组不等，不豁免。
+            ex_file.write_text(ex_body, encoding='utf-8')
+            wrong_var_map = {(h0['file'], 'other_var', h0['hash']): 'selftest：错误变量名不应豁免'}
+            hits7 = scan(ex_tmp, '*.py', allowlist=wrong_var_map)
+            h7 = next(h for h in hits7 if h['file'].endswith('exempt_case.py'))
+            if h7['allow']:
+                print('SELFTEST: FAIL（同路径不同变量名仍被豁免，键未绑定变量名：%s）' % h7)
+                return 1
+            print('PASS 7/7 路径相同变量名不同 → 不豁免')
+        finally:
+            shutil.rmtree(ex_tmp, ignore_errors=True)
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

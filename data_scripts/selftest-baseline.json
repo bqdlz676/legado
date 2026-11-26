@@ -24,7 +24,6 @@
   "check-report-fields.py",
   "check-test-fun-names.py",
   "check-test-source.py",
-  "check-triple-anchor.py",
-  "check-workflow-contracts.py"
+  "check-triple-anchor.py"
  ]
 }
