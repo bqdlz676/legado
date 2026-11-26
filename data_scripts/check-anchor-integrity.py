@@ -16,7 +16,12 @@ def main(repo: str) -> int:
     if not p.exists():
         print('ANCHOR-INTEGRITY: PASS（无台账）')
         return 0
-    lines = p.read_text(encoding='utf-8', errors='ignore').splitlines()
+    try:
+        raw = p.read_text(encoding='utf-8', errors='strict')
+    except UnicodeDecodeError as e:
+        print(f'FAIL {p.name}：非法 UTF-8（第 {e.start} 字节起），不得按可读文件判 PASS')
+        return 1
+    lines = raw.splitlines()
     anchors = [i for i, ln in enumerate(lines) if re.search(r'处置锚点\s*epoch=\d+', ln)]
     if len(anchors) > 1:
         print(f'ANCHOR-INTEGRITY: FAIL（台账里有 {len(anchors)} 个处置锚点，一次只许一个当前值，多写=掩盖历史）')

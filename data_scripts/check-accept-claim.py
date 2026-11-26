@@ -18,9 +18,12 @@ def main(repo: str) -> int:
     hit = 0
     for f in base.rglob('*.md'):
         try:
-            txt = f.read_text(encoding='utf-8', errors='ignore')
+            txt = f.read_text(encoding='utf-8', errors='strict')
         except OSError:
             continue
+        except UnicodeDecodeError as e:
+            print(f'FAIL {f.relative_to(base)}：非法 UTF-8（第 {e.start} 字节起），不得按可读文件判 PASS')
+            return 1
         if '验收通过' not in txt:
             continue
         hit += 1

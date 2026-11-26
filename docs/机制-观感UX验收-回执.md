@@ -167,6 +167,6 @@ docs/工序-观感打磨.md:100:### UX-09 长文性能手感
 data_scripts/check-visual-baseline.py:294:def audit_ux(src_root: str) -> int:
 data_scripts/check-visual-baseline.py:379:def selftest_ux() -> int:
 docs/口径冻结-2026-11-24-15点后.md:247:- **F-98 观感验收升级为美感 + UX 双维**：`docs/工序-观感打
-docs/口径冻结-2026-11-24-15点后.md:248:- **F-99 UX 判据分档 + 台账闭环 + DEFER 不许冒充通过**：可�
+docs/口径冻结-2026-11-24-15点后.md:248:- **F-99 UX 判据分档 + 台账闭环 + DEFER 不许冒充通过**：可
 docs/落文-规矩总纲.md:94:**B14 观感验收＝美感 + UX 双维，UX 违例台账闭环。**
 ```
