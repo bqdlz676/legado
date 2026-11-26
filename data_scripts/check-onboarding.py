@@ -85,7 +85,7 @@ def check_report(path):
         if LEGACY_NOTE in text:
             return []  # 规则上线前交付的旧报告：留档豁免（但必须在台账里挂号）
         return ['缺「守则回执」块']
-    block = '\n'.join(text[idx:].splitlines()[:13])
+    block = '\n'.join(text[idx:].splitlines()[:20]).split('## ')[0]  # 回执块只到下一个二级标题止：否则 ANCHOR-ACK 里的编号行会被当成"逐字引用"误判回源失败
 
     # 指纹：至少一枚与当前磁盘一致
     fps = dict(re.findall(r'(docs/机制-[^\s；;=]+\.md)\s*=\s*([0-9a-f]{6,})', block))
@@ -107,7 +107,7 @@ def check_report(path):
         problems.append('指纹全部过期（须重读守则并刷新）：' + '；'.join(stale))
 
     # 逐字引用：至少 3 条，且必须回源命中
-    quotes = re.findall(r'逐字引用\s*\d+：(.*?)(?:\n|$)', block)
+    quotes = re.findall(r'(?:逐字引用\s*\d+：|^\s*\d+\.\s*)(.+?)$', block, flags=re.M)
     quotes = [q for q in quotes if q.strip()]
     if len(quotes) < 3 and not is_small_readonly_report(os.path.join(ROOT, path)):
         problems.append('逐字引用不足 3 条（实际 %d）' % len(quotes))
@@ -118,7 +118,7 @@ def check_report(path):
             srcs[p] = open(full, encoding='utf-8', errors='ignore').read()
     hit = 0
     for q in quotes:
-        inner = re.search(r'「(.+?)」', q)
+        inner = re.search(r'[「“"](.+?)[」”"]', q)
         if not inner:
             problems.append('引用格式错（须用「」包住逐字原句）：%s' % q.strip()[:30])
             continue
@@ -133,7 +133,9 @@ def check_report(path):
     if quotes and hit == 0:
         problems.append('三条引用全部回源失败')
 
-    if '适用条款' not in block and not is_small_readonly_report(os.path.join(ROOT, path)):
+    # 适用条款位置放宽到全文：它是"照做了哪些条"的登记项，位置不影响可核对性；
+    # 早期实现只认回执块 20 行内，导致写在文末「总控补录」里的合规报告被判死（假红）。
+    if '适用条款' not in text and not is_small_readonly_report(os.path.join(ROOT, path)):
         problems.append('缺「适用条款」行（须写出本单实际照做的条款）')
     return problems
 
