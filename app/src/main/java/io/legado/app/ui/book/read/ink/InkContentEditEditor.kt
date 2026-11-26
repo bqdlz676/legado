@@ -1,7 +1,7 @@
 package io.legado.app.ui.book.read.ink
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Orientation
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -27,13 +28,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.TextFieldValue
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.ui.book.read.ContentEditProjection
 import io.legado.app.ui.components.ComponentTokens
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -119,6 +121,9 @@ internal fun EditorBody(state: InkContentEditState, scrollState: ScrollState) {
 /** 位置进度条：映射编辑器滚动比例；拖动 / 点按回卷到对应位置。 */
 @Composable
 internal fun PositionBar(scrollState: ScrollState) {
+    // ScrollState.value 仅公开读、写 setter 私有：定位走 suspend scrollTo，拖拽走公开
+    // dispatchRawDelta（内部按 0..maxValue 夹取），不反射、不 @Suppress、不砍拖拽能力。
+    val scope = rememberCoroutineScope()
     val fraction = if (scrollState.maxValue > 0) {
         scrollState.value.toFloat() / scrollState.maxValue
     } else 0f
@@ -132,16 +137,17 @@ internal fun PositionBar(scrollState: ScrollState) {
                     detectTapGestures { offset ->
                         if (scrollState.maxValue > 0) {
                             val f = (offset.x / size.width).coerceIn(0f, 1f)
-                            scrollState.value = (f * scrollState.maxValue).roundToInt()
+                            val target = (f * scrollState.maxValue).roundToInt()
+                            scope.launch { scrollState.scrollTo(target) }
                         }
                     }
                 }
                 .draggable(
                     state = rememberDraggableState { delta ->
-                        // delta 单位即滚动像素，与 ScrollState.value 同口径，不再做 dp 换算。
+                        // delta 单位即滚动像素，与 ScrollState.value 同口径，不再做 dp 换算；
+                        // dispatchRawDelta 是公开写入入口，消费掉的增量由它内部夹取回卷。
                         if (scrollState.maxValue > 0) {
-                            scrollState.value = (scrollState.value + delta)
-                                .coerceIn(0, scrollState.maxValue)
+                            scrollState.dispatchRawDelta(delta)
                         }
                     },
                     orientation = Orientation.Horizontal,

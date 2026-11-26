@@ -78,7 +78,9 @@ object InkContentEditRules {
      * 取新旧可见串的公共前缀 / 后缀，中段差异交 [ContentEditProjection.replace] 回填；
      * 前后缀无法对齐（差异区跨越隐藏标记边界等）时返回 null，调用方按兜底口径整段回写并登记。
      */
-    fun projectEdit(
+    // internal：参数类型 ContentEditProjection 是本模块 internal 类，public 函数会把内部类型
+    // 外泄成新 API；同模块内 EditorBody 调用不受影响，故降可见性而非把类型提为 public。
+    internal fun projectEdit(
         projection: ContentEditProjection,
         oldDisplay: String,
         newDisplay: String,
