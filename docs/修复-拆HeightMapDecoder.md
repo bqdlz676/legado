@@ -113,6 +113,21 @@ private fun cachedDecode(bytes: ByteArray, source: SourceKind): HeightMapRaster?
 - 未在并发压力下实测未命中重复解码的 CPU 影响；二阶差异为代码推演。
 - 其它 module / 外部脚本未引用本缓存私有成员（已 grep 全仓 main 源确认）。
 
+## 九、E3 结果标记汇总（Q-248 补登）
+
+逐条结论对照 E3 口径标记（PASS / FAIL / 未验证）：
+
+- 行数收口：`HeightMapDecoder.kt` 546 行、`HeightMapRasterCache.kt` 101 行（`wc -l` 实测，均回到 600 行候选线以下）——PASS。
+- `kotlin-syntax-lint.py` 两文件静态检查——PASS（`KOTLIN-LINT: PASS（2 个文件）`，rc=0）。
+- `check-frankenstein.py` 职责混装扫描——PASS（`FRANKENSTEIN: PASS`，两文件均未进入 ≥600 行 oversized 清单）。
+- onboarding 回执审计——PASS（`ONBOARD-AUDIT: 0 份报告缺回执或不合规`）。
+- 锚点卡 strict 校验——PASS（`汇总: PASS=1 FAIL=0（共 1 份）`）。
+- 55 永远找问题——PASS（`PROBLEM-FINDING: PASS（1 份报告均带新发现问题与处置状态）`）。
+- 未推送报告回执——PASS（`UNPUSHED-REPORTS: PASS`）。
+- terrain 包单测全量运行——未验证（沙箱无 JDK，待云端 CI 跑完回证 4 个 Q238 用例全绿）。
+- 并发压力下未命中重复解码的 CPU 影响——未验证（代码推演，未压测）。
+- 跨战役切换是否需主动 `resetCache`——未验证（已入队观察，见 §七 问题 1）。
+
 ## 守则回执
 
 守则回执：
@@ -127,7 +142,7 @@ private fun cachedDecode(bytes: ByteArray, source: SourceKind): HeightMapRaster?
   - grep 回证：搬迁清单、门面行号、外部调用点均以 grep / Read 现取现核，旧私有符号在解码器侧清零（子代理必读 :18）。
   - 未验证项声明：CI 单测、并发压力、跨战役清理链路已在第七、八节显式列出（子代理必读 :20）。
 
-## 九、门禁自检输出
+## 十、门禁自检输出
 
 ```
 $ wc -l app/src/main/java/io/legado/app/ui/map/crossing/terrain/HeightMapDecoder.kt \
