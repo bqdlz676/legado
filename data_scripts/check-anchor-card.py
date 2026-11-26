@@ -232,8 +232,9 @@ def main(argv=None) -> int:
 
     files = args.reports
     if not files:
-        print("（无待检报告）")
-        return 0
+        # 空集不得判 PASS（㊾）：漏传参数或 diff 口径空集都不该表述成"合规"。
+        print("EMPTY: 未提供待检报告（空集不判 PASS；diff 型调用请走 ㊽ 口径）")
+        return 2
 
     passed = failed = 0
     for path in files:

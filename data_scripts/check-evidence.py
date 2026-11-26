@@ -85,8 +85,13 @@ def check_file(path: str):
     if not os.path.isfile(path):
         return {'path': path, 'ok': False, 'counts': (0, 0, 0),
                 'missing': ['E1', 'E2', 'E3'], 'readable': False}
-    with open(path, encoding='utf-8', errors='replace') as fh:
-        text = fh.read()
+    try:
+        with open(path, encoding='utf-8', errors='strict') as fh:
+            text = fh.read()
+    except UnicodeDecodeError as e:
+        return {'path': path, 'ok': False, 'counts': (0, 0, 0),
+                'missing': ['E1', 'E2', 'E3'], 'readable': True,
+                'decode_error': f'非法 UTF-8（第 {e.start} 字节起）'}
     if skip_legacy(text):
         return {'path': path, 'ok': True, 'counts': (0, 0, 0), 'missing': [], 'readable': True}
     e1, e2, e3 = evaluate(text)
@@ -109,13 +114,18 @@ def main(argv=None):
                        + glob.glob(os.path.join(root, 'docs', '验收-*.md')))
 
     if not files:
-        print('（无待检报告）')
-        return 0
+        # 空集不得判 PASS（㊾）：漏传参数或 diff 口径空集都不该表述成"合规"。
+        print('EMPTY: 未提供待检报告（空集不判 PASS；diff 型调用请走 ㊽ 口径）')
+        return 2
 
     passed = failed = 0
     for path in files:
         res = check_file(path)
         e1, e2, e3 = res['counts']
+        if res.get('decode_error'):
+            failed += 1
+            print(f"FAIL {path}：{res['decode_error']}，不得按可读文件判 PASS")
+            continue
         if res['ok']:
             passed += 1
             if not args.strict:

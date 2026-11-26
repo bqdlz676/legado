@@ -118,8 +118,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     if not args.reports:
-        print('（无待检报告）')
-        return 0
+        # 空集不得判 PASS（㊾）；同 check-evidence，空集只可能是漏传或口径混淆。
+        print('EMPTY: 未提供待检报告（空集不判 PASS；diff 型调用请走 ㊽ 口径）')
+        return 2
 
     passed = failed = 0
     for path in args.reports:
