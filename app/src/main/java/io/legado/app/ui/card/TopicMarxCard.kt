@@ -50,7 +50,7 @@ private val HeroFont = FontFamily.Serif
  *
  * 竖排标题 18sp 暖金 Bold；副标题 12sp 石青；年份时间线（Canvas 横线 + 两端年份文本）；
  * 边框 1px；底色毛玻璃 + 深墨 15% 透底。[kind] 只切换边框色，尺寸 / 布局 / 字号完全一致。
- * 阴影 / 圆角 / 五态 / 颗粒全部复用 [CardSurface]，本组件不复制阴影代码。
+ * 阴影 / 圆角 / 五态 / 颗粒全部复用 [CardBase]，本组件不复制阴影代码。
  *
  * @param kind 马克思卡（暖金边）或党史卡（朱砂边）。
  * @param title 竖排主标题；超长按 [verticalTitle] 逐字换行截断。
@@ -58,7 +58,7 @@ private val HeroFont = FontFamily.Serif
  * @param yearStart 时间线左端年份（马克思示例 1818）。
  * @param yearEnd 时间线右端年份（马克思示例 1883）。
  * @param modifier 外部给定尺寸 / 对齐；「同尺寸」由调用方修饰符保证，两 kind 共用本组件天然一致。
- * @param state 交互五态，透传基座 [CardSurface]。
+ * @param state 交互五态，透传基座 [CardBase]。
  */
 @Composable
 fun TopicHeroCard(
@@ -76,7 +76,7 @@ fun TopicHeroCard(
         HeroKind.Cpc -> CpcBorder
     }
 
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier
             // 1px 边框：基座默认 0 stroke，本卡属规格原文指定边框变体，在外壳层补边线；shape 复用基座圆角 token。

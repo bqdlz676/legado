@@ -32,8 +32,9 @@ class B18HandleFileSheetGateTest {
     fun `动作行经墨触闸并消费契约 contentAlpha`() {
         assertTrue("动作行必须经 rememberInkGesture 绑手势",
             sheetSource.contains("rememberInkGesture("))
-        assertTrue("动作行必须经 toVisualState 取契约可视态",
-            sheetSource.contains("toVisualState()"))
+        // B1-件 收口：快照 resolve() 直出契约可视态，不再经 Compat 身份映射跳跃。
+        assertTrue("动作行必须经 interaction.resolve() 取契约可视态",
+            sheetSource.contains("interaction.resolve()"))
         assertTrue("动作行透明度必须读 contentAlpha",
             sheetSource.contains("contentAlpha"))
     }

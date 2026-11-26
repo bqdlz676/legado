@@ -1,35 +1,18 @@
 package io.legado.app.ui.components.compat
 
-import io.legado.app.ui.components.ComponentVisualState as LegacyVisualState
 import io.legado.app.ui.components.contract.ComponentVisualState
 
 /**
- * S-04 状态契约接线 · 旧七态 → 新契约单向适配（只新增适配，不删旧七态模型）。
+ * S-04 状态收口 · 过渡身份扩展（旧枚举定义已删除，本扩展不再做档位映射）。
  *
- * 〔为什么只做旧→新单向〕
- * 旧七态 [LegacyVisualState]（默认 / 悬浮 / 按下 / 禁用 / 加载 / 空数据 / 离线，登记在
- * `ComponentState.kt`）是切片-04 早期落地形态；新契约 [ComponentVisualState]
- * （默认 / 悬停 / 按下 / 选中 / 禁用 / 加载中 / 空数据 / 离线）是 S-04 收口契约。
- * 本适配只把旧态搬运到新契约，**不提供反向映射**：新契约 [ComponentVisualState.SELECTED]
- * 选中档在旧模型无对应档，反向映射必然造数据；旧源退役后直接删除本适配，不留双向兼容层。
+ * 〔历史〕旧七态枚举曾登记在 `components/ComponentState.kt`，本适配原做「旧 → 新契约」单向
+ * 档位搬运。本单双源收口：旧枚举定义物理删除，唯一状态模型为
+ * [ComponentVisualState] 契约枚举；此处保留一个**身份函数**，仅为尚未迁移的并行域调用点
+ * （`ui/components/InkCard.kt`、`ui/main/bookshelf/BookshelfScreen.kt`）维持旧调用写法可编译。
  *
- * 〔逐项口径〕
- * - DEFAULT / HOVERED / PRESSED / DISABLED / LOADING 同名平移；
- * - EMPTY / OFFLINE 各自平移到契约独立档位 [ComponentVisualState.EMPTY] /
- *   [ComponentVisualState.OFFLINE]，**不并入 DISABLED**：压淡系数与事件许可一律取契约枚举
- *   上登记的 [ComponentVisualState.contentAlpha] / [ComponentVisualState.eventsAllowed]
- *   单源字段，适配层不另写透明度系数，也不复制 0.30f 禁用系数。
- *
- * 纯枚举映射：不读全局状态、不调 Android / Compose API，普通 JVM 单测可直接断言。
+ * 〔为什么不是第二套模型〕
+ * 身份函数不映射任何档位、不复制透明度 / 事件许可规则，入参出参同为契约枚举；不存在反向映射，
+ * 也不存在第二套优先级口径。待上述并行域把 `.toVisualState()` 调用点直连契约枚举后，本扩展
+ * 与 `ComponentState.kt` 内的类型别名一并删除（A3：新链路接好再物理删旧，不留兼容层兜底）。
  */
-fun LegacyVisualState.toVisualState(): ComponentVisualState = when (this) {
-    LegacyVisualState.DEFAULT -> ComponentVisualState.DEFAULT
-    LegacyVisualState.HOVERED -> ComponentVisualState.HOVERED
-    LegacyVisualState.PRESSED -> ComponentVisualState.PRESSED
-    LegacyVisualState.DISABLED -> ComponentVisualState.DISABLED
-    LegacyVisualState.LOADING -> ComponentVisualState.LOADING
-    // 空数据独立档位：不压淡、允许事件（旧模型 empty 仍可点）
-    LegacyVisualState.EMPTY -> ComponentVisualState.EMPTY
-    // 离线独立档位：不压淡、阻止事件（旧模型 offline 禁点）
-    LegacyVisualState.OFFLINE -> ComponentVisualState.OFFLINE
-}
+fun ComponentVisualState.toVisualState(): ComponentVisualState = this

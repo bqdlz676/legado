@@ -43,7 +43,7 @@ import java.io.IOException
  * 背景四套可选（纸白/暗色/护眼/宣纸纹理）+ 极淡暖金渐变 opacity 0.05；导出 PNG 到
  * `/sdcard/Download/落文卡片/`；文件名 `书名_日期.png`。
  *
- * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardSurface]；色值优先取 [CardTokens]，四套底色中基座未定义的
+ * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardBase]；色值优先取 [CardTokens]，四套底色中基座未定义的
  * 暗色 / 护眼 / 宣纸暖米三套在本文件顶部由既有 token 经 `lerp` 混合派生（判据 2 不写十六进制字面量）。
  */
 
@@ -85,7 +85,7 @@ private val ShareRiceBg: Color = lerp(CardTokens.cardPaper, CardTokens.warmGold,
  * @param bg 四套底色之一；适用：纸白 / 暗色 / 护眼 / 宣纸纹理，渐变叠层四套通用。
  * @param sheetName 书名（sheet 名）；适用：不直接上卡面，供宿主拼导出文件名与出处前缀兜底。
  * @param date 日期字符串；适用：导出文件名第二段，格式由调用方保证（建议 yyyy-MM-dd）。
- * @param state 基座五态；Loading 态由 [CardSurface] 自绘骨架灰块 + 暖金斜光带。
+ * @param state 基座五态；Loading 态由 [CardBase] 自绘骨架灰块 + 暖金斜光带。
  * @param modifier 外部尺寸 / 对齐；分享图宽高由调用方按导出图比例传入，本卡不锁死。
  */
 @Composable
@@ -113,12 +113,12 @@ fun ShareCard(
     // 出处色：亮底取石青；暗底石青过暗，兜底云灰，保持次级标注的明度层次。
     val sourceColor = if (bg == ShareBg.Dark) CardTokens.cloudGray else CardTokens.stoneBlue
 
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier.fillMaxSize(),
     ) {
         Box(
-            // 四套底色铺满基座面；基座自身纸白底被本层完全覆盖，圆角由 CardSurface 裁切约束。
+            // 四套底色铺满基座面；基座自身纸白底被本层完全覆盖，圆角由 CardBase 裁切约束。
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgColor),

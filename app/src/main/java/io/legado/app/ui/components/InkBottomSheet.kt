@@ -35,6 +35,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.contract.ComponentVisualState
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 
@@ -227,7 +228,8 @@ fun InkBottomSheet(
                             }
                         },
                     )
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .alpha(state.contentAlpha),
             ) {
                 when (state) {
                     ComponentVisualState.LOADING -> Column(Modifier.padding(16.dp)) {

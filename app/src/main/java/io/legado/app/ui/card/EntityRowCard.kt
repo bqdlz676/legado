@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.sp
  * 规格原文：名称 14sp 墨色 Bold；年代·国别·类别 10sp 石青；一句话描述 11sp 云灰；
  * 出处 9sp 石青斜体；高自适应 60-80dp；点击半屏 Sheet 展开完整描述。
  *
- * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardSurface]，色值全部取 [CardTokens]，不在本组件另造
+ * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardBase]，色值全部取 [CardTokens]，不在本组件另造
  * 色值、圆角或动效；本组件只补名称行、描述行与出处行。半屏 Sheet 由宿主实现，本卡只留
  * [onClick] 回调，不在卡片内弹层。
  */
@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.sp
  * @param meta 年代·国别·类别合并标注（调用方以「·」连接）；适用：名称旁次级标注行，石青 10sp。
  * @param desc 一句话描述；适用：名称下方短描述，云灰 11sp，两行内截断。
  * @param source 出处；适用：最低一级注释，石青 9sp 斜体。
- * @param state 基座五态；Loading 态由 [CardSurface] 自绘骨架灰块 + 暖金斜光带。
+ * @param state 基座五态；Loading 态由 [CardBase] 自绘骨架灰块 + 暖金斜光带。
  * @param modifier 外部对齐 / 尺寸；宽度与高度区间已在本组件内按规格固定。
  * @param onClick 整卡点击；适用：宿主拉起半屏 Sheet 展示完整描述，本卡不导航、不弹层。
  */
@@ -51,7 +51,7 @@ fun EntityRowCard(
     state: CardState = CardState.Default,
     modifier: Modifier = Modifier,
 ) {
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier
             .fillMaxWidth()

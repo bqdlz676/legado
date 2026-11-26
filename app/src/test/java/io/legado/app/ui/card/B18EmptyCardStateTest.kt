@@ -93,8 +93,8 @@ class B18EmptyCardStateTest {
                 emptyCardSource.contains("EmptyKind.Offline") &&
                 emptyCardSource.contains("fun emptyCardVisualState("),
         )
-        assertTrue("空态卡必须复用 CardSurface 卡片基座",
-            emptyCardSource.contains("CardSurface("))
+        assertTrue("空态卡必须复用 CardBase 卡片基座",
+            emptyCardSource.contains("CardBase("))
     }
 
     // ─────────────────────────── 判据 5：0.35 裁决 ───────────────────────────

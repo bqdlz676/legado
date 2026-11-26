@@ -46,6 +46,7 @@ import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.ToolRow
 import io.legado.app.ui.components.ToolSectionLabel
 import io.legado.app.ui.components.ToolTextField
+import io.legado.app.ui.components.contract.ComponentVisualState
 import java.io.File
 
 /**
@@ -185,11 +186,13 @@ class FilePickerDialog : DialogFragment() {
                 state.error != null -> InkEmptyState(
                     message = state.error ?: "目录读取失败",
                     offline = true,
+                    state = ComponentVisualState.OFFLINE,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 state.files.isEmpty() -> InkEmptyState(
                     message = "当前目录为空",
+                    state = ComponentVisualState.EMPTY,
                     modifier = Modifier.fillMaxWidth(),
                 )
 

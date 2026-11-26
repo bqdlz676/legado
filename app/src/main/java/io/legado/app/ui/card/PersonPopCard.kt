@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 /**
  * 人物关系卡（切片-25「九、人物关系卡（力导向图节点弹出）」逐字落地）。
  *
- * 外形 / 阴影 / 圆角 / 颗粒全部复用 [CardSurface] 基座，色值只取 [CardTokens]，不另造 token。
+ * 外形 / 阴影 / 圆角 / 颗粒全部复用 [CardBase] 基座，色值只取 [CardTokens]，不另造 token。
  * 本卡是力导向图节点的浮层气泡：节点双击弹出，宽为屏宽 0.45；「点卡片外部消失」不实现遮罩，
  * 只把 [onDismissRequest] 回调抛给宿主，由宿主在卡片外部挂点击检测后调用，本卡不铺半透明底。
  *
@@ -50,7 +50,7 @@ fun PersonPopCard(
         enter = fadeIn(animationSpec = tween(durationMillis = 200)),
         modifier = modifier,
     ) {
-        CardSurface(
+        CardBase(
             state = CardState.Default,
             modifier = Modifier
                 // 宽=屏宽×0.45：关系卡为浮层小卡，半屏宽避免遮挡力导向图其余节点；适用：图上节点旁弹出。

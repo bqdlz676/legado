@@ -42,6 +42,7 @@ import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.InkHalfSheet
 import io.legado.app.ui.components.ToolRow
+import io.legado.app.ui.components.contract.ComponentVisualState
 import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.ui.sheet.HalfSheetExitHost
 import io.legado.app.utils.GSON
@@ -167,6 +168,7 @@ class ImportAutoTaskDialog() : DialogFragment() {
                 state.error != null -> InkEmptyState(
                     message = state.error ?: "解析失败",
                     offline = true,
+                    state = ComponentVisualState.OFFLINE,
                     actionLabel = "关闭",
                     onAction = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
@@ -174,6 +176,7 @@ class ImportAutoTaskDialog() : DialogFragment() {
 
                 state.tasks.isEmpty() -> InkEmptyState(
                     message = "没有可导入的任务",
+                    state = ComponentVisualState.EMPTY,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -245,6 +248,7 @@ class ImportAutoTaskDialog() : DialogFragment() {
                     onImport,
                     variant = InkButtonVariant.PRIMARY,
                     enabled = state.selectCount > 0,
+                    state = if (state.selectCount > 0) ComponentVisualState.DEFAULT else ComponentVisualState.DISABLED,
                 )
             }
         }

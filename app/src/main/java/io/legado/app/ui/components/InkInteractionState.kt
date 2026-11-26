@@ -8,7 +8,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
-import io.legado.app.ui.components.compat.toVisualState
 import io.legado.app.ui.components.contract.ComponentVisualState
 
 /**
@@ -80,8 +79,8 @@ internal fun rememberInkGesture(
         offline = offline,
     )
 
-    // S-04 接线：可点口径改读新契约 eventsAllowed（旧七态经 Compat 单向映射，旧模型不删）
-    val visual = interaction.resolve().toVisualState()
+    // 唯一可视态由快照 resolve() 直出契约枚举；可点口径读契约 eventsAllowed，不再经 Compat 映射。
+    val visual = interaction.resolve()
 
     // B17 分闸：容器本体按契约闸；standaloneInteractive 的独立入口（离线重试）仅放行自身点击
     val eventsAllowed = resolveEventsAllowed(

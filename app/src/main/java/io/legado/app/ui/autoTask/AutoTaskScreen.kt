@@ -43,6 +43,7 @@ import io.legado.app.ui.components.ToolRow
 import io.legado.app.ui.components.ToolSectionLabel
 import io.legado.app.ui.components.ToolTextField
 import io.legado.app.ui.components.toolListArrangement
+import io.legado.app.ui.components.contract.ComponentVisualState
 import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.ui.sheet.HalfSheetExitHost
 
@@ -253,6 +254,7 @@ private fun ErrorBody(message: String, onRetry: () -> Unit) {
     InkEmptyState(
         message = message.ifBlank { "自动任务读取失败" },
         offline = true,
+        state = ComponentVisualState.OFFLINE,
         actionLabel = "重试",
         onAction = onRetry,
         modifier = Modifier.fillMaxSize(),
@@ -263,6 +265,7 @@ private fun ErrorBody(message: String, onRetry: () -> Unit) {
 private fun EmptyBody(onAdd: () -> Unit) {
     InkEmptyState(
         message = "还没有自动任务，新建一条定时任务",
+        state = ComponentVisualState.EMPTY,
         actionLabel = "新建",
         onAction = onAdd,
         modifier = Modifier.fillMaxSize(),

@@ -67,7 +67,7 @@ private data class CardVisual(
  * @param content 卡片内容槽；Loading 态不渲染内容，避免未到数据时文字闪现。
  */
 @Composable
-fun CardSurface(
+fun CardBase(
     state: CardState,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,

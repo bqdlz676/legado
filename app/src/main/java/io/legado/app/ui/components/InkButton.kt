@@ -28,13 +28,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.legado.app.ui.components.compat.toVisualState
+import io.legado.app.ui.components.contract.ComponentVisualState
 
 /**
  * InkButton 墨触按钮（组件基类，ListItem / Tab 沿用同一套墨触反馈）。
  *
  * - 全站不用 Material ripple；touchstart 泛朱砂：悬浮 8%、按下 16%，120ms 回落。
  * - 七态：默认 / 悬浮 / 点击 / 禁用（云灰 30%）/ 加载（三个金点依次亮灭）/ 空数据 / 离线。
+ * - 状态取唯一契约模型 [ComponentVisualState]：宿主显式传入非默认态时以传入态为准，否则由
+ *   手势快照按优先级解析；禁用 / 加载 / 离线由墨触闸阻止点击回调。
  * - 颜色只取 [ComponentTokens]，不包裹 MaterialTheme。
  */
 enum class InkButtonVariant { PRIMARY, SECONDARY, GHOST }
@@ -84,18 +86,29 @@ fun InkButton(
     offline: Boolean = false,
     empty: Boolean = false,
     standaloneInteractive: Boolean = false,
+    state: ComponentVisualState = ComponentVisualState.DEFAULT,
     leading: @Composable (() -> Unit)? = null,
 ) {
+    // 显式状态与既有布尔取并集：禁用 / 加载 / 离线不仅改外观，也要进墨触闸阻止回调。
+    val effectiveDisabled = !enabled || state == ComponentVisualState.DISABLED
+    val effectiveLoading = loading || state == ComponentVisualState.LOADING
+    val effectiveOffline = offline || state == ComponentVisualState.OFFLINE
+    val effectiveEmpty = empty || state == ComponentVisualState.EMPTY
     val gesture = rememberInkGesture(
-        enabled = enabled,
-        loading = loading,
-        empty = empty,
-        offline = offline,
+        enabled = !effectiveDisabled,
+        loading = effectiveLoading,
+        empty = effectiveEmpty,
+        offline = effectiveOffline,
         standaloneInteractive = standaloneInteractive,
         onClick = onClick,
     )
     val interaction = gesture.interaction
-    val state = interaction.resolve()
+    // 宿主显式传入非默认态优先；缺省回落到手势快照解析态。两套来源最终都收口到同一契约枚举。
+    val effectiveState = if (state != ComponentVisualState.DEFAULT) {
+        state
+    } else {
+        interaction.resolve()
+    }
 
     val overlayAlpha = androidx.compose.animation.core.animateFloatAsState(
         targetValue = interaction.accentOverlayAlpha,
@@ -128,13 +141,13 @@ fun InkButton(
     }
 
     val resolvedLabel = when {
-        offline -> text.ifBlank { "离线 · 重试" }
+        effectiveState == ComponentVisualState.OFFLINE -> text.ifBlank { "离线 · 重试" }
         else -> text
     }
     val labelColor = when {
-        state == ComponentVisualState.DISABLED -> ComponentTokens.textTertiary
-        state == ComponentVisualState.EMPTY -> ComponentTokens.textTertiary
-        state == ComponentVisualState.OFFLINE -> ComponentTokens.textSecondary
+        effectiveState == ComponentVisualState.DISABLED -> ComponentTokens.textTertiary
+        effectiveState == ComponentVisualState.EMPTY -> ComponentTokens.textTertiary
+        effectiveState == ComponentVisualState.OFFLINE -> ComponentTokens.textSecondary
         else -> content
     }
 
@@ -148,7 +161,7 @@ fun InkButton(
             .then(
                 if (border != null) Modifier.border(1.dp, border, shape) else Modifier,
             )
-            .alpha(state.toVisualState().contentAlpha)
+            .alpha(effectiveState.contentAlpha)
             .heightIn(min = 44.dp)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
@@ -165,7 +178,7 @@ fun InkButton(
             leading?.invoke()
             if (leading != null) Spacer(Modifier.width(8.dp))
             when {
-                loading -> InkLoadingDots()
+                loading || effectiveState == ComponentVisualState.LOADING -> InkLoadingDots()
                 else -> androidx.compose.foundation.text.BasicText(
                     text = resolvedLabel,
                     style = TextStyle(
@@ -194,8 +207,9 @@ fun InkButton(
     offline: Boolean = false,
     empty: Boolean = false,
     standaloneInteractive: Boolean = false,
+    state: ComponentVisualState = ComponentVisualState.DEFAULT,
     onClick: () -> Unit,
 ) = InkButton(
     text, onClick, modifier, variant, enabled, loading, offline, empty,
-    standaloneInteractive, null,
+    standaloneInteractive, state, null,
 )

@@ -28,6 +28,7 @@ import io.legado.app.R
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.ReadRecordAuthors
 import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.contract.ComponentVisualState
 import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
 import kotlinx.coroutines.Dispatchers
@@ -105,8 +106,20 @@ private fun EditRecordDialog(
         }
         FormField(context.getString(R.string.author), author, null) { author = it }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            InkButton(context.getString(R.string.cancel), variant = InkButtonVariant.SECONDARY, modifier = Modifier.weight(1f), enabled = !saving, onClick = onDismiss)
-            InkButton(context.getString(R.string.action_save), modifier = Modifier.weight(1f), enabled = !saving) {
+            InkButton(
+                context.getString(R.string.cancel),
+                variant = InkButtonVariant.SECONDARY,
+                modifier = Modifier.weight(1f),
+                enabled = !saving,
+                state = if (saving) ComponentVisualState.DISABLED else ComponentVisualState.DEFAULT,
+                onClick = onDismiss,
+            )
+            InkButton(
+                context.getString(R.string.action_save),
+                modifier = Modifier.weight(1f),
+                enabled = !saving,
+                state = if (saving) ComponentVisualState.LOADING else ComponentVisualState.DEFAULT,
+            ) {
                 val trimmedName = name.trim()
                 val trimmedAuthor = author.trim()
                 if (trimmedName.isEmpty()) {

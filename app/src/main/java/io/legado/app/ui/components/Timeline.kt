@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.contract.ComponentVisualState
 
 /**
  * Timeline 纪年时间轴：竖线 + 节点 + 政权对照行 + 左右箭头。
@@ -76,18 +77,24 @@ fun InkTimeline(
     modifier: Modifier = Modifier,
     loading: Boolean = false,
     offline: Boolean = false,
+    state: ComponentVisualState = ComponentVisualState.DEFAULT,
     onPrev: () -> Unit = {},
     onNext: () -> Unit = {},
 ) {
+    val effectiveLoading = loading || state == ComponentVisualState.LOADING
+    val effectiveOffline = offline || state == ComponentVisualState.OFFLINE
+    val effectiveEmpty = model.nodes.isEmpty() || state == ComponentVisualState.EMPTY
+
     when {
-        loading -> Column(
+        effectiveLoading -> Column(
             modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) { InkLoadingDots() }
 
-        model.nodes.isEmpty() -> InkEmptyState(
-            message = if (offline) "当前离线，时间轴缓存不可用" else "暂无纪年数据",
-            offline = offline,
+        effectiveEmpty -> InkEmptyState(
+            message = if (effectiveOffline) "当前离线，时间轴缓存不可用" else "暂无纪年数据",
+            offline = effectiveOffline,
+            state = state,
             compact = true,
         )
 

@@ -56,8 +56,10 @@ enum class ComponentVisualState(
  * enabled / pressed / selected 推出；原函数只覆盖 默认 / 按下 / 选中 / 禁用 子集，
  * 在 main 渲染源码无任何调用点（仅旧单测引用），属于与手势层重复的第二套解析。
  *
- * 唯一解析口径：交互快照 `io.legado.app.ui.components.InkInteraction` 经
- * `resolve()` 得到旧七态，再由 `compat.toVisualState()` 单向映射到本契约枚举；
- * 事件许可与透明度一律读 [ComponentVisualState.contentAlpha] / [ComponentVisualState.eventsAllowed]，
- * 不再新增三布尔解析函数。
+ * 〔B1-件 双源收口口径〕本枚举是全组件库唯一状态模型。交互快照
+ * `io.legado.app.ui.components.InkInteraction` 经 `resolve()` 直接解析到本枚举，
+ * 不再经过第二份旧七态枚举；事件许可与透明度一律读
+ * [ComponentVisualState.contentAlpha] / [ComponentVisualState.eventsAllowed]，
+ * 不再新增三布尔解析函数。`compat.toVisualState()` 现为身份过渡扩展，只服务未迁移的并行域
+ * 调用点，不承载第二套档位规则。
  */

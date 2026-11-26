@@ -23,7 +23,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import io.legado.app.ui.components.compat.toVisualState
 import io.legado.app.lib.dialogs.SelectItem
 
 /**
@@ -52,7 +51,7 @@ fun HandleFileSheet(
                     // B18：动作行点击走墨触闸，不再裸 clickable；许可由契约 eventsAllowed 裁决。
                     // 当前动作表无禁用 / 离线档，enabled 恒 true；后续若加禁用动作，沿同一闸传入即可。
                     val gesture = rememberInkGesture(enabled = true, onClick = { onAction(item) })
-                    val visual = gesture.interaction.resolve().toVisualState()
+                    val visual = gesture.interaction.resolve()
                     Row(
                         Modifier
                             .fillMaxWidth()

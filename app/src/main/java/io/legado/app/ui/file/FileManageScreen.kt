@@ -39,6 +39,7 @@ import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.ToolPageScaffold
 import io.legado.app.ui.components.ToolRow
 import io.legado.app.ui.components.toolListArrangement
+import io.legado.app.ui.components.contract.ComponentVisualState
 import java.io.File
 
 /**
@@ -80,6 +81,7 @@ fun FileManageScreen(
             state.error != null -> InkEmptyState(
                 message = state.error ?: "目录读取失败",
                 offline = true,
+                state = ComponentVisualState.OFFLINE,
                 actionLabel = "重试",
                 onAction = onPop,
                 modifier = Modifier.fillMaxSize(),
@@ -87,6 +89,7 @@ fun FileManageScreen(
 
             visibleFiles.isEmpty() -> InkEmptyState(
                 message = "当前目录为空",
+                state = ComponentVisualState.EMPTY,
                 modifier = Modifier.fillMaxSize(),
             )
 

@@ -36,7 +36,7 @@ import io.legado.app.ui.components.contract.ComponentVisualState
  * - [NotFound]：淡暖金金点 + 三行随机推荐书名；适用：检索无结果时给替代出口。
  * - [Offline]：朱砂断环（顶部 6° 断口，描边不闭合）+ 「本地已有 xx 本书可离线阅读」；适用：断网但本地有缓存。
  *
- * 外形 / 阴影 / 圆角 / 颗粒全部走 [CardSurface] 基座，色值只取 [CardTokens]；
+ * 外形 / 阴影 / 圆角 / 颗粒全部走 [CardBase] 基座，色值只取 [CardTokens]；
  * 图标为 [Canvas] 自绘金点 / 断环，不引位图资源。
  *
  * B18 状态口径：legacy [CardState] 只承担阴影 / 抬升 / 骨架等视觉档位；「能不能点」不另立第二套布尔，
@@ -74,7 +74,7 @@ internal fun emptyCardVisualState(
  *
  * @param kind 变体；内部 `when` 分派图标 / 文案 / 是否渲染行动按钮。
  * @param onAction 行动按钮回调；仅 [EmptyKind.EmptyShelf] 渲染按钮，其余变体传 null 即可。
- * @param state 基座五态；Loading 态由 [CardSurface] 自绘骨架灰块 + 暖金斜光带。
+ * @param state 基座五态；Loading 态由 [CardBase] 自绘骨架灰块 + 暖金斜光带。
  * @param modifier 外部对齐 / 边距；卡片宽度由宿主约束，本组件内只铺内容槽。
  */
 @Composable
@@ -86,7 +86,7 @@ fun EmptyStateCard(
 ) {
     // B18：唯一事件许可来源——legacy 基座态 + 变体映射到契约六态，卡片内不再另立「能不能点」布尔。
     val visual = emptyCardVisualState(kind, state)
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier.fillMaxWidth(),
     ) {

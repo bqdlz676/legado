@@ -26,11 +26,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.contract.ComponentVisualState
 
 /**
  * Toast 轻提示：成功（暖金）/ 失败（朱砂）/ 提示（石青）三色。
  *
- * 空消息不渲染；离线提示走 INFO 色；动作按钮可选。宿主负责定时收起，本组件只做呈现与回调。
+ * 空消息不渲染；离线提示走 INFO 色；动作按钮可选。状态取唯一契约模型 [ComponentVisualState]：
+ * 禁用 / 加载 / 离线档动作按钮不响应点击（eventsAllowed=false）。宿主负责定时收起，本组件只做呈现与回调。
  */
 enum class ToastKind { SUCCESS, FAILURE, INFO }
 
@@ -88,6 +90,7 @@ fun InkToastHost(
 fun InkToast(
     toast: ToastMessage,
     modifier: Modifier = Modifier,
+    state: ComponentVisualState = ComponentVisualState.DEFAULT,
     onAction: () -> Unit = {},
     onDismiss: () -> Unit = {},
 ) {
@@ -132,7 +135,9 @@ fun InkToast(
         )
         if (!toast.actionLabel.isNullOrBlank()) {
             Spacer(Modifier.width(10.dp))
-            val gesture = rememberInkGesture(enabled = true, onClick = onAction)
+            // 动作按钮许可读契约状态 eventsAllowed：禁用 / 加载 / 离线档不放行点击回调。
+            val gesture = rememberInkGesture(enabled = state.eventsAllowed, onClick = onAction)
+            val actionColor = if (state.eventsAllowed) ComponentTokens.colorLink else ComponentTokens.textTertiary
             Box(
                 Modifier
                     .then(gesture.gestureModifier)
@@ -142,7 +147,7 @@ fun InkToast(
                 androidx.compose.foundation.text.BasicText(
                     text = toast.actionLabel,
                     style = TextStyle(
-                        color = ComponentTokens.colorLink,
+                        color = actionColor,
                         fontSize = 13.sp,
                         fontFamily = FontFamily.Serif,
                     ),

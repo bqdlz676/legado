@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.sp
  * 规格原文：标题竖排 14sp 墨色 Bold + 右箭头；预览 10sp 石青；金点横排表示典故数量
  * （如 28 颗）；满宽（左右各 12dp 边距），高 72dp；毛玻璃 + 纸白 70%；点击进典故列表页。
  *
- * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardSurface]，色值全部取 [CardTokens]，不在本组件另造
+ * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardBase]，色值全部取 [CardTokens]，不在本组件另造
  * 色值、圆角或动效；本组件只补竖排标题、预览行、金点数量条与毛玻璃底层。
  */
 
@@ -59,7 +59,7 @@ data class TopicCardData(
  * 单张专题横条卡：满宽通栏，点击回调 [onClick] 进典故列表页（列表页由宿主路由，本卡不导航）。
  *
  * @param data 专题数据；标题 / 预览为空时对应槽位不渲染，数量 ≤ 0 时金点条留空。
- * @param state 基座五态；Loading 态由 [CardSurface] 自绘骨架灰块 + 暖金斜光带。
+ * @param state 基座五态；Loading 态由 [CardBase] 自绘骨架灰块 + 暖金斜光带。
  * @param modifier 外部对齐 / 尺寸；宽高已在本组件内按规格固定。
  * @param onClick 整卡点击；适用：跳转典故列表页。
  */
@@ -73,7 +73,7 @@ fun TopicCard(
     // 卡片外形圆角复用基座 16dp；shape 同时供毛玻璃底色 / 裁剪复用，避免各造一个 Shape。
     val shape: Shape = RoundedCornerShape(CardTokens.cardRadius)
 
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier
             .fillMaxWidth()

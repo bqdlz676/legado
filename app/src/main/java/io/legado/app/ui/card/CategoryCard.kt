@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.sp
  * 规格原文：类别名竖排 16sp 墨色 Bold + 右箭头；条目数 12sp 石青；云灰细线；
  * 代表条目预览 10sp 云灰横排（如 干将 · 莫邪 · 赤霄 · 湛卢 …）；高 72dp；点击进类别列表。
  *
- * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardSurface]，色值全部取 [CardTokens]，本组件不另造
+ * 五态 / 阴影 / 圆角 / 颗粒一律走 [CardBase]，色值全部取 [CardTokens]，本组件不另造
  * 色值、圆角或动效；本组件只补竖排类别名、条目数、云灰细线与代表条目预览横排。
  */
 
@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.sp
  * @param name 类别名；空名仍渲染卡片骨架，避免列表项塌缩。
  * @param count 条目数；负数 / 脏数据按 0 兜底，不出现「-3 条目」这类不可读文案。
  * @param previewItems 代表条目预览；空白条目先过滤，>4 项截断加「…」。
- * @param state 基座五态；Loading 态由 [CardSurface] 自绘骨架灰块 + 暖金斜光带。
+ * @param state 基座五态；Loading 态由 [CardBase] 自绘骨架灰块 + 暖金斜光带。
  * @param icon 类别图标插槽；17 类图标已单独落地，调用方按需传入，null 时不占槽位。
  * @param modifier 外部对齐 / 宽度；高度由本卡按规格固定。
  * @param onClick 整卡点击回调；适用：跳转该类别索引列表页。
@@ -69,7 +69,7 @@ fun CategoryCard(
         visiblePreviews.joinToString(" · ")
     }
 
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier
             // 高 72dp：规格名物索引卡固定高度；适用：类别入口列表统一行高。

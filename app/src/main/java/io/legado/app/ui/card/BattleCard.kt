@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.sp
 /**
  * 落文 · 发现页「战役精选横卡」（切片-25「二、发现页 · 战役精选横卡」逐字落地）。
  *
- * 本文件只做第 2 类横卡：五态 / 阴影 / 圆角 / 颗粒 / 骨架光带全部复用 [CardSurface] 与
+ * 本文件只做第 2 类横卡：五态 / 阴影 / 圆角 / 颗粒 / 骨架光带全部复用 [CardBase] 与
  * [CardTokens]，不在此另造色值、圆角或动效；卡片自身只负责横排排版、暖金边框、毛玻璃底
  * 与横向 scroll-snap 吸附。
  */
@@ -66,7 +66,7 @@ data class BattleCardData(
  * 松手后把最近一张卡片吸到可视区居中；无需自写 animateScrollToItem 回中。
  *
  * @param battles 战役卡片数据；空列表由调用方给空态兜底，本子组件不渲染空白槽。
- * @param state 基座五态；Loading 态下 [CardSurface] 自绘同尺寸骨架灰块 + 暖金斜光带 1.5s 扫过。
+ * @param state 基座五态；Loading 态下 [CardBase] 自绘同尺寸骨架灰块 + 暖金斜光带 1.5s 扫过。
  * @param onBattleClick 卡片点击回调；按压态（CardState.Pressed）由交互状态机在外层驱动。
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -117,7 +117,7 @@ fun BattleCard(
     // 卡片外形圆角复用基座 16dp；shape 同时供底色 / 边框 / 裁剪复用，避免各造一个 Shape。
     val shape: Shape = RoundedCornerShape(CardTokens.cardRadius)
 
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier
             // 宽=屏宽×0.85：规格横卡宽度；适用：发现页战役精选横滑项。

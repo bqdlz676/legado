@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import io.legado.app.ui.components.compat.toVisualState
+import io.legado.app.ui.components.contract.ComponentVisualState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -289,8 +289,8 @@ private fun HalfSheetRoot(
                 )
             }
 
-            // 正文区：竖滑滚动；压淡口径改读新契约 contentAlpha（旧七态经 Compat 单向映射）；悬停 / 点击泛金辉。
-            val contentAlpha = state.toVisualState().contentAlpha
+            // 正文区：竖滑滚动；压淡口径直读契约 contentAlpha；悬停 / 点击泛金辉。
+            val contentAlpha = state.contentAlpha
             Box(
                 Modifier
                     .fillMaxWidth()

@@ -8,11 +8,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * S-04 状态契约接线 Compat 单向映射单测（纯 JVM，只用 org.junit + java.*，不引 Compose / Android 类型）。
+ * S-04 状态收口 Compat 过渡身份扩展单测（纯 JVM，只用 org.junit + java.*，不引 Compose / Android 类型）。
  *
- * 对账口径：旧七态 → 新契约逐态断言；EMPTY / OFFLINE 各自落到契约独立档位，不并入 DISABLED；
- * EMPTY 不压淡且允许事件，OFFLINE 不压淡但禁止事件；DISABLED / LOADING 事件不放行；
- * 七态全量映射不抛异常，结果均为契约已登记态，透明度落在 [0,1]。
+ * B1-件：旧七态枚举定义已删除，[LegacyVisualState] 为指向契约枚举的同名别名；`toVisualState()`
+ * 现为身份函数，不再做档位搬运。对账口径：逐态断言入参出参同为契约档；EMPTY / OFFLINE 各自独立，
+ * 不并入 DISABLED；EMPTY 不压淡且允许事件，OFFLINE 不压淡但禁止事件；DISABLED / LOADING 事件不放行；
+ * 全量档位结果均登记在契约枚举，透明度落在 [0,1]。
  */
 class ComponentStateCompatTest {
 

@@ -16,7 +16,7 @@ import io.legado.app.ui.components.ComponentPalette
  * 同口径（墨色 / 石青 / 云灰 / 暖金 / 朱砂），卡片侧在此独立声明是为了让基座包自洽、
  * 不反向依赖组件包。
  *
- * 适用条件：仅服务 [io.legado.app.ui.card.CardSurface] 及其下属 12 类具体卡片；
+ * 适用条件：仅服务 [io.legado.app.ui.card.CardBase] 及其下属 12 类具体卡片；
  * 非卡片场景（按钮 / 气泡 / Sheet）仍取各自包内 token，不要混用。
  *
  * TODO(D23 收口)：语义色真值源为 io.legado.app.ui.components.ComponentPalette；本对象为卡片基座副本，

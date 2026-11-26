@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.sp
 /**
  * 书架页 · 书籍卡片（切片-25「一、书架页 · 书籍卡片」逐字落地）。
  *
- * 纯展示组件：外形 / 阴影 / 圆角 / 颗粒全部走 [CardSurface] 基座，色值只取 [CardTokens]，
+ * 纯展示组件：外形 / 阴影 / 圆角 / 颗粒全部走 [CardBase] 基座，色值只取 [CardTokens]，
  * 不另造 token。对外只暴露三个交互回调：[onClick] 点书进阅读、[onLongPressMenu] 长按唤出菜单、
  * [onSwipeDelete] 右滑删除。碎墨粒子物理不在本卡实现，仅留 200ms 缩放散开占位。
  */
@@ -123,7 +123,7 @@ fun BookCard(
     // 右滑删除阈值 40dp：超过该位移才判为删除手势，避免普通横向滚动误触；适用：触屏书架列表。
     val swipeThresholdPx = with(density) { 40.dp.toPx() }
 
-    CardSurface(
+    CardBase(
         state = cardState,
         modifier = modifier
             .width(cardWidthDp.dp)

@@ -53,7 +53,7 @@ data class ClassicBook(
  * 规格原文：书名竖排 16sp 墨色 Bold；朝代竖排 10sp 石青；字数竖排 8sp 云灰；
  * 右下金点 4dp；宽=屏宽×0.28，高 160dp；悬浮前倾 3°；栅格 3 列间距 8dp。
  *
- * 阴影 / 圆角 / 颗粒 / 五态一律走 [CardSurface]，本组件只补典籍卡专属的竖排信息列、
+ * 阴影 / 圆角 / 颗粒 / 五态一律走 [CardBase]，本组件只补典籍卡专属的竖排信息列、
  * 落款金点与 3° 前倾；色值全部取 [CardTokens]，不在组件内另造色值。
  *
  * @param book 典籍数据；标题 / 朝代 / 字数任一为空时对应竖排列不渲染。
@@ -93,7 +93,7 @@ fun ClassicCard(
                 cameraDistance = density.density * 12f
             },
     ) {
-        CardSurface(state = state, modifier = Modifier.fillMaxSize()) {
+        CardBase(state = state, modifier = Modifier.fillMaxSize()) {
             // 内边距 8dp 横 / 10dp 纵为规格未给的兜底值；适用：竖排文字不贴 16dp 圆角边缘，留出气口。
             Box(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 10.dp)) {
                 // 传统竖排从右向左：Row 内顺序为朝代 → 字数 → 书名，使书名列落在最右侧。

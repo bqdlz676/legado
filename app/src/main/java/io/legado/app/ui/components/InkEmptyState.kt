@@ -21,11 +21,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.ui.components.contract.ComponentVisualState
 
 /**
  * EmptyState 空状态：图标（纸白圆 + 暖金点 + 朱砂落款式红点）+ 一行引导文字 + 可选操作按钮。
  *
- * 覆盖空数据与离线两态：离线时说明文案换成缓存兜底，操作按钮默认为「重试」。
+ * 状态取唯一契约模型 [ComponentVisualState]：覆盖空数据与离线两态——离线时说明文案换成缓存兜底，
+ * 操作按钮默认为「重试」。`offline` 布尔为既有入参，与显式 `state` 取并集；两者都缺省走默认档。
  * 文案为空时回落到「暂无内容」，不允许空白态。
  */
 @Composable
@@ -33,11 +35,13 @@ fun InkEmptyState(
     message: String,
     modifier: Modifier = Modifier,
     offline: Boolean = false,
+    state: ComponentVisualState = ComponentVisualState.DEFAULT,
     compact: Boolean = false,
     actionLabel: String? = null,
     onAction: () -> Unit = {},
 ) {
-    val guide = message.ifBlank { if (offline) "当前离线，展示缓存内容" else "暂无内容" }
+    val effectiveOffline = offline || state == ComponentVisualState.OFFLINE
+    val guide = message.ifBlank { if (effectiveOffline) "当前离线，展示缓存内容" else "暂无内容" }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -45,7 +49,7 @@ fun InkEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        EmptyIcon(offline = offline, compact = compact)
+        EmptyIcon(offline = effectiveOffline, compact = compact)
         Spacer(Modifier.height(if (compact) 10.dp else 16.dp))
         androidx.compose.foundation.text.BasicText(
             text = guide,
@@ -55,17 +59,18 @@ fun InkEmptyState(
                 fontFamily = FontFamily.Serif,
             ),
         )
-        val label = actionLabel ?: if (offline) "重试" else null
+        val label = actionLabel ?: if (effectiveOffline) "重试" else null
         if (!label.isNullOrBlank()) {
             Spacer(Modifier.height(14.dp))
             InkButton(
                 text = label,
                 onClick = onAction,
                 variant = InkButtonVariant.SECONDARY,
-                offline = offline,
+                offline = effectiveOffline,
+                state = state,
                 // B17 分闸：重试是离线恢复入口，独立于容器 OFFLINE 禁点闸放行自身点击；
                 // 契约 OFFLINE 本体 eventsAllowed=false 的全局语义不动，EMPTY 态本就放行。
-                standaloneInteractive = offline,
+                standaloneInteractive = effectiveOffline,
             )
         }
     }

@@ -39,6 +39,7 @@ import io.legado.app.ui.components.InkButton
 import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.InkHalfSheet
+import io.legado.app.ui.components.contract.ComponentVisualState
 import io.legado.app.utils.toastOnUi
 
 /**
@@ -170,6 +171,7 @@ class DictDialog() : DialogFragment() {
                 state.error != null -> InkEmptyState(
                     message = state.error ?: "释义获取失败",
                     offline = true,
+                    state = ComponentVisualState.OFFLINE,
                     actionLabel = "重试",
                     onAction = onRetry,
                     modifier = Modifier.fillMaxWidth(),
@@ -177,6 +179,7 @@ class DictDialog() : DialogFragment() {
 
                 state.rules.isEmpty() -> InkEmptyState(
                     message = "暂无启用的词典规则",
+                    state = ComponentVisualState.EMPTY,
                     modifier = Modifier.fillMaxWidth(),
                 )
 

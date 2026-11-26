@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.sp
  * 规格原文：书名 14sp 墨色 + 作者·年份 10sp 石青；字数·进度 10sp 云灰；来源标签 8sp 石青；
  * 高 56dp；匹配文字朱砂高亮；在线源结果追加在本地之后 + 暖金小标签「在线」。
  *
- * 外形 / 阴影 / 圆角 / 颗粒全部走 [CardSurface] 基座，常规色值只取 [CardTokens]；
+ * 外形 / 阴影 / 圆角 / 颗粒全部走 [CardBase] 基座，常规色值只取 [CardTokens]；
  * 本组件只补横排两行结果文案、命中词高亮与在线源小标签。列表排序（本地在前、在线追加在后）
  * 由宿主检索流负责，本卡不做排序。
  */
@@ -61,7 +61,7 @@ data class SearchResultCardData(
  *
  * @param data 结果数据；任一文案槽位为空时对应片段自动省略，不留多余「·」分隔符。
  * @param query 当前搜索词；适用：书名 / 作者命中片段朱砂高亮；空词或未命中时原文呈现。
- * @param state 基座五态；Loading 态由 [CardSurface] 自绘骨架灰块 + 暖金斜光带。
+ * @param state 基座五态；Loading 态由 [CardBase] 自绘骨架灰块 + 暖金斜光带。
  * @param modifier 外部对齐 / 边距；行高 56dp 已在本组件内按规格固定。
  * @param onClick 整卡点击；适用：选中该结果。
  */
@@ -85,7 +85,7 @@ fun SearchResultCard(
         data.progress.ifBlank { null },
     ).joinToString(" · ")
 
-    CardSurface(
+    CardBase(
         state = state,
         modifier = modifier
             // 高 56dp：规格固定行高；适用：搜索结果列表等高通栏行，不随文案撑高。
