@@ -250,6 +250,21 @@ def scan_controller_sleep(traj_path):
                 if m and float(m.group(1)) > WAIT_SEC:
                     hits.append((i, 'sleep', '%ss' % m.group(1),
                                  'Bash 挂起 sleep 超过 %d 秒' % WAIT_SEC))
+
+    # 只认「本轮最后一次工具调用」上的挂起：若其后还有工具调用，说明当时已被真实工作接续，
+    # 属历史留档。为什么加这条：行级锚定的「本轮」可能持续数小时（没有新 user 指令时），
+    # 单次历史 sleep/wait 会永久判红并把 commit/push 永久卡死（2026-11-27 实测：一次 sleep 100
+    # 之后整轮变红、且主控无处清除）。判据③的语义是「调度层此刻是否在空等」，
+    # 不是「本轮历史上是否等过一次」；这一点与判据②（30 分钟内无新派单/提交）互补——
+    # 长期空转由判据②兜，单次等待被接续后由本过滤放行。
+    tc_rows = [i for i, r in scope if r.get('tool_calls')]
+    if hits:
+        last_tc = max(tc_rows) if tc_rows else None
+        if last_tc is not None:
+            stale = [h for h in hits if h[0] < last_tc]
+            if stale:
+                note += '；挂起 %d 次已被其后工具调用接续，按历史留档跳过（最后工具调用行 @%d）' % (len(stale), last_tc)
+            hits = [h for h in hits if h[0] == last_tc]
     return hits, note
 
 
@@ -454,7 +469,21 @@ def selftest() -> int:
         else:
             print('  边界夹具 B PASS：user 行之前的历史 wait_agent 不判红（留痕：%s）' % n6[0])
 
-        print('SELFTEST: ' + ('PASS（好样本 1 PASS；坏样本 5 例判红；留档选择/行级锚定两夹具 OK）'
+        # 边界夹具 C（接续判据）：挂起之后仍有真实工具调用 → 不判红，按历史留档跳过。
+        # 防的是「一次历史等待把整轮永久判红」的死锁（判据② 负责兜长期空转）。
+        write_traj('o_active', [
+            {'role': 'assistant', 'tool_calls': [
+                {'function': {'name': 'wait_agent', 'arguments': {}}}]} ,
+            {'role': 'assistant', 'tool_calls': [
+                {'function': {'name': 'Bash', 'arguments': {'command': 'echo work'}}}]}])
+        rc7, m7, n7 = run(good_q, good_l, int(now), adir, now)
+        if rc7 != 0 or any('判据③' in x for x in m7) or not any('接续' in x for x in n7):
+            ok = False
+            print('  SELFTEST FAIL 被接续的挂起不应判红：', rc7, m7, n7)
+        else:
+            print('  边界夹具 C PASS：挂起后被真实工具调用接续，按历史留档跳过（留痕：%s）' % n7[0])
+
+        print('SELFTEST: ' + ('PASS（好样本 1 PASS；坏样本 5 例判红；留档选择/行级锚定/接续三夹具 OK）'
                               if ok else 'FAIL'))
         return 0 if ok else 1
     finally:
