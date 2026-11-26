@@ -72,7 +72,7 @@ internal class SearchPagingOrchestrator(
                 lastLoadMoreAt,
                 now,
                 SearchTokens.LOAD_MORE_DEBOUNCE_MS,
-            ),
+            )
         ) {
             return Outcome.BlockedDebounce
         }
