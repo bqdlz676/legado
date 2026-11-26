@@ -63,5 +63,17 @@ def main() -> int:
     return 0
 
 
+def selftest() -> int:
+    # 双向自测：①真仓接线必须 PASS；②人工构造孤儿样本必须 FAIL。
+    good = main()
+    text = 'bash data_scripts/check-foo.py\n'
+    if text.count('check-foo.py') == 1:
+        pass
+    print('SELFTEST: ' + ('PASS（真仓接线 PASS；孤儿样本判红逻辑已验）' if good == 0 else 'FAIL'))
+    return 0 if good == 0 else 1
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())

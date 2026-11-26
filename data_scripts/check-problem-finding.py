@@ -88,8 +88,9 @@ def main(argv: list[str]) -> int:
     targets = [pathlib.Path(a) for a in argv if a.endswith('.md')] or report_paths()
     base = set(json.loads(BASELINE.read_text(encoding='utf-8'))) if BASELINE.is_file() else set()
     if not targets:
-        print('PROBLEM-FINDING: PASS（本轮无新增报告，无需判）')
-        return 0
+        # 空集不许判 PASS（门禁 ㊾）：无报告可判=没东西被审，不是"合规"。
+        print('EMPTY: 本轮无新增报告可判（空集不判 PASS）')
+        return 2
     fails = []
     for p in targets:
         try:

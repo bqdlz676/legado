@@ -151,3 +151,9 @@ $ grep -n "slopeDeg\|landSlopeDeg\|slopeInternal\|isWater(n)\|val slope" app/src
 - 逐字引用 2：「行数、计数、字节、sha 不许估」（docs/机制-子代理必读.md:19）
 - 逐字引用 3：「没编译、没跑测试、没真机 —— 一律显式写出来」（docs/机制-子代理必读.md:20）
 - 适用条款：证据链 grep 回证（子代理必读 §1.2）；数字实算坡度/高差/格边长（§1.3）；未验证项显式声明（§1.4）；最小改动不重构、不扩战场（§3 不许做的事）；Kotlin 语法预检必跑（§7.1）。
+
+## 新发现问题（2026-11-26 追补，F8）
+
+1. 派单假设"比较器缺次级键"被取证否定：`Pathfinder.kt:155` 早有 `compareBy({it.f},{it.key})`；真因是坡度闸门把水洞周边干格算成 48.35° 全判不可通行 —— 已修：`TerrainMap.kt` 拆 `landSlopeDeg` 跳水面邻格。
+2. 只改 `TerrainCost.kt` 惩罚口径会连带影响放行率与时序，属二阶风险 —— 判废：本次不动代价侧，只改放行闸门。
+3. shard2 挂死 Top1 `JsSourceConfigTest.kt:474` 的 `while(true)` 不受 withTimeout 约束 —— 已入队：Q-220 加护栏，不改业务断言。
