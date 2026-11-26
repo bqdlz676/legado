@@ -39,7 +39,7 @@ import io.legado.app.ui.components.rememberInkGesture
  * B2 主壳磨砂底栏：三槽等宽排列，墨触手势（无 Material 涟漪），暖金顶线，导航栏内边距收口。
  *
  * 〔颜色 / 几何口径〕全部取 [ComponentTokens] / [ShellFrost]，不在底栏内联色值；
- * 选中朱砂、未选中茶褐；按压泛朱砂覆盖由 [rememberInkGesture] 快照解析。
+ * 选中暖金（brandGold）、未选中暗铜（brandCopper）；按压泛朱砂覆盖由 [rememberInkGesture] 快照解析。
  *
  * @param tabs 可见槽位（顺序固定 书架 → 发现 → 设置）
  * @param selected 当前选中槽位
@@ -104,7 +104,8 @@ private fun ShellTabItem(
         ),
         label = "shellTabOverlay",
     )
-    val contentColor = if (selected) ComponentTokens.textAccent else ComponentTokens.textSecondary
+    // R7 双色令牌：选中暖金 brandGold、未选中暗铜 brandCopper（切片-24:8）；不内联 hex、不被朱砂 / 茶褐覆盖。
+    val contentColor = if (selected) ComponentTokens.brandGold else ComponentTokens.brandCopper
     val itemShape = RoundedCornerShape(ComponentTokens.buttonRadius)
 
     Box(

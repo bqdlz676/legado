@@ -36,6 +36,7 @@ import io.legado.app.ui.association.ImportRssSourceDialog
 import io.legado.app.ui.association.ImportTxtTocRuleDialog
 import io.legado.app.ui.main.bookshelf.ShelfSearchHandoff
 import io.legado.app.ui.main.shell.MainShell
+import io.legado.app.ui.main.shell.ShellRestorePolicy
 import io.legado.app.ui.main.shell.ShellTab
 import io.legado.app.ui.main.shell.rememberMainShellState
 import io.legado.app.utils.clearClip
@@ -69,8 +70,14 @@ class MainActivity : AppCompatActivity(), MainViewModel.CallBack {
     /** 书架未读角标计数（LiveData 推送落点；壳内只显示，数据归书架域）。 */
     private var badgeCount by mutableStateOf(0)
 
-    /** Activity 侧下发的目标槽位；壳态经 LaunchedEffect 一次性同步。 */
+    /** Activity 侧下发的目标槽位；仅活进程内显式请求（newIntent 检索改道）才同步进壳态。 */
     private var requestedTab: ShellTab = ShellTab.BOOKSHELF
+
+    /**
+     * 宿主显式请求代次（O1 恢复顺序锁）：0 = 首 composition，不覆盖 rememberSaveable 恢复态；
+     * 活进程内 [switchTab] 自增后，同步回路才允许把请求槽位切进壳态。
+     */
+    private var shellRequestGeneration by mutableStateOf(0)
 
     /** 壳面刷新闸：偏好 / 菜单事件到达后自增，驱动重组重算可见槽位。 */
     private var shellRevision by mutableStateOf(0)
@@ -85,9 +92,12 @@ class MainActivity : AppCompatActivity(), MainViewModel.CallBack {
         setContent {
             shellRevision // 事件到达后驱动重组，重算可见槽位 / 角标
             val state = rememberMainShellState(initialTab = requestedTab)
-            // Activity 侧（冷启默认页 / newIntent 检索改道）下发的槽位请求同步进壳态。
-            LaunchedEffect(requestedTab) {
-                state.switchTab(requestedTab.ordinal)
+            // O1 恢复顺序：首 composition（代次 0）不覆盖 rememberSaveable 恢复态；
+            // 无保存态时默认槽已由 initialTab 兜底。仅活进程显式请求代次自增后才同步进壳态。
+            LaunchedEffect(shellRequestGeneration) {
+                if (ShellRestorePolicy.shouldApplyHostRequest(shellRequestGeneration)) {
+                    state.switchTab(requestedTab.ordinal)
+                }
             }
             MainShell(
                 state = state,
@@ -137,10 +147,12 @@ class MainActivity : AppCompatActivity(), MainViewModel.CallBack {
 
     /**
      * 幂等切槽：已在目标槽位不重复切换、不起 Activity、不压栈；越界位置回落书架兜底（C3）。
+     * 自增请求代次，驱动同步回路把显式请求切进壳态（首 composition 代次 0 不触发覆盖）。
      */
     private fun switchTab(position: Int): Boolean {
         if (position < 0) return false
         requestedTab = ShellTab.values().getOrElse(position) { ShellTab.BOOKSHELF }
+        shellRequestGeneration++
         return true
     }
 

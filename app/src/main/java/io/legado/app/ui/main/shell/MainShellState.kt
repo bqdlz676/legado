@@ -37,9 +37,9 @@ class MainShellState internal constructor(
     }
 }
 
-/** 创建壳态；枚举可序列化，配置变更后经 saveable 恢复。 */
+/** 创建壳态；枚举可序列化，配置变更后经 saveable 恢复。初始槽位先过 [ShellRestorePolicy.sanitizeTab] 兜底。 */
 @Composable
 fun rememberMainShellState(initialTab: ShellTab): MainShellState {
-    val holder = rememberSaveable { mutableStateOf(initialTab) }
+    val holder = rememberSaveable { mutableStateOf(ShellRestorePolicy.sanitizeTab(initialTab)) }
     return remember(holder) { MainShellState(holder) }
 }

@@ -89,11 +89,13 @@ private fun ShellPageTransition(
         dampingRatio = spec.dampingRatio,
         stiffness = spec.stiffness,
     )
+    // O8：fade 层 easing 回页面转场令牌（pageTurnEasing），不写裸曲线、不走 Compose 默认缓动。
+    val fadeSpec = tween(durationMillis = duration, easing = ComponentTokens.pageTurnEasing)
     AnimatedContent(
         targetState = current,
         transitionSpec = {
-            (fadeIn(tween(duration)) + slideInHorizontally(slideSpring)) togetherWith
-                (fadeOut(tween(duration)) + slideOutHorizontally(slideSpring))
+            (fadeIn(fadeSpec) + slideInHorizontally(slideSpring)) togetherWith
+                (fadeOut(fadeSpec) + slideOutHorizontally(slideSpring))
         },
         label = "mainShellPage",
         modifier = modifier,
