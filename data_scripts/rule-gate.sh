@@ -511,6 +511,11 @@ if [ $? -eq 0 ]; then ok "57空槽即红" "$(echo "$SF57" | grep 'SLOT-FULL: PAS
 MS58=$(python3 data_scripts/check-manual-section.py 2>&1)
 if [ $? -eq 0 ]; then ok "58人工节" "$(echo "$MS58" | grep 'MANUAL-SECTION: PASS' | head -1)"; else bad "58人工节" "$(echo "$MS58" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# 59 提交来源回源（M-57/F-126 根治：目录级 add 把未验收在飞产物扫进提交；源码文件须有 docs 报告文件级回源）。
+#   为什么：㊵ 只判同 commit 是否混合 docs 与代码，判不到"代码提了但报告/验收未落盘"；目录名提及不算回源。
+PR59=$(python3 data_scripts/check-commit-provenance.py 2>&1)
+if [ $? -eq 0 ]; then ok "59提交来源" "$(echo "$PR59" | grep 'COMMIT-PROVENANCE: PASS' | head -1)"; else bad "59提交来源" "$(echo "$PR59" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
 if [ ${#SKIP_LEGACY[@]} -gt 0 ]; then
   echo "SKIP-LEGACY 合计 ${#SKIP_LEGACY[@]} 份（存量件仅头部留痕，⑲/⑭/⑮ 豁免）："

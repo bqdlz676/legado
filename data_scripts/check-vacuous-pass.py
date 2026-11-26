@@ -100,6 +100,9 @@ ALLOWLIST = {
     ('data_scripts/check-commit-split.py', 'commits', '040b63a248fc'):
         '历史型门禁：commits 取自 git log，空集仅发生在零提交仓库；CI 必有历史提交，'
         '且 git log 不可用已在上方 return 1 兜底，此空集分支在常规环境不可达。',
+    ('data_scripts/check-commit-provenance.py', 'commits', '1508651e032a'):
+        '历史型门禁：commits 取自 git log，空集仅发生在零提交仓库；CI 必有历史提交，'
+        '且 git log 不可用已在上方 return 1 兜底；分支打印 INFO 非 PASS，未把空集说成合规。',
     # WARN 型分支：只提示状态、未把空集说成合规，不入 FAIL；登记理由备查。
     ('data_scripts/check-anchor-integrity.py', 'anchors', '5e5944523212'):
         '空锚点分支打印 WARN（非 PASS）即 return 0；无处置锚点表示台账未到处置阶段，'
