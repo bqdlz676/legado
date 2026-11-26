@@ -647,6 +647,7 @@
     <string name="single_url">單URL</string>
     <string name="import_bookshelf">匯入書單</string>
     <string name="import_bookshelf_default_group">已匯入到未分組書架，可在書架管理中移入分組</string>
+    <string name="import_bookshelf_source_group">已依來源歸入分組，可在書架管理中重新命名或移動書籍</string>
     <string name="pre_download">預下載</string>
     <string name="pre_download_m">预下载%s页</string>
     <string name="is_enabled">是否啟用</string>

@@ -813,6 +813,7 @@
     <string name="single_url">Single URL</string>
     <string name="import_bookshelf">Import the list of books</string>
     <string name="import_bookshelf_default_group">Imported to the ungrouped shelf; move books into groups in bookshelf management.</string>
+    <string name="import_bookshelf_source_group">Imported into a group for this source; rename or move books in bookshelf management.</string>
     <string name="pre_download">Download in advance</string>
     <string name="pre_download_m">Pre-download %s pages</string>
     <string name="is_enabled">Is enabled</string>

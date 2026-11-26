@@ -587,6 +587,7 @@
     <string name="single_url">Single URL</string>
     <string name="import_bookshelf">Import the list of books</string>
     <string name="import_bookshelf_default_group">未グループの本棚にインポートしました。本棚管理でグループへ移動できます。</string>
+    <string name="import_bookshelf_source_group">来源ごとのグループにインポートしました。本棚管理でグループ名の変更や書籍の移動ができます。</string>
     <string name="pre_download">Download in advance</string>
     <string name="pre_download_m">预下载%s页</string>
     <string name="is_enabled">Is enabled</string>

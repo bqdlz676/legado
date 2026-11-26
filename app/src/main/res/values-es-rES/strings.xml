@@ -586,6 +586,7 @@
     <string name="single_url">URL única</string>
     <string name="import_bookshelf">Importar lista de libros</string>
     <string name="import_bookshelf_default_group">Importados a la estantería sin grupo; puedes mover los libros a grupos en la gestión de la estantería.</string>
+    <string name="import_bookshelf_source_group">Importado a un grupo según el origen; puedes renombrar o mover los libros en la gestión de la estantería.</string>
     <string name="pre_download">Descarga anterior</string>
     <string name="pre_download_m">预下载%s页</string>
     <string name="is_enabled">Está habilitado</string>

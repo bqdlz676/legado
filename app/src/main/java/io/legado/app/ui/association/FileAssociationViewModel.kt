@@ -11,13 +11,21 @@ import io.legado.app.constant.AppLog
 import io.legado.app.constant.AppPattern
 import io.legado.app.constant.AppPattern.bookFileRegex
 import io.legado.app.constant.AppPattern.jsFileRegex
+import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.BookGroup
 import io.legado.app.data.entities.HighlightRuleFile
 import io.legado.app.model.localBook.LocalBook
 import io.legado.app.model.jsSource.JsSourceConfig
 import io.legado.app.help.storage.Restore
 import io.legado.app.help.storage.selectedBackupFileNames
+import io.legado.app.ui.main.bookshelf.IMPORT_GROUP_NAME_PREFIX
+import io.legado.app.ui.main.bookshelf.allocateFreeGroupBit
 import io.legado.app.ui.main.bookshelf.importBookshelfJson
+import io.legado.app.ui.main.bookshelf.importGroupDisplayName
+import io.legado.app.ui.main.bookshelf.importGroupTag
+import io.legado.app.ui.main.bookshelf.matchesImportGroupTag
+import io.legado.app.ui.main.bookshelf.sourceImportGroupKey
 import io.legado.app.ui.book.import.local.ImportBook
 import io.legado.app.utils.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -157,21 +165,30 @@ class FileAssociationViewModel(application: Application, private val savedState:
     fun importData(type: String, source: String) {
         if (importingData.value == true || importedData.value == true) return
         importingData.value = true
+        var importGroupId = IMPORT_DEFAULT_GROUP_ID
         execute {
             when (type) {
-                "bookshelf" -> importBookshelfJson(
-                    Uri.parse(source).readText(context),
-                    IMPORT_DEFAULT_GROUP_ID,
-                )
+                "bookshelf" -> {
+                    importGroupId = resolveImportGroupId(source)
+                    importBookshelfJson(
+                        Uri.parse(source).readText(context),
+                        importGroupId,
+                    )
+                }
                 "backup" -> Restore.restoreOrThrow(context, Uri.parse(source))
                 else -> error("Unsupported import")
             }
         }.onSuccess {
             importedData.value = true
             if (type == "bookshelf") {
-                // 外部分享/文件入口拿不到用户当前可见分组，书单统一落未分组；
-                // 明确提示去向，避免用户误以为书籍被归入了既有分组。
-                context.toastOnUi(context.getString(R.string.import_bookshelf_default_group))
+                // 同一来源复用同一分组；来源身份不可识别或分组位耗尽时回落未分组，
+                // 按实际去向提示，避免用户误以为书籍被归入了既有分组。
+                val toastRes = if (importGroupId > 0) {
+                    R.string.import_bookshelf_source_group
+                } else {
+                    R.string.import_bookshelf_default_group
+                }
+                context.toastOnUi(context.getString(toastRes))
             }
         }.onError {
             errorLive.value = it.localizedMessage ?: context.getString(R.string.wrong_format)
@@ -179,6 +196,29 @@ class FileAssociationViewModel(application: Application, private val savedState:
         }.onFinally {
             importingData.value = false
         }
+    }
+
+    /**
+     * 按导入来源解析目标分组：同一来源复用既有来源分组；首次导入且分组位未满则建组；
+     * 来源身份不可识别或分组位耗尽时回落未分组（[IMPORT_DEFAULT_GROUP_ID]），
+     * 旧有 group = 0 的书籍仍留在未分组视图，不做强制迁移。
+     */
+    private suspend fun resolveImportGroupId(source: String): Long {
+        val key = sourceImportGroupKey(source) ?: return IMPORT_DEFAULT_GROUP_ID
+        val tag = importGroupTag(key)
+        appDb.bookGroupDao.all.firstOrNull { matchesImportGroupTag(it.groupName, tag) }
+            ?.let { return it.groupId }
+        if (!appDb.bookGroupDao.canAddGroup) return IMPORT_DEFAULT_GROUP_ID
+        val groupId = allocateFreeGroupBit(appDb.bookGroupDao.idsSum)
+            ?: return IMPORT_DEFAULT_GROUP_ID
+        appDb.bookGroupDao.insert(
+            BookGroup(
+                groupId = groupId,
+                groupName = "$IMPORT_GROUP_NAME_PREFIX$tag ${importGroupDisplayName(key)}",
+                order = appDb.bookGroupDao.maxOrder + 1,
+            ),
+        )
+        return groupId
     }
 
     private suspend fun dispatch(fileDoc: FileDoc, shared: Boolean = false) {
@@ -351,7 +391,8 @@ class FileAssociationViewModel(application: Application, private val savedState:
     }
 
     private companion object {
-        // 书架分组是位掩码；0 表示未分组（默认书架）。importBookshelfJson 仅在 groupId > 0 时才写入分组位。
+        // 书架分组是位掩码；0 表示未分组（默认书架）。importBookshelfJson 仅在 groupId > 0 时才写入分组位；
+        // 本常量是来源身份不可识别 / 分组位耗尽时的回落组号，旧有 group = 0 的书籍语义不变。
         const val IMPORT_DEFAULT_GROUP_ID = 0L
     }
 }

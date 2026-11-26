@@ -136,7 +136,7 @@
             android:name=".ui.main.MainActivity"
             android:alwaysRetainTaskState="true"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
-            android:exported="true"
+            android:exported="false"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize" />
         <!-- 人物详情 -->
@@ -183,7 +183,7 @@
         <activity
             android:name=".ui.book.read.ReadBookActivity"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
-            android:exported="true"
+            android:exported="false"
             android:launchMode="singleTask" />
 
         <!-- 落文竖排阅读壳（灵魂闭环入口）；S-Pen 远程动作关联目标，翻页键处理待新壳接入 -->

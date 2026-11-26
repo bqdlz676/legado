@@ -6,8 +6,8 @@ import org.junit.Test
 import java.io.File
 
 /**
- * B34 契约：外部分享/文件入口拿不到用户当前可见分组，书单导入统一落未分组，
- * 分组 id 必须用具名常量表达，不允许再出现裸 0；成功后必须提示去向。
+ * Q-244 B34 契约：书单导入按来源计算分组，同一来源复用同一分组；
+ * 来源不可识别 / 分组位耗尽时回落未分组（groupId = 0），旧有 group = 0 的书籍兼容不变。
  */
 class ImportBookshelfGroupContractTest {
 
@@ -20,23 +20,41 @@ class ImportBookshelfGroupContractTest {
         .substringBefore("private suspend fun dispatch")
 
     @Test
-    fun `bookshelf import passes explicit default group constant`() {
-        assertTrue(importData.contains("IMPORT_DEFAULT_GROUP_ID"))
+    fun `bookshelf import resolves group from source before importing`() {
+        assertTrue(importData.contains("resolveImportGroupId(source)"))
+        assertTrue(importData.contains("importBookshelfJson("))
+        assertTrue(importData.contains("importGroupId"))
         assertFalse(importData.contains(", 0)"))
         assertTrue(viewModel.contains("const val IMPORT_DEFAULT_GROUP_ID = 0L"))
     }
 
     @Test
-    fun `bookshelf success toast explains default group destination`() {
+    fun `resolver reuses source group or falls back to ungrouped`() {
+        assertTrue(viewModel.contains("sourceImportGroupKey(source)"))
+        assertTrue(viewModel.contains("matchesImportGroupTag"))
+        assertTrue(viewModel.contains("allocateFreeGroupBit"))
+        assertTrue(viewModel.contains("appDb.bookGroupDao.insert("))
+    }
+
+    @Test
+    fun `success toast explains actual group destination`() {
+        assertTrue(importData.contains("R.string.import_bookshelf_source_group"))
         assertTrue(importData.contains("R.string.import_bookshelf_default_group"))
-        assertTrue(
-            importData.indexOf("if (type == \"bookshelf\")") <
-                importData.indexOf("R.string.import_bookshelf_default_group")
-        )
+        assertTrue(importData.contains("importGroupId > 0"))
         val defaultStrings = projectFile("src/main/res/values/strings.xml").readText()
         val zhStrings = projectFile("src/main/res/values-zh/strings.xml").readText()
+        assertTrue(defaultStrings.contains("import_bookshelf_source_group"))
+        assertTrue(zhStrings.contains("import_bookshelf_source_group"))
         assertTrue(defaultStrings.contains("import_bookshelf_default_group"))
         assertTrue(zhStrings.contains("import_bookshelf_default_group"))
+    }
+
+    @Test
+    fun `legacy zero group stays ungrouped by import guard`() {
+        val importer = projectFile(
+            "src/main/java/io/legado/app/ui/main/bookshelf/BookshelfViewModel.kt"
+        ).readText()
+        assertTrue(importer.contains("if (groupId > 0) book.group = groupId"))
     }
 
     private fun projectFile(pathInApp: String): File =

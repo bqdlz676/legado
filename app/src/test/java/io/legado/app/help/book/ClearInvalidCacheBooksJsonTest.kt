@@ -23,6 +23,7 @@ class ClearInvalidCacheBooksJsonTest {
     @Test
     fun `stale books json cleanup line was removed`() {
         assertFalse(cleanup.contains("books.json"))
+        assertFalse(source.contains("books.json"))
     }
 
     @Test

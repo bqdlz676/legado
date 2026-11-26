@@ -1,5 +1,6 @@
 package io.legado.app.ui.map.crossing.terrain
 
+import java.security.MessageDigest
 import java.util.Base64
 import java.util.zip.Inflater
 import kotlin.math.abs
@@ -84,6 +85,26 @@ object HeightMapDecoder {
     /** 无图（字段空白）时合成场的固定种子；与按 heightMap 串哈希的回落场区分来源。 */
     private const val BLANK_SEED: String = "blank-heightmap"
 
+    // ── 缓存观测门面（Q-245：缓存实现见 HeightMapRasterCache；计数 / 台账只读转发，测试断言口径不变） ──
+
+    /** 命中计数：缓存直接返回栅格、未走解码本体。 */
+    val cacheHits: Int get() = HeightMapRasterCache.cacheHits
+
+    /** 未命中计数：实际进入解码本体（含解码失败、未入缓存的坏数据）。 */
+    val cacheMisses: Int get() = HeightMapRasterCache.cacheMisses
+
+    /** LRU 逐出计数。 */
+    val cacheEvictions: Int get() = HeightMapRasterCache.cacheEvictions
+
+    /** 当前在册槽位数（可观测）。 */
+    val cacheSize: Int get() = HeightMapRasterCache.cacheSize
+
+    /** 最近逐出记录（最新在后，纯 JVM 文本台账，不引 android.util.Log）。 */
+    val cacheEvictLog: List<String> get() = HeightMapRasterCache.cacheEvictLog
+
+    /** 测试 / 排障用：清空缓存与命中计数，保证用例间、战役间互不污染。 */
+    fun resetCache() = HeightMapRasterCache.resetCache()
+
     // ── 来源分类 ──────────────────────────────────────────────
 
     /**
@@ -154,6 +175,25 @@ object HeightMapDecoder {
             (bytes[6].toInt() and 0xFF) == 0x1A && (bytes[7].toInt() and 0xFF) == 0x0A
     } catch (_: Throwable) { false }
 
+    // ── 缓存层接线（槽位 / LRU / 计数实现见 HeightMapRasterCache） ──
+
+    /** 源字节 sha256 前 16 位十六进制；锚内容不锚行号 / 不锚字符串写法。 */
+    private fun sha256Hex16(bytes: ByteArray): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        return digest.digest(bytes).joinToString("") { "%02x".format(it) }.take(16)
+    }
+
+    /**
+     * 带缓存的字节解码：先按源字节哈希查缓存；命中直接复用栅格，未命中才走 [decodeBytes]。
+     *
+     * 失败口径：[decodeBytes] 返回 null（空字节 / 坏 Base64 / 非 PNG / 畸形栅格）只记未命中，
+     * 绝不把失败结果或合成回落场写进缓存——坏数据下次仍须重新判失败，不能缓存成命中。
+     */
+    private fun cachedDecode(bytes: ByteArray, source: SourceKind): HeightMapRaster? {
+        val hash = sha256Hex16(bytes)
+        return HeightMapRasterCache.getOrDecode(hash) { decodeBytes(bytes, source) }
+    }
+
     // ── 装配入口 ──────────────────────────────────────────────
 
     /**
@@ -172,9 +212,7 @@ object HeightMapDecoder {
             }
             SourceKind.ASSET, SourceKind.LOCAL_PATH -> {
                 val bytes = try { reader?.invoke(key) } catch (_: Throwable) { null }
-                val raster = bytes?.let { b ->
-                    try { decodeBytes(b, kind) } catch (_: Throwable) { null }
-                }
+                val raster = bytes?.let { b -> cachedDecode(b, kind) }
                 raster ?: synthesize(key.ifBlank { BLANK_SEED })
             }
             SourceKind.NONE -> synthesize(BLANK_SEED).copy(source = SourceKind.NONE)
@@ -190,7 +228,7 @@ object HeightMapDecoder {
         val payload = if (s.startsWith("data:")) s.substringAfter("base64,", missingDelimiterValue = "") else s
         if (payload.isEmpty()) return null
         val bytes = try { Base64.getDecoder().decode(payload) } catch (_: Throwable) { return null }
-        return decodeBytes(bytes, SourceKind.BASE64)
+        return cachedDecode(bytes, SourceKind.BASE64)
     }
 
     // ── 纯 JVM PNG 解码（8-bit 灰度 / RGB / RGBA / 调色板） ──────────────

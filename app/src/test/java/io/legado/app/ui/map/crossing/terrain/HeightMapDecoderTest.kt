@@ -411,4 +411,71 @@ class HeightMapDecoderTest {
         // 像素 3000×3001 = 9,003,000 > HARD_PIXEL_CAP=8,000,000。
         assertNull(HeightMapDecoder.decodeBytes(headerOnlyPng(3000, 3001)))
     }
+
+    // ── Q-238：实例级解码栅格缓存（命中 / 未命中 / LRU 逐出 / 失败不入库） ──
+
+    private fun onePixelPng(gray: Int): ByteArray =
+        encodePng(1, 1, colorType = 0, channels = 1, pixel = { _, _ -> intArrayOf(gray) })
+
+    @Test
+    fun `Q238 同一内联 PNG 二次解码走缓存命中，命中/未命中计数正确`() {
+        HeightMapDecoder.resetCache()
+        val b64 = Base64.getEncoder().encodeToString(onePixelPng(128))
+        val first = HeightMapDecoder.decodeInline(b64)
+        assertNotNull(first)
+        assertEquals(1, HeightMapDecoder.cacheMisses)
+        assertEquals(0, HeightMapDecoder.cacheHits)
+        assertEquals(1, HeightMapDecoder.cacheSize)
+
+        val second = HeightMapDecoder.decodeInline(b64)
+        assertNotNull(second)
+        assertEquals(1, HeightMapDecoder.cacheMisses)
+        assertEquals(1, HeightMapDecoder.cacheHits)
+        // 命中返回同一栅格实例（同一份缓存，沙盘 / 回放共用）。
+        assertTrue(second === first)
+    }
+
+    @Test
+    fun `Q238 坏 Base64 与非 PNG 解码失败均不入库缓存`() {
+        HeightMapDecoder.resetCache()
+        // 字符集非法：Base64 解码阶段即拒，缓存层未接触。
+        assertNull(HeightMapDecoder.decodeInline("@@@not-base64@@@"))
+        // 合法 Base64 但内容非 PNG：进入缓存层后 decodeBytes 判 null，记未命中但不写槽位。
+        val noise = ByteArray(160) { (it * 13 % 251).toByte() }
+        val noiseB64 = Base64.getEncoder().encodeToString(noise)
+        assertNull(HeightMapDecoder.decodeInline(noiseB64))
+        assertEquals(0, HeightMapDecoder.cacheSize)
+        assertEquals(1, HeightMapDecoder.cacheMisses)
+        assertEquals(0, HeightMapDecoder.cacheHits)
+        assertEquals(0, HeightMapDecoder.cacheEvictions)
+    }
+
+    @Test
+    fun `Q238 超容量 2 份按 LRU 逐出最久未用槽位并留逐出台账`() {
+        HeightMapDecoder.resetCache()
+        val a = Base64.getEncoder().encodeToString(onePixelPng(10))
+        val b = Base64.getEncoder().encodeToString(onePixelPng(80))
+        val c = Base64.getEncoder().encodeToString(onePixelPng(150))
+        assertNotNull(HeightMapDecoder.decodeInline(a))
+        assertNotNull(HeightMapDecoder.decodeInline(b))
+        // 第三次插入超出容量 2，最久未用的 A 应被逐出。
+        assertNotNull(HeightMapDecoder.decodeInline(c))
+        assertEquals(2, HeightMapDecoder.cacheSize)
+        assertEquals(1, HeightMapDecoder.cacheEvictions)
+        assertEquals(1, HeightMapDecoder.cacheEvictLog.size)
+        assertTrue(HeightMapDecoder.cacheEvictLog.first().startsWith("DEM 缓存 LRU 逐出"))
+    }
+
+    @Test
+    fun `Q238 resetCache 清空槽位与命中未命中逐出计数`() {
+        HeightMapDecoder.resetCache()
+        val b64 = Base64.getEncoder().encodeToString(onePixelPng(200))
+        assertNotNull(HeightMapDecoder.decodeInline(b64))
+        HeightMapDecoder.resetCache()
+        assertEquals(0, HeightMapDecoder.cacheSize)
+        assertEquals(0, HeightMapDecoder.cacheHits)
+        assertEquals(0, HeightMapDecoder.cacheMisses)
+        assertEquals(0, HeightMapDecoder.cacheEvictions)
+        assertTrue(HeightMapDecoder.cacheEvictLog.isEmpty())
+    }
 }
