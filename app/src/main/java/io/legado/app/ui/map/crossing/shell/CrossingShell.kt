@@ -45,6 +45,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.ui.components.ComponentPalette
 import io.legado.app.ui.map.crossing.engine.CampaignController
+import io.legado.app.ui.map.crossing.model.BranchCompareAssembly
+import io.legado.app.ui.map.crossing.model.BranchSnapshot
+import io.legado.app.ui.map.crossing.model.CompareEntry
+import io.legado.app.ui.map.crossing.model.CompareSession
 import io.legado.app.ui.map.crossing.model.CorpsDiff
 import io.legado.app.ui.map.crossing.model.CorpsView
 import io.legado.app.ui.map.crossing.model.EventEntry
@@ -77,6 +81,11 @@ fun CrossingCampaignShell(
     var snapshot by remember { mutableStateOf(host.snapshot()) }
     var autoPlay by remember { mutableStateOf(false) }
     var overrides by remember { mutableStateOf<Map<String, Intent>>(emptyMap()) }
+    // B10 接线：当前线逐回合不可变快照留档（对比装配只消费这份历史，不回写活控制器）；
+    // archived 为手动分支存档；compareSession 非空时双栏对比面板覆盖在军图之上。
+    var history by remember { mutableStateOf(listOf(host.snapshot())) }
+    var archived by remember { mutableStateOf<List<BranchSnapshot>>(emptyList()) }
+    var compareSession by remember { mutableStateOf<CompareSession?>(null) }
 
     // 自动推演：单一协程逐回合驱动（不为每步另起 sleep，避免长局 N 个协程堆积）。
     // 节拍由纯函数 [beatDelayMs] 按事件档位 + 回合进度计算；状态先推进，弹簧动画跟随新状态，
@@ -85,6 +94,7 @@ fun CrossingCampaignShell(
         while (autoPlay) {
             snapshot = host.step(overrides)
             overrides = emptyMap()
+            history = history + snapshot
             if (snapshot.status != io.legado.app.ui.map.crossing.model.BattleStatus.ONGOING) {
                 autoPlay = false
                 break
@@ -92,6 +102,12 @@ fun CrossingCampaignShell(
             delay(beatDelayMs(snapshot.events, snapshot.turn))
         }
     }
+
+    // 入口可用性纯判定：存档 / 对比按钮的启用口径只读本结构，壳层不另写一套。
+    val entry = CompareEntry.decide(
+        archivedCount = archived.size,
+        currentAlive = snapshot.corps.isNotEmpty(),
+    )
 
     Box(
         modifier = modifier
@@ -220,9 +236,13 @@ fun CrossingCampaignShell(
             ControlRow(
                 autoPlay = autoPlay,
                 finished = snapshot.status != io.legado.app.ui.map.crossing.model.BattleStatus.ONGOING,
+                canSave = entry.canSave,
+                canCompare = entry.canCompare,
+                archivedCount = archived.size,
                 onNext = {
                     snapshot = host.step(overrides)
                     overrides = emptyMap()
+                    history = history + snapshot
                 },
                 onToggleAuto = { autoPlay = !autoPlay },
                 onReset = {
@@ -230,7 +250,31 @@ fun CrossingCampaignShell(
                     snapshot = host.snapshot()
                     overrides = emptyMap()
                     autoPlay = false
+                    history = listOf(host.snapshot())
+                    compareSession = null
                 },
+                onSaveBranch = { archived = archived + host.saveBranch() },
+                onCompare = {
+                    // 打开对比即暂停自动推演：对照线是装配时刻的冻结快照，后台继续推进会让
+                    // 活控制器与对照线漂移；关闭面板后用户可再手动续推。
+                    autoPlay = false
+                    val replay = archived.lastOrNull()?.let { replayBranchLine(it) }
+                    compareSession = BranchCompareAssembly.prepare(
+                        current = history,
+                        archived = replay?.first,
+                        warningsLeft = host.warnings,
+                        warningsRight = replay?.second,
+                    )
+                },
+            )
+        }
+
+        // B10 对比面板覆盖层：会话非空时双栏并看；关闭只清会话态，不回写活控制器与存档列表。
+        compareSession?.let { session ->
+            BranchCompareShell(
+                session = session,
+                onClose = { compareSession = null },
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }
@@ -238,62 +282,156 @@ fun CrossingCampaignShell(
 
 // ── B10 分支并列对比：双快照并排回放 + 逐回合差异标注 ──────────
 
+/** 对比栏渲染态（纯 JVM 判定，供单测锁定；Composable 只按此态分支渲染）。 */
+internal enum class CompareRender { PLACEHOLDER, EMPTY_NOTE, ROWS }
+
+/** 快照 → 栏内渲染态：null 占位卡 / 空军队空注 / 否则逐军行。纯函数，不读 Compose 状态。 */
+internal fun compareRenderMode(snapshot: TurnSnapshot?): CompareRender = when {
+    snapshot == null -> CompareRender.PLACEHOLDER
+    snapshot.corps.isEmpty() -> CompareRender.EMPTY_NOTE
+    else -> CompareRender.ROWS
+}
+
 /**
- * 分支并列对比壳：两条回放线同屏并排，逐回合 diff 高亮（§五「开一个分支跑到底，跟原历史线对比」）。
+ * 回合下标钳制纯函数：线长异步由 0 变非 0 时下标不得越界；maxTurns=0 时回落到 0，
+ * 区间不反转（下限 [coerceAtLeast] 0）。壳层步进与读取共用本函数，口径只此一处。
+ */
+internal fun compareClampedIndex(raw: Int, maxTurns: Int): Int =
+    raw.coerceIn(0, (maxTurns - 1).coerceAtLeast(0))
+
+/**
+ * 把存档分支重放成快照线：在一次性新建的控制器上恢复存档再跑到底，
+ * 不触碰活控制器（对比会话与主屏状态隔离的关键）。返回快照线 + 该线载入告警台账。
+ */
+private fun replayBranchLine(branch: BranchSnapshot): Pair<List<TurnSnapshot>, List<String>> {
+    val ctl = CampaignController.demo()
+    ctl.restoreBranch(branch)
+    val line = mutableListOf(ctl.snapshot())
+    line += ctl.runToEnd()
+    return line to ctl.warnings
+}
+
+/**
+ * 分支并列对比壳：按装配态 [CompareSession] 穷举渲染（§五「开一个分支跑到底，跟原历史线对比」）。
  *
- * 纯展示子组件：入参为两条已跑完的快照线（[CampaignController.runToEnd] 产物；
- * 首回合若需对照，调用方自行前置一次 `snapshot()`）。本组件不持有引擎状态、不回写控制器；
- * 分支存档读取 / 双控制器装配属 B7、B11、B14 接线范围，待合并派单。
- *
- * 两栏共用同一个回合下标：任一栏步进，两栏同步滚到对应回合；各栏按钮独立可点。
+ * 纯展示子组件：不持有引擎状态、不回写控制器；双栏共用同一回合下标，任一栏步进两栏同步。
+ * 三态空态（无存档 / 存档失效 / 两线一致）各自出可读卡片，不留白屏、不崩。
  */
 @Composable
 fun BranchCompareShell(
-    leftLine: List<TurnSnapshot>?,
-    rightLine: List<TurnSnapshot>?,
+    session: CompareSession,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val safeLeft = leftLine.orEmpty()
-    val safeRight = rightLine.orEmpty()
+    Column(
+        modifier = modifier
+            .background(Color(CrossingTokens.bgPage).copy(alpha = 0.96f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicText(
+                text = "分支并列对比",
+                style = TextStyle(
+                    color = Color(CrossingTokens.textPrimary),
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily.Serif,
+                ),
+            )
+            Spacer(Modifier.weight(1f))
+            ShellButton("退出对比", enabled = true, onClick = onClose)
+        }
+
+        when (session) {
+            is CompareSession.NeedArchive -> CompareSessionCard(
+                title = "仅存当前一线，尚无分支存档可对照",
+                body = "推演途中先「存档分支」，再与历史线并看；已存 ${session.archivedCount} 条，本线 ${session.currentTurns} 回合",
+            )
+            is CompareSession.Invalidated -> CompareSessionCard(
+                title = session.reason,
+                body = "该分支已不可用，可重置战局后另存新档",
+            )
+            is CompareSession.Ready -> ReadyCompareBody(session)
+        }
+    }
+}
+
+@Composable
+private fun ReadyCompareBody(session: CompareSession.Ready) {
+    val safeLeft = session.left
+    val safeRight = session.right
     val maxTurns = maxOf(safeLeft.size, safeRight.size)
     var rawIndex by remember { mutableStateOf(0) }
-    // 线长在外部异步加载完成后可能由 0 变非 0：下标在读取处钳制到合法区间，避免越界取快照。
-    val turnIndex = rawIndex.coerceIn(0, (maxTurns - 1).coerceAtLeast(0))
+    val turnIndex = compareClampedIndex(rawIndex, maxTurns)
 
     val leftSnap = safeLeft.getOrNull(turnIndex)
     val rightSnap = safeRight.getOrNull(turnIndex)
     val diff = remember(turnIndex, safeLeft, safeRight) {
-        SnapshotDiff.diff(leftSnap, rightSnap)
+        SnapshotDiff.diff(leftSnap, rightSnap, session.warningsLeft, session.warningsRight)
     }
-    val diffMap = diff.corps.associateBy { it.corpsId }
+
+    if (session.identical) {
+        BasicText(
+            text = "两线推演一致，未见分歧",
+            style = TextStyle(
+                color = Color(CrossingTokens.brandGold),
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Serif,
+            ),
+        )
+    }
 
     Row(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CompareColumn(
-            title = "左线",
+            title = "本线",
             snapshot = leftSnap,
-            diffMap = diffMap,
+            warnings = session.warningsLeft,
+            status = diff.statusLeft,
+            winner = diff.winnerLeft,
+            diffMap = diff.corps.associateBy { it.corpsId },
             turnIndex = turnIndex,
             maxTurns = maxTurns,
-            onStep = { delta ->
-                rawIndex = (rawIndex + delta).coerceIn(0, (maxTurns - 1).coerceAtLeast(0))
-            },
+            onStep = { delta -> rawIndex = compareClampedIndex(rawIndex + delta, maxTurns) },
             modifier = Modifier.weight(1f),
         )
         CompareColumn(
-            title = "右线",
+            title = "分支线",
             snapshot = rightSnap,
-            diffMap = diffMap,
+            warnings = session.warningsRight,
+            status = diff.statusRight,
+            winner = diff.winnerRight,
+            diffMap = diff.corps.associateBy { it.corpsId },
             turnIndex = turnIndex,
             maxTurns = maxTurns,
-            onStep = { delta ->
-                rawIndex = (rawIndex + delta).coerceIn(0, (maxTurns - 1).coerceAtLeast(0))
-            },
+            onStep = { delta -> rawIndex = compareClampedIndex(rawIndex + delta, maxTurns) },
             modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun CompareSessionCard(title: String, body: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(CrossingTokens.bgSurface).copy(alpha = 0.6f))
+            .border(1.dp, Color(CrossingTokens.colorDivider), RoundedCornerShape(10.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        BasicText(
+            text = title,
+            style = TextStyle(
+                color = Color(CrossingTokens.textSecondary),
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Serif,
+            ),
+        )
+        BasicText(
+            text = body,
+            style = TextStyle(color = Color(CrossingTokens.textTertiary), fontSize = 11.sp),
         )
     }
 }
@@ -302,6 +440,9 @@ fun BranchCompareShell(
 private fun CompareColumn(
     title: String,
     snapshot: TurnSnapshot?,
+    warnings: List<String>?,
+    status: io.legado.app.ui.map.crossing.model.BattleStatus?,
+    winner: String?,
     diffMap: Map<String, CorpsDiff>,
     turnIndex: Int,
     maxTurns: Int,
@@ -329,11 +470,39 @@ private fun CompareColumn(
             ShellButton("下一回合", enabled = maxTurns > 0 && turnIndex < maxTurns - 1, onClick = { onStep(1) })
         }
 
-        when {
-            snapshot == null -> ComparePlaceholderCard()
-            snapshot.corps.isEmpty() -> CompareEmptyNote()
-            else -> snapshot.corps.take(6).forEach { view ->
+        // 告警行：台账为 null（旧档 / 降级装配未收集）显式写「未知」，不留空、不臆造空告警。
+        BasicText(
+            text = warnings?.let { "告警：" + (if (it.isEmpty()) "无" else it.take(2).joinToString("、")) } ?: "告警：未知",
+            style = TextStyle(color = Color(CrossingTokens.textTertiary), fontSize = 11.sp),
+        )
+        // 战况行：档位 / 胜负归属随快照下发；缺侧占位时不臆造胜负。
+        BasicText(
+            text = "战况 ${status?.label() ?: "未知"}｜胜负 ${winner ?: "未定"}",
+            style = TextStyle(color = Color(CrossingTokens.textTertiary), fontSize = 11.sp),
+        )
+
+        when (compareRenderMode(snapshot)) {
+            CompareRender.PLACEHOLDER -> ComparePlaceholderCard()
+            CompareRender.EMPTY_NOTE -> CompareEmptyNote()
+            CompareRender.ROWS -> snapshot!!.corps.take(6).forEach { view ->
                 CompareCorpsRow(view, diffMap[view.id])
+            }
+        }
+
+        // 事件行：本侧最近两条；空事件明示「事件：无」，不留白。
+        val sideEvents = snapshot?.events.orEmpty().takeLast(2)
+        if (sideEvents.isEmpty()) {
+            BasicText(
+                text = "事件：无",
+                style = TextStyle(color = Color(CrossingTokens.textTertiary), fontSize = 11.sp),
+            )
+        } else {
+            sideEvents.forEach { entry ->
+                BasicText(
+                    text = "· ${entry.text}",
+                    style = TextStyle(color = Color(CrossingTokens.textSecondary), fontSize = 11.sp),
+                    fontFamily = FontFamily.Serif,
+                )
             }
         }
     }
@@ -863,14 +1032,25 @@ private fun IntentPalette(
 private fun ControlRow(
     autoPlay: Boolean,
     finished: Boolean,
+    canSave: Boolean,
+    canCompare: Boolean,
+    archivedCount: Int,
     onNext: () -> Unit,
     onToggleAuto: () -> Unit,
     onReset: () -> Unit,
+    onSaveBranch: () -> Unit,
+    onCompare: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ShellButton(if (finished) "已终局" else "下一步", enabled = !finished, onClick = onNext)
         ShellButton(if (autoPlay) "暂停推演" else "自动推演", enabled = !finished, onClick = onToggleAuto)
         ShellButton("重置", enabled = true, onClick = onReset)
+        ShellButton(
+            text = if (archivedCount > 0) "存档分支（$archivedCount）" else "存档分支",
+            enabled = canSave,
+            onClick = onSaveBranch,
+        )
+        ShellButton("分支对比", enabled = canCompare, onClick = onCompare)
     }
 }
 
@@ -1167,6 +1347,13 @@ private fun io.legado.app.ui.map.crossing.model.Morale.label(): String = when (t
     io.legado.app.ui.map.crossing.model.Morale.STEADY -> "平稳"
     io.legado.app.ui.map.crossing.model.Morale.WAVERING -> "动摇"
     io.legado.app.ui.map.crossing.model.Morale.BROKEN -> "溃散"
+}
+
+private fun io.legado.app.ui.map.crossing.model.BattleStatus.label(): String = when (this) {
+    io.legado.app.ui.map.crossing.model.BattleStatus.ONGOING -> "进行中"
+    io.legado.app.ui.map.crossing.model.BattleStatus.VICTORY -> "胜"
+    io.legado.app.ui.map.crossing.model.BattleStatus.DEFEAT -> "败"
+    io.legado.app.ui.map.crossing.model.BattleStatus.DRAW -> "平"
 }
 
 private fun Double.round1(): Double = (this * 10).toInt() / 10.0

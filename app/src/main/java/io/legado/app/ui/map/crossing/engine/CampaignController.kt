@@ -1003,6 +1003,8 @@ class CampaignController private constructor(
         reportLng = report?.lng,
         // B8R4：降级标识属决策信息，未观测敌军随路线一并模糊，不下发。
         routeDegraded = if (blurRoute) false else routeDegraded,
+        // B10：暴露姿态同属回合级决策信息，未观测敌军掩码为 false，不下发真实暴露状态。
+        exposed = if (blurRoute) false else exposed,
     )
 
     /**

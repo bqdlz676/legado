@@ -250,6 +250,11 @@ data class CorpsView(
      * 标识。未观测敌军随 [route] 一并模糊，不下发本标志。
      */
     val routeDegraded: Boolean = false,
+    /**
+     * 本回合暴露姿态（B10 对比维度）：视线穿越 / 接触交战 / 佯退诱出后置真，回合级不跨回合粘性。
+     * 未观测敌军随决策信息一并掩码为 false，不下发真实暴露姿态；缺省 false 保证旧构造点不破。
+     */
+    val exposed: Boolean = false,
 )
 
 /**
@@ -307,6 +312,9 @@ enum class DiffField(val label: String) {
 
     /** 存亡 / 投降状态变化（含一侧溃散、另一侧仍在阵）。 */
     STATUS("存亡"),
+
+    /** 暴露姿态变化：一侧本回合接战 / 穿越视野暴露，另一侧隐蔽。 */
+    EXPOSED("暴露"),
     // 据点归属差异预留：据点持有者随 B7 `pointHolders` 快照下发；B7 合并进 main 后在此补 HOLDING 分支。
 }
 
@@ -322,18 +330,41 @@ data class CorpsDiff(
 /**
  * 同一回合两条回放线的对比结论。
  * [left] / [right] 任一为 null 表示该分支未推进到本回合，壳层据此出占位卡，不留白屏。
+ *
+ * 对比维度（B10 接线补齐）：军队逐行 [corps]；事件集合差 [eventOnlyLeft] / [eventOnlyRight]；
+ * 战役档位 / 胜负归属 [resultDiff]；载入告警 [warningsLeft] / [warningsRight]。
+ * 告警为 null 表示该侧快照链未下发告警台账，壳层显式写「未知」，不留空、不臆造空告警。
  */
 data class TurnDiff(
     val turn: Int,
     val left: TurnSnapshot?,
     val right: TurnSnapshot?,
     val corps: List<CorpsDiff>,
+    val eventsLeft: List<EventEntry> = emptyList(),
+    val eventsRight: List<EventEntry> = emptyList(),
+    val eventOnlyLeft: List<EventEntry> = emptyList(),
+    val eventOnlyRight: List<EventEntry> = emptyList(),
+    val statusLeft: BattleStatus? = null,
+    val statusRight: BattleStatus? = null,
+    val winnerLeft: String? = null,
+    val winnerRight: String? = null,
+    val warningsLeft: List<String>? = null,
+    val warningsRight: List<String>? = null,
 ) {
     /** 任一侧缺快照：整回合不逐行高亮，只出「未推进」占位。 */
     val missingSide: Boolean get() = left == null || right == null
 
     /** 两侧都有快照且至少一支军队存在差异。 */
     val hasAnyDiff: Boolean get() = !missingSide && corps.any { it.different }
+
+    /** 战役档位 / 胜负归属是否不同（null 与非 null 视为不同；两侧皆 null 视为一致）。 */
+    val resultDiff: Boolean
+        get() = statusLeft != statusRight || winnerLeft != winnerRight
+
+    /** 本回合两线是否完全一致：无军队差异、事件集合相同、胜负档位一致。缺侧不算一致。 */
+    val turnIdentical: Boolean
+        get() = !missingSide && !hasAnyDiff && eventOnlyLeft.isEmpty() &&
+            eventOnlyRight.isEmpty() && !resultDiff
 }
 
 /**
@@ -353,17 +384,47 @@ object SnapshotDiff {
     /**
      * 对比两条回放线在同一回合的快照。
      * [left] / [right] 任一为 null：直接返回缺侧结论，不做逐军比对。
+     * [warningsLeft] / [warningsRight] 为战役级载入告警；null = 该侧未下发台账，壳层写「未知」。
      */
-    fun diff(left: TurnSnapshot?, right: TurnSnapshot?): TurnDiff {
+    fun diff(
+        left: TurnSnapshot?,
+        right: TurnSnapshot?,
+        warningsLeft: List<String>? = null,
+        warningsRight: List<String>? = null,
+    ): TurnDiff {
         val turn = left?.turn ?: right?.turn ?: -1
         if (left == null || right == null) {
-            return TurnDiff(turn = turn, left = left, right = right, corps = emptyList())
+            return TurnDiff(
+                turn = turn,
+                left = left,
+                right = right,
+                corps = emptyList(),
+                warningsLeft = warningsLeft,
+                warningsRight = warningsRight,
+            )
         }
         val byIdLeft = left.corps.associateBy { it.id }
         val byIdRight = right.corps.associateBy { it.id }
         val ids = (byIdLeft.keys + byIdRight.keys).sorted()
         val corps = ids.map { id -> diffCorps(id, byIdLeft[id], byIdRight[id]) }
-        return TurnDiff(turn = turn, left = left, right = right, corps = corps)
+        val leftKeys = left.events.map { it.attribution to it.text }.toSet()
+        val rightKeys = right.events.map { it.attribution to it.text }.toSet()
+        return TurnDiff(
+            turn = turn,
+            left = left,
+            right = right,
+            corps = corps,
+            eventsLeft = left.events,
+            eventsRight = right.events,
+            eventOnlyLeft = left.events.filter { (it.attribution to it.text) !in rightKeys },
+            eventOnlyRight = right.events.filter { (it.attribution to it.text) !in leftKeys },
+            statusLeft = left.status,
+            statusRight = right.status,
+            winnerLeft = left.winnerSide,
+            winnerRight = right.winnerSide,
+            warningsLeft = warningsLeft,
+            warningsRight = warningsRight,
+        )
     }
 
     private fun diffCorps(id: String, a: CorpsView?, b: CorpsView?): CorpsDiff {
@@ -383,6 +444,7 @@ object SnapshotDiff {
             fields += DiffField.POSITION
         }
         if (a.alive != b.alive || a.surrendered != b.surrendered) fields += DiffField.STATUS
+        if (a.exposed != b.exposed) fields += DiffField.EXPOSED
         return CorpsDiff(id, name, fields)
     }
 }
