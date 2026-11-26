@@ -33,13 +33,25 @@ def token():
     return None
 
 
+def full_sha(prefix):
+    """把短 sha 补齐成 40 位：GitHub 的 head_sha 过滤只认全号，短号会返回空列表（假阴性）。
+    为什么必须补：Q-208 已判 D-4 一次，短号直查会静默变成"无 run"。"""
+    if len(prefix) >= 40:
+        return prefix
+    r = subprocess.run(['git', 'rev-parse', '--verify', prefix + '^{commit}'],
+                       capture_output=True, text=True)
+    return r.stdout.strip() or prefix
+
+
 def head_sha(repo_dir='.'):
     return subprocess.run(['git', '-C', repo_dir, 'rev-parse', 'HEAD'],
                           capture_output=True, text=True).stdout.strip()
 
 
 def runs(tok, sha, per_page=20):
-    url = ('https://api.github.com/repos/%s/actions/runs?per_page=%d' % (REPO, per_page))
+    # D-4：按 head_sha 过滤直查（服务端过滤，不受"最近 N 条"窗口限制），per_page 上限 100
+    url = ('https://api.github.com/repos/%s/actions/runs?head_sha=%s&per_page=%d'
+           % (REPO, sha, min(per_page, 100)))
     r = subprocess.run(['curl', '-s', '-H', 'Authorization: token ' + tok, url],
                        capture_output=True, text=True)
     try:
@@ -65,12 +77,15 @@ def summarize(rs):
     bad = [r for r in done if r['conclusion'] not in ('success', 'neutral', 'skipped')]
     for r in rs:
         print('  · %-22s %-10s %-12s %s' % (r['name'], r['status'], r['conclusion'] or '-', r['url']))
+    if bad:
+        # D-3：已完成的红必须立刻判红。为什么：旧逻辑先判"还有在跑"就返回 rc=2，
+        # 会把已经落地的失败藏起来，调度层于是继续等、白等一轮（Q-208 判上门）。
+        print('CI: FAIL（%d 个 run 非绿%s）'
+              % (len(bad), '，另 %d 个仍在跑' % (len(rs) - len(done)) if len(done) < len(rs) else ''))
+        return 1
     if len(done) < len(rs):
         print('CI: 进行中（%d/%d 完成）' % (len(done), len(rs)))
         return 2
-    if bad:
-        print('CI: FAIL（%d 个 run 非绿）' % len(bad))
-        return 1
     print('CI: PASS（%d 个 run 全绿）' % len(rs))
     return 0
 
@@ -86,7 +101,7 @@ def main():
     if not tok:
         print('CI: 凭据缺失（~/.git-credentials 无 github 行）')
         return 4
-    sha = a.sha or head_sha()
+    sha = full_sha(a.sha or head_sha())
     print('WATCH-CI sha=%s repo=%s' % (sha[:12], REPO))
     rc = 2
     for i in range(max(1, a.max)):

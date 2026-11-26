@@ -25,9 +25,12 @@ ROOT = Path(__file__).resolve().parent.parent
 QUEUE = ROOT / 'docs' / '派单队列.md'
 POLLUTION_RE = re.compile(r'(临时|坏样本|neg-|regress-|zzq)', re.I)
 FIXTURE_OK = 'data_scripts/fixtures/'
+# 出处：ZOMBIE 10 分钟＝`docs/机制-总控必读.md` §17/F-94「90 秒存活校验 + 轨迹长期无更新即判废」的松弛线；
+# TIMEOUT 15 分钟＝§2「每单写死 15 分钟熔断」。两者都是调度口径常量，改口径必须先改口径再改这里。
 ZOMBIE_MINUTES = 10
 TIMEOUT_MINUTES = 15
-ROW_RE = re.compile(r'^\|\s*(Q-\d+)\s*\|(.*?)\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$')
+ROW_RE = re.compile(r'^\|\s*(Q-\d+)\s*\|')
+STATUS_WORDS = ('RUNNING', 'PENDING', 'DONE', 'BLOCKED')
 TIME_RE = re.compile(r'(\d{1,2}):(\d{2})\s*起')
 
 
@@ -42,9 +45,22 @@ def git_status_paths():
     return out
 
 
+def tracked(path):
+    """是否 git 已跟踪。为什么：豁免只认"仓库里本来就有的夹具"，
+    未跟踪/新增/改名塞进 fixtures 的文件一律不豁免——否则豁免目录就是后门（Q-208 D-1）。"""
+    r = subprocess.run(['git', 'ls-files', '--error-unmatch', path],
+                       cwd=str(ROOT), capture_output=True, text=True)
+    return r.returncode == 0
+
+
 def paths_ok(paths):
-    bad = [p for p in paths
-           if POLLUTION_RE.search(os.path.basename(p)) and FIXTURE_OK not in p]
+    bad = []
+    for p in paths:
+        if not POLLUTION_RE.search(os.path.basename(p)):
+            continue
+        if FIXTURE_OK in p and tracked(p):
+            continue  # 已跟踪夹具豁免：自测夹具是仓库资产，不是残留样本
+        bad.append(p + ('' if FIXTURE_OK not in p else '（豁免目录内未跟踪文件，疑似改名塞样本）'))
     return bad
 
 
@@ -56,10 +72,14 @@ def running_rows(queue_path):
         m = ROW_RE.match(line)
         if not m:
             continue
-        qid, status_cell = m.group(1), m.group(4)
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        qid = m.group(1)
+        # 为什么按"含状态词的那一格"定位：队列列数会随写作习惯漂移（4 列/6 列都出现过），
+        # 写死第 4 列会让 RUNNING 行整体消失，B/C 判据变成永久盲区（Q-208 D-2）。
+        status_cell = next((c for c in cells if any(w in c for w in STATUS_WORDS)), '')
         if 'RUNNING' not in status_cell:
             continue
-        aid = re.search(r's_[0-9A-Za-z]+', status_cell) or re.search(r's_[0-9A-Za-z]+', m.group(3))
+        aid = re.search(r's_[0-9A-Za-z]+', ' '.join(cells))
         rows.append((qid, aid.group(0) if aid else '', status_cell))
     return rows
 
@@ -119,6 +139,13 @@ def run(queue_path, agents_dir=None, now=None) -> int:
         print('DISPATCH-A: PASS 工作区无测试残留')
 
     rows = running_rows(queue_path)
+    raw_running = [l for l in Path(queue_path).read_text(encoding='utf-8', errors='ignore').splitlines()
+                   if re.match(r'^\|\s*Q-\d+', l) and 'RUNNING' in l] if Path(queue_path).exists() else []
+    unparsed = len(raw_running) - len(rows)
+    if unparsed > 0:
+        failed += 1
+        print('DISPATCH-B: FAIL 队列有 %d 行含 RUNNING 但无法解析（列数漂移会让 B/C 变永久盲区，先补列再跑）'
+              % unparsed)
     zb = zombies(rows, agents_dir, now)
     if zb:
         failed += 1
@@ -145,8 +172,16 @@ def run(queue_path, agents_dir=None, now=None) -> int:
 
 
 def selftest() -> int:
+    import shutil
     import tempfile
     tmp = Path(tempfile.mkdtemp(prefix='dispatch-selftest-'))
+    try:
+        return _selftest_body(tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)  # D-5：夹具必须自删，否则 /tmp 无限堆积（Q-208 判上门）
+
+
+def _selftest_body(tmp) -> int:
     agents = tmp / 'agents'
     agents.mkdir(parents=True)
     good_q = tmp / 'q_good.md'
