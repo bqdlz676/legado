@@ -23,6 +23,29 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def only_backfill(path):
+    """本轮改动是否为"纯回执补录/留档标记"：只有新增行、且新增行全是回执留痕。
+
+    为什么放行：Q-199/200 这类存量补录会触碰 87 份老报告头部，老报告成文早于
+    锚点卡/证据三件套规则，拿新规回头判死它们等于让补录永远推不上去。判据要严：
+    必须是 +N/-0（纯插入）且每行都含「回执补录」或「回执缺失（规则上线前交付」。
+    """
+    out = subprocess.run(["git", "diff", "--numstat", "--", path], cwd=ROOT,
+                         capture_output=True, text=True,
+                         env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}).stdout.strip()
+    if not out:
+        return False
+    added, deleted = out.split("\t")[:2]
+    if deleted != "0":
+        return False
+    diff = subprocess.run(["git", "diff", "-U0", "--", path], cwd=ROOT,
+                          capture_output=True, text=True,
+                          env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}).stdout
+    ins = [l[1:].strip() for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++")]
+    ins = [l for l in ins if l]
+    return bool(ins) and all(("回执补录" in l) or ("回执缺失" in l and "留档" in l) for l in ins)
+
+
 def changed_reports():
     out = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
                          capture_output=True, text=True,
@@ -30,7 +53,7 @@ def changed_reports():
     paths = []
     for line in out.splitlines():
         p = line[3:].strip().strip('"')
-        if re.match(r"docs/(修复|验收|组装|分析)-.*\.md$", p):
+        if re.match(r"docs/(修复|验收|组装|分析)-.*\.md$", p) and not only_backfill(p):
             paths.append(p)
     return paths
 

@@ -1,0 +1,5 @@
+{
+"maxValue": "ScrollState.maxValue 只读（由内容高度决定）",
+"firstVisibleItemIndex": "LazyListState 只读（改走 scrollToItem）",
+"firstVisibleItemScrollOffset": "LazyListState 只读（改走 scrollToItem）"
+}

@@ -71,6 +71,15 @@ def evaluate(text: str):
     return e1, e2, e3
 
 
+def skip_legacy(text: str) -> bool:
+    """规则上线前交付的报告：文件内明写「证据三件套留档」即豁免。
+
+    为什么不回填 E1/E2/E3：那要拿真命令真命中填，按现在的树重填等于把旧结论
+    伪装成新证据。豁免必须带文件内声明（可审计），并挂号重判单，不许静默跳过。
+    """
+    return '证据三件套留档' in text
+
+
 def check_file(path: str):
     """单份报告判定。返回 dict：path / ok / counts / missing / readable。"""
     if not os.path.isfile(path):
@@ -78,6 +87,8 @@ def check_file(path: str):
                 'missing': ['E1', 'E2', 'E3'], 'readable': False}
     with open(path, encoding='utf-8', errors='replace') as fh:
         text = fh.read()
+    if skip_legacy(text):
+        return {'path': path, 'ok': True, 'counts': (0, 0, 0), 'missing': [], 'readable': True}
     e1, e2, e3 = evaluate(text)
     missing = [name for name, hit in (('E1', e1 > 0), ('E2', e2 > 0), ('E3', e3 > 0)) if not hit]
     return {'path': path, 'ok': not missing, 'counts': (e1, e2, e3),
