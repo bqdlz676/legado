@@ -87,5 +87,24 @@ $ grep -n 'android:exported' app/src/main/AndroidManifest.xml | sed -n '8p;15p'
 ## 八、门禁自检输出
 
 ```
-（写完回填真实末行）
+$ python3 data_scripts/kotlin-syntax-lint.py app/src/test/java/io/legado/app/security/ManifestExportedContractTest.kt
+KOTLIN-LINT: PASS（1 个文件）
+rc=0
+
+$ python3 data_scripts/check-onboarding.py --audit
+ONBOARD-AUDIT: 0 份报告缺回执或不合规（历史留档可批量补，见 Q-199）
+rc=0
+
+$ python3 data_scripts/check-anchor-card.py --strict docs/修复-exported两处收口.md
+汇总: PASS=1 FAIL=0（共 1 份）
+rc=0
+
+$ python3 data_scripts/check-problem-finding.py docs/修复-exported两处收口.md
+INFO 历史欠账 5 份走基线（只许缩小）：修复-InkContentEditState-平台签名撞名.md、修复-全仓非UTF8复扫.md、修复-吞异常三文件.md、修复-空集假绿检测器.md、分析-不等待七阶推演.md
+PROBLEM-FINDING: PASS（1 份报告均带新发现问题与处置状态）
+rc=0
+
+$ python3 data_scripts/check-unpushed-reports.py
+UNPUSHED-REPORTS: PASS（本轮 2 份报告（含已提交未推送）回执合规）
+rc=0
 ```
