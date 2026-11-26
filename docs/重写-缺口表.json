@@ -1,7 +1,7 @@
 {
-  "生成时间": "2026-11-27 02:45:27 +0800",
+  "生成时间": "2026-11-27 03:22:26 +0800",
   "HEAD": "f7c161159913f6a1a57c06220ed3fd9bb09e50d6",
-  "说明": "Q-301 只读盘点机器可读版；文件数/行数由 find + wc 口径从磁盘实测；状态口径：已实现/半实现/零实现。",
+  "说明": "Q-301 只读盘点机器可读版；文件数/行数按 find + wc 口径从冻结基线 f7c16115 快照实测（工作区并行在飞改动不计入本盘点，复验以冻结 commit 为准）；状态口径：已实现/半实现/零实现。",
   "切片": [
     {
       "id": "01",
@@ -15,7 +15,7 @@
       "主题": "气泡协议（统一 BubbleContent 协议 + Provider 族 + resolve 优先级 + 交互铁律）",
       "现状目录": "app/src/main/java/io/legado/app/help/bubble/（BubbleResolver.kt:63 resolve、BubbleModels.kt、Provider 族 Char/Word/Person/Place/Date/Allusion/Missing）；app/src/main/java/io/legado/app/ui/book/read/ink/InkBubble.kt",
       "状态": "半实现",
-      "缺口": "统一 BubbleContent 协议与 resolve 优先级骨架在；年号/干支对照时间轴输出、半屏详情回位、同名候选切换 UI、冷≤300ms/热≤80ms 首触指标未闭环验证（切片-02:21 验收测试段）。"
+      "缺口": "统一 BubbleContent 协议与 resolve 优先级骨架在；年号/干支对照时间轴输出、半屏详情回位、同名候选切换 UI、冷≤300ms/热≤80ms 首触指标未闭环验证（切片-02:21、切片-02:23）。"
     },
     {
       "id": "03",
@@ -27,7 +27,7 @@
     {
       "id": "04",
       "主题": "组件系统（Bubble/BottomSheet/Timeline/InkButton + 七态覆盖 + 性能预算）",
-      "现状目录": "app/src/main/java/io/legado/app/ui/components/（InkButton.kt:77、InkHalfSheet.kt:90、InkToast.kt:88、Timeline.kt:74、InkEmptyState.kt:32）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/components/（InkButton.kt:79、InkHalfSheet.kt:90、InkToast.kt:90、Timeline.kt:74、InkEmptyState.kt:34）",
       "状态": "半实现",
       "缺口": "四类基础容器在；默认/悬浮/点击/禁用/加载/空/离线七态逐组件覆盖度未逐项核对，离线降级（缓存瓦片+toast）未见实现（切片-04:9-10）。"
     },
@@ -85,7 +85,7 @@
       "主题": "画板 InkSlate（工具集/工具栏/六色/图层/导出/与阅读批注打通）",
       "现状目录": "app/src/main/java/io/legado/app/ui/components/inkslate/（InkSlateCanvas.kt、InkSlateModel.kt、InkSlateToolbar.kt、contract/ 4 件）；app/src/main/java/io/legado/app/ui/main/PaintActivity.kt",
       "状态": "半实现",
-      "缺口": "画布/模型/工具栏契约在；笔/直线/箭头/矩形/圆/文字/橡皮/撤销重做/图层/导出工具集齐套度、与阅读批注打通（章节名+正文附注文案）未核（切片-12:9-10、切片-12:14）。"
+      "缺口": "画布/模型/工具栏契约在；笔/直线/箭头/矩形/圆/文字/橡皮/撤销重做/图层/导出工具集齐程度、与阅读批注打通（章节名+正文附注文案）未核（切片-12:9-10、切片-12:11）。"
     },
     {
       "id": "13",
@@ -201,13 +201,13 @@
       "依据": "壳层（气泡/菜单/装饰/控制器）只消费保留引擎，不内嵌分页算法。"
     },
     {
-      "域": "阅读-竖排引擎",
+      "域": "阅读-分页引擎·竖排模式",
       "入口": "ui/book/read/vertical/VerticalLayoutEngine.kt",
       "文件数": 11,
       "行数": 1099,
       "边界内": "是",
       "处置": "保留",
-      "依据": "落文自有竖排引擎；公开 API layout/hitTest/invalidateCache 冻结（A5），内部实现可维护。"
+      "依据": "分页引擎·竖排模式（不是独立引擎，横竖只是两种排版方向，A1 订正口径）；公开 API layout/hitTest/invalidateCache 冻结（A5），内部实现可维护。"
     },
     {
       "域": "阅读-分页引擎 page",
@@ -283,12 +283,12 @@
     },
     {
       "域": "发现/探索",
-      "入口": "ui/main/explore/ExploreFragment.kt（旧）与 InkExploreScreen.kt（新）双实现并存",
+      "入口": "现存路径 ui/main/explore/（ExploreFragment.kt 旧 + InkExploreScreen.kt 新双实现）；目标态路径 ui/main/discover/（台账:306，基线快照不存在，B6 落地后新建）",
       "文件数": 11,
       "行数": 2740,
       "边界内": "否",
       "处置": "重写",
-      "依据": "Q-304 域；新面验收通过前旧 Fragment 不删（R4 两档）。"
+      "依据": "Q-304 域；现存清点只计 explore/，discover/ 为目标态路径；新面验收通过前旧 Fragment 不删（R4 两档）。"
     },
     {
       "域": "搜索浮层",
@@ -355,12 +355,12 @@
     },
     {
       "域": "地图沙盘",
-      "入口": "ui/main/PlaceMapActivity.kt（旧壳 AppCompatActivity+XML+WebView）；ui/map/sandbox/",
+      "入口": "现存路径 ui/map/sandbox/；跨域入口 ui/main/PlaceMapActivity.kt（旧壳 AppCompatActivity+XML+WebView，计入 main 根域，不在本域重复计数）",
       "文件数": 15,
       "行数": 1659,
       "边界内": "部分",
       "处置": "吸收续做",
-      "依据": "沙盘场景算法吸收；PlaceMapActivity 旧壳重写为 P-06 单壳三模式。"
+      "依据": "沙盘场景算法吸收；PlaceMapActivity 旧壳重写为 P-06 单壳三模式。计数口径：本域 15/1659 仅计 map/sandbox/；PlaceMapActivity.kt 归 main 根域，防跨域重复计数。"
     },
     {
       "域": "四渡赤水 crossing",
@@ -400,12 +400,12 @@
     },
     {
       "域": "画板",
-      "入口": "ui/main/PaintActivity.kt；ui/components/inkslate/",
+      "入口": "现存路径 ui/components/inkslate/；跨域入口 ui/main/PaintActivity.kt（计入 main 根域，不在本域重复计数）",
       "文件数": 8,
       "行数": 1407,
       "边界内": "否",
       "处置": "吸收续做",
-      "依据": "画布模型/工具栏契约吸收；工具集与批注打通按切片-12 补齐。"
+      "依据": "画布模型/工具栏契约吸收；工具集与批注打通按切片-12 补齐。计数口径：本域 8/1407 仅计 components/inkslate/；PaintActivity.kt 归 main 根域，防跨域重复计数。"
     },
     {
       "域": "主壳与跨域入口 Activity",
