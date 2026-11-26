@@ -1,9 +1,9 @@
-# 观感基线冻结（P3）：2026-11-27 04:57:52 52视觉基线工序首轮：出帧契约源码级冻结（测试套件+帧清单）；PNG golden 帧待 P3 通过轮由 CI 帧登记
-5566d4bcc6c7a0fdd4d015237f65e10404efa5369739dc5aa96e2173239a6cdc  screenshot/frames-baseline.json
+# 观感基线冻结（P3）：2026-11-27 05:23:21 52视觉基线工序：出帧契约源码级冻结（测试套件+帧清单）；设置槽B3SettingScreen宿主依赖不可离线，整壳/设置页帧待CI或集成环境；PNG golden 帧待冻结通过轮由CI帧登记
+6d98c37813c722b5ff643d144d6a9f459443dcd2859448e1a3d555791d20d480  screenshot/frames-baseline.json
 0e9ecc6f39b886452bc00830b125c9f76abe14794e83f141dafb8eec3120bee6  screenshot/src/test/java/io/legado/app/ci/screenshot/BasicComponentsSnapshotTest.kt
 0fb616897ec6509bdec7ccd7331584ffd812b43f501a2433b77541aa45b8e70e  screenshot/src/test/java/io/legado/app/ci/screenshot/BookshelfSnapshotTest.kt
 d0542af178456ca04ab0c2ec42d0004ad004e002c42a10c5da9d99ee92a917ec  screenshot/src/test/java/io/legado/app/ci/screenshot/CardFoundationSnapshotTest.kt
 1564919fd923d7fde3a50928f35e37fc65b64ccfac900abf96d8194dc312ac8a  screenshot/src/test/java/io/legado/app/ci/screenshot/CatalogCardsSnapshotTest.kt
 628bc6e67892d2e97f0a1bdc8ef29b76cb76f4df2c391ff486564fbca923a0ef  screenshot/src/test/java/io/legado/app/ci/screenshot/InkComponentsSnapshotTest.kt
-ba2b50fb685d83ab7cc0e9c7688c9a268983038563841ded58ddb8164490add7  screenshot/src/test/java/io/legado/app/ci/screenshot/MainShellSnapshotTest.kt
+294ae4246ef42e4fb9609c06f6ca7b2d868de0efea3532b449cb3486dc18d6b4  screenshot/src/test/java/io/legado/app/ci/screenshot/MainShellSnapshotTest.kt
 6c658ba4b9afd5d2cd10a50ba792ccb438cd68cb22afec48de2d72a353abe8d7  screenshot/src/test/java/io/legado/app/ci/screenshot/ScreenshotFixtures.kt
