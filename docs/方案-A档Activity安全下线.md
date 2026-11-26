@@ -28,7 +28,7 @@
 | `ui/main/my/MyInkFragment.kt:19` | `import io.legado.app.ui.about.AboutActivity` | 未使用 import | 死引用（残留，新壳路由走 `AboutInkActivity`，见 :106） |
 | `androidTest/.../book/read/ContentEditSearchTest.kt:20`、:48、:57 | `ActivityScenario<AboutActivity>?` / `ActivityScenario.launch(AboutActivity::class.java)` | UI 测试宿主（:57 后 `showNow(activity.supportFragmentManager, ...)` 挂自有 `ContentEditDialog`） | 仅测试引用（不依赖 AboutScreen 行功能） |
 | `androidTest/.../widget/dialog/BottomWebViewDialogShowTest.kt:31`、:59、:64 | 同上 `ActivityScenario.launch(AboutActivity::class.java)` | UI 测试宿主（自插 WebView 对话框） | 仅测试引用 |
-| `androidTest/.../widget/image/CoverTitleAdaptiveUiTest.kt:33`、:62、:85 | 同上；:51 `activity.setContentView(root)` 自插 Compose 根 | UI 测试宿主 | 仅测试引用 |
+| `androidTest/.../widget/image/CoverTitleAdaptiveUiTest.kt:33`、:62、:85 | 同上；:90 `activity.setContentView(root)` 自插 Compose 根 | UI 测试宿主 | 仅测试引用 |
 | `test/.../about/UpdateDialogLifecycleTest.kt:17-18` | 源码文本断言：`listOf("ui/about/AboutActivity.kt", "ui/main/my/MyFragment.kt")`，断言含 `"check_update" -> checkAppUpdate()` / `"check_beta_update" -> checkAppUpdate(beta = true)` | 单测源码文本锁定 | 仅测试引用（删类后必须改指或改写） |
 | `ui/about/AboutActivity.kt:68`、:168 | `AboutScreen(activity = this@AboutActivity)` / `private fun AboutScreen(activity: AboutActivity)` | 类内自引 | 类本体，随类删除 |
 
