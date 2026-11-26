@@ -94,7 +94,7 @@ class ShelfParamsTest {
         assertEquals(22.0, ShelfParams.TITLE_FONT_SIZE_SP, delta)
         assertTrue(ShelfParams.TITLE_BOLD)
         assertEquals(11.0, ShelfParams.AUTHOR_FONT_SIZE_SP, delta)
-        assertEquals(1.0, ShelfParams.PROGRESS_LINE_WIDTH_DP, delta)
+        assertEquals(2.0, ShelfParams.PROGRESS_LINE_WIDTH_DP, delta) // 书架卡片竖线 2dp（切片-25:19）；阅读页 1dp 是另一根线
         assertEquals(5.0, ShelfParams.CARD_TILT_DEGREES, delta)
         assertEquals(15, ShelfParams.PARTICLE_MIN)
         assertEquals(20, ShelfParams.PARTICLE_MAX)

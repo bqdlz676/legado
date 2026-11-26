@@ -6,9 +6,10 @@ import kotlin.math.roundToInt
  * S-10 书架页 · 视觉参数单源（平台无关层，纯数值）。
  *
  * 〔为什么参数集中在一处〕
- * 书名 / 作者注字号、进度竖线宽与色、卡片倾角、氛围粒子上下限、阴影模糊半径与透明度，
- * 全部逐字来自 `docs/落文-规格切片/切片-10-书架页.md` 第 8、9、22 行与
- * `docs/锚点/S-10-书架页.md` 参数表。集中单点定义是为了：
+ * 书名 / 作者注字号、进度竖线色、卡片倾角、氛围粒子上下限、阴影模糊半径与透明度，
+ * 来自 `docs/落文-规格切片/切片-10-书架页.md` 第 8、9、22 行与
+ * `docs/锚点/S-10-书架页.md` 参数表；进度竖线宽出自 `切片-25-卡片设计规格.md:19`（2dp）。
+ * 集中单点定义是为了：
  *  1. 将来接入书架卡片渲染时，Composable / 绘制代码只允许引用本表，不得在页面里
  *     另写字号、线宽、倾角、粒子数或色值，避免渲染层、既有 token 副本、单测三处
  *     口径漂移；
@@ -55,8 +56,14 @@ object ShelfParams {
     /** 作者注颜色：云灰，取 [ComponentPalette.TEXT_TERTIARY]，不写 hex */
     val authorColor: Long get() = ComponentPalette.TEXT_TERTIARY
 
-    /** 进度竖线宽 1dp（切片-10:22「书名右侧一道朱砂竖线，线长 = 阅读进度比例」） */
-    const val PROGRESS_LINE_WIDTH_DP: Double = 1.0
+    /**
+     * 书架卡片进度竖线宽 2dp（切片-25-卡片设计规格.md:19「右侧朱砂进度竖线 2dp」）。
+     * 为什么两个同名常量值不同：本常量属书架卡片域；阅读页右缘正文细线在
+     * [VerticalReaderParams.PROGRESS_LINE_WIDTH_DP]（1.0，切片-09:7），是两根不同的线，
+     * 规格出处与视觉层级都不同，禁止合并或互相“统一”。切片-10:22 只写「书名右侧一道
+     * 朱砂竖线，线长 = 阅读进度比例」，未给宽度，旧注释误引该处，2026-11-26 用户裁决纠正。
+     */
+    const val PROGRESS_LINE_WIDTH_DP: Double = 2.0
 
     /** 进度竖线颜色：朱砂，取 [ComponentPalette.TEXT_ACCENT]，不写 hex */
     val progressLineColor: Long get() = ComponentPalette.TEXT_ACCENT

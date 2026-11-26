@@ -80,8 +80,8 @@ object ShelfTokens {
     const val AUTHOR_SP: Float = 11f
     /** 章节小字 10sp */
     const val CHAPTER_SP: Float = 10f
-    /** 卡片圆角 14dp */
-    const val CARD_RADIUS_DP: Float = 14f
+    /** 卡片圆角 16dp（切片-25:13 通用卡片 Token「圆角 16dp」；变体不得自行改圆角）。 */
+    const val CARD_RADIUS_DP: Float = 16f
     /** 暖金微光溢出半径 12px（0 0 12px rgba(212,165,74,.3)） */
     const val GLOW_RADIUS_DP: Float = 12f
     /** 卡片底部暖金微光溢出 4dp */
@@ -91,8 +91,8 @@ object ShelfTokens {
     /** 书架域口径 2dp，出处 docs/切片-25 第 19 行；阅读页 1dp 属正文细线，不同域不复用。
      *  为什么：切片-10:22 只写「书名右侧一道朱砂竖线，线长 = 阅读进度比例」，未给线宽；
      *  卡片规格切片-25:19 明写「右侧朱砂进度竖线 2dp」；切片-09:7 的 1dp 是阅读页右缘正文细线，
-     *  属阅读域，书架卡片不复用。卡片渲染读本常量，不再回指 components 层 ShelfParams 旧 1.0 副本；
-     *  ShelfParams.PROGRESS_LINE_WIDTH_DP 同步到 2.0 一事登记 Q-56，待 components 域释放后收口。 */
+     *  属阅读域，书架卡片不复用。components 层 `ShelfParams.PROGRESS_LINE_WIDTH_DP` 已于
+     *  2026-11-26 裁决同步为 2.0；本常量仍是书架域渲染直读副本（D23 转发单源计划见文件头 TODO）。 */
     const val VLINE_WIDTH_DP: Float = 2f
     /** 底部细线进度高 2dp */
     const val BOTTOM_LINE_HEIGHT_DP: Float = 2f
