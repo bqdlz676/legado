@@ -441,6 +441,11 @@ echo "$DC44" | grep 'DISPATCH-C: PASS（INFO' | while read -r w; do say "㊹调�
 IR45=$(python3 data_scripts/sync-ironrules.py --check 2>&1)
 if [ $? -eq 0 ]; then ok "㊺铁律全量同步" "$(echo "$IR45" | grep 'IRONRULES: PASS')"; else bad "㊺铁律全量同步" "$(echo "$IR45" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# ㊻ 第一读顺序合规（用户 2026-11-26 口令「把总控必读定为以后第一读」）。
+#   为什么：阅读顺序靠人自觉就会漂——本轮以前是"总纲第一读、必读补读"，实证漏调度口径；顺序必须机检锁死。
+FR46=$(python3 data_scripts/check-first-read.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊻第一读顺序" "$(echo "$FR46" | grep 'FIRST-READ: PASS')"; else bad "㊻第一读顺序" "$(echo "$FR46" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
