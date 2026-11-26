@@ -18,8 +18,10 @@ STARTED。本脚本把「肉眼找 culprit」变成一条命令：按 STARTED / 
   - 在跑 job 的 logs 接口返回 401，本脚本归类为「日志尚不可取，job 仍在跑」，不崩栈。
   - 并行 fork（maxParallelForks > 1）与 retry 重跑下，同一键可能多次 STARTED：
     配对按行序 LIFO（终态出现即清除最近一次 STARTED），重复 STARTED 单独列警告，不当嫌疑。
-  - 当前 build.gradle 的 testLogging 只开了 STARTED + FAILED：绿跑用例的 PASSED 不进日志，
-    这类用例在本脚本口径下也会呈现「未闭环」；脚本单独打 WARN 标注，避免误判成挂死。
+  - 当前仓 app/build.gradle 的 testLogging 已开 STARTED/PASSED/FAILED/SKIPPED 四事件
+    （commit faa6d80，Q-277 补齐），正常可做精确配对。若仍只见到 STARTED、无任何终态事件
+    （WARN_STARTED_ONLY），说明日志被截断、或任务根本没跑到测试阶段；此时未闭环列表混着
+    实际通过的用例，只能作候选指向，不可定罪。
 """
 
 import argparse
@@ -182,8 +184,9 @@ def parse_log(text):
     if started == 0:
         status = 'NO_STARTED'
     elif terminal_total == 0:
-        # 无任何终态行。再细分：日志里压根没出现终态关键词 → 配置只开了 STARTED
-        # （当前 build.gradle 实测口径）；关键词出现了但正则没匹配上 → 格式漂移。
+        # 无任何终态行。再细分：日志里压根没出现终态关键词 → 日志截断或任务未跑到测试阶段
+        # （仓内 build.gradle 已开四事件，不该再出现配置缺事件的情况）；关键词出现了但正则
+        # 没匹配上 → 格式漂移。
         keyword_hit = any(any(w in ln for w in TERMINAL_EVENTS) for _, ln in samples)
         status = 'FORMAT_MISMATCH' if keyword_hit else 'WARN_STARTED_ONLY'
     else:
@@ -209,10 +212,10 @@ STATUS_ADVICE = {
                   '确认该 job 执行了 :app:testAppDebugUnitTest 之类的单测任务，而非仅编译/打包。',
     'FORMAT_MISMATCH': '有 STARTED 但终态行对不上正则：事件格式与假设不符。'
                        '用下方样例行与脚本 RE_EVENT 对口径（类名/用例名/事件词分隔符可能变了）。',
-    'WARN_STARTED_ONLY': '日志只有 STARTED、没有任何终态关键词：当前 testLogging 只开了 '
-                         'STARTED+FAILED（绿跑 PASSED 不进日志）。未闭环列表里混着实际通过的用例，'
-                         '不能直接当挂死嫌疑；建议 events 补 PASSED/SKIPPED 后再配对，'
-                         '或只盯最后几个 STARTED 所在类静态排查。',
+    'WARN_STARTED_ONLY': '日志只有 STARTED、没有任何终态关键词：当前仓 build.gradle 已开 '
+                         'PASSED/SKIPPED（四事件齐备），若仍出现此警告，说明日志被截断，或任务 '
+                         '未跑到测试阶段。未闭环列表里混着实际通过的用例，不能直接当挂死嫌疑；'
+                         '先核对日志完整性与任务是否执行了单测，再只盯最后几个 STARTED 所在类静态排查。',
     'LOGS_UNAVAILABLE': '日志 401 取不到：job 仍在跑（logs 接口对在跑 job 返回 401），'
                         '或日志已过 GitHub 保留期。等 job 收尾后重跑本脚本；离线可先 --log-file 兜底。',
 }
@@ -238,7 +241,12 @@ def report_result(label, result, top):
 
     if result['unfinished']:
         tail = result['unfinished'][-top:]
-        print(f"挂死嫌疑（STARTED 后无终态，最后 {len(tail)} 条）:")
+        # 标题随状态收敛：HANG_SUSPECT 才是精确配对后的挂死嫌疑；WARN_STARTED_ONLY 下
+        # 未闭环混着实际通过的用例，只称「末段未闭环候选（不可定罪，仅指向）」，避免定性词误导。
+        if result['status'] == 'WARN_STARTED_ONLY':
+            print(f"末段未闭环候选（不可定罪，仅指向；最后 {len(tail)} 条）:")
+        else:
+            print(f"挂死嫌疑（STARTED 后无终态，最后 {len(tail)} 条）:")
         for i, rec in enumerate(tail, start=1):
             print(f"  {i}. line {rec['line']} | 其后 {rec['after_lines']} 行 | "
                   f"{rec['cls']} > {rec['case']}")

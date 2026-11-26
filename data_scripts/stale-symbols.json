@@ -1,0 +1,52 @@
+{
+  "meta": {
+    "version": 1,
+    "updated": "2026-11-26",
+    "purpose": "已从 app/src 清除的符号登记表；check-stale-claims.py 据此扫描 docs/ 里仍按旧口径描述这些符号的行。audit 级门禁：只提示不拦 push。",
+    "removed_at_note": "删除尚在工作区未提交时记 WORKTREE-<单号>-<日期>；提交后回填 commit 短哈希。",
+    "marker_words": [
+      "已删除",
+      "已封死",
+      "已清除",
+      "失效",
+      "判废",
+      "历史",
+      "勿据以施工"
+    ]
+  },
+  "symbols": [
+    {
+      "symbol": "ReaderProvider",
+      "aliases": [
+        "readerProvider",
+        "ReaderProviderRoutes",
+        "ReaderProviderRequestCode",
+        "ReaderProviderRoute",
+        "ReaderProviderRoutesTest",
+        "dispatchReaderProvider"
+      ],
+      "removed_at": "WORKTREE-Q282-2026-11-26",
+      "report": "docs/修复-清除ReaderProvider.md",
+      "scan_roots": [
+        "docs/"
+      ],
+      "code_residual": [
+        "app/src/test/java/io/legado/app/security/ManifestExportedContractTest.kt"
+      ],
+      "residual_note": "残留仅为正向安全断言：该测试断言 manifest 不得再声明 .api.ReaderProvider；注释/断言串中的类名不是业务存活引用。",
+      "fact_now": "Provider 已整体清除；无跨 App 互通；ShortCuts.buildShortCuts 迁至 App.onCreate（App.kt:92）；外部访问仅保留局域网 HTTP Web 服务。"
+    },
+    {
+      "symbol": "AboutActivity",
+      "aliases": [],
+      "removed_at": "WORKTREE-Q280-2026-11-26",
+      "report": "docs/修复-删除关于页.md",
+      "scan_roots": [
+        "docs/"
+      ],
+      "code_residual": [],
+      "residual_note": "旧关于页宿主整体删除；崩溃日志查看与三份合规 MD 已迁入既有「其他设置」分区，其余 8 项功能判废记账。",
+      "fact_now": "关于域现行壳为 AboutInkActivity；AboutActivity.kt / manifest activity 块 / MyFragment 旧路由分支均已摘除。"
+    }
+  ]
+}
