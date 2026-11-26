@@ -231,13 +231,14 @@ android {
                     excludeCategories 'io.legado.app.SlowBenchTest'
                 }
             }
-            // Q-261 取证兜底：每个 Test 任务开用例级 STARTED/FAILED 日志。
-            // 为什么只开 events 不开 showStandardStreams：上一轮 shard 1/2 挂死 45 分钟，
-            // 日志里没有一条用例名，root cause 无从取证；STARTED 能留下"最后开始的测试类"，
-            // 失败/超时翻日志即可 grep 出 culprit。showStandardStreams 会把用例 stdout 全量
-            // 灌入日志造成爆量，这里显式关死。
+            // Q-261 取证兜底：每个 Test 任务开用例级生命周期事件日志。
+            // Q-277 补 PASSED/SKIPPED：find-hang-culprit.py 按 STARTED 与终态
+            // （PASSED/FAILED/SKIPPED）精确配对；只开 STARTED+FAILED 时，绿跑用例全部
+            // 落"未闭环"，挂死 culprit 只能靠末条 STARTED 倒推。生命周期事件每用例一行，
+            // 增量与 STARTED 同级（基线 3185 条，分片每片约数百行）。
+            // showStandardStreams 仍显式关死：stdout/stderr 全量灌入会爆量，与事件日志分开。
             testTask.testLogging {
-                events "STARTED", "FAILED"
+                events "STARTED", "PASSED", "FAILED", "SKIPPED"
                 showStandardStreams = false
             }
         }

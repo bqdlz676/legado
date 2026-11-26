@@ -33,13 +33,22 @@ import org.junit.Test
  * 或谓词永不命中时快速报红，而不是 `runBlocking` 内挂死。5s 为 CI 慢机器余量：
  * 本模型是 `Unconfined` 单线程 + `MutableStateFlow` 同步回放，收敛为微秒级，5s 留有
  * 三个数量级余量；超时只兜底「收集器没接上」这类确定性缺陷，不掩盖真实断言失败。
+ *
+ * 收集器收口约定（Q-277 挂死收口）：`binder.start()` 向测试注入的 `runBlocking`
+ * 作用域拉起两路无限流收集协程；结构化并发下 `runBlocking` 根协程会等待全部子协程
+ * 结束才返回，而 `MutableStateFlow.collect` 永不完结。若用例体结束前不显式
+ * [SearchHotBinder.close] 取消两路收集，`runBlocking` 会在收尾 join 阶段永久阻塞
+ * 测试线程——既有 `withTimeout` 只覆盖用例体内的 `first` 等待，管不到收尾阶段的
+ * 子协程 join。故每个用例在 `try { … } finally { binder.close() }` 中收口；另叠加
+ * JUnit `@Test(timeout = 5_000)` runner 层看门，与仓内 `RhinoScriptErrorContextTest`
+ * 既有超时口径一致。
  */
 class SearchHotBinderTest {
 
     private fun keyword(word: String, usage: Int = 1, lastUseTime: Long = 0L) =
         SearchKeyword(word = word, usage = usage, lastUseTime = lastUseTime)
 
-    @Test
+    @Test(timeout = 5_000)
     fun `history present publishes hot from real log source not seed`() = runBlocking {
         val state = MutableStateFlow(SearchUiState())
         val timeFlow = MutableStateFlow(listOf(keyword("春秋")))
@@ -53,18 +62,21 @@ class SearchHotBinderTest {
             dispatcher = Dispatchers.Unconfined,
         )
         binder.start()
-
-        // 等频次序流也送达后稳定在 USAGE：时间流先到的中间帧可能是 HISTORY 档，
-        // 谓词不能只看 hot 非空，否则会在中间帧提前命中。
-        val settled = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.USAGE } }
-        // 有真实日志时热门行必须来自本机频次档，不允许落到 SEED / EMPTY。
-        assertEquals(SearchHotSource.USAGE, settled.hotSource)
-        assertEquals(listOf("史记", "左传"), settled.hot)
-        // 时间序流同时回填历史行，验证历史行补丁路径未被热门回填覆盖。
-        assertEquals(listOf("春秋"), settled.history)
+        try {
+            // 等频次序流也送达后稳定在 USAGE：时间流先到的中间帧可能是 HISTORY 档，
+            // 谓词不能只看 hot 非空，否则会在中间帧提前命中。
+            val settled = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.USAGE } }
+            // 有真实日志时热门行必须来自本机频次档，不允许落到 SEED / EMPTY。
+            assertEquals(SearchHotSource.USAGE, settled.hotSource)
+            assertEquals(listOf("史记", "左传"), settled.hot)
+            // 时间序流同时回填历史行，验证历史行补丁路径未被热门回填覆盖。
+            assertEquals(listOf("春秋"), settled.history)
+        } finally {
+            binder.close()
+        }
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `both flows empty fall back to seed marked as fallback not trending`() = runBlocking {
         val state = MutableStateFlow(SearchUiState())
         val timeFlow = MutableStateFlow<List<SearchKeyword>>(emptyList())
@@ -78,13 +90,16 @@ class SearchHotBinderTest {
             dispatcher = Dispatchers.Unconfined,
         )
         binder.start()
-
-        val settled = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.SEED } }
-        assertTrue("双空时精选兜底词不允许为空面板", settled.hot.isNotEmpty())
-        assertEquals(SearchHotResolver.SEED_KEYS.take(SearchTokens.HOT_LIMIT), settled.hot)
+        try {
+            val settled = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.SEED } }
+            assertTrue("双空时精选兜底词不允许为空面板", settled.hot.isNotEmpty())
+            assertEquals(SearchHotResolver.SEED_KEYS.take(SearchTokens.HOT_LIMIT), settled.hot)
+        } finally {
+            binder.close()
+        }
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `clearing history recomputes and falls back to seed`() = runBlocking {
         val state = MutableStateFlow(SearchUiState())
         val timeFlow = MutableStateFlow(listOf(keyword("春秋")))
@@ -98,20 +113,23 @@ class SearchHotBinderTest {
             dispatcher = Dispatchers.Unconfined,
         )
         binder.start()
+        try {
+            val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.USAGE } }
+            assertTrue("清空前热门行应来自真实日志档", before.hot.isNotEmpty())
 
-        val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.USAGE } }
-        assertTrue("清空前热门行应来自真实日志档", before.hot.isNotEmpty())
+            // 等价于 DAO deleteAll() 后两路 Room 流重发空快照。
+            timeFlow.value = emptyList()
+            usageFlow.value = emptyList()
 
-        // 等价于 DAO deleteAll() 后两路 Room 流重发空快照。
-        timeFlow.value = emptyList()
-        usageFlow.value = emptyList()
-
-        val after = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.SEED } }
-        assertTrue("清空回落后精选兜底词不允许为空面板", after.hot.isNotEmpty())
-        assertEquals(SearchHotResolver.SEED_KEYS.take(SearchTokens.HOT_LIMIT), after.hot)
+            val after = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.SEED } }
+            assertTrue("清空回落后精选兜底词不允许为空面板", after.hot.isNotEmpty())
+            assertEquals(SearchHotResolver.SEED_KEYS.take(SearchTokens.HOT_LIMIT), after.hot)
+        } finally {
+            binder.close()
+        }
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `removing a history-only word drops it from the hot row`() = runBlocking {
         val state = MutableStateFlow(SearchUiState())
         // 情形一：被删词来自历史档。频次路为空 → 历史回流档（HISTORY）；
@@ -127,24 +145,27 @@ class SearchHotBinderTest {
             dispatcher = Dispatchers.Unconfined,
         )
         binder.start()
+        try {
+            val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.HISTORY } }
+            assertEquals(SearchHotSource.HISTORY, before.hotSource)
+            assertEquals(listOf("春秋", "左传"), before.hot)
+            assertEquals(listOf("春秋", "左传"), before.history)
 
-        val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.HISTORY } }
-        assertEquals(SearchHotSource.HISTORY, before.hotSource)
-        assertEquals(listOf("春秋", "左传"), before.hot)
-        assertEquals(listOf("春秋", "左传"), before.history)
+            // 等价于 DAO delete(SearchKeyword("春秋")) 后时间序流重发「少了一条」的新快照。
+            timeFlow.value = listOf(keyword("左传"))
 
-        // 等价于 DAO delete(SearchKeyword("春秋")) 后时间序流重发「少了一条」的新快照。
-        timeFlow.value = listOf(keyword("左传"))
-
-        val after = withTimeout(5_000) {
-            state.first { it.history == listOf("左传") && it.hotSource == SearchHotSource.HISTORY }
+            val after = withTimeout(5_000) {
+                state.first { it.history == listOf("左传") && it.hotSource == SearchHotSource.HISTORY }
+            }
+            assertEquals(SearchHotSource.HISTORY, after.hotSource)
+            assertEquals(listOf("左传"), after.hot)
+            assertFalse("被删的历史档词不得残留在热门行", after.hot.contains("春秋"))
+        } finally {
+            binder.close()
         }
-        assertEquals(SearchHotSource.HISTORY, after.hotSource)
-        assertEquals(listOf("左传"), after.hot)
-        assertFalse("被删的历史档词不得残留在热门行", after.hot.contains("春秋"))
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `removing last history word overlapping seed keeps fallback source marker`() = runBlocking {
         val state = MutableStateFlow(SearchUiState())
         // 情形二：被删词与种子兜底重合。「论语」属 SEED_KEYS，先以历史档出现；
@@ -160,24 +181,27 @@ class SearchHotBinderTest {
             dispatcher = Dispatchers.Unconfined,
         )
         binder.start()
+        try {
+            val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.HISTORY } }
+            assertEquals(SearchHotSource.HISTORY, before.hotSource)
+            assertEquals(listOf("论语"), before.hot)
 
-        val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.HISTORY } }
-        assertEquals(SearchHotSource.HISTORY, before.hotSource)
-        assertEquals(listOf("论语"), before.hot)
+            // 等价于 DAO delete(SearchKeyword("论语")) 后历史流重发空快照，频次路本就为空。
+            timeFlow.value = emptyList()
 
-        // 等价于 DAO delete(SearchKeyword("论语")) 后历史流重发空快照，频次路本就为空。
-        timeFlow.value = emptyList()
-
-        val after = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.SEED } }
-        assertEquals(SearchHotSource.SEED, after.hotSource)
-        assertEquals(SearchHotResolver.SEED_KEYS.take(SearchTokens.HOT_LIMIT), after.hot)
-        // 兜底词表仍含「论语」字样，但来源标记必须是 SEED 兜底，不能记成 HISTORY / USAGE。
-        assertTrue("种子兜底词表应仍收录论语", after.hot.contains("论语"))
+            val after = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.SEED } }
+            assertEquals(SearchHotSource.SEED, after.hotSource)
+            assertEquals(SearchHotResolver.SEED_KEYS.take(SearchTokens.HOT_LIMIT), after.hot)
+            // 兜底词表仍含「论语」字样，但来源标记必须是 SEED 兜底，不能记成 HISTORY / USAGE。
+            assertTrue("种子兜底词表应仍收录论语", after.hot.contains("论语"))
+        } finally {
+            binder.close()
+        }
     }
 
     // 6. 浮层关闭释放收集（验收 D3 收口）：close() 取消两路收集协程，此后上游 DAO 流
     //    再发快照也不再回填 UI；重建 binder 重新 start 后收集恢复，流更新再次回填。
-    @Test
+    @Test(timeout = 5_000)
     fun `close cancels both collectors and restart resumes collection`() = runBlocking {
         val state = MutableStateFlow(SearchUiState())
         val timeFlow = MutableStateFlow(listOf(keyword("春秋")))
@@ -191,31 +215,38 @@ class SearchHotBinderTest {
             dispatcher = Dispatchers.Unconfined,
         )
         binder.start()
-        val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.USAGE } }
-        assertTrue("关闭前两路收集正常回填", before.history.isNotEmpty())
+        // 重建出的第二个 binder 同样要在收尾时取消，避免无限流收集协程泄漏进 runBlocking 收尾 join。
+        var restarted: SearchHotBinder? = null
+        try {
+            val before = withTimeout(5_000) { state.first { it.hotSource == SearchHotSource.USAGE } }
+            assertTrue("关闭前两路收集正常回填", before.history.isNotEmpty())
 
-        // 关闭浮层：定向取消两路收集（不取消注入的测试作用域本身）。
-        binder.close()
-        val closedSnapshot = state.value
-        timeFlow.value = emptyList()
-        usageFlow.value = emptyList()
-        // 确定性冻结断言（验收 N4 收口，替代原 delay(200) 时序余量）：测试注入
-        // Dispatchers.Unconfined，收集协程在调用线程内联执行；close() 取消句柄后，
-        // 若 Job 未被取消，流重发会在 setter 线程同步回放空快照并回填状态，下面的
-        // 相等性断言立即变红；若已取消，状态冻结为关闭前快照，无需任何等待余量。
-        assertEquals("关闭后流更新不得再回填 UI 状态", closedSnapshot, state.value)
+            // 关闭浮层：定向取消两路收集（不取消注入的测试作用域本身）。
+            binder.close()
+            val closedSnapshot = state.value
+            timeFlow.value = emptyList()
+            usageFlow.value = emptyList()
+            // 确定性冻结断言（验收 N4 收口，替代原 delay(200) 时序余量）：测试注入
+            // Dispatchers.Unconfined，收集协程在调用线程内联执行；close() 取消句柄后，
+            // 若 Job 未被取消，流重发会在 setter 线程同步回放空快照并回填状态，下面的
+            // 相等性断言立即变红；若已取消，状态冻结为关闭前快照，无需任何等待余量。
+            assertEquals("关闭后流更新不得再回填 UI 状态", closedSnapshot, state.value)
 
-        // 重开浮层：VM.attach 幂等分支重建 binder 重新收集，流更新再次回填。
-        val restarted = SearchHotBinder(
-            uiState = state,
-            timeFlow = timeFlow,
-            usageFlow = usageFlow,
-            scope = this,
-            dispatcher = Dispatchers.Unconfined,
-        )
-        restarted.start()
-        timeFlow.value = listOf(keyword("左传"))
-        val after = withTimeout(5_000) { state.first { it.history == listOf("左传") } }
-        assertEquals("重开后收集恢复，历史行按新快照回填", listOf("左传"), after.history)
+            // 重开浮层：VM.attach 幂等分支重建 binder 重新收集，流更新再次回填。
+            restarted = SearchHotBinder(
+                uiState = state,
+                timeFlow = timeFlow,
+                usageFlow = usageFlow,
+                scope = this,
+                dispatcher = Dispatchers.Unconfined,
+            )
+            restarted.start()
+            timeFlow.value = listOf(keyword("左传"))
+            val after = withTimeout(5_000) { state.first { it.history == listOf("左传") } }
+            assertEquals("重开后收集恢复，历史行按新快照回填", listOf("左传"), after.history)
+        } finally {
+            binder.close()
+            restarted?.close()
+        }
     }
 }
