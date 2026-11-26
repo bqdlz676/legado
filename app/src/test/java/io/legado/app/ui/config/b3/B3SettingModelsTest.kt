@@ -1,6 +1,7 @@
 package io.legado.app.ui.config.b3
 
 import io.legado.app.constant.PreferKey
+import io.legado.app.ui.config.configPreferenceMatches
 import io.legado.app.ui.motion.contract.MotionSpec
 import io.legado.app.ui.motion.contract.motionDurationMs
 import io.legado.app.ui.motion.contract.springSpecFor
@@ -182,8 +183,10 @@ class B3SettingModelsTest {
 
     @Test
     fun `R19 null summary and blank keywords are skipped when matching`() {
-        assertTrue(matchesB3Query("主题", "主题模式", null, emptyList()))
-        assertFalse(matchesB3Query("主题", "普通标题", null, listOf("  ")))
+        // 四参形态只有顶层纯函数 configPreferenceMatches；B3Row.matchesB3Query 是一参扩展函数，
+        // 写成四参会因接收者类型不匹配在 CI 编译期报 Candidate inapplicable。
+        assertTrue(configPreferenceMatches("主题", "主题模式", null, emptyList()))
+        assertFalse(configPreferenceMatches("主题", "普通标题", null, listOf("  ")))
     }
 
     @Test
