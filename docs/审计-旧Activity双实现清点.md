@@ -32,10 +32,10 @@
 |---|---|---|
 | 文件:行 | `ui/book/read/ReadBookActivity.kt`（行 214，继承 `BaseReadBookActivity`） | `ui/book/read/ink/InkReadActivity.kt`（行 57，ComponentActivity） |
 | manifest | 注册（manifest :184，exported=false） | 注册（manifest，exported=false；含 `com.samsung.android.support.REMOTE_ACTION`） |
-| 拉起方 | 仓内无 `::class` / `startActivity<>` 拉起；仅被配置对话框以宿主类型强转引用 | `utils/ContextExtensions.kt:74`、`utils/FragmentExtensions.kt:102`、`ui/book/info/BookInfoActivity.kt:1516`、`receiver/MediaButtonReceiver.kt:105` |
+| 拉起方 | 仓内无 `::class` / `startActivity<>` 拉起；仅被配置对话框以宿主类型强转引用 | `utils/ContextExtensions.kt:74`、`utils/FragmentExtensions.kt:102`、`ui/book/info/BookInfoActivity.kt:1516`；`receiver/MediaButtonReceiver.kt:105` 为 `isExistActivity` 存在性判定，非拉起 |
 | 运行期判定 | 无代码入口；**当前 runtime 阅读走 InkReadActivity** | 四条路由均收敛到它，**存活** |
 
-- 路由证据：`ContextExtensions.startActivityForBook`（`ContextExtensions.kt:70-75`）按书型分流——视频 `VideoPlayerActivity`、音频 `AudioPlayActivity`、漫画 `ReadMangaActivity`，其余 `else -> InkReadActivity::class.java`；`BookInfoActivity.kt:1515-1516` 同样非漫画落 `InkReadActivity`。
+- 路由证据：`ContextExtensions.startActivityForBook`（`ContextExtensions.kt:70-75`）按书型分流——视频 `VideoPlayerActivity`、音频 `AudioPlayActivity`、漫画 `ReadMangaActivity`，其余 `else -> InkReadActivity::class.java`；`BookInfoActivity.kt:1515-1516` 同样非漫画落 `InkReadActivity`；`FragmentExtensions.kt:100-102` 同口径分流。`MediaButtonReceiver.kt:105` 用 `LifecycleHelp.isExistActivity(InkReadActivity::class.java)` 判断新壳是否在前台，属存在性引用，不构成入口。
 - 旧壳残留耦合（下线风险点，不可直接删）：`ReadBookActivity` 仍被一批阅读配置对话框以 `activity as ReadBookActivity` / `as? ReadBookActivity` 强转：`config/AutoReadDialog.kt:49,53,105`、`BgTextConfigDialog.kt:136,145,285`、`ClickActionConfigDialog.kt:55,59`、`MoreConfigDialog.kt:57,76,122,138,174,193,197,201`、`PaddingConfigDialog.kt:81,98`、`ReadAloudControlsDialog.kt:31,48,61,64`、`ReadAloudDialog.kt:51,55`、`ReadStyleDialog.kt:40,59,68`、`ReaderMenuConfigDialog.kt:210`；另有 `page/PageView.kt:61`、`widget/dialog/BookMemoDialog.kt:47,86`、`changesource/ChangeBookSourceDialog.kt:94`、`ChangeChapterSourceDialog.kt:108` 类型判断。新壳宿主是否接管这些对话框，需运行期逐一核对。
 - 时间轴：`InkTimelineActivity`（`ui/book/read/ink/InkTimelineActivity.kt` 行 51）由 `InkActionDispatcher.kt:95` 拉起，仓内无旧版 TimelineActivity 对应物，属新栈独有，不是双实现。
 

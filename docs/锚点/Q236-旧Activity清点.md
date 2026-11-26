@@ -7,7 +7,7 @@
 - 清单口径：`git ls-files 'app/src/main/**/*Activity*.kt'` 得 70 文件；剔抽象基类与契约工具后，具体 Activity 62 个；抽象基类 4 个。
 - 孤儿旧 Fragment：`MainActivity.kt:525` 装载 `InkShelfFragment`、:527 `ExploreInkFragment`、:529 `MyInkFragment`；`MyFragment`/`ExploreFragment`/`RssFragment` 仓内无实例化引用。
 - 关于页双实现：旧 `ui/about/AboutActivity.kt:61`（AppCompatActivity）仅由 `ui/main/my/MyFragment.kt:273` 拉起；新 `ui/about/AboutInkActivity.kt:50` 由 `ui/main/my/MyInkFragment.kt:106` `open(AboutInkActivity::class.java)` 拉起。
-- 阅读页双实现：旧 `ui/book/read/ReadBookActivity.kt:214`（继承 `BaseReadBookActivity`）无 `::class` 拉起；新 `ui/book/read/ink/InkReadActivity.kt:57`（ComponentActivity）由 `utils/ContextExtensions.kt:74`、`utils/FragmentExtensions.kt:102`、`ui/book/info/BookInfoActivity.kt:1516`、`receiver/MediaButtonReceiver.kt:105` 拉起。
+- 阅读页双实现：旧 `ui/book/read/ReadBookActivity.kt:214`（继承 `BaseReadBookActivity`）无 `::class` 拉起；新 `ui/book/read/ink/InkReadActivity.kt:57`（ComponentActivity）由 `utils/ContextExtensions.kt:74`、`utils/FragmentExtensions.kt:102`、`ui/book/info/BookInfoActivity.kt:1516` 拉起；`receiver/MediaButtonReceiver.kt:105` 为 `isExistActivity` 存在性判定，非入口。
 - 阅读路由分流：`utils/ContextExtensions.kt:71-74` 视频→`VideoPlayerActivity`、音频→`AudioPlayActivity`、漫画→`ReadMangaActivity`，其余 else→`InkReadActivity`。
 - 新栈独有：`ui/book/read/ink/InkTimelineActivity.kt:51` 由 `ui/main/InkActionDispatcher.kt:95` 拉起，无旧对应物。
 - 强转耦合：`ReadBookActivity` 被 `config/AutoReadDialog.kt:49`、`BgTextConfigDialog.kt:136`、`ClickActionConfigDialog.kt:55`、`MoreConfigDialog.kt:57`、`PaddingConfigDialog.kt:81`、`ReadAloudControlsDialog.kt:31`、`ReadAloudDialog.kt:51`、`ReadStyleDialog.kt:40`、`ReaderMenuConfigDialog.kt:210`、`page/PageView.kt:61`、`widget/dialog/BookMemoDialog.kt:47` 等以宿主类型强转。
