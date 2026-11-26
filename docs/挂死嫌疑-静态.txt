@@ -1,0 +1,24 @@
+# 口径已失效（2026-11-26，Q-282）：ReaderProvider 已封死并整体清除，详见 docs/修复-清除ReaderProvider.md；本文件保留为历史记录，勿据以施工。
+
+# 挂死嫌疑静态清单（Q-276）：可直接喂 bisect-suspects.py --in-classes 或 --in
+# 口径：keep 桶静态命中类，按加权评分降序；category 打标类已剔除（独立 job 执行）。
+# 每行一个 FQCN；# 开头为注释行，bisect 读取时跳过。
+io.legado.app.model.ChapterDownloadStateTest
+io.legado.app.help.storage.LanBackupTransferTest
+io.legado.app.model.jsSource.JsSourceUpsertTest
+io.legado.app.model.DebugCallbackOwnershipTest
+io.legado.app.ui.font.FontSelectionStyleTest
+io.legado.app.help.SourceLockTest
+io.legado.app.help.source.SourceNavigationPolicyTest
+io.legado.app.help.http.HttpLogInterceptorTest
+io.legado.app.api.ReaderProviderRoutesTest
+io.legado.app.help.audio.AudioCachePolicyTest
+io.legado.app.help.http.OkHttpRetryTest
+io.legado.app.model.jsSource.JsSourceBookTest
+io.legado.app.model.jsSource.JsSourceReviewTest
+io.legado.app.model.rss.RssContentPaginationTest
+io.legado.app.model.webBook.WebBookTest
+io.legado.app.ui.code.RuleExpressionFormatterTest
+io.legado.app.ui.login.LoginUiScriptEvaluatorTest
+io.legado.app.ui.main.bookshelf.ShelfEntrySweepTest
+io.legado.app.ui.replace.edit.ReplacePreviewTest

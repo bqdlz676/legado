@@ -1,0 +1,56 @@
+# 挂死二分取证片段（bisect-suspects.py 生成）——二分模式：a/b 两批并发，8 分钟熔断。
+# 用法：并入某个 workflow 的 jobs: 下；suspect-a.txt / suspect-b.txt 随 artifact 上传（名 bisect-suspects）。
+# 判定：哪一批在 8 分钟内无 XML / 无终态被取消，culprit 就在哪一批；下一轮以该批清单重跑本脚本。
+# 注意：本片段是取证兜底，定位到 culprit 后撤下；不要长期留在 verify.yml。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bisect:
+    name: Bisect side ${{ matrix.side }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        side: [a, b]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 与 verify.yml 分片 job 同口径：runner 镜像预装 Temurin 21，本地取、零网络；
+      # 片段不内置下载兜底（取证车道保持轻量），镜像缺 21 时直接红灯排环境。
+      - name: Set up JDK 21 (preinstalled)
+        run: |
+          set -euo pipefail
+          for H in "${JAVA_HOME_21_X64:-}" "${JAVA_HOME_21_ARM64:-}"; do
+            if [ -n "$H" ] && [ -x "$H/bin/java" ]; then
+              echo "JAVA_HOME=$H" >> "$GITHUB_ENV"
+              echo "$H/bin" >> "$GITHUB_PATH"
+              exit 0
+            fi
+          done
+          echo "::error::runner 未预装 JDK21，二分片段未内置下载兜底"; exit 1
+
+      - name: Download suspect lists
+        uses: actions/download-artifact@v4
+        with:
+          name: bisect-suspects
+          path: class-lists
+
+      - name: Run suspect batch
+        run: |
+          set -uo pipefail
+          mapfile -t CLASSES < "class-lists/suspect-${{ matrix.side }}.txt"
+          if [ ${{#CLASSES[@]}} -eq 0 ]; then
+            echo "::error::嫌疑批 ${{ matrix.side }} 清单为空，拒绝空跑（空 job 会假绿）"; exit 1
+          fi
+          ARGS=()
+          for c in "${CLASSES[@]}"; do ARGS+=(--tests "$c"); done
+          echo "side ${{ matrix.side }}: ${{#CLASSES[@]}} classes"
+          ./gradlew :app:testAppDebugUnitTest -PexcludeRhino -PexcludeSlowBench \
+            --no-daemon --build-cache --stacktrace "${ARGS[@]}" 2>&1 | tee "gradle-bisect-${{ matrix.side }}.log"
+          exit "${PIPESTATUS[0]}"
