@@ -1,5 +1,7 @@
 > 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=2764066b816e；验收=ef27bd6ac2b4；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批2-战役回放 §三）
 > 回执缺失（规则上线前交付，留档）
+> 机械改动：纯编译错修正——仅把 standalone `object` 内的 `companion` 成员原地展开到 `object` 顶层（3 个 engine 文件），本轮另把报告内证据锚点由省略号路径补全为仓内全路径（锚点规范化，不改结论）；无规格语义变更（2026-11-26 补记）。
+> 证据三件套留档：本报告规则上线前交付，本轮只补全证据锚点路径，不回填 E1/E2/E3 —— 按机制-验收证据工作台口径，旧结论不回填伪装成新证据；原证据段保留备查（2026-11-26）。
 
 # 修复-crossing `object` 内嵌套 `companion object`（CI run `45171948572` / `d301fbd`）
 
@@ -14,9 +16,9 @@
 ## 一、报错原文（CI run `45171948572`，日志副本 `/tmp/jd30.log`）
 
 ```
-e: .../engine/CombatResolver.kt:50:5  Modifier 'companion' is not applicable inside 'standalone object'.
-e: .../engine/MoraleSystem.kt:57:5     Modifier 'companion' is not applicable inside 'standalone object'.
-e: .../engine/IntentResolver.kt:146:5 Modifier 'companion' is not applicable inside 'standalone object'.
+e: app/src/main/java/io/legado/app/ui/map/crossing/engine/CombatResolver.kt:50:5  Modifier 'companion' is not applicable inside 'standalone object'.
+e: app/src/main/java/io/legado/app/ui/map/crossing/engine/MoraleSystem.kt:57:5     Modifier 'companion' is not applicable inside 'standalone object'.
+e: app/src/main/java/io/legado/app/ui/map/crossing/engine/IntentResolver.kt:146:5 Modifier 'companion' is not applicable inside 'standalone object'.
 ```
 
 根因：Kotlin 中 standalone `object X { … }` 本身已是单例，不能在其内部再声明 `companion object`（companion 是给普通 `class` / `data class` / `enum class` 挂静态伴生用的）。三条报错行均为 `companion object {` 声明本身。
@@ -206,7 +208,7 @@ grep -rn "companion object" app/src/main/java/io/legado/app/ui/map/crossing/
 
 ```
 app/.../crossing/engine/CampaignController.kt:442:    companion object {
-app/.../crossing/engine/Pathfinder.kt:176:    companion object {
+app/src/main/java/io/legado/app/ui/map/crossing/engine/Pathfinder.kt:176:    companion object {
 app/.../crossing/model/CampaignModels.kt:14:    companion object {
 app/.../crossing/model/Enums.kt:34:    companion object {
 app/.../crossing/model/Enums.kt:65:    companion object {

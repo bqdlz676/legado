@@ -1,6 +1,8 @@
 > 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=aa92e3b27983；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批5-机制文档 §三）
 > 回执缺失（规则上线前交付，留档）
 
+> 漂移重判：本锚当时即写错（原因：`PaparazziTestReporter` 属 `app.cash.paparazzi.gradle.reporting` 第三方 Paparazzi Gradle 插件类，仓内 `app/src`、`screenshot/src` grep 零仓内声明，雷达按仓内文件锚点误判 DEADFILE），现更正为第三方全限定名引用，不挂 `文件:行` 仓内证据形态（2026-11-26）。
+
 # 修复记录 · CI 红（截图基建回归）
 
 - 修复 commit：`b49de91eb95259a3f1f849f50bd8b1aa248a2799`（分支 `main`）
@@ -53,8 +55,8 @@
 
 - `:704`：`> Task :app:testAppDebugUnitTest FAILED`
 - `:762`：`Caused by: org.gradle.api.GradleException: Could not generate test report to '/home/runner/work/legado/legado/app/build/reports/tests/testAppDebugUnitTest'.`
-- `:763`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter.generateFiles(PaparazziTestReporter.kt:118)`
-- `:764`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter.generateReport(PaparazziTestReporter.kt:38)`
+- `:763`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter#generateFiles`（第三方插件类，非仓内文件；原栈帧括号内 `PaparazziTestReporter.kt:118` 为插件 jar 内源码位置，不作仓内证据锚点）
+- `:764`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter#generateReport`（第三方插件类，非仓内文件；原栈帧括号内 `PaparazziTestReporter.kt:38` 为插件 jar 内源码位置，不作仓内证据锚点）
 - `:909`：`Caused by: java.lang.NoClassDefFoundError: org/gradle/reporting/CodePanelRenderer$Data`
 - `:946`：`Caused by: java.lang.ClassNotFoundException: org.gradle.reporting.CodePanelRenderer$Data`
 
