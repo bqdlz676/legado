@@ -75,6 +75,19 @@ def main() -> int:
         base = set()
         if os.path.isfile(base_path):
             base = set(json.load(open(base_path, encoding='utf-8')).get('missing', []))
+            # 基线自查（M-46）：基线文件自己也能被改——若允许扩张，"新欠账"写进基线就能洗白。
+            # 判据：HEAD 基线必须 ⊆ origin/main 基线（棘轮只许缩小）；无远端引用时退回上一条提交比较。
+            import subprocess
+            ref = None
+            for cand in ('origin/main', 'HEAD~1'):
+                r = subprocess.run(['git', 'show', '%s:data_scripts/dispatch-ledger-baseline.json' % cand],
+                                   cwd=os.path.dirname(os.path.abspath(__file__)) + '/..',
+                                   capture_output=True, text=True)
+                if r.returncode == 0:
+                    ref = set(json.loads(r.stdout).get('missing', [])); break
+            if ref is not None and base - ref:
+                fails.append('台账基线扩张 %d 条（棘轮只许缩小）：%s'
+                             % (len(base - ref), '、'.join(sorted(base - ref)[:6])))
         new_missing = [q for q in missing if q not in base]
         if new_missing:
             fails.append('台账缺 %d 个队列已登记的派单号（基线外新增欠账）：%s'
