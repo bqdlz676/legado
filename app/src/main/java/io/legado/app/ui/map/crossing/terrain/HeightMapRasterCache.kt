@@ -22,8 +22,11 @@ internal object HeightMapRasterCache {
     private const val EVICT_LOG_LIMIT: Int = 16
 
     /**
-     * 缓存键：高程源内容 sha256 前 16 位 + 解码栅格尺寸（宽 × 高）。
-     * 同字节源确定性产出同尺寸栅格；尺寸入键防哈希碰撞串味，也便于排障定位槽位身份。
+     * 槽位身份记录：高程源内容 sha256 前 16 位 + 解码栅格尺寸（宽 × 高）。
+     *
+     * 注意：map 索引键只有 [contentHash]（解码前即可按哈希命中，见 [rasterCache]）；
+     * 宽 / 高随槽位记录在本结构里，供逐出台账排障与尺寸核对，不参与命中查找。
+     * 同 16 位哈希前缀但尺寸不同的源会在索引层相撞——64 位前缀碰撞概率极低，残余风险见修复报告。
      */
     private data class CacheKey(val contentHash: String, val width: Int, val height: Int)
 
@@ -82,7 +85,8 @@ internal object HeightMapRasterCache {
             val victim = rasterCache.entries.minByOrNull { it.value.lastUsed } ?: break
             rasterCache.remove(victim.key)
             cacheEvictions++
-            val msg = "DEM 缓存 LRU 逐出 ${victim.key.contentHash}（${victim.key.width}×${victim.key.height}），" +
+            val victimKey = victim.value.key
+            val msg = "DEM 缓存 LRU 逐出 ${victimKey.contentHash}（${victimKey.width}×${victimKey.height}），" +
                 "容量上限 $CACHE_CAPACITY，新槽 ${insertingKey.contentHash}（${insertingKey.width}×${insertingKey.height}）"
             evictLog.add(msg)
             if (evictLog.size > EVICT_LOG_LIMIT) evictLog.removeAt(0)

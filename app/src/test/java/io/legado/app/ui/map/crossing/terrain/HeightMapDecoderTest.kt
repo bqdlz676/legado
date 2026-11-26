@@ -150,11 +150,11 @@ class HeightMapDecoderTest {
         assertEquals(4, raster.width)
         assertEquals(4, raster.height)
         assertEquals(16, raster.size)
-        assertTrue(raster.data.all { it in 0f..1f })
+        assertTrue(raster.toFloatArray().all { it in 0f..1f })
         val expect00 = 0 / 255f
-        assertEquals(expect00, raster.data[0], 1e-6f)
+        assertEquals(expect00, raster.valueAt(0), 1e-6f)
         val expect33 = (3 * 64 + 3 * 16) / 255f
-        assertEquals(expect33, raster.data[15], 1e-6f)
+        assertEquals(expect33, raster.valueAt(15), 1e-6f)
         assertTrue(!raster.degraded)
     }
 
@@ -169,7 +169,7 @@ class HeightMapDecoderTest {
         assertEquals(2, raster.width)
         assertEquals(2, raster.height)
         val expect = (100 + 150 + 200) / 3 / 255f
-        assertTrue(raster.data.all { abs(it - expect) < 1e-5f })
+        assertTrue(raster.toFloatArray().all { abs(it - expect) < 1e-5f })
     }
 
     @Test
@@ -189,15 +189,15 @@ class HeightMapDecoderTest {
     @Test
     fun `超大栅格经降采样护栏收口到上限内`() {
         val source = HeightMapRaster(
-            width = 100, height = 40,
-            data = FloatArray(4000) { (it % 256) / 255f },
-            degraded = false, source = SourceKind.ASSET,
+            100, 40,
+            FloatArray(4000) { (it % 256) / 255f },
+            false, SourceKind.ASSET,
         )
         val capped = HeightMapDecoder.downsample(source, maxDimension = 50, maxPixels = 2000)
         assertTrue(capped.width <= 50)
         assertTrue(capped.height <= 50)
         assertTrue(capped.size <= 2000)
-        assertTrue(capped.data.all { it in 0f..1f })
+        assertTrue(capped.toFloatArray().all { it in 0f..1f })
         // 未超护栏的栅格原样返回
         val small = HeightMapRaster(8, 8, FloatArray(64) { 0.5f }, false, SourceKind.ASSET)
         val untouched = HeightMapDecoder.downsample(small, 2048, 4_000_000)
@@ -209,10 +209,10 @@ class HeightMapDecoderTest {
     fun `合成回落确定性：同字符串两次结果逐格相同`() {
         val a = HeightMapDecoder.synthesize("gaixia.png")
         val b = HeightMapDecoder.synthesize("gaixia.png")
-        assertArrayEquals(a.data, b.data, 1e-7f)
+        assertArrayEquals(a.toFloatArray(), b.toFloatArray(), 1e-7f)
         assertTrue(a.degraded)
         assertEquals(SourceKind.SYNTHETIC, a.source)
-        assertTrue(a.data.all { it in 0f..1f })
+        assertTrue(a.toFloatArray().all { it in 0f..1f })
         assertEquals(HeightMapDecoder.DEFAULT_GRID_N, a.width)
         assertEquals(HeightMapDecoder.DEFAULT_GRID_N, a.height)
     }
@@ -223,7 +223,7 @@ class HeightMapDecoderTest {
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
-        assertTrue(raster.data.all { it == 0f })
+        assertTrue(raster.toFloatArray().all { it == 0f })
     }
 
     @Test
@@ -234,7 +234,7 @@ class HeightMapDecoderTest {
         raster!!
         assertEquals(1, raster.width)
         assertEquals(1, raster.height)
-        assertEquals(200 / 255f, raster.data[0], 1e-6f)
+        assertEquals(200 / 255f, raster.valueAt(0), 1e-6f)
     }
 
     // ── 扩展：内联 base64 / 分类 / 回落 ──────────────────────────
@@ -255,7 +255,7 @@ class HeightMapDecoderTest {
         val dataUri = "data:image/png;base64,$b64"
         val fromUri = HeightMapDecoder.decodeInline(dataUri)
         assertNotNull(fromUri)
-        assertArrayEquals(raster.data, fromUri!!.data, 1e-7f)
+        assertArrayEquals(raster.toFloatArray(), fromUri!!.toFloatArray(), 1e-7f)
     }
 
     @Test
@@ -276,7 +276,7 @@ class HeightMapDecoderTest {
         val raster = HeightMapDecoder.decode("gaixia.png", reader = null)
         assertTrue(raster.degraded)
         assertEquals(SourceKind.SYNTHETIC, raster.source)
-        assertTrue(raster.data.all { it in 0f..1f })
+        assertTrue(raster.toFloatArray().all { it in 0f..1f })
 
         val badInline = HeightMapDecoder.decode("data:image/png;base64,@@@not-base64@@@", reader = null)
         assertTrue(badInline.degraded)
@@ -288,7 +288,7 @@ class HeightMapDecoderTest {
         // 经 CampaignJsonParser 暴露的既有 API 装配；model 暂未接纳栅格字段，壳层后续经此取栅格。
         val raster = CampaignJsonParser.decodeHeightMap("gaixia.png", null)
         assertTrue(raster.degraded)
-        assertTrue(raster.data.all { it in 0f..1f })
+        assertTrue(raster.toFloatArray().all { it in 0f..1f })
     }
 
     // ── M2：滤波 1-4 与色彩类型 2/3 解码证据 ──────────────────────
@@ -304,10 +304,10 @@ class HeightMapDecoderTest {
         raster!!
         assertEquals(2, raster.width)
         assertEquals(2, raster.height)
-        assertEquals(80 / 255f, raster.data[0], 1e-6f)
-        assertEquals(160 / 255f, raster.data[1], 1e-6f)
-        assertEquals(40 / 255f, raster.data[2], 1e-6f)
-        assertEquals(200 / 255f, raster.data[3], 1e-6f)
+        assertEquals(80 / 255f, raster.valueAt(0), 1e-6f)
+        assertEquals(160 / 255f, raster.valueAt(1), 1e-6f)
+        assertEquals(40 / 255f, raster.valueAt(2), 1e-6f)
+        assertEquals(200 / 255f, raster.valueAt(3), 1e-6f)
     }
 
     @Test
@@ -349,8 +349,8 @@ class HeightMapDecoderTest {
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
-        assertEquals(120 / 255f, raster.data[0], 1e-6f)
-        assertEquals(90 / 255f, raster.data[1], 1e-6f)
+        assertEquals(120 / 255f, raster.valueAt(0), 1e-6f)
+        assertEquals(90 / 255f, raster.valueAt(1), 1e-6f)
     }
 
     @Test
@@ -364,8 +364,8 @@ class HeightMapDecoderTest {
         val raster = HeightMapDecoder.decodeBytes(png)
         assertNotNull(raster)
         raster!!
-        assertEquals(170 / 255f, raster.data[0], 1e-6f)
-        assertEquals(85 / 255f, raster.data[1], 1e-6f)
+        assertEquals(170 / 255f, raster.valueAt(0), 1e-6f)
+        assertEquals(85 / 255f, raster.valueAt(1), 1e-6f)
     }
 
     // ── M4：分类优先级（base64 字符集先于路径分隔符） ──────────────
@@ -418,7 +418,7 @@ class HeightMapDecoderTest {
         encodePng(1, 1, colorType = 0, channels = 1, pixel = { _, _ -> intArrayOf(gray) })
 
     @Test
-    fun `Q238 同一内联 PNG 二次解码走缓存命中，命中/未命中计数正确`() {
+    fun `Q238 同一内联 PNG 二次解码走缓存命中，命中与未命中计数正确`() {
         HeightMapDecoder.resetCache()
         val b64 = Base64.getEncoder().encodeToString(onePixelPng(128))
         val first = HeightMapDecoder.decodeInline(b64)

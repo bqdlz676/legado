@@ -1307,7 +1307,7 @@ class CampaignController private constructor(
          */
         private fun toHeightRaster(raster: HeightMapRaster): HeightRaster {
             val data = IntArray(raster.size) { i ->
-                (raster.data[i].coerceIn(0f, 1f) * 255f + 0.5f).toInt().coerceIn(0, 255)
+                (raster.valueAt(i).coerceIn(0f, 1f) * 255f + 0.5f).toInt().coerceIn(0, 255)
             }
             return HeightRaster.create(raster.width, raster.height, data, degradedHint = raster.degraded)
         }

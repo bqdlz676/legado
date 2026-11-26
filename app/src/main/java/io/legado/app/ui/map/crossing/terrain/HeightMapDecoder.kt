@@ -22,15 +22,21 @@ enum class SourceKind { ASSET, LOCAL_PATH, BASE64, SYNTHETIC, NONE }
 /**
  * 高程栅格解码结果（纯 JVM，零 Android 依赖）。
  *
- * 口径：行优先 `data[row * width + col]`；行 0 = 北缘、列 0 = 西缘，与 [HeightRaster] /
+ * 口径：行优先 `pixels[row * width + col]`；行 0 = 北缘、列 0 = 西缘，与 [HeightRaster] /
  * [TerrainMap] 同方向；每格 0..1 归一化高程（0 = 海面，1 = 满幅 7000m，米制换算仍走
  * [HeightRaster.metersFor]）。[degraded] = true 表示该栅格是合成回落场，不是真实 PNG 解码产物。
  */
 data class HeightMapRaster(
     val width: Int,
     val height: Int,
-    /** 行优先，每格 0..1；构造时统一夹紧，不含 NaN / Infinity。 */
-    val data: FloatArray,
+    /**
+     * 行优先，每格 0..1；构造时统一夹紧，不含 NaN / Infinity。
+     *
+     * 不可变口径（Q-247）：backing 数组私有，从不对外泄漏可变引用；只读走 [valueAt] /
+     * [at]（零拷贝），需要自有副本走 [toFloatArray]。缓存命中返回同一实例时，外部无法
+     * 拿到 [pixels] 句柄去改写共享源栅格，避免「同一战役重启后地形被前次调用写串味」。
+     */
+    private val pixels: FloatArray,
     /** true = 合成回落场；false = 真实图片解码产物。 */
     val degraded: Boolean,
     val source: SourceKind,
@@ -43,8 +49,14 @@ data class HeightMapRaster(
     fun at(col: Int, row: Int): Float {
         val c = col.coerceIn(0, width - 1)
         val r = row.coerceIn(0, height - 1)
-        return data[r * width + c]
+        return pixels[r * width + c]
     }
+
+    /** 按扁平下标只读取一格高程；零拷贝，返回标量不携带数组句柄。 */
+    fun valueAt(index: Int): Float = pixels[index]
+
+    /** 导出一份防御性副本；调用方可自由改写自己的副本，不影响缓存内的源栅格。 */
+    fun toFloatArray(): FloatArray = pixels.copyOf()
 }
 
 /**
@@ -454,10 +466,10 @@ object HeightMapDecoder {
             val sy = floor(row.toDouble() / (nh - 1) * (sh - 1)).toInt().coerceIn(0, sh - 1)
             for (col in 0 until nw) {
                 val sx = floor(col.toDouble() / (nw - 1) * (sw - 1)).toInt().coerceIn(0, sw - 1)
-                out[row * nw + col] = raster.data[sy * sw + sx]
+                out[row * nw + col] = raster.valueAt(sy * sw + sx)
             }
         }
-        return raster.copy(width = nw, height = nh, data = out)
+        return raster.copy(width = nw, height = nh, pixels = out)
     }
 
     // ── 确定性合成回落场 ──────────────────────────────────────
