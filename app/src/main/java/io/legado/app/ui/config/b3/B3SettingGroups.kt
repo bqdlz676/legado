@@ -64,6 +64,19 @@ internal fun b3SettingGroups(
     val webDavAccount = rememberB3String(PreferKey.webDavAccount, null)
     val webDavPassword = rememberB3String(PreferKey.webDavPassword, null)
 
+    // 弹层标题 / 提示必须在 composable 作用域先取，不能落在 onClick 这类非 Composable lambda 内（编译期硬约束）。
+    val themeModeTitle = stringResource(R.string.theme_mode)
+    val fontScaleTitle = stringResource(R.string.font_scale)
+    val webDavUrlTitle = stringResource(R.string.web_dav_url)
+    val webDavUrlHint = stringResource(R.string.web_dav_url_s)
+    val webDavAccountTitle = stringResource(R.string.web_dav_account)
+    val webDavAccountHint = stringResource(R.string.web_dav_account_s)
+    val webDavPwTitle = stringResource(R.string.web_dav_pw)
+    val webDavPwHint = stringResource(R.string.web_dav_pw_s)
+    val clearCacheTitle = stringResource(R.string.clear_cache)
+    val clearWebviewTitle = stringResource(R.string.clear_webview_data)
+    val shrinkDbTitle = stringResource(R.string.shrink_database)
+
     return listOf(
         B3SettingGroup(
             title = "外观",
@@ -75,7 +88,7 @@ internal fun b3SettingGroups(
                     onClick = {
                         openTarget(
                             B3SheetTarget.ListPick(
-                                title = stringResource(R.string.theme_mode),
+                                title = themeModeTitle,
                                 entries = themeEntries,
                                 values = themeValues,
                                 current = themeCurrent,
@@ -91,7 +104,7 @@ internal fun b3SettingGroups(
                     onClick = {
                         openTarget(
                             B3SheetTarget.Number(
-                                title = stringResource(R.string.font_scale),
+                                title = fontScaleTitle,
                                 min = 8,
                                 max = 16,
                                 current = fontScale,
@@ -166,9 +179,9 @@ internal fun b3SettingGroups(
                         openTarget(
                             B3SheetTarget.Text(
                                 key = PreferKey.webDavUrl,
-                                title = stringResource(R.string.web_dav_url),
+                                title = webDavUrlTitle,
                                 initial = webDavUrl,
-                                hint = stringResource(R.string.web_dav_url_s),
+                                hint = webDavUrlHint,
                                 password = false,
                                 onConfirm = { value ->
                                     context.putPrefString(PreferKey.webDavUrl, value)
@@ -186,9 +199,9 @@ internal fun b3SettingGroups(
                         openTarget(
                             B3SheetTarget.Text(
                                 key = PreferKey.webDavAccount,
-                                title = stringResource(R.string.web_dav_account),
+                                title = webDavAccountTitle,
                                 initial = webDavAccount,
-                                hint = stringResource(R.string.web_dav_account_s),
+                                hint = webDavAccountHint,
                                 password = false,
                                 onConfirm = { value ->
                                     context.putPrefString(PreferKey.webDavAccount, value)
@@ -207,9 +220,9 @@ internal fun b3SettingGroups(
                         openTarget(
                             B3SheetTarget.Text(
                                 key = PreferKey.webDavPassword,
-                                title = stringResource(R.string.web_dav_pw),
+                                title = webDavPwTitle,
                                 initial = webDavPassword,
-                                hint = stringResource(R.string.web_dav_pw_s),
+                                hint = webDavPwHint,
                                 password = true,
                                 onConfirm = { value ->
                                     context.putPrefString(PreferKey.webDavPassword, value)
@@ -261,7 +274,7 @@ internal fun b3SettingGroups(
                     onClick = {
                         openTarget(
                             B3SheetTarget.Confirm(
-                                title = stringResource(R.string.clear_cache),
+                                title = clearCacheTitle,
                                 message = "清除已下载书籍与字体缓存？此操作不可撤销。",
                                 confirmLabel = "清理",
                                 onConfirm = actions.clearCache,
@@ -277,7 +290,7 @@ internal fun b3SettingGroups(
                     onClick = {
                         openTarget(
                             B3SheetTarget.Confirm(
-                                title = stringResource(R.string.clear_webview_data),
+                                title = clearWebviewTitle,
                                 message = "清除内置浏览器所有数据，应用将在 3 秒后重启？",
                                 confirmLabel = "清除",
                                 onConfirm = actions.clearWebViewData,
@@ -293,7 +306,7 @@ internal fun b3SettingGroups(
                     onClick = {
                         openTarget(
                             B3SheetTarget.Confirm(
-                                title = stringResource(R.string.shrink_database),
+                                title = shrinkDbTitle,
                                 message = "收缩数据库文件（VACUUM）？",
                                 confirmLabel = "压缩",
                                 onConfirm = actions.shrinkDatabase,

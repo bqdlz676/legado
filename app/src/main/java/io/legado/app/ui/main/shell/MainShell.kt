@@ -90,7 +90,8 @@ private fun ShellPageTransition(
         stiffness = spec.stiffness,
     )
     // O8：fade 层 easing 回页面转场令牌（pageTurnEasing），不写裸曲线、不走 Compose 默认缓动。
-    val fadeSpec = tween(durationMillis = duration, easing = ComponentTokens.pageTurnEasing)
+    // 显式 tween<Float>：声明处无使用点可推 T，留空会让编译器报 Cannot infer type for type parameter T。
+    val fadeSpec = tween<Float>(durationMillis = duration, easing = ComponentTokens.pageTurnEasing)
     AnimatedContent(
         targetState = current,
         transitionSpec = {
