@@ -83,10 +83,27 @@ def main() -> int:
             print('ok    台账内容对账：队列 %d 个 Q 号均在台账内或已在历史基线（基线 %d 条待销）'
                   % (len(qids), len(base)))
 
-    # ② 在飞行数超硬上限 → FAIL
-    open_count = sum(
-        1 for line in text.splitlines() if re.match(r"^\|.*\|\s*在飞", line)
-    )
+    # ② 在草稿数超硬上限 → FAIL
+    # 旧判据只数台账里带"在飞"标记的行：台账不写就没有在飞，等于自己给自己开脱（M-45）。
+    # 现判据以队列 RUNNING 行数为真值，台账标记数必须与之相等。
+    # "在飞"判定：状态格里出现 在飞，且未终结（有"已交付/作废/DONE"的不算）。旧写死"| 在飞"会漏 🟡 前缀。
+    # 只认"状态格以 在飞 打头"的行：备注里提到"在飞"的历史行不算（否则 31 条噪声）。
+    ledger_marked = 0
+    for line in text.splitlines():
+        if not line.startswith('|'):
+            continue
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        if any(c.startswith(('🟡 在飞', '在飞')) for c in cells):
+            ledger_marked += 1
+    queue_running = 0
+    if os.path.isfile(queue_path):
+        for line in open(queue_path, encoding='utf-8').read().splitlines():
+            if re.match(r'^\s*\|?\s*Q-\d+', line) and re.search(r'\|\s*RUNNING', line):
+                queue_running += 1
+    if ledger_marked != queue_running:
+        fails.append('在飞数不一致：台账标记 %d 条 / 队列 RUNNING %d 行（台账必须如实反映在飞）'
+                     % (ledger_marked, queue_running))
+    open_count = queue_running
     if open_count > HARD_CAP:
         fails.append(f"在飞 {open_count} 条，超硬上限 {HARD_CAP}")
     else:
