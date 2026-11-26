@@ -506,6 +506,11 @@ if [ $? -eq 0 ]; then ok "56锁口径" "$(echo "$LK56" | grep 'LOCK-RULE: PASS' 
 SF57=$(python3 data_scripts/check-slot-full.py 2>&1)
 if [ $? -eq 0 ]; then ok "57空槽即红" "$(echo "$SF57" | grep 'SLOT-FULL: PASS' | head -1)"; else bad "57空槽即红" "$(echo "$SF57" | grep -E 'FAIL|  ' | head -3 | tr '\n' ' ')"; fi
 
+# 58 人工节保留（M-56 根治：索引生成器 --write 只写 GEN 区间，人工节必须存在且在区间外）。
+#   为什么：手写门禁表/风险行被整文件重写静默覆盖＝知识丢失；只改生成器不够，还要机检人工节没被挪进区间。
+MS58=$(python3 data_scripts/check-manual-section.py 2>&1)
+if [ $? -eq 0 ]; then ok "58人工节" "$(echo "$MS58" | grep 'MANUAL-SECTION: PASS' | head -1)"; else bad "58人工节" "$(echo "$MS58" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
 if [ ${#SKIP_LEGACY[@]} -gt 0 ]; then
   echo "SKIP-LEGACY 合计 ${#SKIP_LEGACY[@]} 份（存量件仅头部留痕，⑲/⑭/⑮ 豁免）："
