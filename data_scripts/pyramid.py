@@ -1,102 +1,89 @@
 #!/usr/bin/env python3
-"""金字塔验收：每轮打印七层现状（2026-11-26 定稿，配套 docs/机制-金字塔验收.md）。
+"""金字塔验收现状打印（唯一口径＝既有 F-92 五层 + 铁律 #46 组装层级）。
 
-为什么要有它：验收被当成一道门的时候，人只能靠记忆决定"这单验到什么程度"。
-拆成七层以后，每层的绿/红/缺口都能机检或按事实数出来，于是"验到哪一层"不再是自由心证。
+为什么改写：初版我自己造了"七层"，与仓库既有 `docs/铁律-组合验收金字塔.md`（F-92）
+和 `docs/组合验收矩阵.md` + `docs/台账-验收分层.md` + 门禁 ㉑ 重复。重复机制本身就是
+L8「缝合怪只增不减」的复发，所以本脚本只读既有三件套，绝不生成第二套口径。
 
-只读：不提交、不推送、不改任何文件。
-用法：python3 data_scripts/pyramid.py [--commits 6]
+用法：python3 data_scripts/pyramid.py
 """
 
-import argparse
 import os
 import re
 import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MATRIX = os.path.join(ROOT, "docs", "组合验收矩阵.md")
+LAYER_LEDGER = os.path.join(ROOT, "docs", "台账-验收分层.md")
 
 
-def sh(args):
-    return subprocess.run(args, cwd=ROOT, capture_output=True, text=True).stdout
+def read(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
 
 
-def tail_ok(cmd):
-    out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, shell=True).stdout
-    last = out.strip().splitlines()[-1] if out.strip() else "（无输出）"
-    return ("FAIL" not in last and "红" not in last), last
+def main():
+    matrix = read(MATRIX)
+    ledger = read(LAYER_LEDGER)
+    print("=== 金字塔验收现状（F-92 五层 + 铁律 #46 组装层级）===")
 
+    # 层 1~层 4 的行数按分节统计（矩阵按 "## N. 层 N" 分节，行里不带层号列）
+    sections = re.split(r"^## ", matrix, flags=re.M)
+    for sec in sections:
+        m = re.match(r"(\d)\.\s*层\s*(\d)", sec)
+        if not m:
+            continue
+        layer = m.group(2)
+        rows = len(re.findall(r"^\|\s*(?:P|L|A|M|W|E)[0-9A-Za-z-]*\s*\|", sec, re.M))
+        print(f"层 {layer}: 矩阵登记 {rows} 行")
 
-def ci_status():
+    for tag in ("未落地", "待验", "已验"):
+        print(f"状态「{tag}」: {matrix.count(tag)} 处")
+
+    # 缺陷落层归因：台账里 DEF-xx 条数与是否都有层标记
+    defs = re.findall(r"^\|\s*(DEF-\d+)\s*\|([^\n]*?)\|\s*层\s*(\d)\s*\|", ledger, re.M)
+    print(f"缺陷落层归因: {len(defs)} 条（层分布 {sorted({d[2] for d in defs})}）")
+
+    # 组装层级（铁律 #46）
+    # 组装层级登记在模块契约索引 §3.5，不在矩阵里；这里读那份索引
+    idx = read(os.path.join(ROOT, "docs", "落文-模块契约索引.md"))
+    for unit in ("L1-A", "L1-B", "L1-C"):
+        hit = re.search(rf"\| {unit} [^|]+\|[^\n]*?\|([^|]+)\s*\|?\s*$", idx, re.M)
+        if not hit:
+            hit = re.search(rf"\| {unit} [^|]+\|[^\n]*\|([^|]+)\|", idx)
+        state = hit.group(1).strip()[:70] if hit else "索引未登记"
+        print(f"组装单元 {unit}: {state}")
+
+    # 门禁 ㉑
+    out = subprocess.run([sys.executable, "data_scripts/check-combo-coverage.py"],
+                         cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    print("门禁 ㉑:", out.splitlines()[-1] if out else "（无输出）")
+
+    # CI 真值（组装编译只认云端）
     token = subprocess.run("grep -o 'ghp_[A-Za-z0-9]*' ~/.git-credentials | head -1",
                            shell=True, capture_output=True, text=True).stdout.strip()
-    head = sh(["git", "rev-parse", "--short", "HEAD"]).strip()
+    head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True).stdout.strip()
     api = subprocess.run(
         f"curl -s -H 'Authorization: Bearer {token}' "
         "'https://api.github.com/repos/bqdlz676/legado/actions/runs?per_page=8'",
         shell=True, capture_output=True, text=True).stdout
-    rows = []
-    for m in re.finditer(r'"head_sha":"(\w{7})\w*"[^}]*?"name":"([^"]+)"[^}]*?"status":"(\w+)"[^}]*?"conclusion":(null|"\w+")', api):
-        if m.group(1) == head:
-            rows.append((m.group(2), m.group(3), (m.group(4) or "").strip('"') or "-"))
-    return head, rows
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--commits", type=int, default=6)
-    ap.parse_args()
-
-    print("=== 金字塔验收现状 ===")
-
-    # L0 静态事实层
-    g_ok, g_tail = tail_ok("python3 data_scripts/cross-module-guard.py")
-    f_ok, f_tail = tail_ok("python3 data_scripts/check-frankenstein.py")
-    r_ok, r_tail = tail_ok("python3 data_scripts/debt-ratchet.py")
-    print(f"L0 静态事实：guard {'绿' if g_ok else '红'} / frankenstein {'绿' if f_ok else '红'} / ratchet {'绿' if r_ok else '红'}")
-    for t in (g_tail, f_tail, r_tail):
-        print(f"    {t}")
-
-    # L1 单元行为层：数"自查反例"节的覆盖率（有这节才说明做过改坏推演）
-    docs = [f for f in os.listdir(os.path.join(ROOT, "docs"))
-            if f.startswith(("修复-", "验收-")) and f.endswith(".md")]
-    with_sec = 0
-    for f in docs:
-        body = open(os.path.join(ROOT, "docs", f), encoding="utf-8", errors="ignore").read()
-        if "自查反例" in body or "改坏" in body:
-            with_sec += 1
-    print(f"L1 单元行为：报告 {len(docs)} 份，含改坏推演/自查反例的 {with_sec} 份")
-
-    # L2 结构契约：数"单源/唯一/全仓"这类回证出现次数，作为人工判断的输入
-    prints = len(re.findall(r"单源", "\n".join(
-        open(os.path.join(ROOT, "docs", f), encoding="utf-8", errors="ignore").read() for f in docs)))
-    print(f"L2 结构契约：报告里出现「单源」回证 {prints} 处（人类判断输入，非机检结论）")
-
-    # L3/L4 云端
-    head, rows = ci_status()
-    if not rows:
-        print(f"L3/L4 云端：HEAD {head} 没有对应 run（可能还没触发）")
+    rows = [(m.group(1), m.group(2), m.group(3), (m.group(4) or "").strip('"') or "-")
+            for m in re.finditer(
+                r'"head_sha":"(\w{7})\w*"[^}]*?"name":"([^"]+)"[^}]*?"status":"(\w+)"[^}]*?"conclusion":(null|"\w+")',
+                api)]
+    mine = [r for r in rows if r[0] == head]
+    if mine:
+        for name, status, concl in mine:
+            print(f"CI {name}: {status} {concl}")
     else:
-        for name, status, concl in rows:
-            layer = "L4" if name.startswith("Verify") else ("L3" if name.startswith("Screenshot") else "—")
-            print(f"{layer} 云端 {name}: {status} {concl}")
+        print(f"CI: HEAD {head} 暂无 run")
 
-    # L5 独立验收：最近 N 笔里验收报告数量
-    n = ap.parse_args().commits
-    recent = sh(["git", "log", f"-{n}", "--name-only", "--pretty=format:"])
-    acc = len(re.findall(r"docs/验收-", recent))
-    print(f"L5 独立验收：最近 {n} 笔提交里新增/改动验收报告 {acc} 次")
-
-    # L6 规格对照：锚点卡覆盖率
-    with_anchor = 0
-    for f in docs:
-        head_body = open(os.path.join(ROOT, "docs", f), encoding="utf-8", errors="ignore").read(200)
-        if "锚点卡：" in head_body:
-            with_anchor += 1
-    print(f"L6 规格对照：报告首行锚点卡覆盖 {with_anchor}/{len(docs)}")
-
-    print("L7 真机：无设备，长期挂账（每份报告必须写进未验证项）")
-    print("结论：下层红则上层不计；当前以 L0~L4 机检结果为准，L5/L6 看报告覆盖率。")
+    print("层 4 真机：沙箱无 Android 运行时，恒标未验证（不得冒充外部真值）")
     return 0
 
 
