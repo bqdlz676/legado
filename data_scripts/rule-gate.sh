@@ -783,6 +783,14 @@ PR59=$(python3 data_scripts/check-commit-provenance.py 2>&1)
 if [ $? -eq 0 ]; then ok "59提交来源" "$(echo "$PR59" | grep 'COMMIT-PROVENANCE: PASS' | head -1)"; else bad "59提交来源" "$(echo "$PR59" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "59提交来源"; fi
 
+# 60 主AI空等守卫（2026-11-27 机制门禁，规格 docs/待做-主AI空等门禁.md）：四条判据——
+# PENDING 悬挂 30 分钟 / 槽未满且 30 分钟无新派单或提交 / 主控轨迹单次挂起等待 >60s /
+# 任一输入空集判红。边界：不重复 ㊹ 在飞轨迹一致性、57 槽满、㉙ HEAD 停滞、㊳ 单飞熔断、㊾ 空集假绿。
+if gate_active g60; then
+IE60=$(python3 data_scripts/check-idle-empty.py 2>&1)
+if [ $? -eq 0 ]; then ok "60主AI空等" "$(echo "$IE60" | grep 'IDLE-EMPTY: PASS' | head -1)"; else bad "60主AI空等" "$(echo "$IE60" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "60主AI空等"; fi
+
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
 if [ ${#SKIP_LEGACY[@]} -gt 0 ]; then
   echo "SKIP-LEGACY 合计 ${#SKIP_LEGACY[@]} 份（存量件仅头部留痕，⑲/⑭/⑮ 豁免）："

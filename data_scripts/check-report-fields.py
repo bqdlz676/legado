@@ -17,8 +17,10 @@ L1 是返工的最大来源，却完全没有机检——于是"要有自查反�
 
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -92,7 +94,59 @@ def check(path):
     return fails
 
 
+def selftest() -> int:
+    """双向自测：四件套齐全的修复类报告 → check() 返回空列表 PASS；缺锚点卡/结论/反例/锚点 → FAIL。
+    做法：临时目录接管 ROOT 后直接调生产 check(path)，A/B/C/D 判据全走原函数，不另写字段比对。"""
+    saved_root = ROOT
+
+    good = tempfile.mkdtemp(prefix='report-fields-selftest-')
+    try:
+        gdocs = os.path.join(good, 'docs', '锚点')
+        os.makedirs(gdocs, exist_ok=True)
+        open(os.path.join(gdocs, 'selftest-good.md'), 'w', encoding='utf-8').write('# 锚点卡\n')
+        anchors = '\n'.join([
+            'data_scripts/check-no-idle.py:23',
+            'data_scripts/check-queue-running.py:15',
+            'data_scripts/check-dispatch-queue.py:35',
+            'data_scripts/check-report-fields.py:68',
+            'data_scripts/check-onboarding.py:77',
+        ])
+        body = ("锚点卡：docs/锚点/selftest-good.md\n\n"
+                "总结论：PASS\n\n"
+                "## 自查反例\n反例推演：若放宽锚点计数，空口结论会蒙混过关。\n\n"
+                "证据锚点：\n" + anchors + "\n")
+        rel_good = 'docs/修复-selftest-good.md'
+        open(os.path.join(good, rel_good), 'w', encoding='utf-8').write(body)
+        globals()['ROOT'] = good
+        fails_good = check(rel_good)
+        assert fails_good == [], f"四件套齐全的报告应 PASS，fails={fails_good}"
+        print('[selftest] 好样本（锚点卡+结论+反例+5 处锚点）PASS 通路 OK')
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(good, ignore_errors=True)
+
+    bad = tempfile.mkdtemp(prefix='report-fields-selftest-')
+    try:
+        os.makedirs(os.path.join(bad, 'docs'), exist_ok=True)
+        rel_bad = 'docs/修复-selftest-bad.md'
+        # 坏样本：首行无锚点卡、无结论标记、无「自查反例/改坏」、0 处文件:行锚点，A/B/C/D 全中
+        open(os.path.join(bad, rel_bad), 'w', encoding='utf-8').write(
+            '# 修复-selftest-bad\n只有一段正文，缺锚点卡、缺结论、缺反例推演、缺证据锚点。\n')
+        globals()['ROOT'] = bad
+        fails_bad = check(rel_bad)
+        assert fails_bad, f"字段全缺的报告应 FAIL，fails={fails_bad}"
+        print('[selftest] 坏样本（四件套全缺）FAIL 通路 OK：' + '；'.join(fails_bad))
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(bad, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 def main():
+    if '--selftest' in sys.argv:
+        return selftest()
     paths = sys.argv[1:] or changed_reports()
     if not paths:
         print("REPORT-FIELDS: PASS（本轮无报告改动）")

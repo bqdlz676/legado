@@ -14,8 +14,10 @@ _sys.path.insert(0, str(_Path(__file__).parent))
 from queue_stats import stats as _qstats  # O1：计数单源
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -48,5 +50,54 @@ def main(repo: str) -> int:
     return 0
 
 
+def _init_fixture_repo(tmp: str, age_minutes: float) -> None:
+    """在临时目录造一个 git 仓库：队列挂一条 PENDING，HEAD 提交时间按 age_minutes 回填。
+    为什么必须造 git：本门禁判据锚是 HEAD commit 的 %ct，裸目录取不到提交时间，无法复现「沉睡超时」通路。"""
+    docs = os.path.join(tmp, 'docs')
+    os.makedirs(docs, exist_ok=True)
+    queue = ("| 序号 | 标题 | 创建时间 | 状态 | 依赖 | 域 |\n"
+             "|---|---|---|---|---|---|\n"
+             "| Q1 | 自测单 | 2026-11-27 10:00 | PENDING | 无 | 验收 |\n")
+    open(os.path.join(docs, '派单队列.md'), 'w', encoding='utf-8').write(queue)
+    env = dict(os.environ)
+    ts = int(time.time() - age_minutes * 60)
+    env['GIT_AUTHOR_DATE'] = str(ts)
+    env['GIT_COMMITTER_DATE'] = str(ts)  # %ct 取 committer date，两头都回填才能压出旧 HEAD
+    subprocess.run(['git', '-C', tmp, 'init', '-q'], check=True)
+    subprocess.run(['git', '-C', tmp, '-c', 'user.name=selftest',
+                    '-c', 'user.email=selftest@example.com', 'add', '.'], check=True)
+    subprocess.run(['git', '-C', tmp, '-c', 'user.name=selftest',
+                     '-c', 'user.email=selftest@example.com', 'commit', '-q',
+                     '-m', 'selftest fixture'], check=True, env=env)
+
+
+def selftest() -> int:
+    """双向自测：新鲜 HEAD + 有积压 → PASS；HEAD 沉睡 240 分钟 + 有积压 → FAIL。
+    为什么直接调 main(repo)：夹具只换仓库目录，判定函数（head_age_minutes / queue_counts / main）全程复用生产口径，
+    不另写一套比对，避免夹具与判据漂移。"""
+    good = tempfile.mkdtemp(prefix='no-idle-selftest-')
+    try:
+        _init_fixture_repo(good, 0)  # 新鲜提交：年龄 0 ≤ 120 分钟，应放行
+        rc_good = main(good)
+        assert rc_good == 0, f"新鲜 HEAD + PENDING 应 PASS，rc={rc_good}"
+        print('[selftest] 好样本（新鲜 HEAD + PENDING）PASS 通路 OK')
+    finally:
+        shutil.rmtree(good, ignore_errors=True)
+
+    bad = tempfile.mkdtemp(prefix='no-idle-selftest-')
+    try:
+        _init_fixture_repo(bad, 240)  # 沉睡 240 分钟 > 默认 120 分钟窗口，且有 PENDING，应判停工
+        rc_bad = main(bad)
+        assert rc_bad == 1, f"HEAD 沉睡 240 分钟 + PENDING 应 FAIL，rc={rc_bad}"
+        print('[selftest] 坏样本（HEAD 沉睡 240 分钟 + PENDING）FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else '.'))

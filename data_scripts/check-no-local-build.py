@@ -10,8 +10,10 @@
   为什么要有锚点：抓到一次违规后要能"清零重算"，否则杀完 daemon 日志 mtime 还在窗口内，门禁永远红。
 """
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -86,5 +88,37 @@ def main(repo: str) -> int:
     return 0
 
 
+def selftest() -> int:
+    """双向自测：锚点清零后无新构建痕迹 → PASS；临时仓库内新建 app/build 目录 → ③ FAIL。
+    直接调 main(repo)，ps/日志/产物目录三条判据全走生产代码；夹具不碰真实 ~/.gradle 与仓库 build 目录。"""
+    good = tempfile.mkdtemp(prefix='no-local-build-selftest-')
+    try:
+        gdocs = Path(good) / 'docs'
+        gdocs.mkdir(parents=True, exist_ok=True)
+        # 锚点取当前时刻：本机 ~/.gradle 旧日志 mtime 早于锚点即不计近窗，避免历史残留把好样本误红
+        (gdocs / '台账-本地编译违规.md').write_text(
+            f'处置锚点 epoch={int(time.time())}\n', encoding='utf-8')
+        rc_good = main(good)
+        assert rc_good == 0, f"锚点清零后无新痕迹应 PASS，rc={rc_good}"
+        print('[selftest] 好样本（锚点清零后无新构建痕迹）PASS 通路 OK')
+    finally:
+        shutil.rmtree(good, ignore_errors=True)
+
+    bad = tempfile.mkdtemp(prefix='no-local-build-selftest-')
+    try:
+        # 坏样本：无处置锚点，新建 app/build 目录 mtime 落在近 2 小时窗内，命中判据③
+        (Path(bad) / 'app' / 'build').mkdir(parents=True, exist_ok=True)
+        rc_bad = main(bad)
+        assert rc_bad == 1, f"新建 app/build 目录应 FAIL，rc={rc_bad}"
+        print('[selftest] 坏样本（app/build 近 2 小时被写）FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else '.'))

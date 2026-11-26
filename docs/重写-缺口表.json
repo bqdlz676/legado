@@ -1,0 +1,564 @@
+{
+  "生成时间": "2026-11-27 02:45:27 +0800",
+  "HEAD": "f7c161159913f6a1a57c06220ed3fd9bb09e50d6",
+  "说明": "Q-301 只读盘点机器可读版；文件数/行数由 find + wc 口径从磁盘实测；状态口径：已实现/半实现/零实现。",
+  "切片": [
+    {
+      "id": "01",
+      "主题": "启动动画（墨滴坠落→墨爆→回聚成字→金粉→远山→金线→标语→淡出）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/welcome/（WelcomeActivity.kt:23、SplashScene.kt、SplashChoreography.kt、LuowenSplashTokens.kt）；app/src/main/java/io/legado/app/ui/splash/contract/",
+      "状态": "半实现",
+      "缺口": "墨滴/金粉/远山/雾/金线/标语时序已落 Compose；55fps 帧率底线、≤140 粒粒子预算、2.8s 结束必进书架的衔接与首帧预热未接 bench 验证（切片-01:87-89）。"
+    },
+    {
+      "id": "02",
+      "主题": "气泡协议（统一 BubbleContent 协议 + Provider 族 + resolve 优先级 + 交互铁律）",
+      "现状目录": "app/src/main/java/io/legado/app/help/bubble/（BubbleResolver.kt:63 resolve、BubbleModels.kt、Provider 族 Char/Word/Person/Place/Date/Allusion/Missing）；app/src/main/java/io/legado/app/ui/book/read/ink/InkBubble.kt",
+      "状态": "半实现",
+      "缺口": "统一 BubbleContent 协议与 resolve 优先级骨架在；年号/干支对照时间轴输出、半屏详情回位、同名候选切换 UI、冷≤300ms/热≤80ms 首触指标未闭环验证（切片-02:21 验收测试段）。"
+    },
+    {
+      "id": "03",
+      "主题": "设计 token 与四层框架（材质/动效/空间/组件 + 12 色语义 token + 缓动表）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/components/ComponentPalette.kt:14、ComponentTokens.kt:17；app/src/main/java/io/legado/app/ui/card/CardTokens.kt:28；docs/契约-设计token.json",
+      "状态": "半实现",
+      "缺口": "12 色/时长/弹簧 token 已分域收口；空间层散落在 ui/map/，七页面四层对照表未逐页落地，派生色与基础色边界待核（切片-03:82-194、切片-03:250-284）。"
+    },
+    {
+      "id": "04",
+      "主题": "组件系统（Bubble/BottomSheet/Timeline/InkButton + 七态覆盖 + 性能预算）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/components/（InkButton.kt:77、InkHalfSheet.kt:90、InkToast.kt:88、Timeline.kt:74、InkEmptyState.kt:32）",
+      "状态": "半实现",
+      "缺口": "四类基础容器在；默认/悬浮/点击/禁用/加载/空/离线七态逐组件覆盖度未逐项核对，离线降级（缓存瓦片+toast）未见实现（切片-04:9-10）。"
+    },
+    {
+      "id": "05",
+      "主题": "点晋纪年时空联动（ContextAnchor 年代锚定 + 同名消歧 + 18 套图层 + 坐标 Tier 分层）",
+      "现状目录": "app/src/main/java/io/legado/app/help/chrono/ContextAnchor.kt、Chronology.kt:24；app/src/main/java/io/legado/app/help/artifact/store/PlaceStore.kt:21；app/src/main/java/io/legado/app/ui/main/chrono/",
+      "状态": "半实现",
+      "缺口": "anchorFromText/timelineFor/ContextAnchor 链路在；18 套朝代图层、坐标 Tier1/2/3 分层数据覆盖、同名消歧（春秋晋 vs 现代晋城）闭环未核（切片-05:7-9、切片-05:15-37）。"
+    },
+    {
+      "id": "06",
+      "主题": "3D 沙盘氛围渲染（势力贴地表/三级城池光柱/真河流/叠加氛围/性能硬上限）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/map/sandbox/（SandboxScene.kt、PowerSector.kt、RiverLine.kt、DemTerrainLoader.kt）；app/src/main/assets/map/*.js",
+      "状态": "半实现",
+      "缺口": "地形/势力多边形/河流/城池节点骨架在；三级城池光柱、标签 atlas 合并单 draw call、真实河道路径（非 fbm 程序化曲线）、draw call ≤20 未逐项达标验证（切片-06:23-43、切片-06:79-89）。"
+    },
+    {
+      "id": "07",
+      "主题": "3D 战役回放（地形出生/顶栏/底部仪表盘/绢帛军图/棋子/兵锋箭头/交战）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/map/replay/（ReplayDirector.kt、ReplayScreen.kt）；app/src/main/java/io/legado/app/help/sim/（IntentResolver、CombatResolver 等 7 文件）",
+      "状态": "半实现",
+      "缺口": "回放导演与推演引擎族在；地形出生动画、剧场模式全屏、阶段铜点跳转、棋子士气/溃散态、箭头五意图形态、交战冲击环未逐项核对（切片-07:19-30、切片-07:106-135、切片-07:141-161）。"
+    },
+    {
+      "id": "08",
+      "主题": "性能红线（阅读/字典/3D/WebView 池/启动/内存六组可度量指标 + 档位阶梯）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/perf/contract/PerfTierParams.kt；app/src/main/java/io/legado/app/help/CompactDict.kt；app/src/test（631 个 kt）",
+      "状态": "半实现",
+      "缺口": "低端/掉线/后台冻结档位参数与紧凑字典二分在；翻页 16ms、气泡冷 300/热 80ms、字典 ≤15MB、启动 ≤1.8s、内存三档、六专项 CI bench 未接采集与阈值判定（切片-08:7-13、切片-08:17-23、切片-08:57-62）。"
+    },
+    {
+      "id": "09",
+      "主题": "阅读页竖排（竖排排版参数/宣纸光影/掀角翻页/卷轴模式/双列对照/测量缓存）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/book/read/vertical/（VerticalLayoutEngine.kt:52 layout、:96 hitTest、:151 invalidateCache）；app/src/main/java/io/legado/app/ui/book/read/ink/",
+      "状态": "半实现",
+      "缺口": "竖排分页引擎与冻结 API 在；18sp/行距 1.8/列距 2.5、宣纸 noise、左上烛光渐变、章节氛围粒子、掀角翻页背透 15%、双列对照、竖排测量 sparse 缓存未逐项落地验证（切片-09:7、切片-09:19、切片-09:24、切片-09:29）。"
+    },
+    {
+      "id": "10",
+      "主题": "书架页（竖排书名墨卡/暖金微光阴影/朱砂进度线/3D 前倾/墨爆转场/碎墨删除/金微粒）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/main/bookshelf/（BookshelfScreen.kt、ShelfBookCard.kt、ShelfParticles.kt、GoldParticleField.kt）",
+      "状态": "半实现",
+      "缺口": "竖排书名卡/朱砂进度线/金色微粒场在；卡片 3D 前倾 5°、点进墨爆粒子转场、右滑碎墨散开、空书架态、暖金微光阴影 token 逐项核对未完成（切片-10:8-22）。"
+    },
+    {
+      "id": "11",
+      "主题": "半屏 Sheet 容器（金杠/毛玻璃/三段高度/跟手下拉/人物 Sheet 五段/字词 Sheet 四段/回位铁律）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/components/InkHalfSheet.kt:90、InkBottomSheet.kt、HalfSheetModel.kt；app/src/main/java/io/legado/app/ui/sheet/",
+      "状态": "半实现",
+      "缺口": "容器/金杠/跟手下拉/遮罩联动骨架在；人物 Sheet 五段固定顺序、字词 Sheet 四段、关闭后阅读位置/滚动/下划线一字不差验收铁律未接线验证（切片-11:18-25、切片-11:26-31、切片-11:32）。"
+    },
+    {
+      "id": "12",
+      "主题": "画板 InkSlate（工具集/工具栏/六色/图层/导出/与阅读批注打通）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/components/inkslate/（InkSlateCanvas.kt、InkSlateModel.kt、InkSlateToolbar.kt、contract/ 4 件）；app/src/main/java/io/legado/app/ui/main/PaintActivity.kt",
+      "状态": "半实现",
+      "缺口": "画布/模型/工具栏契约在；笔/直线/箭头/矩形/圆/文字/橡皮/撤销重做/图层/导出工具集齐套度、与阅读批注打通（章节名+正文附注文案）未核（切片-12:9-10、切片-12:14）。"
+    },
+    {
+      "id": "13",
+      "主题": "搜索页（居中单输入框无按钮/云灰占位文案/朱砂高亮纯文本列表不配图）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/main/search/（SearchInputBar.kt、SearchResultList.kt、SearchMatcher.kt、SearchPagingOrchestrator.kt 等 16 文件）",
+      "状态": "半实现",
+      "缺口": "输入栏/历史/热门词/朱砂高亮/分页编排在；居中单输入框无按钮、云灰 12sp 占位文案、纯文本列表不配图的视觉规格未核对（切片-13:7）。"
+    },
+    {
+      "id": "14",
+      "主题": "字体系统（五类字体角色/子集 ≤200KB/unicode-range 分片/加载策略）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/font/（FontRegistry.kt、InkFontLoader.kt、FontRole.kt 等 10 文件）；app/src/main/assets/fonts/（5 款角色字体 + chars/ 子集）",
+      "状态": "半实现",
+      "缺口": "五类字体角色映射与加载器在；首屏子集 ≤200KB、unicode-range 分片、标题 SemiBold 阻塞 swap、注音 Light 延迟加载、数字 Tabular/等宽 Mono 按需加载的体积与时序未闭环（切片-14:7、切片-03:215-230）。"
+    },
+    {
+      "id": "15",
+      "主题": "全局动效铁律（七项时长/四条 cubic-bezier/stagger/加载指示器三点循环）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/motion/contract/MotionSpec.kt:31",
+      "状态": "半实现",
+      "缺口": "七档 spring 刚度/阻尼与时长单源在；四条 cubic-bezier 曲线值、stagger 350ms each、加载指示器三点 600ms 循环（禁菊花）在各页面落地未逐项核；PRESS/MAP_RISE 刚度为工程推定标[待拍板]（切片-15:7；MotionSpec.kt:34、:73）。"
+    },
+    {
+      "id": "17",
+      "主题": "地表覆盖层（7 类覆盖顶点色/森林微凸起/雪线 3500m/landcover PNG 资产）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/map/globe/terrain/（CoverType.kt、TerrainClassifier.kt、FbmNoise.kt）；app/src/main/java/io/legado/app/ui/map/terrain/contract/TerrainCoverParams.kt",
+      "状态": "半实现",
+      "缺口": "覆盖类型枚举与分类器/噪声在；7 类覆盖顶点色映射、森林 fbm 微凸起、雪线 3500m 自动算、landcover PNG 资产（ESA/Natural Earth）未落地（切片-17:7-17、切片-17:23-30、切片-17:36-41）。"
+    },
+    {
+      "id": "18",
+      "主题": "3D 地球仪战役回放（大圆寻路/悬浮球面弧线/势力层/6 场国外战役/地名与势力数据批量）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/map/globe/（replay/route/GreatCircle.kt、astro/、math/、data/ 等）",
+      "状态": "半实现",
+      "缺口": "球面大圆寻路/弧线/势力层骨架在；6 场国外战役 JSON、地名 500+（Pleiades/Wikidata）、12 套国外势力 GeoJSON 数据批量灌入未闭环（切片-18:9-17、切片-18:36-43、切片-18:51-58、切片-18:66-72）。"
+    },
+    {
+      "id": "19",
+      "主题": "3D 地球仪细节（LOD/三层大气/云层/海洋/昼夜城市灯光/星空/地轴/惯性旋转/性能）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/map/globe/render/、mesh/、scene/、astro/",
+      "状态": "半实现",
+      "缺口": "LOD 网格/大气/云层/海洋/星空/地轴部分在；菲涅尔三层大气、Black Marble 夜景、晨昏线 5° 渐变、海洋镜面高光与浅海、惯性旋转 0.8s、≤15 draw call/55fps 逐项未验（切片-19:5-10、切片-19:13-19、切片-19:22-25、切片-19:28-34、切片-19:37-43、切片-19:61、切片-19:64-72）。"
+    },
+    {
+      "id": "20",
+      "主题": "3D 沙盘与地球仪合并（同一球壳/统一 LOD morph/不建新页面/同一份 campaign.json）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/map/sandbox/ 与 app/src/main/java/io/legado/app/ui/map/globe/ 两套并存；app/src/main/assets/map/three.html",
+      "状态": "半实现",
+      "缺口": "平面沙盘与球面地球仪各自成包；未合并为同一球壳与统一 LOD morph，切片要求“不做新文件、不建新页面，同一个 three.html”的收口未做（切片-20:3、切片-20:24-28、切片-20:98-104）。"
+    },
+    {
+      "id": "21",
+      "主题": "架构层（PlaceStore/ChronologyStore 双引擎共享/GPU 不竞争/内置 ≤25MB/内存三档 bench）",
+      "现状目录": "app/src/main/java/io/legado/app/help/artifact/store/PlaceStore.kt:21；app/src/main/java/io/legado/app/help/chrono/Chronology.kt:24；app/src/main/java/io/legado/app/ui/perf/",
+      "状态": "半实现",
+      "缺口": "PlaceStore 分域接口与 Chronology 单例在；ChronologyStore 双引擎共享单例未见同名实现、地图前台阅读 onDraw 空返回的 GPU 抑制未接线、25MB 内置体积拆解 CI、内存三档峰值采集 bench 未闭环（切片-21:21-28）。"
+    },
+    {
+      "id": "22",
+      "主题": "推演 BGM（五阶段配乐/ducking/用户音乐优先/SoundPool 直出/沙盘三态喇叭/<60s 公版采样）",
+      "现状目录": "代码目录 app/src/main/java/io/legado/app/（grep SoundPool/BgmController 0 命中）；资产目录 app/src/main/res/raw/（仅 silent_sound.mp3）",
+      "状态": "零实现",
+      "缺口": "零实现，无代码可锚：五阶段配乐、ducking 压到 30%、用户音乐优先、SoundPool/AAudio 直出通道隔离、沙盘页三态喇叭开关、<60s 公版采样资产全部缺失（切片-22:17-21、切片-22:27-29、切片-22:53、切片-22:70、切片-22:76-82）。"
+    },
+    {
+      "id": "23",
+      "主题": "全 App 响应音效 InkSoundPool（13 项音效/唯一 SoundPool/三态镜像开关/<2MB 包/无声项断言）",
+      "现状目录": "代码目录 app/src/main/java/io/legado/app/（grep SoundPool/InkSoundPool 0 命中）；资产目录 app/src/main/res/raw/（仅 silent_sound.mp3，无 R.raw.ink_* 资产）",
+      "状态": "零实现",
+      "缺口": "零实现，无代码可锚：13 项交互音效及时长、唯一 SoundPool 单例、阅读底栏+设置页镜像三态开关、<2MB 音效包、无声项断言与缺失静默降级全部缺失（切片-23:13-28、切片-23:36-40、切片-23:44-70、切片-23:76-83）。"
+    },
+    {
+      "id": "24",
+      "主题": "功能图标全集（77 VectorDrawable + 1 PNG 主图；1.5px 线宽/圆角/24dp/暗铜默认暖金选中）",
+      "现状目录": "app/src/main/res/drawable/（ic_* 共 191 个 xml）",
+      "状态": "半实现",
+      "缺口": "75 个可解析声明名中 73 在位，缺 ic_sim_bgm.xml、ic_sim_layers.xml；另并存 118 个旧 legado 图标未清；strokeWidth 1.5/圆角/24dp/默认暗铜选中暖金未逐文件机检（切片-24:8、切片-24:156-159）。"
+    },
+    {
+      "id": "25",
+      "主题": "卡片设计规格（12 类卡片 + CardBase 基座五态 + CardTokens 单源 + 逐条尺寸）",
+      "现状目录": "app/src/main/java/io/legado/app/ui/card/（CardBase.kt、CardTokens.kt:28 + 13 张卡片）；app/src/main/java/io/legado/app/ui/components/InkCard.kt",
+      "状态": "半实现",
+      "缺口": "12 类卡片 Composable 基本齐；CardBase 全仓引用计数=1（判据要求 ≥12），阴影/圆角/悬浮/点击/骨架屏五态未统一继承 CardBase；内联 hex、逐条尺寸与空态三变体未核（切片-25:58、切片-25:63-64、切片-25:66-70）。"
+    }
+  ],
+  "域": [
+    {
+      "域": "启动/欢迎",
+      "入口": "ui/welcome/WelcomeActivity.kt:23（ComponentActivity+setContent:42）；契约 ui/splash/contract/",
+      "文件数": 6,
+      "行数": 944,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "启动时序编排资产可作参考；新主壳落地后承接 2.8s 进书架衔接。"
+    },
+    {
+      "域": "书架",
+      "入口": "ui/main/bookshelf/InkShelfFragment.kt、BookshelfScreen.kt",
+      "文件数": 13,
+      "行数": 2644,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "现有 Compose 半成品吸收进新书架；旧壳先接后删（A3）。"
+    },
+    {
+      "域": "阅读-新壳 ink",
+      "入口": "ui/book/read/ink/InkReadActivity.kt、InkReaderShell.kt、InkBubble.kt",
+      "文件数": 37,
+      "行数": 6089,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "壳层（气泡/菜单/装饰/控制器）只消费保留引擎，不内嵌分页算法。"
+    },
+    {
+      "域": "阅读-竖排引擎",
+      "入口": "ui/book/read/vertical/VerticalLayoutEngine.kt",
+      "文件数": 11,
+      "行数": 1099,
+      "边界内": "是",
+      "处置": "保留",
+      "依据": "落文自有竖排引擎；公开 API layout/hitTest/invalidateCache 冻结（A5），内部实现可维护。"
+    },
+    {
+      "域": "阅读-分页引擎 page",
+      "入口": "ui/book/read/page/（provider/entities/api/delegate 四包 + 根 View 宿主）",
+      "文件数": 46,
+      "行数": 13291,
+      "边界内": "是",
+      "处置": "保留",
+      "依据": "legado 分页引擎横排模式；provider/entities/api/delegate 一行不许动（A1）；根 View 宿主逐文件判定，旧壳装饰随阅读页重写剥离。"
+    },
+    {
+      "域": "阅读-段落模型",
+      "入口": "ui/book/read/paragraph/（ParagraphItem/ParagraphPosition/ParagraphReadView 等）",
+      "文件数": 6,
+      "行数": 879,
+      "边界内": "是",
+      "处置": "保留",
+      "依据": "段落模型与位置状态是分页输入侧，属排版引擎边界。"
+    },
+    {
+      "域": "阅读-旧壳根（Activity/菜单/弹窗/选择）",
+      "入口": "ui/book/read/ReadBookActivity.kt、ReadMenu.kt、TextActionMenu.kt、各 Dialog 共 24 文件",
+      "文件数": 24,
+      "行数": 10426,
+      "边界内": "否",
+      "处置": "重写/吸收",
+      "依据": "菜单/弹窗/选择菜单为旧壳编排；底层能力（书签/高亮/搜索）吸收进新阅读链路。"
+    },
+    {
+      "域": "阅读-样式与朗读旧对话框",
+      "入口": "ui/book/read/config/（ReadStyleDialog、ReadAloudConfigDialog、ClickActionConfigDialog 等 21 文件）",
+      "文件数": 21,
+      "行数": 4497,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "旧 Preference/Dialog 壳重写；朗读与翻译底层服务保留在 service/help。"
+    },
+    {
+      "域": "阅读附属-书签/缓存/简介/目录/分组/导入/管理/换源/换封/漫画/文内搜索/旧探索",
+      "入口": "ui/book/bookmark|cache|info|toc|group|import|manage|changesource|changecover|manga|search|searchContent|explore",
+      "文件数": 98,
+      "行数": 19881,
+      "边界内": "部分",
+      "处置": "能力吸收；legacy 裁剪或冻结待定",
+      "依据": "目录/书签/进度/简介能力吸收进新阅读链路；漫画/换源/换封等 legacy 功能按新规格裁剪，规格未覆盖者冻结待定（C3 兜底）。"
+    },
+    {
+      "域": "阅读附属-朗读控制条",
+      "入口": "ui/book/audio/",
+      "文件数": 5,
+      "行数": 1033,
+      "边界内": "否",
+      "处置": "吸收",
+      "依据": "朗读底层 service（TTSReadAloudService 等）保留；控制条 UI 随阅读页重写。"
+    },
+    {
+      "域": "书源",
+      "入口": "ui/book/source/BookSourceActivity.kt（含 Debug/Edit/JsEdit）",
+      "文件数": 18,
+      "行数": 4851,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "UI 重写；help/source、help/http 规则解析与网络层属可复用底层（A2）。"
+    },
+    {
+      "域": "设置",
+      "入口": "ui/config/ConfigActivity.kt、PreferenceSearch.kt、sections/、settings/ 新半成品",
+      "文件数": 26,
+      "行数": 3952,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "Q-302 域；旧 Preference 页在新设置面接线验收后三口径扫描删除。"
+    },
+    {
+      "域": "发现/探索",
+      "入口": "ui/main/explore/ExploreFragment.kt（旧）与 InkExploreScreen.kt（新）双实现并存",
+      "文件数": 11,
+      "行数": 2740,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "Q-304 域；新面验收通过前旧 Fragment 不删（R4 两档）。"
+    },
+    {
+      "域": "搜索浮层",
+      "入口": "ui/main/search/InkSearchViewModel.kt、SearchInputBar.kt、SearchResultList.kt",
+      "文件数": 16,
+      "行数": 2451,
+      "边界内": "否",
+      "处置": "重写收口",
+      "依据": "现状 Compose 半成品；接 B1 组件库后收口，禁独立搜索页（P-11）。"
+    },
+    {
+      "域": "纪年时间轴",
+      "入口": "ui/main/chrono/ChronoScreen.kt、ChronoTimeline.kt、ChronoParticleField.kt",
+      "文件数": 8,
+      "行数": 1299,
+      "边界内": "否",
+      "处置": "重写续做",
+      "依据": "UI 重写；help/chrono 纪年数据层保留吸收。"
+    },
+    {
+      "域": "我的",
+      "入口": "ui/main/my/MyFragment.kt（旧）与 MyInkFragment.kt（新）双实现",
+      "文件数": 2,
+      "行数": 517,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "双实现先接后删；设置入口归设置域。"
+    },
+    {
+      "域": "RSS",
+      "入口": "ui/main/rss/RssFragment.kt；ui/rss/（article/favorites/read/source/subscription）",
+      "文件数": 38,
+      "行数": 7326,
+      "边界内": "否",
+      "处置": "冻结待定",
+      "依据": "P-11 底部三 Tab（书架/发现/设置）无 RSS 位；去留待规格裁决，裁决前不重写也不删。"
+    },
+    {
+      "域": "字典",
+      "入口": "ui/dict/DictRuleActivity.kt、DictViewModel.kt",
+      "文件数": 7,
+      "行数": 1636,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "重写为字词 Sheet（切片-11 四段）；help/dict 数据层吸收。"
+    },
+    {
+      "域": "替换",
+      "入口": "ui/replace/ReplaceRuleActivity.kt、ReplaceEditActivity.kt",
+      "文件数": 8,
+      "行数": 1928,
+      "边界内": "否",
+      "处置": "重写或并入设置/工具（待定）",
+      "依据": "规则解析底层吸收；UI 归属待设置域骨架定型后裁决。"
+    },
+    {
+      "域": "关于",
+      "入口": "ui/about/AboutInkActivity.kt、ReadRecordActivity.kt",
+      "文件数": 7,
+      "行数": 1210,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "旧 AboutActivity 已删（交接 §3.6）；阅读计时记录按 P-19 自然周口径吸收。"
+    },
+    {
+      "域": "地图沙盘",
+      "入口": "ui/main/PlaceMapActivity.kt（旧壳 AppCompatActivity+XML+WebView）；ui/map/sandbox/",
+      "文件数": 15,
+      "行数": 1659,
+      "边界内": "部分",
+      "处置": "吸收续做",
+      "依据": "沙盘场景算法吸收；PlaceMapActivity 旧壳重写为 P-06 单壳三模式。"
+    },
+    {
+      "域": "四渡赤水 crossing",
+      "入口": "ui/map/crossing/（A* 寻路/地形/意图/结算 + terrain/ 解码）",
+      "文件数": 22,
+      "行数": 6466,
+      "边界内": "部分",
+      "处置": "引擎吸收 + 壳重写",
+      "依据": "寻路/结算/地形解码算法保留；交互壳随地图新架构重写。"
+    },
+    {
+      "域": "战役回放",
+      "入口": "ui/map/replay/（ReplayDirector/ReplayScreen 等 12 文件）",
+      "文件数": 12,
+      "行数": 1810,
+      "边界内": "部分",
+      "处置": "吸收续做",
+      "依据": "回放导演与状态机吸收；仪表盘/剧场模式 UI 按切片-07 重做。"
+    },
+    {
+      "域": "地球仪",
+      "入口": "ui/map/globe/GlobeActivity.kt、host/、render/、mesh/、replay/ 等 56 文件",
+      "文件数": 56,
+      "行数": 4771,
+      "边界内": "部分",
+      "处置": "续做补缺",
+      "依据": "按切片-18/19/20 补 shader/数据/性能缺口；与沙盘合并收口。"
+    },
+    {
+      "域": "地形契约",
+      "入口": "ui/map/terrain/contract/TerrainCoverParams.kt",
+      "文件数": 1,
+      "行数": 55,
+      "边界内": "是",
+      "处置": "保留",
+      "依据": "地形解码/分类契约随 crossing/globe 引擎保留。"
+    },
+    {
+      "域": "画板",
+      "入口": "ui/main/PaintActivity.kt；ui/components/inkslate/",
+      "文件数": 8,
+      "行数": 1407,
+      "边界内": "否",
+      "处置": "吸收续做",
+      "依据": "画布模型/工具栏契约吸收；工具集与批注打通按切片-12 补齐。"
+    },
+    {
+      "域": "主壳与跨域入口 Activity",
+      "入口": "ui/main/MainActivity.kt、MainViewModel.kt、BattleActivity.kt、PersonDetailActivity.kt、PlaceMapActivity.kt、RelationActivity.kt、PaintActivity.kt 等 main 根 9 文件",
+      "文件数": 9,
+      "行数": 2376,
+      "边界内": "否",
+      "处置": "重写",
+      "依据": "底部导航主壳与人物/关系/地图/战役跨域入口均为旧壳编排；随主壳批与地图批重写。"
+    },
+    {
+      "域": "组件库（除 inkslate）",
+      "入口": "ui/components/（InkButton/InkHalfSheet/InkToast/Timeline/InkEmptyState/ComponentPalette 等）",
+      "文件数": 22,
+      "行数": 3621,
+      "边界内": "否",
+      "处置": "重写收口",
+      "依据": "Q-303 域；七态补齐、token 单源、0 内联 hex；compat/contract 子目录随包统计。"
+    },
+    {
+      "域": "卡片",
+      "入口": "ui/card/（CardBase/CardTokens + 13 张卡片）",
+      "文件数": 14,
+      "行数": 3189,
+      "边界内": "否",
+      "处置": "重写收口",
+      "依据": "12 类卡片统一继承 CardBase；CardTokens 为唯一 token 源。"
+    },
+    {
+      "域": "字体选择",
+      "入口": "ui/font/（FontRegistry/InkFontLoader/FontRole 等 10 文件）",
+      "文件数": 10,
+      "行数": 951,
+      "边界内": "否",
+      "处置": "吸收续做",
+      "依据": "字体角色映射保留；子集体积与加载时序按切片-14 闭环。"
+    },
+    {
+      "域": "高亮规则",
+      "入口": "ui/highlight/（HighlightRuleActivity 等 5 文件）",
+      "文件数": 5,
+      "行数": 945,
+      "边界内": "否",
+      "处置": "吸收",
+      "依据": "高亮档位与规则吸收进阅读批注链路；规则编辑 UI 重写。"
+    },
+    {
+      "域": "关联导入",
+      "入口": "ui/association/（书源/字典/替换/高亮/自动任务/HTTP TTS 导入 39 文件）",
+      "文件数": 39,
+      "行数": 6280,
+      "边界内": "否",
+      "处置": "重写或冻结待定",
+      "依据": "多为旧规则批量导入工具；新架构导入入口定型后裁决去留。"
+    },
+    {
+      "域": "工具-定时任务",
+      "入口": "ui/autoTask/",
+      "文件数": 10,
+      "行数": 1942,
+      "边界内": "否",
+      "处置": "冻结待定",
+      "依据": "新规格未覆盖自动任务；规格补齐前冻结，不重写。"
+    },
+    {
+      "域": "工具-代码编辑",
+      "入口": "ui/code/（CodeEditActivity 等 11 文件）",
+      "文件数": 11,
+      "行数": 2961,
+      "边界内": "否",
+      "处置": "冻结待定",
+      "依据": "旧规则 JS 脚本编辑入口；随书源域裁决。"
+    },
+    {
+      "域": "工具-文件管理",
+      "入口": "ui/file/（FileManageActivity/HandleFileActivity 等 8 文件）",
+      "文件数": 8,
+      "行数": 1364,
+      "边界内": "否",
+      "处置": "重写或裁剪",
+      "依据": "导入/导出文件能力按需保留；旧管理壳重写。"
+    },
+    {
+      "域": "工具-二维码",
+      "入口": "ui/qrcode/QrCodeActivity.kt",
+      "文件数": 4,
+      "行数": 119,
+      "边界内": "否",
+      "处置": "冻结待定",
+      "依据": "书源扫码导入随书源域重写时再评估。"
+    },
+    {
+      "域": "登录",
+      "入口": "ui/login/SourceLoginActivity.kt、WebViewLoginFragment",
+      "文件数": 8,
+      "行数": 1739,
+      "边界内": "否",
+      "处置": "随书源重写",
+      "依据": "WebView 登录壳属旧栈；新架构书源登录方案待规格。"
+    },
+    {
+      "域": "视频",
+      "入口": "ui/video/VideoPlayerActivity.kt",
+      "文件数": 4,
+      "行数": 1078,
+      "边界内": "否",
+      "处置": "冻结待定",
+      "依据": "legacy 视频播放；新规格未覆盖，冻结待裁决。"
+    },
+    {
+      "域": "浏览器",
+      "入口": "ui/browser/WebViewActivity.kt",
+      "文件数": 2,
+      "行数": 750,
+      "边界内": "否",
+      "处置": "冻结待定",
+      "依据": "旧 WebView 壳；地图/帮助 WebView 池化方案见切片-08，单独裁决。"
+    },
+    {
+      "域": "旧控件库 widget",
+      "入口": "ui/widget/（dialog/seekbar/checkbox/recycler/text/image/keyboard/number/code/dynamiclayout/anima 等 89 文件）",
+      "文件数": 89,
+      "行数": 15668,
+      "边界内": "否",
+      "处置": "直接删候选",
+      "依据": "旧自定义 View/Adapter/Dialog 被 Compose 组件库替代；三口径扫描（R.layout/@layout/ViewBinding）确认无引用后清退。"
+    },
+    {
+      "域": "半屏 Sheet 残留",
+      "入口": "ui/sheet/",
+      "文件数": 1,
+      "行数": 53,
+      "边界内": "否",
+      "处置": "并入组件库",
+      "依据": "单件残留契约并入 ui/components/InkHalfSheet 体系。"
+    },
+    {
+      "域": "动效契约",
+      "入口": "ui/motion/contract/MotionSpec.kt",
+      "文件数": 1,
+      "行数": 121,
+      "边界内": "是",
+      "处置": "保留",
+      "依据": "平台无关 spring/时长契约层保留；各页面落地由对应 UI 批完成。"
+    },
+    {
+      "域": "性能契约",
+      "入口": "ui/perf/contract/PerfTierParams.kt",
+      "文件数": 1,
+      "行数": 101,
+      "边界内": "是",
+      "处置": "保留",
+      "依据": "档位阶梯参数单源保留；bench 采集接线归架构批。"
+    }
+  ]
+}

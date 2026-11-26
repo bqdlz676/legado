@@ -22,8 +22,10 @@ import glob
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -173,7 +175,63 @@ def audit_all():
     return 0
 
 
+def selftest() -> int:
+    """双向自测：回执块（现行指纹 + 三条回源命中引用 + 适用条款）→ check_report 空问题 PASS；
+    无回执块 → FAIL。做法：临时目录接管 ROOT，四份必读真身复制进副本后直接调生产 check_report()，
+    指纹/回源/条款判据全走原函数；夹具不污染真实 docs。"""
+    saved_root = ROOT
+
+    good = tempfile.mkdtemp(prefix='onboarding-selftest-')
+    try:
+        gdocs = os.path.join(good, 'docs')
+        os.makedirs(gdocs, exist_ok=True)
+        for rel in RULES.values():
+            shutil.copy(os.path.join(saved_root, rel), os.path.join(gdocs, os.path.basename(rel)))
+        globals()['ROOT'] = good
+        fp = sha12('docs/机制-总控必读.md')
+        # 三条引用逐字取自副本内总控必读原句（行号见 grep 回源），长度 ≥6 字可回源
+        quotes = [
+            ('改动后先 grep 确认代码真写入，未生效不许编译更不许报完成。', 'docs/机制-总控必读.md:278'),
+            ('规格未覆盖的边界自行判断兜底，不降级、不砍、不允许空白态或崩溃。', 'docs/机制-总控必读.md:355'),
+            ('永远找问题，解决问题，提出问题', 'docs/机制-总控必读.md:546'),
+        ]
+        lines = ['# 修复-selftest-good', '守则回执：',
+                 f'- 指纹：docs/机制-总控必读.md={fp}']
+        for i, (q, loc) in enumerate(quotes, 1):
+            lines.append(f'- 逐字引用 {i}：「{q}」（{loc}）')
+        lines.append('- 适用条款：B2、C3、F8')
+        rel_good = 'docs/修复-selftest-good.md'
+        open(os.path.join(good, rel_good), 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
+        probs_good = check_report(os.path.join(good, rel_good))
+        assert probs_good == [], f"合规回执应 PASS，probs={probs_good}"
+        print('[selftest] 好样本（现行指纹 + 三条回源引用 + 适用条款）PASS 通路 OK')
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(good, ignore_errors=True)
+
+    bad = tempfile.mkdtemp(prefix='onboarding-selftest-')
+    try:
+        os.makedirs(os.path.join(bad, 'docs'), exist_ok=True)
+        rel_bad = 'docs/修复-selftest-bad.md'
+        # 坏样本：正文里完全不出现回执块关键词，命中 check_report 首条「缺块」判据（措辞也不许自带该子串，否则会被当成块内文本）
+        open(os.path.join(bad, rel_bad), 'w', encoding='utf-8').write(
+            '# 修复-selftest-bad\n只有正文，未贴任何阅读凭证。\n')
+        globals()['ROOT'] = bad
+        probs_bad = check_report(os.path.join(bad, rel_bad))
+        assert probs_bad and any('守则回执' in p for p in probs_bad), \
+            f"缺回执块应 FAIL，probs={probs_bad}"
+        print('[selftest] 坏样本（缺守则回执块）FAIL 通路 OK：' + '；'.join(probs_bad))
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(bad, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 def main():
+    if '--selftest' in sys.argv:
+        return selftest()
     args = sys.argv[1:]
     if '--emit' in args:
         print(current_block())

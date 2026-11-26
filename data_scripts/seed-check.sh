@@ -35,6 +35,7 @@ need "分片清单净化(自测)"    data_scripts/emit-shard-lists.py         py
 need "提交来源(自测)"        data_scripts/check-commit-provenance.py  python3 data_scripts/check-commit-provenance.py --selftest
 need "提交分桶(自测)"        data_scripts/check-commit-split.py       python3 data_scripts/check-commit-split.py --selftest
 need "空集假绿(自测)"        data_scripts/check-vacuous-pass.py       python3 data_scripts/check-vacuous-pass.py --selftest
+need "主AI空等(自测)"        data_scripts/check-idle-empty.py         python3 data_scripts/check-idle-empty.py --selftest
 need "workflow契约(自测)"    data_scripts/check-workflow-contracts.py python3 data_scripts/check-workflow-contracts.py --selftest
 need "永远找问题(自测)"      data_scripts/check-problem-finding.py    python3 data_scripts/check-problem-finding.py --selftest
 

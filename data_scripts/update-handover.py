@@ -107,16 +107,25 @@ def ci_runs():
 
 
 def flying_items():
-    """台账在飞条目：[(标题, 代理)]；台账缺失返回 []。"""
+    """台账在飞条目：[(标题, 代理)]；台账缺失返回 []。
+
+    为什么要锚定「状态格以 在飞 打头」而不是「整行含 在飞」：台账已收口行的标题/备注里
+    常出现「在飞补登」「在飞收口」这类字眼（Q-275/Q-299 实测），按整行含词解析会把
+    已收口单当成在飞，快照里的「在飞 N 个派单」直接虚高、下一棒被误导（2026-11-27 实测 7 条虚高）。
+    """
     if not os.path.isfile(LEDGER):
         return []
     items = []
     for line in open(LEDGER, encoding="utf-8"):
-        if not line.startswith("|") or "在飞" not in line:
+        if not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 2 and cells[0] not in ("缺陷/条目",) and not set(cells[0]) <= set("-: "):
-            items.append((cells[0], cells[1] if len(cells) > 1 else ""))
+        if len(cells) < 2 or cells[0] in ("缺陷/条目",) or set(cells[0]) <= set("-: "):
+            continue
+        # 状态格＝第 4 列（缺陷/条目｜写码代理｜文件域｜状态｜…），与队列表头一致
+        status = cells[3] if len(cells) > 3 else ""
+        if status.startswith("在飞") or status.startswith("🟡 在飞"):
+            items.append((cells[0], cells[1]))
     return items
 
 
@@ -185,6 +194,10 @@ def parse_queue():
         qid = clean_text(cells[col["id"]]) if "id" in col and len(cells) > col["id"] else "?"
         title = clean_text(cells[col["title"]]) if len(cells) > col["title"] else ""
         anchor = clean_text(cells[col["anchor"]]) if "anchor" in col and len(cells) > col["anchor"] else ""
+        # 依赖列写「无」时退到最后一列（文件域/判据锚）：判据锚常写在那里，空着会让 §7
+        # 每条都落成「判据锚 无」，下一棒失去回源入口（2026-11-27 实测三条全空）。
+        if anchor in ("", "无"):
+            anchor = clean_text(cells[-1]) if len(cells) > 1 else ""
         items.append({"kind": kind, "qid": qid, "title": title,
                       "anchor": anchor, "line": offset})
     return items, None

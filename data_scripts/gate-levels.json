@@ -886,6 +886,17 @@
       "level": "blocking",
       "reason": "源码文件进提交必须有 docs 报告文件级回源，否则目录级 add 把未验收在飞产物扫进提交并导致 CI 编译真红（5ec4ada/ImportSourceGroup.kt 事故），必须阻断。",
       "compensation": null
+    },
+    {
+      "id": "g60",
+      "label": "60",
+      "name": "主AI空等",
+      "script": "check-idle-empty.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "blocking",
+      "reason": "空等会让整条流水线停摆且用户看不到：调度层 PENDING 悬挂、槽未满空转、主控轨迹挂起等待任一发生即全线停摆且无外部可见动静；输入空集不可判定亦不许假绿，必须阻断。",
+      "compensation": null
     }
   ],
   "compensation_channels": {

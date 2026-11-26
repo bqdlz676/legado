@@ -20,7 +20,9 @@
 import datetime
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from queue_stats import stats as qstats  # O1：计数单源，禁用行内子串匹配
@@ -123,5 +125,73 @@ def main() -> int:
     return 0
 
 
+def _make_fixture(tmp: str, rows: list[str], ledger_rows: list[str] | None = None,
+                  tier_text: str | None = None) -> None:
+    """在临时目录造 docs/派单队列.md（可选台账/档位文件）。
+    为什么列结构照真队列：parse_rows 按 ≥3 列入册、状态格按前缀定位，夹具列数不齐会被静默丢弃，坏样本就打不到判据。"""
+    docs = os.path.join(tmp, 'docs')
+    os.makedirs(docs, exist_ok=True)
+    head = ("| 序号 | 标题 | 创建时间 | 状态 | 依赖 | 域 |\n"
+            "|---|---|---|---|---|---|\n")
+    open(os.path.join(docs, '派单队列.md'), 'w', encoding='utf-8').write(head + '\n'.join(rows) + '\n')
+    if ledger_rows is not None:
+        open(os.path.join(docs, '派单台账.md'), 'w', encoding='utf-8').write('\n'.join(ledger_rows) + '\n')
+    if tier_text is not None:
+        open(os.path.join(docs, '并发档位.md'), 'w', encoding='utf-8').write(tier_text)
+
+
+def selftest() -> int:
+    """双向自测：新鲜在飞单 → PASS；PENDING 存活 3h → E2 判丢单；有 PENDING 却 0 在飞 0 RUNNING → E3 空槽空转。
+    做法：临时目录接管 QUEUE/LEDGER/TIER 三个路径常量后直接调 main()，E2/E3/E4 判定全走生产代码，不另写匹配。"""
+    now = datetime.datetime.now()
+    fresh = now.strftime("%Y-%m-%d %H:%M")
+    old = (now - datetime.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
+    saved = (QUEUE, LEDGER, TIER)
+    try:
+        good = tempfile.mkdtemp(prefix='dispatch-queue-selftest-')
+        try:
+            _make_fixture(good, [f"| Q1 | 在飞单 | {fresh} | RUNNING | 无 | 写码 |"])
+            globals()['QUEUE'] = os.path.join(good, 'docs', '派单队列.md')
+            globals()['LEDGER'] = os.path.join(good, 'docs', '派单台账.md')
+            globals()['TIER'] = os.path.join(good, 'docs', '并发档位.md')
+            rc_good = main()
+            assert rc_good == 0, f"新鲜 RUNNING 单应 PASS，rc={rc_good}"
+            print('[selftest] 好样本（新鲜在飞单）PASS 通路 OK')
+        finally:
+            shutil.rmtree(good, ignore_errors=True)
+
+        bad_stale = tempfile.mkdtemp(prefix='dispatch-queue-selftest-')
+        try:
+            _make_fixture(bad_stale, [f"| Q2 | 僵尸单 | {old} | PENDING | 无 | 验收 |"])
+            globals()['QUEUE'] = os.path.join(bad_stale, 'docs', '派单队列.md')
+            globals()['LEDGER'] = os.path.join(bad_stale, 'docs', '派单台账.md')
+            globals()['TIER'] = os.path.join(bad_stale, 'docs', '并发档位.md')
+            rc_stale = main()
+            assert rc_stale == 1, f"PENDING 存活 3h 应 E2 判丢单，rc={rc_stale}"
+            print('[selftest] 坏样本（PENDING 超 60 分钟存活）E2 FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad_stale, ignore_errors=True)
+
+        bad_idle = tempfile.mkdtemp(prefix='dispatch-queue-selftest-')
+        try:
+            _make_fixture(bad_idle, [f"| Q3 | 积压单 | {fresh} | PENDING | 无 | 验收 |"])
+            globals()['QUEUE'] = os.path.join(bad_idle, 'docs', '派单队列.md')
+            globals()['LEDGER'] = os.path.join(bad_idle, 'docs', '派单台账.md')
+            globals()['TIER'] = os.path.join(bad_idle, 'docs', '并发档位.md')
+            rc_idle = main()
+            assert rc_idle == 1, f"0 在飞 0 RUNNING 仍有 PENDING 应 E3 空槽空转，rc={rc_idle}"
+            print('[selftest] 坏样本（空槽空转）E3 FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad_idle, ignore_errors=True)
+    finally:
+        # 路径常量必须还原：断言失败也不能把生产 ROOT 留在临时目录上（同进程后续门禁复用本模块）
+        globals()['QUEUE'], globals()['LEDGER'], globals()['TIER'] = saved
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())
