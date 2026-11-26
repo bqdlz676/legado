@@ -458,6 +458,12 @@ if [ $? -eq 0 ]; then ok "㊼豁免身份化" "$(echo "$EX47" | grep 'EXEMPT-IDE
 UR48=$(python3 data_scripts/check-unpushed-reports.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊽未推送报告回执" "$(echo "$UR48" | grep 'UNPUSHED-REPORTS: PASS')"; else bad "㊽未推送报告回执" "$(echo "$UR48" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# ㊾ 空集即 PASS（M-43，用户 2026-11-26「继续找机制的问题」第二类假绿）。
+#   为什么：`if not files: return 0` 把"没有检查对象"表述成"合规"，删报告/漏传参数即可绿。
+#   判据：扫 data_scripts/check-*.py 的空集分支，出现 PASS 字样即红；WARN/INFO 分支入豁免清单。
+VC49=$(python3 data_scripts/check-vacuous-pass.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊾空集不判PASS" "$(echo "$VC49" | grep 'VACUOUS-PASS: PASS')"; else bad "㊾空集不判PASS" "$(echo "$VC49" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
