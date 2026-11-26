@@ -43,11 +43,22 @@ class TerrainMap(
         if (inBounds(cell)) raster.metersAt(cell.col, cell.row) else 0.0
 
     /** 坡度（度）：与四邻最大高差 / 水平距离取反正切；边界按内侧邻域估算。 */
-    fun slopeDeg(cell: Cell): Double {
+    fun slopeDeg(cell: Cell): Double = slopeInternal(cell, skipWater = false)
+
+    /**
+     * 陆地坡度：邻接水面格不计入陆坡比较。
+     * 为什么：水面高程被压到 0m，贴水干格与水面的高差是岸线落差，不是陆坡陡壁；
+     * 若计入，单格水洞周边的干格会被算成 >45° 悬崖而在 [passable] 里误堵（PathfinderBoundaryTest
+     * 双等代价绕行即被这道假悬崖切断）。渡口检测 [detectFords] 仍走全邻域口径 [slopeDeg]，不受影响。
+     */
+    private fun landSlopeDeg(cell: Cell): Double = slopeInternal(cell, skipWater = true)
+
+    private fun slopeInternal(cell: Cell, skipWater: Boolean): Double {
         if (!inBounds(cell)) return 0.0
         val e0 = elevationMeters(cell)
         var maxSlope = 0.0
         for (n in neighbors4(cell)) {
+            if (skipWater && isWater(n)) continue
             val de = kotlin.math.abs(elevationMeters(n) - e0)
             val slope = Math.toDegrees(atan(de / projection.cellSizeMeters.coerceAtLeast(1.0)))
             maxSlope = max(maxSlope, slope)
@@ -82,7 +93,7 @@ class TerrainMap(
     fun passable(cell: Cell, type: ArmyType): Boolean {
         if (!inBounds(cell)) return false
         if (isWater(cell) && !isFord(cell)) return false
-        val slope = slopeDeg(cell)
+        val slope = landSlopeDeg(cell)
         val slopeLimit = when (type) {
             ArmyType.CAVALRY -> 30.0
             ArmyType.MILITIA -> 15.0
