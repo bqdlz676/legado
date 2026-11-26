@@ -86,39 +86,44 @@ class InkComponentsSnapshotTest {
     fun inkProgressTimelineGold() =
         snapProgress(InkProgressVariant.TIMELINE_GOLD, 0.35f, 3.dp)
 
-    @Composable
+    // 帮助函数自身不是 @Composable：Paparazzi.snapshot 的 lambda 才是 Composable 上下文，
+    // 由它内部再调用 @Composable 的 Centered；否则 JUnit 测试方法调用 Composable 会编译期报错。
     private fun snapButton(state: ComponentVisualState, label: String) {
-        Centered {
-            InkButton(
-                text = label,
-                onClick = {},
-                variant = InkButtonVariant.PRIMARY,
-                state = state,
-            )
-        }
-    }
-
-    @Composable
-    private fun snapDivider(variant: InkDividerVariant, thickness: androidx.compose.ui.unit.Dp) {
-        Centered {
-            Box(
-                modifier = Modifier.fillMaxWidth().height(24.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                InkDivider(variant = variant, thickness = thickness)
+        paparazzi.snapshot {
+            Centered {
+                InkButton(
+                    text = label,
+                    onClick = {},
+                    variant = InkButtonVariant.PRIMARY,
+                    state = state,
+                )
             }
         }
     }
 
-    @Composable
+    private fun snapDivider(variant: InkDividerVariant, thickness: androidx.compose.ui.unit.Dp) {
+        paparazzi.snapshot {
+            Centered {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    InkDivider(variant = variant, thickness = thickness)
+                }
+            }
+        }
+    }
+
     private fun snapProgress(variant: InkProgressVariant, progress: Float, thickness: androidx.compose.ui.unit.Dp) {
-        Centered {
-            InkProgress(
-                variant = variant,
-                progress = progress,
-                thickness = thickness,
-                modifier = Modifier.width(thickness).height(120.dp),
-            )
+        paparazzi.snapshot {
+            Centered {
+                InkProgress(
+                    variant = variant,
+                    progress = progress,
+                    thickness = thickness,
+                    modifier = Modifier.width(thickness).height(120.dp),
+                )
+            }
         }
     }
 
