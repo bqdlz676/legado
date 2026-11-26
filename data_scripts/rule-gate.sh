@@ -491,6 +491,11 @@ if [ $? -eq 0 ]; then ok "54门禁接线" "$(echo "$GW54" | grep 'GATE-WIRING: P
 
 echo
 
+# 55 永远找问题（F8，2026-11-26 用户口令「永远找问题解决问题提出问题呢」）。
+#   为什么：只汇报"已完成"会把审计停在自己手里；报告里没有"新发现问题"节＝本轮零发现，必须红。
+PF55=$(python3 data_scripts/check-problem-finding.py 2>&1)
+if [ $? -eq 0 ]; then ok "55永远找问题" "$(echo "$PF55" | grep 'PROBLEM-FINDING: PASS' | head -1)"; else bad "55永远找问题" "$(echo "$PF55" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
 if [ ${#SKIP_LEGACY[@]} -gt 0 ]; then
   echo "SKIP-LEGACY 合计 ${#SKIP_LEGACY[@]} 份（存量件仅头部留痕，⑲/⑭/⑮ 豁免）："
