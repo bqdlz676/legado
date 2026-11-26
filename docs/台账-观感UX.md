@@ -24,7 +24,7 @@
 - 谁来验：脚本机械初筛字号；行距/对比度由验收代理对渲染帧复核。何时验：P5 模块出口 + P6 整体自检。
 - 当前状态：静态字号 FAIL 219 项；行距与对比度 DEFER（需帧）。
 - 违例条目（样本，全量以 `--ux` 输出为准）：
-  - `app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:204` 字号 13sp <14sp；`:208` 同；`:248` 同。
+  - `app/src/main/java/io/legado/app/ui/about/AboutActivity.kt:204` 字号 13sp <14sp；`:208` 同；`:248` 同。（⚠ 该文件随 Q-280 已删除，此条失效，勿再回此文件核行号；见 `docs/修复-删除关于页.md`）
   - `app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:94` 字号 13sp <14sp。
   - `app/src/main/java/io/legado/app/ui/about/AppLogDialog.kt:136` 字号 12sp <14sp；`:150` 同。
   - 字号重灾区：`ui/map/crossing/shell/CrossingShell.kt`（21 处）、`ui/map/globe/host/GlobeScreenHost.kt`（12 处）、`ui/main/bookshelf/BookshelfScreen.kt`（10 处）、`ui/main/explore/InkExploreCards.kt`（9 处）、`ui/book/read/ink/InkBubble.kt`（7 处）。
@@ -45,7 +45,7 @@
 - 谁来验：脚本静态初筛；热区是否真为可点归属由验收代理对帧/代码复核。何时验：P5 模块出口 + P6 整体自检。
 - 当前状态：静态 FAIL 43 项（间距 + 热区混合）。
 - 违例条目（样本）：
-  - 间距：`ui/about/AboutActivity.kt:193` spacedBy 6dp；`ui/about/AboutInkActivity.kt:68` spacedBy 4dp；`ui/about/AppLogDialog.kt:132` spacedBy 2dp；`ui/book/read/ink/InkBubble.kt:172` spacedBy 6dp；`ui/book/source/manage/SourceManageRow.kt:83` spacedBy 4dp、`:247` spacedBy 3dp。
+  - 间距：`ui/about/AboutActivity.kt:193` spacedBy 6dp（该文件已随 Q-280 删除，条目失效）；`ui/about/AboutInkActivity.kt:68` spacedBy 4dp；`ui/about/AppLogDialog.kt:132` spacedBy 2dp；`ui/book/read/ink/InkBubble.kt:172` spacedBy 6dp；`ui/book/source/manage/SourceManageRow.kt:83` spacedBy 4dp、`:247` spacedBy 3dp。
   - 热区：`ui/components/InkButton.kt:66` 8dp；`ui/components/inkslate/InkSlateToolbar.kt:138` 24dp、`:192` 44dp、`:66` 44dp；`ui/config/BottomBarSkinActivity.kt:271` 24dp、`:274` 24dp；`ui/main/search/SearchInputBar.kt:178` 28dp。
 - 关闭条件：可点元素热区静态 ≥48dp 且帧上归属确认；目标间间距 ≥8dp；内部排版间距（非目标间）若豁免，须在条目里写明豁免理由与对应视觉依据。
 
@@ -54,7 +54,7 @@
 - 判据：目标口径＝手势落点到反馈可见（按压态/辉光/音效起）≤100ms。静态线索：交互路径 `delay`/`delayMillis` >100ms 列入 WARN 复核（轮询/限流/Toast 等待豁免）；时延本体截图帧测不到时间，走帧序列序号差推算或真机 bench。
 - 谁来验：脚本静态线索 + 验收代理；真机样本后置。何时验：P5 出口静态项；P6 帧序列；真机项交付前复核。
 - 当前状态：WARN 18 项；反馈时延本体 DEFER（需帧序列/真机）。
-- 违例条目（样本）：`ui/about/AboutActivity.kt:82` delay 3000ms（Toast 等待嫌疑，待复核）；`:97` 同；`ui/book/changecover/ChangeCoverDialog.kt:76` delay 1000ms；`ui/book/changesource/ChangeBookSourceDialog.kt:280` delay 1000ms、`:299` delay 500ms。
+- 违例条目（样本）：`ui/about/AboutActivity.kt:82` delay 3000ms（该文件已随 Q-280 删除，条目失效；原注：Toast 等待嫌疑，待复核）；`:97` 同；`ui/book/changecover/ChangeCoverDialog.kt:76` delay 1000ms；`ui/book/changesource/ChangeBookSourceDialog.kt:280` delay 1000ms、`:299` delay 500ms。
 - 关闭条件：反馈链路无 >100ms 前置等待（静态复核排除轮询/Toast）；帧序列或真机样本给出反馈时延 ≤100ms 证据；无真机时台账必须写明"替代口径 + 降级证据"，禁止静默放过。
 
 ## UX-05 加载与空态
