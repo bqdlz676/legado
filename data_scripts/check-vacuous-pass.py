@@ -91,9 +91,10 @@ ALLOWLIST = {
         '索引缺失已在上方 return 1 单独兜底，此处空集不掩盖索引故障。',
     # 提交区间型门禁：区间内无提交 = 工作树干净 / 无待推提交，是真实状态；
     # 判的是"待推 commit 是否合规"，空区间不是漏检。
-    ('data_scripts/check-commit-trailer.py', 'commits', '9f15f2bd9a75'):
-        '区间型门禁：commits 为未推提交清单，空集 = 无待推提交（干净树）；'
-        '认证书尾只对存在的待推 commit 有意义，空区间不报红属真实状态。',
+    ('data_scripts/check-commit-trailer.py', 'commits', '4153e96c2c73'):
+        '区间型 WARN 门禁：commits 为未推提交清单，空集 = 无待推提交（干净树）；'
+        'git log 不可用已在上方 return 1 兜底，空集分支打印 INFO 非 PASS，未把空集说成合规；'
+        '脚本整体 WARN 型、退出码恒 0，不阻断 push（Q-257 收紧后块哈希更新）。',
     ('data_scripts/check-push-track.py', 'shas', '4760bf4009dc'):
         '区间型门禁：shas 为 rev-list 算出的待推提交，空集 = 指定 range 内无提交；'
         '轨型分类无对象可分，打印"干净"与空集一致，非漏检。',

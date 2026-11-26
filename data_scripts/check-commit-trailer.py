@@ -28,14 +28,20 @@ def git(repo: str, *args) -> tuple[int, str]:
     return r.returncode, r.stdout
 
 
-def collect(repo: str) -> tuple[list[tuple[str, str, str]], bool]:
-    """返回 [(短号, 主题, 正文), 是否回退窗口]。"""
+def collect(repo: str) -> tuple[list[tuple[str, str, str]], bool, bool]:
+    """返回 [(短号, 主题, 正文), 是否回退窗口, git 是否可用]。
+
+    git log 返回码必须检查：调用失败时 out 为空，旧实现会落到空集分支被当成
+    "无提交" 放行；无法核验应与 provenance 门禁同口径视为未过（Q-257 收紧）。
+    """
     rc, _ = git(repo, 'rev-parse', '--verify', 'origin/main')
     if rc == 0:
         rng, fallback = 'origin/main..HEAD', False
     else:
         rng, fallback = 'HEAD~5..HEAD', True
     rc, out = git(repo, 'log', rng, '--format=%h%x1f%s%x1f%b%x1e')
+    if rc != 0:
+        return [], fallback, False
     commits: list[tuple[str, str, str]] = []
     for rec in out.split('\x1e'):
         rec = rec.strip('\n')
@@ -45,7 +51,7 @@ def collect(repo: str) -> tuple[list[tuple[str, str, str]], bool]:
         if len(parts) < 3:
             continue
         commits.append((parts[0].strip(), parts[1].strip(), parts[2]))
-    return commits, fallback
+    return commits, fallback, True
 
 
 def classify(body: str) -> tuple[str, list[tuple[str, str, str]]]:
@@ -70,9 +76,13 @@ def main() -> int:
     ap.add_argument('repo', nargs='?', default='.')
     args = ap.parse_args()
 
-    commits, fallback = collect(args.repo)
+    commits, fallback, git_ok = collect(args.repo)
+    if not git_ok:
+        print('COMMIT-TRAILER: FAIL（git log 不可用，无法核验认证书尾，不得按空集放行）')
+        return 1
     if not commits:
-        print('COMMIT-TRAILER: PASS（无未推提交）')
+        # 空集是真实"窗口内无提交"，只报 INFO，不表述为合规结论（Q-257 收紧）。
+        print('COMMIT-TRAILER: INFO（窗口内无提交，无可核验对象）')
         return 0
 
     rows = []
