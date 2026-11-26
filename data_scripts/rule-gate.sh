@@ -430,6 +430,12 @@ BL43=$(python3 data_scripts/check-backlog-depth.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊸验收积压深度" "$(echo "$BL43" | grep 'BACKLOG-DEPTH: PASS')"; else bad "㊸验收积压深度" "$(echo "$BL43" | grep 'FAIL' | head -3 | tr '\n' ' ')"; fi
 echo "$BL43" | grep -E '^(INFO|WARN)' | while read -r w; do say "㊸验收积压深度(提示)" "$w（不影响 GATE 结论）"; done
 
+# ㊹ 调度执行合规（本棒实测失效过的三条约束全部改机检：负样本残留 / 僵尸 RUNNING / 熔断超时）。
+#   为什么：写在派单文字里的"熔断 15 分钟""存活校验""样本只许 /tmp"全部靠自觉，实测无一生效。
+DC44=$(python3 data_scripts/check-dispatch-compliance.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊹调度执行合规" "$(echo "$DC44" | grep 'DISPATCH-COMPLIANCE: PASS')"; else bad "㊹调度执行合规" "$(echo "$DC44" | grep -E 'FAIL' | head -3 | tr '\n' ' ')"; fi
+echo "$DC44" | grep 'DISPATCH-C: PASS（INFO' | while read -r w; do say "㊹调度执行合规(提示)" "$w（不影响 GATE 结论）"; done
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
