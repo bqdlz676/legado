@@ -58,6 +58,11 @@ if ! python3 data_scripts/kotlin-syntax-lint.py | tail -3; then
   echo "[3.6] Kotlin 语法预检未过"; FAILED=1
 fi
 
+# 3.7) 守则回执（写了不等于读了：报告必须出示当前必读指纹 + 三条回源引用）
+if ! python3 data_scripts/check-onboarding.py | tail -3; then
+  echo "[3.7] 守则回执未过"; FAILED=1
+fi
+
 # 4) 跨模块编译面预检
 if ! python3 data_scripts/cross-module-guard.py $STRICT | tail -6; then
   echo "[4/5] 跨模块预检未过"; FAILED=1
