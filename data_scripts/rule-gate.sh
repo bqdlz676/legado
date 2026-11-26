@@ -446,6 +446,18 @@ if [ $? -eq 0 ]; then ok "㊺铁律全量同步" "$(echo "$IR45" | grep 'IRONRUL
 FR46=$(python3 data_scripts/check-first-read.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊻第一读顺序" "$(echo "$FR46" | grep 'FIRST-READ: PASS')"; else bad "㊻第一读顺序" "$(echo "$FR46" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# ㊼ 豁免身份化（F-122，用户 2026-11-26 质问「怎么会又改名蒙过的情况」第三次复发）。
+#   为什么：位置型豁免（按路径子串/文件名前缀跳过）用"放在哪"代替"是什么"，改名即可蒙过；
+#   身份（git 跟踪/内容哈希）不可伪造。
+EX47=$(python3 data_scripts/check-exempt-identity.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊼豁免身份化" "$(echo "$EX47" | grep 'EXEMPT-IDENTITY: PASS')"; else bad "㊼豁免身份化" "$(echo "$EX47" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
+# ㊽ 未推送报告也须过回执（F-123，用户 2026-11-26「继续找机制的问题」）。
+#   为什么：⑭/第 3 步的"本轮"= git status 工作区，正常流程是「写→commit→push」，
+#   于是先提交就永远不进判据（Q-209 报告就是这样混过去的）。判据改为 origin/main..HEAD ∪ 工作区。
+UR48=$(python3 data_scripts/check-unpushed-reports.py 2>&1)
+if [ $? -eq 0 ]; then ok "㊽未推送报告回执" "$(echo "$UR48" | grep 'UNPUSHED-REPORTS: PASS')"; else bad "㊽未推送报告回执" "$(echo "$UR48" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。

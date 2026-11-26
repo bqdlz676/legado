@@ -29,13 +29,13 @@ FIXTURE_OK = 'data_scripts/fixtures/'
 # TIMEOUT 15 分钟＝§2「每单写死 15 分钟熔断」。两者都是调度口径常量，改口径必须先改口径再改这里。
 ZOMBIE_MINUTES = 10
 TIMEOUT_MINUTES = 15
-ROW_RE = re.compile(r'^\|\s*(Q-\d+)\s*\|')
+ROW_RE = re.compile(r'^\s*\|\s*(Q-\d+)\s*\|')
 STATUS_WORDS = ('RUNNING', 'PENDING', 'DONE', 'BLOCKED')
 TIME_RE = re.compile(r'(\d{1,2}):(\d{2})\s*起')
 
 
 def git_status_paths():
-    r = subprocess.run(['git', '-c', 'core.quotepath=false', 'status', '--porcelain'],
+    r = subprocess.run(['git', '-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'],
                        cwd=str(ROOT), capture_output=True, text=True)
     out = []
     for line in r.stdout.splitlines():
@@ -76,8 +76,12 @@ def running_rows(queue_path):
         qid = m.group(1)
         # 为什么按"含状态词的那一格"定位：队列列数会随写作习惯漂移（4 列/6 列都出现过），
         # 写死第 4 列会让 RUNNING 行整体消失，B/C 判据变成永久盲区（Q-208 D-2）。
-        status_cell = next((c for c in cells if any(w in c for w in STATUS_WORDS)), '')
-        if 'RUNNING' not in status_cell:
+        # N-2：先认"整格就是状态词（可带括号备注）"，再退回子串；否则 DONE 行备注里出现
+        # 「RUNNING」会被当成在飞（Q-210 N-2 实测）。状态词必须是格子开头的 token。
+        status_cell = next((c for c in cells if re.match(r'^(%s)\b' % '|'.join(STATUS_WORDS), c.upper())), '')
+        if not status_cell:
+            status_cell = next((c for c in cells if any(w in c.upper() for w in STATUS_WORDS)), '')
+        if not re.match(r'^RUNNING\b', status_cell.upper()):
             continue
         aid = re.search(r's_[0-9A-Za-z]+', ' '.join(cells))
         rows.append((qid, aid.group(0) if aid else '', status_cell))
@@ -139,13 +143,30 @@ def run(queue_path, agents_dir=None, now=None) -> int:
         print('DISPATCH-A: PASS 工作区无测试残留')
 
     rows = running_rows(queue_path)
-    raw_running = [l for l in Path(queue_path).read_text(encoding='utf-8', errors='ignore').splitlines()
-                   if re.match(r'^\|\s*Q-\d+', l) and 'RUNNING' in l] if Path(queue_path).exists() else []
+    # D-2：凡"含 Q 号又含 RUNNING"的行都必须被判据看见——哪怕它不是标准表格行。
+    # 旧口径只认 `^|Q-` 开头，非管道行/前导空格行被静默吞掉，队列写歪就成永久盲区（Q-210 D-2）。
+    all_lines = Path(queue_path).read_text(encoding='utf-8', errors='ignore').splitlines() \
+        if Path(queue_path).exists() else []
+    def _status_of(line):
+        m = ROW_RE.match(line)
+        if not m:
+            return ''
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        c = next((x for x in cells if re.match(r'^(%s)\b' % '|'.join(STATUS_WORDS), x.upper())), '')
+        return c.split('（')[0].strip().upper()
+
+    # 只认"行首是 Q 号"的候选行；状态格已明确 DONE/BLOCKED 的不算在飞（备注里提到 RUNNING 不算）
+    raw_running = [l for l in all_lines
+                   if re.match(r'^\s*\|?\s*Q-\d+', l) and 'RUNNING' in l
+                   and _status_of(l) not in ('DONE', 'BLOCKED')]
     unparsed = len(raw_running) - len(rows)
+    malformed = [l[:80] for l in raw_running if not ROW_RE.match(l)]
     if unparsed > 0:
         failed += 1
-        print('DISPATCH-B: FAIL 队列有 %d 行含 RUNNING 但无法解析（列数漂移会让 B/C 变永久盲区，先补列再跑）'
+        print('DISPATCH-B: FAIL 队列有 %d 行含 RUNNING 但无法解析（列数漂移/非表格行会让 B/C 变永久盲区，先修行再跑）'
               % unparsed)
+        for l in malformed:
+            print('  - 非标准行：%s' % l)
     zb = zombies(rows, agents_dir, now)
     if zb:
         failed += 1
