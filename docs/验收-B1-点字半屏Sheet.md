@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=6ab072c0e6de；文档=6dd8114a6a74）并复核 3 条结论，漂移 2 条（见 回执补录-批3-阅读器贴皮 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 验收 · B1 点字详情改走 InkHalfSheet（独立验收代理，只查不改）
 
 锚点卡：docs/锚点/B1-点字半屏Sheet.md
@@ -65,7 +68,7 @@
 
 ### 3.1 逐行读守卫判据逻辑
 
-- `ReaderSheetGuard.kt:17-48` 全类只有两个私有快照字段：`:20` `snapshotBefore: ReaderSnapshot?`、`:23` `snapshotAfter: ReaderSnapshot?`；方法仅 `open(before)`（`:27-30`）、`dismiss(after)`（`:33-35`）、`restoredExactly`（`:42-47`）。该类职责是开合前后快照比对，**没有任何可见性 / 弹层去重逻辑**，也不记录「当前是否已开」。
+- `ReaderSheetGuard.kt:62-48` 全类只有两个私有快照字段：`:20` `snapshotBefore: ReaderSnapshot?`、`:23` `snapshotAfter: ReaderSnapshot?`；方法仅 `open(before)`（`:27-30`）、`dismiss(after)`（`:33-35`）、`restoredExactly`（`:42-47`）。该类职责是开合前后快照比对，**没有任何可见性 / 弹层去重逻辑**，也不记录「当前是否已开」。
 - `ReaderSheetState.kt:36-39` `open(request, before)`：先 `guard.open(before)`，再 `this.request = request`；函数体内无 `isOpen` 前置判断，不拒绝重复打开。`:32-33` 虽派生了 `isOpen: Boolean get() = request != null`，但全仓 grep `isOpen` 在阅读域仅命中该声明行本身，**零消费方**，没有任何路径用它做去重闸。
 - `ReadBookActivity.kt:1549-1551` `override fun openReaderSheet(request)`：直接 `readerSheetState.open(request, captureReaderSnapshot())`，同样无「已开则忽略 / 排队」判断，无互斥锁。
 
@@ -96,7 +99,7 @@
 ### 5.2 偏离点逐条列出
 
 - 偏离 D2（判为缺陷）：`visible` 恒为 `true`，离场动画被砍。四处调用点 `visible = true`（`ReaderSheetOverlay.kt:57,75,93,111`）；关闭路径是 `dismiss()` 把 `request` 置 null（`ReaderSheetState.kt:42-45`），`ReaderSheetOverlay.kt:40` `val request = state.request ?: return` 直接摘除整个子树。`InkHalfSheet` 的离场动画依赖 `LaunchedEffect(visible)` 的 `visible=false` 分支（`InkHalfSheet.kt:119-128`）与 `:131` 的 `progress.value == 0f && !visible` 保留帧；子树被立即摘除后，Sheet 下降与遮罩回亮动画没有机会播放。对照竖排链路 `InkBubble.kt:305` 传 `visible = sheetOpen` 且组件保持组合、由内部动画收束——本单接线方式与该既有用法不一致。
-- 偏离 D5（被验报告 §6 交接项 5 已自认）：未构造 `HalfSheetContent` 固定分区模型。四处调用 `model` 均缺省（null），正文走自定义槽 `DetailBodyLines`（`ReaderSheetOverlay.kt:126-175`）；锚点卡引文切片-11 §5.2（人物五段固定顺序）、§5.3（字词四段固定顺序）在横排遗留通道未落地。竖排链路由 `HalfSheetMapper.build(content)` 构造模型（`InkBubble.kt:303`），本单未重复建设，范围上可解释为遗留通道补强项，但与锚点「三入口必须走 InkHalfSheet + InkBubble」的完整口径存在差距。
+- 偏离 D5（被验报告 §6 交接项 5 已自认）：未构造 `HalfSheetContent` 固定分区模型。四处调用 `model` 均缺省（null），正文走自定义槽 `DetailBodyLines`（`ReaderSheetOverlay.kt:126-175`）；锚点卡引文切片-11 §5.2（人物五段固定顺序）、§5.3（字词四段固定顺序）在横排遗留通道未落地。竖排链路由 `HalfSheetMapper.build(content)` 构造模型（`InkBubble.kt:310`），本单未重复建设，范围上可解释为遗留通道补强项，但与锚点「三入口必须走 InkHalfSheet + InkBubble」的完整口径存在差距。
 - 偏离 D4：`onLinkSelected` 未接线。`ReadBookActivity.kt:1560-1566` 挂覆盖层时只传 `state` 与 `onDismiss`，未传 `onLinkSelected`；`ReaderSheetOverlay.kt:38` 形参默认 `{}`。地名同名候选行 `ReaderSheetOverlay.kt:161-173` 为纯 `BasicText`，未挂点击手势，候选点击在遗留通道为空操作。
 - 非缺陷偏离：`host` 内嵌槽未使用。dialog 模式下契约本身不渲染 host 槽（`InkHalfSheet.kt:81-83`），宿主下沉 8dp 由内嵌模式承担，本场景不接 host 符合契约。
 
@@ -125,7 +128,7 @@
 
 ### 7.1 全仓调用点排查（grep 回证）
 
-- `ReaderDetailRequest` 引用点：`ReadBookActivity.kt:126`(import)、`:1549`；`ReaderSheetOverlay.kt:14,22,52,70,88,106,126`；`ReaderSheetState.kt:6,13,21,29,36`；`ContentTextView.kt:585,619,632,1361,1943`；定义文件 `ReaderDetailRequest.kt:29,42`。全部落在阅读域 `ui/book/read/` 内，域外无调用点。
+- `ReaderDetailRequest` 引用点：`ReadBookActivity.kt:126`(import)、`:1549`；`ReaderSheetOverlay.kt:14,22,52,70,88,106,126`；`ReaderSheetState.kt:6,13,21,29,36`；`ContentTextView.kt:585,619,632,1361,1943`；定义文件 `ReaderDetailRequest.kt:42,42`。全部落在阅读域 `ui/book/read/` 内，域外无调用点。
 - `ReaderSheetOverlay` 实例化点：全仓仅 `ReadBookActivity.kt:1560` 一处。
 - `ReaderSheetState` 实例化点：全仓仅 `ReadBookActivity.kt:318` 一处。
 - `openReaderSheet` 实现点：全仓仅 `ReadBookActivity.kt:1549`（`override fun`）；`ContentTextView.CallBack` 接口声明在 `ContentTextView.kt:1943`，接口实现类仅 `ReadBookActivity.kt:215`（`ContentTextView.CallBack`），无第二实现者。
@@ -135,14 +138,14 @@
 ### 7.2 与滑动翻页 / 长按选字是否抢手势
 
 - 打开态：`InkHalfSheet` dialog 模式起独立窗口（`InkHalfSheet.kt:157-163`），铺满全屏遮罩；宿主 `ContentTextView` 的翻页滑动与长按选字事件落在宿主窗口，Dialog 窗口在其上截获触摸，代码路径上不与宿主翻页 / 选字手势共用同一手势检测器。Sheet 内部：下拉关闭只挂在金杠 `HalfSheetGrabber`（`InkHalfSheet.kt:257-272`），正文区走 `verticalScroll`（`:290-293`），注释 `:256` 明示「下拉手势只走横杠，正文区交给竖滑滚动，二者不抢手势」。
-- 关闭态：`ReaderSheetOverlay.kt:40` 在 `request == null` 时整体 `return`，组合树内无任何指针 Modifier；宿主翻页 / 选字不应被空覆盖层截获。但 `ComposeView` 经 `window.addContentView` 以 MATCH_PARENT 挂入（`ReadBookActivity.kt:1567-1574`），空 ComposeView 是否吞触摸事件属视图层行为，真机未验证，列未验证项。
+- 关闭态：`ReaderSheetOverlay.kt:49` 在 `request == null` 时整体 `return`，组合树内无任何指针 Modifier；宿主翻页 / 选字不应被空覆盖层截获。但 `ComposeView` 经 `window.addContentView` 以 MATCH_PARENT 挂入（`ReadBookActivity.kt:1567-1574`），空 ComposeView 是否吞触摸事件属视图层行为，真机未验证，列未验证项。
 - 遗留通道全屏动作出口未复刻：旧人物 / 地名分支在 fm 为空时跳 `PersonDetailActivity / PlaceMapActivity`；新覆盖层无动作行，该全屏出口在横排遗留通道缺失（被验报告 §6 交接项 2），竖排链路由 `InkActionDispatcher` 兜底，不受影响。
 
 ## 八、新发现缺陷清单
 
 - D1（判据 3 FAIL）：重复弹层无显式守卫。`ReaderSheetState.open`（`ReaderSheetState.kt:36-39`）与 `ReadBookActivity.openReaderSheet`（`ReadBookActivity.kt:1549-1551`）均不判断 `isOpen`；打开中再次 `open` 会覆盖 `request` 与首份 `snapshotBefore`（`ReaderSheetGuard.kt:27-30`），连点竞态无布尔 / 互斥闸；`isOpen`（`ReaderSheetState.kt:32-33`）声明后零消费。
-- D2（判据 5 偏离）：关闭离场动画被砍。`request` 置 null 后覆盖层子树被直接摘除（`ReaderSheetOverlay.kt:40`），`InkHalfSheet` 的 `visible=false` 离场动画分支（`InkHalfSheet.kt:119-128`）不会执行；对照 `InkBubble.kt:305` 保持组合并传 `visible = sheetOpen` 的既有写法。
-- D3（判据 2 缺口）：遗留通道 `selectedSegments` 恒为空集（`ReadBookActivity.kt:1590`），选中段还原在真实横排路径上不可比对。
+- D2（判据 5 偏离）：关闭离场动画被砍。`request` 置 null 后覆盖层子树被直接摘除（`ReaderSheetOverlay.kt:40`），`InkHalfSheet` 的 `visible=false` 离场动画分支（`InkHalfSheet.kt:90-128`）不会执行；对照 `InkBubble.kt:305` 保持组合并传 `visible = sheetOpen` 的既有写法。
+- D3（判据 2 缺口）：遗留通道 `selectedSegments` 恒为空集（`ReadBookActivity.kt:1651`），选中段还原在真实横排路径上不可比对。
 - D4（判据 5 偏离）：候选链接未接线。`onLinkSelected` 在 `attachReaderSheetOverlay`（`ReadBookActivity.kt:1560-1566`）未传，默认空操作；地名同名行（`ReaderSheetOverlay.kt:161-173`）点击无响应。
 - D5（判据 5 偏离）：遗留通道未按切片-11 §5.2 / §5.3 固定分区模型渲染，人物 / 字词走自定义逐行槽（`ReaderSheetOverlay.kt:126-175`）。
 - D6（二阶残留）：`ui/main/DetailSheet.kt`、`ui/main/detail/DetailSheetContent.kt`、`ui/main/detail/DetailSheetState.kt` 外部引用已为 0，属待清剿死代码；按锚点卡 §三-2 留待下一单，本单不动。

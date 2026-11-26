@@ -31,4 +31,4 @@
 | # | 契约侧（冻结口径） | 代码侧（现状） | 处置建议 |
 |---|---|---|---|
 | 1 | `落文-core-契约.md:7-9`：`resolve(name, year?) → List<Candidate>`，`Candidate` 含 `id / name / type(place\|person\|era\|allusion) / tier / start / end / aliases / confidence / source / isDefault` | `app/src/main/java/io/legado/app/help/NameResolver.kt:14-32`：返回 `Hit(name,kind,meta,detail,pinyin,wlat,wlng,placeId,placeKind,tier,others,anchorYear)`；`Kind` 枚举仅 `PERSON, PLACE`（`:32`），无 `id/end/confidence/source/isDefault/era/allusion` 字段 | 归 Q-01/U12：按契约补字段或修订契约签名，二选一须主控拍板，不许代码侧自行漂移 |
-| 2 | `落文-微交互动效-契约.md:58`：长按=放大镜（旧「长按=选中」作废） | `app/src/main/java/io/legado/app/ui/book/read/ink/GestureRouter.kt:35` 注释「长按路由：进入文字选择」；`:36` `onLongPress(...)` 走 `onCenterLongPress` | 归 Q-03/C11：路由注释与出口按契约改为放大镜；若仍保留选区，须在契约侧补回选区口径 |
+| 2 | `落文-微交互动效-契约.md:58`：长按=放大镜（旧「长按=选中」作废） | `app/src/main/java/io/legado/app/ui/book/read/ink/GestureRouter.kt:39` 注释「长按路由：进入文字选择」；`:36` `onLongPress(...)` 走 `onCenterLongPress` | 归 Q-03/C11：路由注释与出口按契约改为放大镜；若仍保留选区，须在契约侧补回选区口径 |

@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=6ab072c0e6de；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批4-地图名物 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 验收报告 · U10 DEM 地形接线（缺陷 D-APK-1）
 
 - 验收对象：缺陷 **D-APK-1**——3D 沙盘地形当前是平地形，真实 DEM 资产 `assets/map/china_height.png` 进包却零读取。
@@ -79,7 +82,7 @@ SandboxScene.kt:19       注释：解码失败时注入 [TerrainElevation.Flat]
 TerrainElevation.kt:19   object Flat : TerrainElevation { ... } // 接口兜底实现定义处
 ```
 
-`SandboxScene.kt:20` 构造参数为 `val elevation: TerrainElevation`（无默认值）；生产默认场景 `SandboxScreen.kt:199` 注入 DEM 加载结果。`Flat` 仅剩：接口兜底定义、加载器失败回落、测试显式注入。
+`SandboxScene.kt:19` 构造参数为 `val elevation: TerrainElevation`（无默认值）；生产默认场景 `SandboxScreen.kt:199` 注入 DEM 加载结果。`Flat` 仅剩：接口兜底定义、加载器失败回落、测试显式注入。
 
 ### 3. 纯 JVM 类零 Android / Compose import
 

@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=2764066b816e；验收=ef27bd6ac2b4；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批2-战役回放 §三）
+> 回执缺失（规则上线前交付，留档）
+
 锚点卡：docs/锚点/B8R2-侧翼敌军半径.md
 
 # 独立验收 · B8R3 八向寻路度量（名义八向实曼哈顿收口为真 octile）
@@ -100,7 +103,7 @@ help/sim 旧包结论：
 
 ### 判据 4 · 存档口径 —— PASS
 
-- `BranchSnapshot` 字段（`model/CampaignModels.kt:249-259`）：`turn / elapsedDays / corps: List<Corps> / firedEventIds / captureHold / pointHolders`，**不含** `IntelRecord` / `seenDistCells`。
+- `BranchSnapshot` 字段（`model/CampaignModels.kt:280-259`）：`turn / elapsedDays / corps: List<Corps> / firedEventIds / captureHold / pointHolders`，**不含** `IntelRecord` / `seenDistCells`。
 - 存档写入：`CampaignController.kt:726-733` `saveBranch()` 仅 `corps.map { it.copy() }` 深拷贝 Corps，情报表不进快照。
 - 存档恢复：`:749-759` `restoreBranch()` 先 `intel.clear()` / `reports.clear()`，再按恢复后军位重新播种，`seenDistCells = 0`；旧档里即便残留曼哈顿口径目击距离，也不会被读回参与结算。
 - 视图不下发：`CorpsView`（`CampaignModels.kt:207-237`）无 `seenDistCells` 字段；命令 `grep -n "seenDistCells" model/CampaignModels.kt` 退出码 1。
@@ -130,7 +133,7 @@ help/sim 旧包结论：
 
 四类边界覆盖核查：
 
-- **起点 = 终点**：度量层有断言（用例 5，`:58` `octile(a,a)=0.0`）；路径层早返回 `Pathfinder.kt:31`（`find`）、`:94`（`flankRoute`）无专门测试用例（D1）。
+- **起点 = 终点**：度量层有断言（用例 5，`:58` `octile(a,a)=0.0`）；路径层早返回 `Pathfinder.kt:13`（`find`）、`:94`（`flankRoute`）无专门测试用例（D1）。
 - **边界外**：`TerrainMapTest.kt:72` `越界单元按不可通行处理` 断言 `Cell(-1,0)` / `Cell(32,0)` `passable` 为 false；`octile` 按设计为纯几何函数不做 `inBounds` 钳制，越界过滤由 `neighbors8`（`TerrainMap.kt:137-145`）与 `nearestPassable` 的 `inBounds` 检查负责；无直接向 `octile` 喂越界格的断言，属设计内部分层。
 - **不可通行**：`PathfinderTest.kt:48-57` 水带绕行全程可通行；`:146-153` 深水目标落点钳制到可通行格；用例 10 平场 sanity 不触地形分支。
 - **平局**：全 crossing 测试目录 grep `平局 / 同代价 / tie / 相等代价` 零命中；A* 开放队列 `compareBy { it.f }`（`Pathfinder.kt:134`）平局按入队顺序出队，本单未改比较器，但该行为无测试锁定（D1）。

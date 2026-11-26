@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=2764066b816e；验收=ef27bd6ac2b4；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批2-战役回放 §三）
+> 回执缺失（规则上线前交付，留档）
+
 锚点卡：docs/锚点/B8R2-侧翼敌军半径.md
 
 # 独立验收 · B7 分支存档 captureHold（据点计数 / 归属串线）
@@ -27,7 +30,7 @@
 
 ### 判据 1 · 字段落地 —— PASS
 
-- 快照结构 `BranchSnapshot` 定义于 `app/src/main/java/io/legado/app/ui/map/crossing/model/CampaignModels.kt:260-270`。
+- 快照结构 `BranchSnapshot` 定义于 `app/src/main/java/io/legado/app/ui/map/crossing/model/CampaignModels.kt:280-270`。
 - `:266` `val captureHold: Map<String, Int> = emptyMap()`：据点连续占领计数，key 为据点标识（lng,lat 四位小数），value 为连续回合数。
 - `:269` `val pointHolders: Map<String, String> = emptyMap()`：据点归属表，key 同上，value 为阵营 id。
 - 默认值口径一致：两表均为 `= emptyMap()` 缺省空表，供旧档构造点兼容（旧五参构造 `BranchSnapshot(turn, elapsedDays, corps, firedEventIds)` 不传两表可直接编译，B7-3 / B7-7 用例即走此路径）。

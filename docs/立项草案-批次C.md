@@ -20,5 +20,5 @@
 2. **谱系长卷布局**：`原文-04:121`「长卷不画力导向图。用固定环形分层布局…半径 80dp/180dp/300dp」 vs `问题清单.md:125` D14「Compose Canvas 自绘力导向…≤30 节点」；D14 同条另保留「长卷=线性叙事…两入口两视角」。长卷入口布局法口径待对齐。
 3. **地球仪渲染栈**：`切片-19:17` `THREE.ShaderMaterial`、`:22` 云层壳、`:34` fragment shader、`:46` `THREE.SphereGeometry` vs 既有 U13 纯 JVM 软渲染门面 `ui/map/globe/GlobeController.kt`（`验收-U13地球仪3D渲染核心.md:6` 二十面体细分/软渲染深度缓冲）；Android 端无 Three.js 运行时，shader/纹理通路落点待裁决。
 4. **桌面画质红线**：`原文-09:24` `THREE.Water`、`:43` InstancedMesh、`:73` 120fps、`:74` 显存 ≤1.5GB vs `问题清单.md:138` D24 内存峰值 ≤100MB 三档、`切片-19:72` 移动端 55fps；桌面旗舰档与移动红线的显存/帧率/后处理开关边界未划。
-5. **云同步既有范围**：`原文-03:7`「Legado 已有 WebDAV 同步功能——WebDavService.kt，直接保留」 vs 代码 `App.kt:35` import `AppWebDav`、`help/AppWebDav.kt:287/308/351` 仅书籍进度上传/下载；类名 `WebDavService` 全仓 0 命中；生字本/画板/书签高亮三类同步无既有实现，缺口记 Y03。
+5. **云同步既有范围**：`原文-03:7`「Legado 已有 WebDAV 同步功能——WebDavService.kt，直接保留」 vs 代码 `App.kt:35` import `AppWebDav`、`help/AppWebDav.kt:41/308/351` 仅书籍进度上传/下载；类名 `WebDavService` 全仓 0 命中；生字本/画板/书签高亮三类同步无既有实现，缺口记 Y03。
 6. **Windows WebView 口径**：`原文-08:51-59` JCEF 加载 three.html、WebGL→ANGLE→DX11 vs `问题清单.md:138` D24②「地图前台时阅读 onDraw 返回空、不与地图抢 GPU」及项目「界面全部原生自绘」口径；WebView 通路去留待 Y08 选型裁决。

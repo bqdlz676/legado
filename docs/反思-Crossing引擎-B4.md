@@ -6,7 +6,7 @@
 
 ## 2. 踩的坑 / 教训
 
-- **前任报告的行号会漂**：任务书写 `CampaignJsonParser.kt:257-267`、`CampaignController.kt:464`，实际工作树 parser 河流段在 267-294、`load` 在 797-812；必须以当前文件 grep 定位为准，不能照抄旧行号。
+- **前任报告的行号会漂**：任务书写 `CampaignJsonParser.kt:358-267`、`CampaignController.kt:464`，实际工作树 parser 河流段在 267-294、`load` 在 797-812；必须以当前文件 grep 定位为准，不能照抄旧行号。
 - **字段级错位 ≠ 元素级错位**：前任守卫把 `rivers` 整体错位兜成空表但没记 warning；验收报告 4.3 已点名该缺口。收口时要分清"字段类型错位"和"数组内元素畸形"两条路径，warning 各记各的。
 - **止损判定先查耦合再动手**：动 `load` 前先核对 `saveBranch` / `restoreBranch` 是否共享字段或调用；本单确认二者无耦合才写 Controller 侧，避免波及 B7 存档域。
 

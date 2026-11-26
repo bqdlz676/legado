@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=2764066b816e；验收=ef27bd6ac2b4；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批2-战役回放 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 修复 B6：crossing ROUT（溃退）胜利判定口径
 
 > 工单：`docs/问题清单.md` B6——「ROUT 口径『无可战』，未要求士气 BROKEN」，判据：**敌方存活军队士气全 BROKEN 才判胜**。
@@ -181,8 +184,8 @@ $ git diff --numstat -- app/src/main/java/io/legado/app/ui/map/crossing/engine/V
 
 **② 连带影响（被影响文件 / 接口）**：
 
-- `CampaignController.kt:150-158`：每回合 `step()` 消费 `Outcome.finished`。口径收紧后，ROUT 战役在「敌军被歼光 / 投降光」时不再提前判 VICTORY，而会继续推演到 `turn > duration` 判 DEFEAT；回放快照序列可能变长，`status / winnerSide / finishReason` 落库时机后移。
-- `MoraleSystem`（`CampaignController.kt:142-146`）：每回合推进士气，是敌军走向 BROKEN 的上游；本单不改其推进规则，只消费结果。
+- `CampaignController.kt:308-158`：每回合 `step()` 消费 `Outcome.finished`。口径收紧后，ROUT 战役在「敌军被歼光 / 投降光」时不再提前判 VICTORY，而会继续推演到 `turn > duration` 判 DEFEAT；回放快照序列可能变长，`status / winnerSide / finishReason` 落库时机后移。
+- `MoraleSystem`（`CampaignController.kt:292-146`）：每回合推进士气，是敌军走向 BROKEN 的上游；本单不改其推进规则，只消费结果。
 - `DemoCampaigns.kt:22` 当前演示战役胜利类型为 `defend`，无 `rout` JSON；生产数据暂无 ROUT 战役，本单影响面限于测试源集 + 后续新增 rout 战役配置。
 - COMPOUND 子条件为 ROUT 时，经 `evaluate` 递归透传 `alliedSideIds`（L126），聚合 AND/OR 语义不变。
 
@@ -241,7 +244,7 @@ $ git diff --numstat -- app/src/main/java/io/legado/app/ui/map/crossing/engine/V
 
 ## 十一、59–66 逐条落地结论
 
-- **59 二阶三阶推演**：已写第四节，含直接效果、受影响文件（`CampaignController.kt:150-158`、`MoraleSystem`、COMPOUND 递归）、对策划配置与维护成本的三阶后果。
+- **59 二阶三阶推演**：已写第四节，含直接效果、受影响文件（`CampaignController.kt:292-158`、`MoraleSystem`、COMPOUND 递归）、对策划配置与维护成本的三阶后果。
 - **60 跨领域对照**：已写第八节，象棋将死、队列统计两个外域方案，说明采纳 / 不采纳理由。
 - **61 自我否证**：已写第五节，8 条反例边界（盟友、据点全失、剩 1 单位、双方全灭、duration、COMPOUND 嵌套、归零未死、morale 缺字段），每条有兜底去向与否证结论。
 - **62 历史包袱审计**：已写第七节，分有意为之 / 历史遗留 / 可删死代码三类，附提交号与 `-S` 定位。

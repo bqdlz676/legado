@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=6ab072c0e6de；文档=6dd8114a6a74）并复核 3 条结论，漂移 1 条（见 回执补录-批4-地图名物 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 验收复核报告 · U10 DEM 地形接线（缺陷 D-APK-1，第二轮独立复核）
 
 - **验收角色**：独立验收 AI，只审不改。本轮未改任何源码 / 测试 / 他人文档（本报告除外），未做 git 操作，未执行本地 gradle / kotlinc 编译，未跑单测 / bench，未上真机。
@@ -86,7 +89,7 @@
 | 1 | `SandboxScreen.kt:192-200`（`defaultScene`，生产路径） | `:199` `DemTerrainLoader.load(context)` | PASS |
 | 2 | `SandboxSceneTest.kt:15-23`（`buildScene`） | `:22` `elevation = TerrainElevation.Flat` | PASS |
 | 3 | `SandboxSceneTest.kt:141-149`（`withoutChokes`） | `:148` `elevation = TerrainElevation.Flat` | PASS |
-| 4 | `SandboxBenchTest.kt:20-28`（`setUp`） | `:27` `elevation = TerrainElevation.Flat` | PASS |
+| 4 | `SandboxBenchTest.kt:19-28`（`setUp`） | `:27` `elevation = TerrainElevation.Flat` | PASS |
 | 5 | `SandboxBenchTest.kt:50-58`（`bench sceneBuild`） | `:57` `elevation = TerrainElevation.Flat` | PASS |
 
 - `SandboxScene.kt:20` 构造形参 `val elevation: TerrainElevation` 无默认值；上述 5 处全部显式传参，**沙盘域内无漏网构造点**。
@@ -101,7 +104,7 @@
 - **重载面**（`DemTerrainElevation.kt:87-107` 与 `:110-118`）：`create(Int, Int, IntArray?, Bbox=...)` 与 `create(Int, Int, ByteArray?, Bbox=...)`；`IntArray?` 与 `ByteArray?` 互不构成子类型。
 - **规则依据**：修复报告 `docs/修复-U10-DEM编译错.md` §三 自述——「二者类型互不构成子类型。裸 `null` 作为第三实参传入，按 Kotlin 重载解析规则无法在两个无关可空类型间选出最具体候选，`compileAppDebugUnitTestKotlin` 阶段存在 Overload resolution ambiguity 风险」。同一规则、同一 Kotlin 2.4.20（`gradle/libs.versions.toml:3`）、同一测试源集，该点与沙盘测试被修掉的原 `:75` 行情形完全同构，但修复包未覆盖到本文件。
 - **对照**：沙盘测试 `DemTerrainElevationTest.kt:76-77` 已改为 `val emptyData: IntArray? = null` 显式标注类型；本处仍是裸 `null`。
-- **其余 create 调用排查**：main 源集仅 `DemTerrainLoader.kt:45` 一处，实参为非空 `IntArray`，无歧义；`ReplayTerrainBenchTest.kt:17`、`ReplayTerrainTest.kt:23`、沙盘各测试实参均为非空 `IntArray` / `ByteArray`，无裸 null。`TerrainMapTest.kt:26` 的 `HeightRaster.create(0,0,null,...)` 属 crossing 单重载（`HeightRaster.kt:56` 仅 `IntArray?` 一个入口），不构成歧义。
+- **其余 create 调用排查**：main 源集仅 `DemTerrainLoader.kt:45` 一处，实参为非空 `IntArray`，无歧义；`ReplayTerrainBenchTest.kt:21`、`ReplayTerrainTest.kt:23`、沙盘各测试实参均为非空 `IntArray` / `ByteArray`，无裸 null。`TerrainMapTest.kt:26` 的 `HeightRaster.create(0,0,null,...)` 属 crossing 单重载（`HeightRaster.kt:56` 仅 `IntArray?` 一个入口），不构成歧义。
 - **定性**：高嫌疑编译错误，**需 CI `compileAppDebugUnitTestKotlin` 终判**；在 CI 结论回来前不计已通过。
 
 ---
@@ -125,7 +128,7 @@
 - **沙盘势力色块**：`PowerSector.sampleSurface(elevation)`（`PowerSector.kt:64-65`）形参即注入的 `scene.elevation` 同一实例；沙盘主源集内当前无调用方（绘制 pass 未落地）。
 - **回放棋子 / 箭头 / 势力多边形**：`ReplayDirector.elevation` 单实例流向 `BattleArrow.fromPiece(..., elevation)`（`ReplayDirector.kt:279,301`）、`PieceVisual`（`PieceVisual.kt:112`）、`ReplayFront.sampleSurface`（`ReplayDirector.kt:348`），均经 `ReplayGround.heightAt` 取高；同一高程源，回放域内不二次换算。
 - **二次解码排查**：全 main 源集 `china_height.png` 仅 `DemTerrainLoader.kt:21,32` 一处读取；回放域无第二个 PNG 读取器。
-- **潜伏二次解码路径（观察项，非阻断）**：`ReplayScreen.kt:52` `val resolvedElevation = elevation ?: remember(context) { DemTerrainLoader.load(context) }`——宿主未显式传入共享实例时，回放会独立调 Loader 再解码一份；Loader 自身无缓存字段。当前 main 源码未发现任何外部宿主组装 `SandboxScreenHost` / `ReplayScreenHost`（导航接线不在本批），此路径属潜伏；建议后续由宿主注入同一实例，或在 Loader 内做进程内单例缓存。
+- **潜伏二次解码路径（观察项，非阻断）**：`ReplayScreen.kt:46` `val resolvedElevation = elevation ?: remember(context) { DemTerrainLoader.load(context) }`——宿主未显式传入共享实例时，回放会独立调 Loader 再解码一份；Loader 自身无缓存字段。当前 main 源码未发现任何外部宿主组装 `SandboxScreenHost` / `ReplayScreenHost`（导航接线不在本批），此路径属潜伏；建议后续由宿主注入同一实例，或在 Loader 内做进程内单例缓存。
 
 ### 5.3 纯度与禁区（必做核查 5）
 

@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=aa92e3b27983；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批5-机制文档 §三）
+> 回执缺失（规则上线前交付，留档）
+
 锚点卡：docs/锚点/B29-域外常量visible-config.md
 
 # 修复-B29：autoTask / dict / replace 三域浮层可见性传常量 true 导致离场动画被跳过（两段式关闭收口）
@@ -103,7 +106,7 @@
 ## 5. 阶段机复用链（禁第二份枚举证据）
 
 - 枚举定义：`app/src/main/java/io/legado/app/ui/book/read/ink/ReaderSheetExitGate.kt:14-17`（`ReaderSheetExitPhase` OPEN / EXITING / REMOVED）。
-- B26 守卫：`app/src/main/java/io/legado/app/ui/book/read/NoteDialogExitGate.kt:3` import 该枚举；:26 `open()` / :34 `beginExit()` / :43 `finishExit()` / :49 `visible` / :53 `isComposed` / :60 `canOpen`。
+- B26 守卫：`app/src/main/java/io/legado/app/ui/book/read/NoteDialogExitGate.kt:11` import 该枚举；:26 `open()` / :34 `beginExit()` / :43 `finishExit()` / :49 `visible` / :53 `isComposed` / :60 `canOpen`。
 - B29 控制器：`app/src/main/java/io/legado/app/ui/config/settings/SheetExitController.kt:9` import `NoteDialogExitGate`；:54 `open()` / :57 `beginExit()` / :63 `finishExit()`；:38 `visible` / :42 `isComposed` / :46 `canOpen` / :50 `isExiting`；:73 `rememberSheetExitController()`。
 - 本单：`ui/sheet/HalfSheetExitHost.kt:6` import B29 `SheetExitController`；宿主只做延时收束与回调，未新增阶段枚举、未复制迁移规则。
 - 时长同源：`HalfSheetAnchors.MASK_DURATION_MS`=200ms（`HalfSheetModel.kt:53`）、`RISE_DURATION_MS`=250ms（`HalfSheetModel.kt:50`），与 `InkHalfSheet.kt:124/128` 离场分支、B26 `HighlightNoteDialog.kt:108` 一致；未另造魔法数。

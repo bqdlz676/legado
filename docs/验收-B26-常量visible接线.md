@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=6ab072c0e6de；文档=6dd8114a6a74）并复核 3 条结论，漂移 1 条（见 回执补录-批3-阅读器贴皮 §三）
+> 回执缺失（规则上线前交付，留档）
+
 锚点卡：docs/锚点/B26-常量visible接线.md
 
 # 验收-B26：浮层可见性传常量 true 导致离场动画被跳过（独立验收）
@@ -106,7 +109,7 @@ grep -n "^import" app/src/main/java/io/legado/app/ui/book/read/NoteDialogExitGat
 判据要求：离场期间不可重复触发打开，与既有闸口径一致。
 
 1. 第一道（既有单点出口闸，原样保留）：`HighlightNoteDialog.kt:217` `if (submitted) return`；:218 置位。所有离开路径（确认 :174、删除 :161、取消 :166、下滑 / 遮罩点击 :118、返回键 :195）统一经 `dismissOnce`，闸后置位二次触发整段 no-op，不写库、不重复 dismiss。
-2. 第二道（守卫级离场闸）：`NoteDialogExitGate.kt:60-61` `canOpen` 仅 EXITING 段 false；:34-37 离场段重复 `beginExit` 不改阶段。单测 `NoteDialogExitGateTest.kt:55-66`：:61 `assertFalse(gate.canOpen)`；:63 重复 `beginExit()`；:64 阶段仍 EXITING；:65 `isComposed` 仍 true。
+2. 第二道（守卫级离场闸）：`NoteDialogExitGate.kt:11-61` `canOpen` 仅 EXITING 段 false；:34-37 离场段重复 `beginExit` 不改阶段。单测 `NoteDialogExitGateTest.kt:55-66`：:61 `assertFalse(gate.canOpen)`；:63 重复 `beginExit()`；:64 阶段仍 EXITING；:65 `isComposed` 仍 true。
 3. 边界记录（本验收确认报告 §8 如实披露，未隐瞒）：守卫 `canOpen` 在生产弹窗内**未被任何 open 入口调用**——本验收真跑：
 
 ```
@@ -119,13 +122,13 @@ grep -n "canOpen" app/src/main/java/io/legado/app/ui/book/read/HighlightNoteDial
 221:        // LaunchedEffect(exitingState)。离场段 [exitGate.canOpen] 为 false，不叠新弹窗。
 ```
 
-仅 :221 注释提及，无生产调用点。对照 B21 双闸：B21 有 Activity 入口闸 `ReadBookActivity.kt:1555` `isOpen || isExiting` + State 闸 `ReaderSheetState.kt:75`；B26 弹窗为 DialogFragment 独立窗口，实例内不存在重开路径，两个外部打开点（`ReadBookActivity.kt:1523`、`HighlightFragment.kt:163`）每次新建 Fragment 实例；宿主侧无 `isExiting` 等价闸，离场 ~450ms 内若宿主再次发起打开，新实例不经过本守卫 `canOpen`。报告 §8 已写明该缺口需另派单改 `ReadBookActivity` / `HighlightFragment`（reader 域红线，本单不动）。
+仅 :221 注释提及，无生产调用点。对照 B21 双闸：B21 有 Activity 入口闸 `ReadBookActivity.kt:1555` `isOpen || isExiting` + State 闸 `ReaderSheetState.kt:75`；B26 弹窗为 DialogFragment 独立窗口，实例内不存在重开路径，两个外部打开点（`ReadBookActivity.kt:1523`、`HighlightFragment.kt:52`）每次新建 Fragment 实例；宿主侧无 `isExiting` 等价闸，离场 ~450ms 内若宿主再次发起打开，新实例不经过本守卫 `canOpen`。报告 §8 已写明该缺口需另派单改 `ReadBookActivity` / `HighlightFragment`（reader 域红线，本单不动）。
 4. 判定：守卫级闸存在且有测试断言，既有 `submitted` 闸兜底实例内重复触发；宿主级入口闸缺失属已披露边界，不构成本单域内 FAIL。后续若按 B21 口径补齐宿主双闸，需新派单接线。
 
 ## 四、判据 4：进入不受影响——打开后 visible 为 true，进入分支未被改 —— PASS
 
 1. 新会话登记在场段：`HighlightNoteDialog.kt:94` `exitGate.open()`（`onCreateView` 视图组装前）；`exitingState` 初始值 `mutableStateOf(false)`（:72）；:115 `visible = !exitingState.value` 初始派生 true，与旧恒真在场态等价。
-2. 守卫在场态：`NoteDialogExitGate.kt:26-28` `open()` 置 OPEN；:49-50 `visible` OPEN 段 true；单测 `NoteDialogExitGateTest.kt:30-40`：:36 OPEN、:37 `isComposed` true、:38 `visible` true、:39 `canOpen` true。
+2. 守卫在场态：`NoteDialogExitGate.kt:11-28` `open()` 置 OPEN；:49-50 `visible` OPEN 段 true；单测 `NoteDialogExitGateTest.kt:30-40`：:36 OPEN、:37 `isComposed` true、:38 `visible` true、:39 `canOpen` true。
 3. 组件进入分支未改：提交 `a4a6c4d` 文件清单仅三个文件（见判据 7），`ui/components/` 零 diff；`InkHalfSheet` 初始 `Animatable(if (visible) 1f else 0f)` 与进入分支沿用 B21 验收 §四.3 现役口径，本单未调整进入时长 / 缓动。
 4. 收束后重开闭环：`NoteDialogExitGateTest.kt:96-109`：:103 `gate.open()`；:105 OPEN、:106 `visible` true、:107 `canOpen` true、:108 `isComposed` true。
 
@@ -254,7 +257,7 @@ git show a4a6c4d --format= -- app/src/main/java/io/legado/app/ui/book/read/ReadB
    - `config/sections/WelcomeSection.kt:68`（NumberPickerSheet 封装）。
    - `config/sections/OtherSection.kt:174`（NumberPickerSheet 封装）、`:185`（TextEditSheet 封装）。
    - `config/sections/CoverFontSection.kt:75`（NumberPickerSheet 封装）。
-   - `config/settings/SettingSheetHost.kt:16`（InkBottomSheet 薄封装 `InkBottomSheetHost`）。
+   - `config/settings/SettingSheetHost.kt:14`（InkBottomSheet 薄封装 `InkBottomSheetHost`）。
    - `config/settings/SettingSheets.kt:54`、`:109`、`:154`、`:194`、`:235`（五个内层 InkBottomSheet）。
 4. dict 域 2 条：`dict/rule/DictRuleScreen.kt:377`（规则编辑 Sheet）、`:416`（帮助页）。
 5. replace 域 3 条：`replace/ReplaceRuleScreen.kt:198`（帮助页）、`:500`（分组管理 Sheet）、`replace/edit/ReplaceEditScreen.kt:181`（帮助页）。
@@ -264,7 +267,7 @@ git show a4a6c4d --format= -- app/src/main/java/io/legado/app/ui/book/read/ReadB
 ## 九、新发现缺陷与观察项
 
 1. 宿主级入口离场闸未接线（边界项，报告 §8 已披露，非隐瞒）：`exitGate.canOpen` 在生产弹窗内仅见于注释（`HighlightNoteDialog.kt:221`），无 open 入口消费；离场 ~450ms 内宿主若新建 Fragment 实例，不经过该闸。对照 B21 `ReadBookActivity.kt:1555` 的 `isOpen || isExiting` 双闸口径，本单仅有实例内 `submitted` 闸 + 守卫级 `canOpen`（测试覆盖）。若后续验收标准要求宿主级双闸对齐 B21，需另派单改 `ReadBookActivity` / `HighlightFragment`。
-2. `isComposed` 派生口径与 B21 分叉（轻微，留待泛化合并且统一）：B21 `ReaderSheetExitGate.kt:79-80` 以 `retainedRequest != null` 派生；B26 `NoteDialogExitGate.kt:53-54` 以 `phase != REMOVED` 派生。无缓存设计下两者等价，但将来合并 B21/B26 两份守卫为泛型单一实现时，需先统一该派生口径。
+2. `isComposed` 派生口径与 B21 分叉（轻微，留待泛化合并且统一）：B21 `ReaderSheetExitGate.kt:79-80` 以 `retainedRequest != null` 派生；B26 `NoteDialogExitGate.kt:11-54` 以 `phase != REMOVED` 派生。无缓存设计下两者等价，但将来合并 B21/B26 两份守卫为泛型单一实现时，需先统一该派生口径。
 3. 离场段状态不随重建复位（报告 §8 已披露）：`exitGate` / `exitingState` 为 Fragment 字段，旋转 / 配置重建后阶段与离场位不跨重建存活；与 B20/B21 同一边界，本单不解决。另注：`finishExit()` 后 `exitingState` 仍保持 true，仅靠随后 :111 `dismissAllowingStateLoss()` 摘窗收口；若延时窗口内 Fragment 被系统回收导致 :111 因 `isAdded=false` 未执行，可见性停留 false 且阶段停在 EXITING，属同一重建边界内的残余形态。
 4. 文档路径前缀漂移（轻微，非代码缺陷）：锚点卡 §一 写 `ui/note/HighlightNoteDialog.kt:86`，现役实际路径 `ui/book/read/HighlightNoteDialog.kt`（旧 :86 恒真行，基线回证属实）；报告 §1 已记该路径漂移。
 5. 等效延时帧对齐风险（沿用 B21 验收 §九.2，报告 §9 已自述）：摘窗时机依赖 450ms 等效延时而非组件完成回调；组件 `LaunchedEffect(visible)` 与弹窗 `LaunchedEffect(exitingState.value)` 启动于相邻重组帧，极端掉帧下可能动画未净即摘或多留一帧，静态层不可判定，待真机走查。

@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=aa92e3b27983；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批5-机制文档 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 修复-B29：config 域浮层可见性传常量 true 导致离场动画被跳过（两段式关闭收口）
 
 锚点卡：`docs/锚点/B29-域外常量visible-config.md`
@@ -14,9 +17,9 @@
 
 缺陷原貌（锚点卡 §一 事实锚点，已对照 HEAD 基线逐条复核现役代码）：
 
-- B26 清单 config 域 13 条，均为条件渲染宿主 + dismiss 即摘子树，`visible = true` 恒真；`InkBottomSheet.kt:117-126` 的 `visible=false` 离场分支（遮罩回亮 / Sheet 下降，tween 时长 `ComponentPalette.DURATION_MASK`=200ms，`ComponentPalette.kt:94`）永不执行。
+- B26 清单 config 域 13 条，均为条件渲染宿主 + dismiss 即摘子树，`visible = true` 恒真；`InkBottomSheet.kt:123-126` 的 `visible=false` 离场分支（遮罩回亮 / Sheet 下降，tween 时长 `ComponentPalette.DURATION_MASK`=200ms，`ComponentPalette.kt:94`）永不执行。
 - 本单另实测出 B26 grep 漏计的**位置参数形式** `Sheet(true, ...)` 8 条（BackupSection 6、ThemeSection 2），与命名参数同形态缺陷，已一并接线。
-- 薄封装 `InkBottomSheetHost`（旧 `SettingSheetHost.kt:16`）内部把 `InkBottomSheet(visible = true, ...)` 写死，使未经命名参数传 visible 的私有 Sheet（ColorPickerSheet / BackgroundImageSheet / LanMenuSheet / 菜单 host / 配色 host 等）间接受害；Host 形参改为派生 visible 后，这一批一并获得离场路径。
+- 薄封装 `InkBottomSheetHost`（旧 `SettingSheetHost.kt:14`）内部把 `InkBottomSheet(visible = true, ...)` 写死，使未经命名参数传 visible 的私有 Sheet（ColorPickerSheet / BackgroundImageSheet / LanMenuSheet / 菜单 host / 配色 host 等）间接受害；Host 形参改为派生 visible 后，这一批一并获得离场路径。
 
 本单处置口径（对齐 B21 / B26 两段式关闭）：
 
@@ -316,7 +319,7 @@ git diff --stat -- app/src/main/java/io/legado/app/ui/components/ \
 
 N1. `BackupSection.kt:232-233`（定义 :326 `AutoBackupSheet`）——**不改**。证据：宿主 `if (autoBackupSheet)` 直挂 `AutoBackupSheet`；函数体首行即 `Column`（:330），未包 `InkBottomSheetHost` / `InkBottomSheet` / `InkHalfSheet`，无 `visible` 形参、无模态遮罩与离场动画组件。它是条件渲染的内联配置区块，不是浮层；组件层面不存在可播的离场动画，两段式无挂载点。若日后把它包进模态 host，需另派单补离场闸。
 
-N2. `SettingList.kt:118` `ListPickSheet(visible = sheetVisible, ...)`——**不改**。证据：:113 `var sheetVisible by remember { mutableStateOf(false) }`，:115 打开置 true，:127 dismiss 置 false；传入的是派生状态而非常量 true。子树在 `SettingList` 内常驻组合，离场路径由派生可见性驱动，`InkBottomSheet` 内部保留帧条件（`progress.value == 0f && !visible`）负责收束，与 B26 已认可的派生 visible 口径一致，不属本单缺陷形态。
+N2. `SettingList.kt:30` `ListPickSheet(visible = sheetVisible, ...)`——**不改**。证据：:113 `var sheetVisible by remember { mutableStateOf(false) }`，:115 打开置 true，:127 dismiss 置 false；传入的是派生状态而非常量 true。子树在 `SettingList` 内常驻组合，离场路径由派生可见性驱动，`InkBottomSheet` 内部保留帧条件（`progress.value == 0f && !visible`）负责收束，与 B26 已认可的派生 visible 口径一致，不属本单缺陷形态。
 
 N3. 同屏导航 / 任务触发直摘按钮群——**保留旧直摘口径，不改**。证据与理由：
 - `BottomBarSkinActivity.kt:240` edit、:241 export、:242 share、:243-244 delete：动作后果是关闭菜单后跳转编辑 / 导出 / 分享 / 下一级确认框，属同屏导航切换；旧直摘与导航切换同期发生，不存在「停留在原屏播离场」的交互诉求。菜单遮罩 / 拖拽关闭仍走 `menuExit` 两段式。

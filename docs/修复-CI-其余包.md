@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=aa92e3b27983；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批5-机制文档 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 修复 · CI 其余包（book/source · about · replace · dict · file）
 
 - 依据：CI run 45188065059 / job build；错误清单 `docs/CI日志-da571c9-错误清单.txt`（HEAD da571c9）。
@@ -335,11 +338,11 @@ HandleFileViewModel.kt:71      _error.update { error.localizedMessage }
 - `AboutInkActivity.kt:103:15` State<Float> 委托缺 `getValue`；`:121:33/49` `graphicsLayer`/`translationX` 未解析；`:83:43` `shape` 未解析。
 - `AppLogDialog.kt:130:21` 实参重复；`:147:37` `clickable` 未解析。
 - `CrashLogsDialog.kt:138:57` `clickable` 未解析。
-- `ReadRecordActivity.kt:85:56` 缺 `p1`；`:99:63` `putInt` 未解析。
+- `ReadRecordActivity.kt:100:56` 缺 `p1`；`:99:63` `putInt` 未解析。
 - `UpdateDialog.kt:124:9` `toastOnUi` 未解析。
 
 **ui/book/source/**
-- `debug/BookSourceDebugActivity.kt:33:23` State 委托缺 `getValue`；`:52:38` 候选不适用 / 缺 `input`（同 `launch(null)` 口径）。
+- `debug/BookSourceDebugActivity.kt:7:23` State 委托缺 `getValue`；`:52:38` 候选不适用 / 缺 `input`（同 `launch(null)` 口径）。
 - `debug/SourceDebugViewModel.kt:59:50` `localizedMessage` 接收者为 `SourceDebugUiState`（同 `HandleFileViewModel` 的 `it` 遮蔽根因）。
 - `edit/BookSourceEditActivity.kt:143:51` `() -> Unit` 传给 `OnBackPressedCallback`；`:207:40` 候选不适用 / 缺 `input`。
 - `edit/JsSourceEditActivity.kt:92:22` `fillMaxSize` 未解析（缺导入）。

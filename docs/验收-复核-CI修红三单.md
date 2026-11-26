@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=aa92e3b27983；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批5-机制文档 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 验收 · 复核 CI 修红三单（A9 / A10 / A11）
 
 > 验收方：独立验收 AI（只判不改）。验收时间：2026-11-23。
@@ -27,13 +30,13 @@
 | A9-2 | summary 子串命中：`configPreferenceMatches("network", "Other", "Network behavior", emptyList())` → true | `PreferenceSearch.kt:27`；测试 `PreferenceSearchTest.kt:12` | PASS | summary 非空时 `fieldHit(summary)` 命中；`"network" in "network behavior"` 成立。 |
 | A9-3 | keywords 子串命中：`configPreferenceMatches("night", "Accent", null, listOf("Night colors"))` → true | `PreferenceSearch.kt:28`；测试 `PreferenceSearchTest.kt:13` | PASS | `keywords.any { fieldHit(it) }`；`"night" in "night colors"` 成立；summary 为 null 由 `isNullOrBlank()` 跳过。 |
 | A9-4 | 纯空白 query → false：`configPreferenceMatches(" ", "Theme", "Interface colors", emptyList())` → false | `PreferenceSearch.kt:20-21`；测试 `PreferenceSearchTest.kt:14` | PASS | `" ".trim()` 为空串，第 21 行 `if (normalizedQuery.isEmpty()) return false` 提前返回。 |
-| A9-5 | 无任一子串命中 → false：`configPreferenceMatches("cache", "Theme", "Interface colors", emptyList())` → false | `PreferenceSearch.kt:26-28`；测试 `PreferenceSearchTest.kt:15` | PASS | title / summary / keywords 三路均不包含 `"cache"`，落到 `any` 结果 false。 |
+| A9-5 | 无任一子串命中 → false：`configPreferenceMatches("cache", "Theme", "Interface colors", emptyList())` → false | `PreferenceSearch.kt:28-28`；测试 `PreferenceSearchTest.kt:15` | PASS | title / summary / keywords 三路均不包含 `"cache"`，落到 `any` 结果 false。 |
 | A9-6 | 函数必须有 main 源集非测试调用点（零调用点=死代码） | 定义 `PreferenceSearch.kt:14`；调用 `settings/SettingList.kt:137-141`（5 个分支）；导入 `SettingList.kt:17` | PASS | 自取 grep：main 源集命中 1 处定义 + 1 处导入 + 5 处调用；调用链 ConfigActivity → SettingScaffold(Local) → 6 个分区 SettingList → `matchesSettingQuery` → 本函数，非死代码。 |
 | A9-7 | 空 query 时设置列表零变化 | `settings/SettingList.kt:32-38` | PASS | `searching = query.isNotBlank()`；`if (!searching) groups else …` —— 非搜索态直接返回原 `groups` 引用，分组 / 顺序 / 可见性不动；`LocalSettingSearchQuery` 缺省 `""`（`SettingControls.kt:62`）。 |
 | A9-8 | 禁区零命中：`#000000` / `#FFFFFF` / `material3` / `linearGradient` / `OutlinedTextField` 在 A9 改动文件内 | 5 个 A9 main 文件 | PASS | 自取 grep（含大小写不敏感与 hex 色值 `0x…` 扫描）：0 命中，详见 §6 命令输出。 |
-| A9-9 | `ComponentTokens` 确有 `buttonRadius / bgSurface / textPrimary / textSecondary / textTertiary` | `ui/components/ComponentTokens.kt:22,24,25,26,85` | PASS | 自取 grep：5 个字段全部存在（`bgSurface:22`、`textPrimary:24`、`textSecondary:25`、`textTertiary:26`、`buttonRadius:85`）；`SettingControls.kt` 新增代码另用 `bgPage:21`，亦存在。 |
+| A9-9 | `ComponentTokens` 确有 `buttonRadius / bgSurface / textPrimary / textSecondary / textTertiary` | `ui/components/ComponentTokens.kt:17,24,25,26,85` | PASS | 自取 grep：5 个字段全部存在（`bgSurface:22`、`textPrimary:24`、`textSecondary:25`、`textTertiary:26`、`buttonRadius:85`）；`SettingControls.kt` 新增代码另用 `bgPage:21`，亦存在。 |
 | A9-10 | `androidx.compose.ui.graphics.drawscope.Stroke` 导入正确 | `settings/SettingControls.kt:40` | PASS | 导入路径与 Compose 标准包一致；仓内 `InkEmptyState.kt`、`InkSlateCanvas.kt` 同路径先例；`Stroke(width = 1.6.dp.toPx())` 形参 `width: Float` 类型吻合。 |
-| A9-11 | `SettingScaffold` 三个新形参均有默认值；其余调用点仍可编译 | `settings/SettingControls.kt:70-72`；调用点 `ConfigActivity.kt:108`、`BottomBarSkinActivity.kt:104`、`BottomBarSkinAssignActivity.kt:74` | PASS（静态） | 默认值：`showSearch = false`、`searchQuery = ""`、`onSearchQueryChange = {}`；皮肤两页仅传 `title / onBack`（+ modifier），静态签名兼容。 |
+| A9-11 | `SettingScaffold` 三个新形参均有默认值；其余调用点仍可编译 | `settings/SettingControls.kt:66-72`；调用点 `ConfigActivity.kt:108`、`BottomBarSkinActivity.kt:104`、`BottomBarSkinAssignActivity.kt:74` | PASS（静态） | 默认值：`showSearch = false`、`searchQuery = ""`、`onSearchQueryChange = {}`；皮肤两页仅传 `title / onBack`（+ modifier），静态签名兼容。 |
 
 ### 2.2 A10 —— `Sequence.isEmpty()` 改 `none()`（`876fc59`）
 

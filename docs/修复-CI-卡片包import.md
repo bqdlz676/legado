@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=aa92e3b27983；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批5-机制文档 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 修复 · CI 卡片包缺失 import
 
 范围：`app/src/main/java/io/legado/app/ui/card/*.kt`（14 个文件）。只动 import 行，未增删业务代码；未触碰 map/crossing、book/read、ui/main。
@@ -15,7 +18,7 @@
 ## 全包扫描结论
 
 - 清单内扩展函数（animateFloat / animateDpAsState / animateColorAsState / animateFloatAsState、clip / drawBehind / alpha / shadow / rotate / blur、offset / padding / size / heightIn / widthIn / fillMaxWidth / fillMaxHeight / matchParentSize、background / border / clickable、semantics、getValue / setValue、lerp）逐个比对真实调用点与 import，其余 11 个文件均齐全，无误报。
-- `CardTokens.kt:80` 的 `drawBehind` 仅出现在 KDoc 注释里，非真实调用，未加 import。
+- `CardTokens.kt:87` 的 `drawBehind` 仅出现在 KDoc 注释里，非真实调用，未加 import。
 - `BookCard.kt:88-91` 四处 `var ... by` 已正确导入 `setValue`；其余 `val ... by` 均有 `getValue`。
 - `ShareCard.kt:60/67/74` 的 `lerp` 导入齐全。
 

@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=aa92e3b27983；文档=6dd8114a6a74）并复核 3 条结论，漂移 1 条（见 回执补录-批5-机制文档 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 验收报告 · 阶段五 UI 三模块静态审查（U9 字体 / U6+U7 半屏 Sheet+画板 / U8 搜索页）
 
 - 验收日期：2026-11-23
@@ -28,7 +31,7 @@
 ### 1.2 单个 class/object/data class 至多一个 companion object
 
 - 按花括号配对归属到所属类，逐类计数。含 `companion object` 的文件及归属：
-  - `font/FontRole.kt:136` —— 枚举类 `FontRole` 内 1 个（第 3 行的 `companion object` 仅为 KDoc 文字，非声明）。
+  - `font/FontRole.kt:62` —— 枚举类 `FontRole` 内 1 个（第 3 行的 `companion object` 仅为 KDoc 文字，非声明）。
   - `components/HalfSheetModel.kt:119`（`HalfSheetSectionKind`）、`:190`（`HalfSheetContent`）—— 分属两个不同类，各 1 个。
   - `components/inkslate/InkSlateModel.kt:41`（`InkTool`）、`:63`（`InkPreset`）、`:307`（`InkSlateState`）—— 分属三个不同类，各 1 个。
   - `components/ComponentState.kt`、`InkToast.kt`、`Timeline.kt`、`search/SearchModels.kt` 及各测试文件：各 1 个。
@@ -70,7 +73,7 @@
 - `components/ComponentPalette.kt`：12 色为 `const val … : Long` ARGB 常数（模型层允许，不算违规）；`ComponentTokens.kt` 负责把 Long 包成 `Color`（两层收口）。
 - `components/inkslate/InkSlateModel.kt:74,77`：`HUA_QING` / `TENG_HUANG` 为模型层 `Long` ARGB 常数，按规则豁免。
 - `search/SearchTokens.kt:20-53`：12 个 `Color(0x…)` 写在 token 对象内（信息项，见 O2）；搜索域其余 11 个 main 文件无任何内联 hex。
-- `Color.Transparent`（`InkButton.kt:121`）为系统常量，非 hex 字面量，不违规。
+- `Color.Transparent`（`InkButton.kt:124`）为系统常量，非 hex 字面量，不违规。
 
 ---
 
@@ -123,7 +126,7 @@
 | 编号 | 文件:行号 | 现象 | 根因 / 评估 | 建议修法 |
 |---|---|---|---|---|
 | O1 | `font/FontRole.kt:4-6` ↔ `:138-150` | 体积 / 字号预算存在两份字面量副本：枚举构造引用的是顶层 `private const val`（`BODY_SUBSET_BUDGET / NUMBER_SUBSET_BUDGET / LABEL_SANS_SIZE`，`:4-6`）；companion 又对外暴露一套同名镜像常量（`BODY_SUBSET_BUDGET_BYTES / NUMBER_SUBSET_BUDGET_BYTES / LABEL_SANS_SIZE_SP / BODY_SUBSET_COMMON_CHARS / ASSET_DIR`，`:138-150`），供注册表与测试使用。KDoc（`:3`）所述「被 enum 引用的常量放顶层」与实现一致，注释无误 | 两套均为 `const val` 编译期常量，枚举参数处内联，**可编译、无初始化顺序问题**；仅属同一数值在两处各写一遍字面量，后续调预算时存在改一处漏一处的漂移风险，不是阻断 | 可选去重：让 companion 的公共常量引用顶层常量（`const val BODY_SUBSET_BUDGET_BYTES = BODY_SUBSET_BUDGET`），或反过来枚举引用 companion；保留单一真值来源 |
-| O2 | `search/SearchTokens.kt:20-53` | token 对象内直接持有 `Color(0x…)`，未走 components 域「Palette 存 Long ARGB → Tokens 包 Color」两层拆分 | 与既有 `read/ink/InkTokens.kt` 的单子域单层写法一致，同域先例可接受；但与 `ComponentPalette`/`ComponentTokens` 两层收口模式不同。测试 `SearchContractTest` 也允许 hex 仅出现在本文件 | 保持现状即可；若要统一架构，可在搜索域补一个 Long palette 层，Tokens 只做 Color 包装。本次不计违规 |
+| O2 | `search/SearchTokens.kt:15-53` | token 对象内直接持有 `Color(0x…)`，未走 components 域「Palette 存 Long ARGB → Tokens 包 Color」两层拆分 | 与既有 `read/ink/InkTokens.kt` 的单子域单层写法一致，同域先例可接受；但与 `ComponentPalette`/`ComponentTokens` 两层收口模式不同。测试 `SearchContractTest` 也允许 hex 仅出现在本文件 | 保持现状即可；若要统一架构，可在搜索域补一个 Long palette 层，Tokens 只做 Color 包装。本次不计违规 |
 | O3 | `components/ComponentPalette.kt:172,175`（`Long`）↔ `search/SearchTokens.kt:150,153`（`Double`） | 同名预算常量跨子域类型不一致：组件域 `FRAME_BUDGET_MS / MODEL_BUDGET_MS` 为 `Long`，搜索域为 `Double` | bench 断言 `Double <= Long` 靠标准 `compareTo` 编译通过；不阻断，但后续跨域复用预算口径时易踩隐式 widened 比较 | 统一为同一数值类型（建议模型 / 预算层一律 `Double` 或一律 `Long`），bench 层再做毫秒换算 |
 | O4 | `font/FontSelectDialog.kt`、`font/FontAdapter.kt` | U9 仍为遗留 View 体系（`DialogFragment` / `ViewBinding` / `RecyclerView` / 系统菜单），与 U6/U7/U8 的 Compose 自绘体系并存 | 复用了 Legado 既有基类与扩展，静态依赖均能解析；属架构风格混合，非编译问题 | 后续阶段若要求 UI 全部 Compose 自绘，需把字体选择弹窗迁移为 Compose Sheet；本次范围内不动 |
 | O5 | 三模块 bench（`ComponentBenchmark / HalfSheetBenchmark / InkSlateBenchmark / SearchBenchmark` 及对应 `*BenchTest`） | 耗时数字在宿主 JVM 测得，非荣耀 WIN 真机 | 测试注释已自行声明「JVM 数字不等于真机结论」；静态审查无法验证帧率 / 重组 / 绘制耗时 | 出 APK 后在真机跑 bench 与单测复核；本次 PASS 不含性能达标结论 |

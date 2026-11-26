@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=2764066b816e；验收=ef27bd6ac2b4；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批2-战役回放 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 修复-crossing `object` 内嵌套 `companion object`（CI run `45171948572` / `d301fbd`）
 
 - 基线：仓库 `/home/user/Doubao/chats/38454122521460994/legado`。
@@ -233,9 +236,9 @@ app/.../crossing/terrain/TerrainMap.kt:216:    companion object {
 | `model/Enums.kt:170` | `enum class TerrainKind`（L163） | `enum class` | 同上 |
 | `model/Enums.kt:189` | `enum class FactionRole`（L183） | `enum class` | 同上 |
 | `model/Enums.kt:205` | `enum class Relation`（L200） | `enum class` | 同上 |
-| `terrain/GeoProjection.kt:55` | `class GeoProjection(`（L17） | 普通 `class` | class 内伴生合法；`terrain/` 红线 |
+| `terrain/GeoProjection.kt:17` | `class GeoProjection(`（L17） | 普通 `class` | class 内伴生合法；`terrain/` 红线 |
 | `terrain/HeightRaster.kt:38` | `data class HeightRaster(`（L15） | `data class` | data class 内伴生合法；`terrain/` 红线 |
-| `terrain/TerrainMap.kt:216` | `class TerrainMap(`（L21） | 普通 `class` | class 内伴生合法；`terrain/` 红线 |
+| `terrain/TerrainMap.kt:21` | `class TerrainMap(`（L21） | 普通 `class` | class 内伴生合法；`terrain/` 红线 |
 
 结论：本轮 3 个报错文件的外层都是 standalone `object`（单例），Kotlin 不允许其内再挂 companion；其余 14 条外层均为 `class` / `data class` / `enum class`，companion 是合法静态伴生位，CI 未报 `Modifier 'companion' is not applicable` 错，故不动。
 

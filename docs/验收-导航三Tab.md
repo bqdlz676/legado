@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=2764066b816e；验收=ef27bd6ac2b4；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批1-搜索书架 §三）
+> 回执缺失（规则上线前交付，留档）
+
 锚点卡：docs/锚点/D16-名物库.md
 
 # 验收-D25 导航 3 Tab + 搜索下拉（独立验收 · 判低返工待验单）
@@ -37,7 +40,7 @@
 
 穷举 `InkSearchActivity.start(...)` 全部调用点，按可达性分类：
 
-1. **主壳内生产可达（阻塞）**：`ExploreInkFragment.kt:100` 典籍卡点击 `InkSearchActivity.start(ctx, name)`；`ExploreInkFragment.kt:210` 专题 Sheet 行点击 `InkSearchActivity.start(ctx, name)`。`ExploreInkFragment` 由适配器实例化（`MainActivity.kt:500`），是「发现」Tab 现役页面，用户点卡片即进独立搜索 Activity。
+1. **主壳内生产可达（阻塞）**：`ExploreInkFragment.kt:31` 典籍卡点击 `InkSearchActivity.start(ctx, name)`；`ExploreInkFragment.kt:31` 专题 Sheet 行点击 `InkSearchActivity.start(ctx, name)`。`ExploreInkFragment` 由适配器实例化（`MainActivity.kt:500`），是「发现」Tab 现役页面，用户点卡片即进独立搜索 Activity。
 2. **外部分享可达（阻塞）**：`app/src/main/java/io/legado/app/receiver/SharedReceiverActivity.kt:57` 非链接文本走 `InkSearchActivity.start(this, text)`；该 Activity 在 Manifest `:442-451` `exported="true"`，带 `PROCESS_TEXT` 与 `SEND` text/plain intent-filter，外部 App 选词/分享可直达。
 3. **App 内页面生产可达**：`app/src/main/java/io/legado/app/ui/about/ReadRecordActivity.kt:150`（阅读记录缺书回退检索）；`app/src/main/java/io/legado/app/ui/book/info/BookInfoActivity.kt:936`（书源标签检索）、`:1126` 与 `:1140`（作者点按/长按）、`:1155` 与 `:1169`（书名点按/长按）；`app/src/main/java/io/legado/app/ui/book/source/edit/BookSourceEditActivity.kt:197`；`app/src/main/java/io/legado/app/ui/book/source/manage/BookSourceActivity.kt:142`；`app/src/main/java/io/legado/app/ui/rss/read/RssJsExtensions.kt:77`、`:83`（RSS 阅读页 JS 桥）。
 4. **死 Fragment 内不可达（注明，不计 FAIL）**：`app/src/main/java/io/legado/app/ui/main/explore/ExploreFragment.kt:328`；该 Fragment 未被适配器实例化（适配器仅 `MainActivity.kt:499-501` 三分支），同组 `MyFragment / RssFragment` 亦为死壳，属报告 §6「旧壳清理」交接项。
@@ -62,7 +65,7 @@
 
 ## 判据 5：空态与边界 —— PASS（级别 A，附缺陷 N2）
 
-1. 空关键词：`ShelfSearch.filter` 空词/纯空白返回全量（`ShelfSearch.kt:51-53`），浮层落引导文案「输入书名或作者，查找本地书卷」（`BookshelfScreen.kt:871`）。
+1. 空关键词：`ShelfSearch.filter` 空词/纯空白返回全量（`ShelfSearch.kt:15-53`），浮层落引导文案「输入书名或作者，查找本地书卷」（`BookshelfScreen.kt:871`）。
 2. 无命中：返回空列表，浮层落「未找到相关书卷，换个词试试」，命中词为空时回落纯函数 hint（`BookshelfScreen.kt:872`；`ShelfSearch.kt:82-85`）；空书架 + 关键词不崩，单测锁定 `ShelfSearchD25Test.kt:104-107`。
 3. 输入清空：叉按钮回调 `onQueryChange("")`（`BookshelfScreen.kt:853`），回到引导态。
 4. 断网：离线态 `OfflineShelf`（`:606-622`）仍透传 `onSearch`，浮层只过滤本地缓存、不发网络请求（`ShelfSearch.kt:11` 注释与实现一致）。
@@ -77,14 +80,14 @@
    - 设置 Tab 幂等、不起 Activity、无 `menu_paint` 分支：`:111-123`（源码文本回证）。
    - 导航图标恰好 3 枚、旧 `ic_bottom_*` 清零、线宽与配色口径：`:127-152`。
    - 检索纯函数三路命中/排序/片段/去重投影：`ShelfSearchContractTest.kt:25-144`、`ShelfSearchOutcomeTest.kt:33-131`。
-2. **必补断言 a**：「旧独立搜索入口零可达」当前无锁定。全仓测试未枚举 `InkSearchActivity.start` 调用点；`SearchContractTest.kt:149-153` 仅断言 Manifest 注册新 Activity、旧包名移除，`:166-178` 仅禁旧壳绑定引用。建议补一条源码扫描测试：主壳包（`ui/main` 现役 Fragment/Activity）内不得出现 `InkSearchActivity.start`；跨域白名单显式列名并标注归属 D1~D7。
+2. **必补断言 a**：「旧独立搜索入口零可达」当前无锁定。全仓测试未枚举 `InkSearchActivity.start` 调用点；`SearchContractTest.kt:86-153` 仅断言 Manifest 注册新 Activity、旧包名移除，`:166-178` 仅禁旧壳绑定引用。建议补一条源码扫描测试：主壳包（`ui/main` 现役 Fragment/Activity）内不得出现 `InkSearchActivity.start`；跨域白名单显式列名并标注归属 D1~D7。
 3. **必补断言 b**：浮层开合目前只在纯 JVM 状态机层断言，无 Compose 层可见性/遮罩存在性断言；状态机 `open/close` 与画面挂载（`BookshelfScreen.kt:236`）之间缺一道接线锁。
 4. 测试卫生：D25 测试文件无 `@Ignore`、无 `assertTrue(true)` 式空断言（grep 零命中）。
 
 ## 判据 7：二阶 / 三阶影响 —— 有条件通过（级别 A/B）
 
 1. 书内搜索不共用旧搜索页：书内检索走 `ui/book/searchContent/SearchContentActivity`（`ReadBookActivity.kt:142 / :266`，`SearchMenu.kt:18` 用 `SearchResult` 本包类型）；词典走 `DictDialog`（`ReadBookActivity.kt:1789-1790`）。两者均不路由 `InkSearchActivity`，本单改动未波及其链路。PASS。
-2. 主题/夜间模式：书架域配色全部取 `ShelfTokens` 固定浅色 hex（`ShelfTokens.kt:21-37`），bookshelf 包内无夜间/暗色分支；主壳仅电子墨水分支（`MainActivity.kt:240`）。浮层遮罩/面板/文字在暗色主题下的实际观感未验证（C 级）；D20 阅读暗色/纯黑主题与主壳配色是否同源，本单未串到。
+2. 主题/夜间模式：书架域配色全部取 `ShelfTokens` 固定浅色 hex（`ShelfTokens.kt:18-37`），bookshelf 包内无夜间/暗色分支；主壳仅电子墨水分支（`MainActivity.kt:240`）。浮层遮罩/面板/文字在暗色主题下的实际观感未验证（C 级）；D20 阅读暗色/纯黑主题与主壳配色是否同源，本单未串到。
 3. 无障碍语义：`BookshelfScreen.kt` 全文件无 `semantics / contentDescription`；放大镜为自绘 Canvas（`:402-426`）无标签；输入框无 semantics label；浮层无返回语义绑定。报告 §5 已挂账 D24，本单记为缺口。
 4. 首页偏好残留：`app/src/main/res/values/arrays.xml:160-174` 首页选项仍含 `rss` / `my` 两项；`MainActivity.kt:444-453` `upHomePage()` 无 `"rss"` 分支（死选项），`"my"` 映射到设置槽。跨域 C1 配置项，报告 §6 已交接。
 5. 皮肤槽位：`menuIdToSlot` 键保持 `bookshelf / home / settings`（`MainActivity.kt:103-107`），第三槽改名不影响旧皮肤包取图（B 级推断，换肤路径未实机）。

@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=2764066b816e；验收=ef27bd6ac2b4；文档=6dd8114a6a74）并复核 3 条结论，漂移 1 条（见 回执补录-批1-搜索书架 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 修复-搜索 suspend 编译错（CI `compileAppDebugKotlin`，HEAD `548e8ba`）
 
 - 基线：CI job `137676431139` / run `45169909583`，HEAD `548e8ba`。
@@ -103,8 +106,8 @@ private fun runSearch(key: String) {
 
 | 文件:行 | 入口 | 块内内容 |
 |---|---|---|
-| InkSearchViewModel.kt:92 | `removeHistory` | `appDb.searchKeywordDao.delete(...)`（DAO 非 suspend） |
-| InkSearchViewModel.kt:100 | `clearHistory` | `appDb.searchKeywordDao.deleteAll()`（DAO 非 suspend） |
+| InkSearchViewModel.kt:118 | `removeHistory` | `appDb.searchKeywordDao.delete(...)`（DAO 非 suspend） |
+| InkSearchViewModel.kt:126 | `clearHistory` | `appDb.searchKeywordDao.deleteAll()`（DAO 非 suspend） |
 | InkSearchViewModel.kt:205 | `saveSearchKey` | `get / update / insert`（DAO 非 suspend） |
 
 ### 4.4 穷举结论

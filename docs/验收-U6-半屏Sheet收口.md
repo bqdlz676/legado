@@ -1,3 +1,6 @@
+> 回执补录：原交付无回执，本代理 2026-11-26 现读四份必读（指纹 总控=9ec91a4f8331；子代理=c6806030a6d5；验收=6ab072c0e6de；文档=6dd8114a6a74）并复核 3 条结论，漂移 0 条（见 回执补录-批3-阅读器贴皮 §三）
+> 回执缺失（规则上线前交付，留档）
+
 # 验收-U6 · 半屏 Sheet 收口（切片-11）
 
 > 基线：main @ 98ee6d0。任务：接上一个被叫停代理留下的半成品 `InkHalfSheet.kt` / `HalfSheetModel.kt`，
@@ -22,8 +25,8 @@
 
 | 规格条目 | 实现位置 |
 | --- | --- |
-| 弹起阅读页下沉 8dp | `HalfSheetModel.kt:29`（`HOST_SINK_DP=8`）；`HalfSheetModel.kt:67-68`（`hostSinkDp` 进度联动）；`InkHalfSheet.kt:185`（下沉量换算）、`InkHalfSheet.kt:189-193`（宿主槽整体 offset 下沉） |
-| 暗化 40% | `HalfSheetModel.kt:26`（`DIM_ALPHA=0.40`）；`HalfSheetModel.kt:63-64`（`maskAlpha` 随升起进度）；`InkHalfSheet.kt:203-204`（遮罩取 `maskAlpha`） |
+| 弹起阅读页下沉 8dp | `HalfSheetModel.kt:67`（`HOST_SINK_DP=8`）；`HalfSheetModel.kt:67-68`（`hostSinkDp` 进度联动）；`InkHalfSheet.kt:185`（下沉量换算）、`InkHalfSheet.kt:189-193`（宿主槽整体 offset 下沉） |
+| 暗化 40% | `HalfSheetModel.kt:63`（`DIM_ALPHA=0.40`）；`HalfSheetModel.kt:63-64`（`maskAlpha` 随升起进度）；`InkHalfSheet.kt:203-204`（遮罩取 `maskAlpha`） |
 | 遮罩 bg-overlay rgba(26,20,16,.45) | 色值 token `ComponentPalette.kt:25`（`BG_OVERLAY=0x731A1410`，本包未改色板）；消费点 `InkHalfSheet.kt:203`（`ComponentTokens.bgOverlay`） |
 | 模糊 12px | `HalfSheetModel.kt:47`（`MASK_BLUR_DP=12`）；`InkHalfSheet.kt:201`（`.blur(MASK_BLUR_DP.dp)`）。平台边界见第五节 |
 | Sheet 纸白底 | `InkHalfSheet.kt:238`（`ComponentTokens.bgPage`） |
