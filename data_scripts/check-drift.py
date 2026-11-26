@@ -18,6 +18,7 @@
 import glob
 import json
 import os
+import subprocess
 import re
 import sys
 
@@ -41,12 +42,32 @@ STOP = {'Android', 'Compose', 'Kotlin', 'JVM', 'CI', 'APK', 'TODO', 'FAIL', 'PAS
         'Ink', 'Legado', 'Sheet', 'Tab', 'OK', 'L1', 'L2', 'L3', 'P0', 'P1', 'P2', 'P3'}
 
 
+_TRACKED = None
+
+
+def tracked_set(root='.'):
+    """git 已跟踪文件集合（一次调用，全量缓存）。
+    为什么：SKIP_NAMES 是"位置型豁免"（按文件名前缀跳过），位置谁都能造——
+    新建/改名一个 `索引-xxx.md` 就能免检。加"必须已被 git 跟踪"这道身份约束后，
+    想借豁免必须把文件提交进仓库，留痕可审计（F-122 / 门禁 ㊼）。"""
+    global _TRACKED
+    if _TRACKED is None:
+        r = subprocess.run(['git', '-c', 'core.quotepath=false', 'ls-files'], cwd=root,
+                           capture_output=True, text=True)
+        _TRACKED = {x.strip() for x in r.stdout.splitlines() if x.strip()}
+    return _TRACKED
+
+
 def report_files():
     out = []
     for g in DOC_GLOB:
         for f in glob.glob(g):
             base = os.path.basename(f)
+            rel = os.path.relpath(f)
             if any(base.startswith(s) for s in SKIP_NAMES):
+                if not rel in tracked_set():
+                    out.append(f)  # 未跟踪的"豁免名"文件不享受豁免：它是新造的，必须被扫
+                    continue
                 continue
             out.append(f)
     return sorted(out)

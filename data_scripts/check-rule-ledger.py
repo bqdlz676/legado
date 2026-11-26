@@ -22,6 +22,7 @@
 """
 
 import os
+import subprocess
 import re
 import sys
 import tempfile
@@ -181,7 +182,9 @@ def scan_rejected(root=ROOT):
             rel = os.path.relpath(path, root)
             scanned += 1
             if any(w in rel for w in WHITELIST_FILE):
-                continue
+                # 位置型豁免必须绑定"git 已跟踪"身份：未跟踪的新文件即使名字像白名单也得扫（F-122/㊼）
+                if rel in _tracked_paths(root):
+                    continue
             try:
                 text = open(path, encoding="utf-8", errors="replace").read()
             except OSError:
@@ -289,6 +292,19 @@ def selftest():
     shutil.rmtree(tmp)
     print("[selftest] 夹具已自删，双向自测通过。")
     return 0
+
+
+_TRACKED_CACHE = {}
+
+
+def _tracked_paths(root='.'):
+    """git 已跟踪集合（缓存）。位置型豁免必须绑定该身份，否则新建同名文件即可免检（F-122/㊼）。"""
+    key = str(root)
+    if key not in _TRACKED_CACHE:
+        r = subprocess.run(['git', '-c', 'core.quotepath=false', 'ls-files'], cwd=root,
+                           capture_output=True, text=True)
+        _TRACKED_CACHE[key] = {x.strip() for x in r.stdout.splitlines() if x.strip()}
+    return _TRACKED_CACHE[key]
 
 
 def main():
