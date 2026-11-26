@@ -469,6 +469,11 @@ if [ $? -eq 0 ]; then ok "㊾空集不判PASS" "$(echo "$VC49" | grep 'VACUOUS-P
 NW50=$(python3 data_scripts/check-no-wait-rule.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊿无等待条款" "$(echo "$NW50" | grep 'NO-WAIT-RULE: PASS')"; else bad "㊿无等待条款" "$(echo "$NW50" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
 
+# 51 自测覆盖（M-48，2026-11-26 穷举审计）：43 个门禁里 27 个没有 --selftest，判据从未被负样本打红。
+#   历史欠账走只许缩小的基线；新增门禁必须自带 --selftest，否则本条红。
+SC51=$(python3 data_scripts/check-selftest-coverage.py 2>&1)
+if [ $? -eq 0 ]; then ok "51自测覆盖" "$(echo "$SC51" | grep 'SELFTEST-COVERAGE: PASS')"; else bad "51自测覆盖" "$(echo "$SC51" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
