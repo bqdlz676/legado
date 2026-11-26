@@ -1,0 +1,948 @@
+{
+  "version": 1,
+  "updated": "2026-11-26",
+  "owner": "Q-271 门禁分级降噪",
+  "policy": {
+    "blocking": "阻断 push：只保留影响代码能否编译/运行、改动能否回源、清单与 CI 能否执行、门禁机制自身是否会假绿的门禁。--blocking-only 模式下只跑本集。",
+    "audit": "不阻断 push：台账新鲜度、队列双源一致、文档字段完整性、锚点卡格式、历史欠账累积类。默认全量模式照常出结论；--blocking-only 跳过，进收口全量 gate 与收口单复核。每条必须有 compensation（事后发现渠道，且渠道键必须在册 compensation_channels），无补偿不许降级。",
+    "fail_safe": "JSON 缺失或门禁 id 未登记时，shell 侧默认按 blocking 处理，新门禁未分级前不允许被静默跳过。"
+  },
+  "gates": [
+    {
+      "id": "g01",
+      "label": "①",
+      "name": "工作区自盘",
+      "script": "inline: git status --porcelain",
+      "nature": "info",
+      "scope": "worktree",
+      "level": "audit",
+      "reason": "本项在脚本里本就只提示不判红，脏工作区由提交动作本身兜底，不构成 push 阻断条件。",
+      "compensation": {
+        "channels": [
+          "pre_push_guard",
+          "full_gate_round"
+        ],
+        "note": "pre-push-check.sh 提交前盘工作区；全量 gate 收口跑时本项再出结论。"
+      }
+    },
+    {
+      "id": "g02",
+      "label": "②",
+      "name": "远端同步",
+      "script": "inline: git ls-remote / fetch / merge-base",
+      "nature": "bad",
+      "scope": "git-history",
+      "level": "blocking",
+      "reason": "远端已有外来提交或分叉时强推会覆盖他人历史，属 push 动作本身的安全性，必须拦在 push 前。",
+      "compensation": null
+    },
+    {
+      "id": "g03",
+      "label": "③",
+      "name": "当日流水",
+      "script": "inline: date +%F + 流水文件非空判定",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "当日对话流水缺失是过程留痕欠账，不影响本次代码能否编译或回源，放夜间/交接核对即可。",
+      "compensation": {
+        "channels": [
+          "closing_report_check",
+          "full_gate_round"
+        ],
+        "note": "收口单核查当日流水；全量 gate 收口跑时本项出结论。"
+      }
+    },
+    {
+      "id": "g04",
+      "label": "④",
+      "name": "规矩随口令",
+      "script": "inline: grep 'D8 反思文件交接' 总纲",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "总纲口令标记缺失属规则文档漂移，与本次改动的代码正确性无关，不该挡 push。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑本项；口令落地单回执在收口单核对总纲在册。"
+      }
+    },
+    {
+      "id": "g05",
+      "label": "④",
+      "name": "索引版本",
+      "script": "inline: grep 版本号 + python 语义比较 v2.36",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "索引未升版是文档台账新鲜度问题，不影响产物可执行性，可随收口单补升。",
+      "compensation": {
+        "channels": [
+          "index_regen_review",
+          "full_gate_round"
+        ],
+        "note": "索引生成器刷新后复核版本；全量 gate 收口跑本项。"
+      }
+    },
+    {
+      "id": "g06",
+      "label": "⑤",
+      "name": "一问题一代理",
+      "script": "inline: python3 heredoc 扫派单台账多缺陷号行",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "台账打包行是派单登记规范问题，属调度台账质量，可在收口对账时纠正，不必阻断代码 push。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime",
+          "closing_report_check"
+        ],
+        "note": "调度层派单复核；收口单回查台账打包行，打包行回退重派。"
+      }
+    },
+    {
+      "id": "g07",
+      "label": "⑥",
+      "name": "在飞计数",
+      "script": "queue_stats.py",
+      "nature": "info",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "本项只回显 RUNNING 计数，脚本内不判红，属调度状态提示。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "queue_stats.py 实时出 RUNNING 计数，与队列/台账双源对账。"
+      }
+    },
+    {
+      "id": "g08",
+      "label": "⑦",
+      "name": "级别自报",
+      "script": "inline: grep -rl '验收通过' docs/",
+      "nature": "info",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "本项只列含'验收通过'的文件数，级别核对交人工与验收代理，不产生机器判红。",
+      "compensation": {
+        "channels": [
+          "closing_report_check",
+          "full_gate_round"
+        ],
+        "note": "验收代理在收口单逐个核级别；全量 gate 跑本项列含「验收通过」文件。"
+      }
+    },
+    {
+      "id": "g09",
+      "label": "⑧",
+      "name": "图标冻结",
+      "script": "inline: sha256sum -c docs/.icon_freeze.sha256",
+      "nature": "bad",
+      "scope": "asset",
+      "level": "blocking",
+      "reason": "出厂图标资产哈希被改是交付物回归，CI 不比对冻结哈希，必须在 push 前拦住误改。",
+      "compensation": null
+    },
+    {
+      "id": "g10",
+      "label": "⑨",
+      "name": "并发上限",
+      "script": "queue_stats.py + inline /proc/loadavg 档位判定",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "并发超限是调度层节奏问题，随在飞队列状态波动，与本次提交产物质量无关。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "调度层按负载实时降档，超限当轮停派新单。"
+      }
+    },
+    {
+      "id": "g11",
+      "label": "⑯",
+      "name": "台账新鲜度",
+      "script": "check-dispatch-ledger.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "台账 mtime 新鲜度属台账登记时效，历史轮次极易欠账；在飞超硬上限部分仍由调度层实时兜，新鲜度红不挡 push。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime",
+          "closing_report_check"
+        ],
+        "note": "在飞超限由调度层实时兜；收口单回写台账新鲜度。"
+      }
+    },
+    {
+      "id": "g12",
+      "label": "⑰",
+      "name": "档位表在册",
+      "script": "inline: grep 三档串 口径冻结 + 并发档位.md",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "档位表在册是规则文档完整性问题，三档配比缺失不会让本次代码编译失败。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑本项；档位变更单登记时核对口径冻结与档位文件。"
+      }
+    },
+    {
+      "id": "g13",
+      "label": "⑱",
+      "name": "队列满槽",
+      "script": "check-dispatch-queue.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "队列丢单/空转是调度运行态问题，受别单在飞队列抖动影响大，放夜间队列对账更稳。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "队列/台账双源实时对账，丢单/空转入收口单。"
+      }
+    },
+    {
+      "id": "g14",
+      "label": "⑲",
+      "name": "锚点卡",
+      "script": "check-anchor-card.py --strict（本轮改动报告）/ --orphan",
+      "nature": "bad",
+      "scope": "changed-files",
+      "level": "blocking",
+      "reason": "本单新增/修改的写码验收报告必须能按编号反查到锚点卡，否则改动不可回源；孤儿卡扫描本就仅 WARN。",
+      "compensation": null
+    },
+    {
+      "id": "g15",
+      "label": "⑩",
+      "name": "本地构建能力",
+      "script": "inline: command -v / ps / 环境变量 / ~/.gradle/jdks 探测",
+      "nature": "bad",
+      "scope": "env",
+      "level": "audit",
+      "reason": "探测沙箱是否残留构建能力属环境纪律，不判定提交代码本身能否编译；环境快照在会话开场核查更合适。",
+      "compensation": {
+        "channels": [
+          "ci_compile_contract",
+          "full_gate_round"
+        ],
+        "note": "CI 为唯一可信编译源；全量 gate 跑本项环境探测。"
+      }
+    },
+    {
+      "id": "g16",
+      "label": "⑪",
+      "name": "规格完整性",
+      "script": "spec-check.sh",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "切片编号/立项计数是登记册结构完整性，历史切片欠账会累积，不阻断本轮代码提交。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑 spec-check；新规格派单前收口单核对登记册，缺口入立项收口单。"
+      }
+    },
+    {
+      "id": "g17",
+      "label": "㉒",
+      "name": "规格流入巡检",
+      "script": "check-spec-flow.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "切片↔登记册↔清单↔索引↔踪迹四向对齐是全仓台账漂移问题，断裂多为历史登记欠账。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑 spec-flow 四向对账；收口单回查切片登记与派单踪迹。"
+      }
+    },
+    {
+      "id": "g18",
+      "label": "⑫",
+      "name": "扩展import",
+      "script": "check-ext-imports.py app/src/main/java",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "Compose 扩展函数漏 import 语法合法、IDE 无感，只有 CI 编译才红，沙箱无法本地复现，必须靠此静态闸 push 前拦。",
+      "compensation": null
+    },
+    {
+      "id": "g19",
+      "label": "⑬",
+      "name": "测试源码陷阱",
+      "script": "check-test-source.py app/src",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "R1/R2 类 ERROR（非法字符名、静态调实例方法）直接造成编译红，属代码能不能编译的硬判据。",
+      "compensation": null
+    },
+    {
+      "id": "g20",
+      "label": "⑭",
+      "name": "回执证据",
+      "script": "check-evidence.py --strict（本轮改动报告）",
+      "nature": "bad",
+      "scope": "changed-files",
+      "level": "blocking",
+      "reason": "本单报告缺 E1 命令证据/E2 文件:行定位/E3 实测结论即空回执，改动不可核验；判据只限本轮改动件，不追历史。",
+      "compensation": null
+    },
+    {
+      "id": "g21",
+      "label": "⑮",
+      "name": "三段锚点",
+      "script": "check-triple-anchor.py（本轮改动报告）",
+      "nature": "bad",
+      "scope": "changed-files",
+      "level": "blocking",
+      "reason": "本单实现/交付报告缺规格/选型/验收三锚点即流水线断链，回不到设计与选型依据；只限本轮改动件。",
+      "compensation": null
+    },
+    {
+      "id": "g22",
+      "label": "⑳",
+      "name": "缝合怪",
+      "script": "check-frankenstein.py",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "app/src 双轨实现/兼容层/wip 半成品即使能编译也会污染运行时行为，CI 编译期不报这类结构问题，须 push 前拦。",
+      "compensation": null
+    },
+    {
+      "id": "g23",
+      "label": "㉖",
+      "name": "接手链",
+      "script": "check-handover.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "接力棒六段/快照新鲜度是跨轮次交接留痕，属长程台账完整性，可在交接棒收口时补齐。",
+      "compensation": {
+        "channels": [
+          "handover_report"
+        ],
+        "note": "跨棒交接单核查六段与快照新鲜度，缺段在交接时补齐。"
+      }
+    },
+    {
+      "id": "g24",
+      "label": "㉓",
+      "name": "规则总账",
+      "script": "check-rule-ledger.py --check ledger",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "总账结构/F 编号覆盖/冲突裁决是规则台账质量，历史条目漂移会累积，不影响本次产物编译与回源。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑规则总账；规则改版收口单核对 F 编号覆盖与冲突指向。"
+      }
+    },
+    {
+      "id": "g25",
+      "label": "㉔",
+      "name": "缺项台账",
+      "script": "check-rule-ledger.py --check gap",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "三件缺项在册与逾期是缺口管理台账，逾期升级走收口流程，不必挡代码 push。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑缺项台账；收口单核对逾期条目，超期升级阻断派新单。"
+      }
+    },
+    {
+      "id": "g26",
+      "label": "㉑",
+      "name": "组合验收覆盖",
+      "script": "check-combo-coverage.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "矩阵入册/关键对覆盖/缺陷落层归因是验收金字塔台账，属验收编排层，可在收口复核补齐。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑组合覆盖；验收金字塔收口复核，未覆盖关键对排入验收槽。"
+      }
+    },
+    {
+      "id": "g27",
+      "label": "㉗",
+      "name": "子代理存活",
+      "script": "check-agent-liveness.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "零工具调用/跑题代理属调度过程事故，其垃圾回执即便漏过也由 ⑭/㊽ 证据闸在报告落盘时兜底。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime",
+          "closing_report_check"
+        ],
+        "note": "调度层复核首轮工具调用；跑题产物入收口判废单。"
+      }
+    },
+    {
+      "id": "g28",
+      "label": "㉘",
+      "name": "测试函数名合法性",
+      "script": "check-test-fun-names.py",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "反引号函数名含非法字符会让 compileAppDebugUnitTestKotlin 直接 FAIL，属测试代码编译硬判据。",
+      "compensation": null
+    },
+    {
+      "id": "g29",
+      "label": "㉙",
+      "name": "停工守卫",
+      "script": "check-no-idle.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "HEAD 超闲且队列未清是调度空转运行态，随时段波动，不是提交产物缺陷。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "调度层轮询心跳，空转时段入调度复盘。"
+      }
+    },
+    {
+      "id": "g30",
+      "label": "㉚",
+      "name": "队首推进",
+      "script": "check-queue-running.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "PENDING 积压而 RUNNING=0 是调度层并行空转，属队列运行态，可夜间对账发现。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "调度层队首推进监控，积压行回查派单记录。"
+      }
+    },
+    {
+      "id": "g31",
+      "label": "㉛",
+      "name": "事故清单完整性",
+      "script": "check-incident-register.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "事故散件未登记进清单是复盘留痕欠账，不影响本次代码正确性，收口时补登即可。",
+      "compensation": {
+        "channels": [
+          "closing_report_check",
+          "full_gate_round"
+        ],
+        "note": "复盘收口单强制登记事故；全量 gate 跑事故清单与 CI 归因文档对账。"
+      }
+    },
+    {
+      "id": "g32",
+      "label": "㉜",
+      "name": "FloatDouble混算",
+      "script": "check-float-double-mix.py",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "float*double 推成 Double 而返回 Float 缺 toFloat() 即编译红，属类型编译硬判据。",
+      "compensation": null
+    },
+    {
+      "id": "g33",
+      "label": "㉝",
+      "name": "本地禁止编译",
+      "script": "check-no-local-build.py",
+      "nature": "bad",
+      "scope": "env",
+      "level": "audit",
+      "reason": "本地构建痕迹/进程是沙箱纪律检查，不判定提交代码能否编译；唯一可信编译验证在 CI。",
+      "compensation": {
+        "channels": [
+          "ci_compile_contract",
+          "full_gate_round"
+        ],
+        "note": "CI 唯一编译契约；全量 gate 扫近段本地构建痕迹与 daemon 残留，违规入纪律台账。"
+      }
+    },
+    {
+      "id": "g34",
+      "label": "㉞",
+      "name": "Gradle语法",
+      "script": "check-gradle-syntax.py",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "Groovy 构建脚本行首 # 非法注释会让 Gradle 连 Task 都进不去，属构建脚本可执行硬判据。",
+      "compensation": null
+    },
+    {
+      "id": "g35",
+      "label": "㉟",
+      "name": "推送窗口",
+      "script": "check-push-window.py",
+      "nature": "info",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "脚本退出码恒 0，只展示在飞 run 与节拍建议，本就不阻断门禁。",
+      "compensation": {
+        "channels": [
+          "pre_push_guard",
+          "dispatch_realtime"
+        ],
+        "note": "pre-push.sh 15 分钟时间戳守卫；调度层在飞 run 终态对账。"
+      }
+    },
+    {
+      "id": "g36",
+      "label": "㊱",
+      "name": "锚点防洗白",
+      "script": "check-anchor-integrity.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "处置锚点被改/多锚点掩盖历史是台账防洗白问题，属留痕完整性，可夜间快照比对发现。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑锚点完整性；违规处置收口单复核锚点 epoch 与新增行。"
+      }
+    },
+    {
+      "id": "g37",
+      "label": "㊲",
+      "name": "验收字样",
+      "script": "check-accept-claim.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "全量 docs 空口自称'验收通过'属文档 claim 完整性，历史文件累积；本轮新报告的 claim 已由 ⑭/㊽ 证据闸兜住。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑全量 claim 扫描；独立验收代理复核 claim 判据锚，无锚字样报告回退重验。"
+      }
+    },
+    {
+      "id": "g38",
+      "label": "㊳",
+      "name": "子代理熔断",
+      "script": "check-agent-timeout.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "RUNNING 超 15/60 分钟是调度时长管理，随在飞队列波动，超时熔断由调度层实时处置更直接。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "调度层超时监控与熔断，超时空行清理或转判废。"
+      }
+    },
+    {
+      "id": "g39",
+      "label": "㊴",
+      "name": "认证书尾",
+      "script": "check-commit-trailer.py",
+      "nature": "info",
+      "scope": "git-history",
+      "level": "audit",
+      "reason": "Verified-by/Wip/Docs-only trailer 仅供事后追溯，脚本口径本就 WARN 不 FAIL，硬阻断会顶掉保槽铁律。",
+      "compensation": {
+        "channels": [
+          "closing_report_check",
+          "full_gate_round"
+        ],
+        "note": "收口单补登 trailer；全量 gate 跑提交追溯扫描，缺尾 commit 入追溯台账。"
+      }
+    },
+    {
+      "id": "g40",
+      "label": "㊵",
+      "name": "提交路径分离",
+      "script": "check-commit-split.py",
+      "nature": "bad",
+      "scope": "git-history",
+      "level": "blocking",
+      "reason": "同一 commit 混 docs 与 app/src 会让目录级 add 把未验收在飞代码扫进提交（E-05 事故），commit 与单号无法回源，必须阻断。",
+      "compensation": null
+    },
+    {
+      "id": "g41",
+      "label": "㊶",
+      "name": "队列台账一致",
+      "script": "check-queue-ledger.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "队列↔台账双源结构/状态一致性是台账对账问题，两处手写漂移可夜间对账修正，不挡代码 push。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "队列↔台账双源实时对账；收口单回写两侧状态，清理僵尸 RUNNING。"
+      }
+    },
+    {
+      "id": "g42",
+      "label": "㊷",
+      "name": "清单状态词",
+      "script": "check-ledger-status.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "清单状态↔报告脱钩与状态词白名单是问题清单台账质量，139 行全量扫描易背历史存量，收口回写即可。",
+      "compensation": {
+        "channels": [
+          "closing_report_check",
+          "full_gate_round"
+        ],
+        "note": "收口单回写清单状态；全量 gate 跑清单-报告对账，脱钩行与非白名单词入待办。"
+      }
+    },
+    {
+      "id": "g43",
+      "label": "㊸",
+      "name": "验收积压深度",
+      "script": "check-backlog-depth.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "待验收积压条数/最老时长是验收槽节奏指标，属调度排程，不应阻断写码单 push。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime",
+          "closing_report_check"
+        ],
+        "note": "调度层先清验收再发新写码单；收口单核对积压深度，超阈值升级排程。"
+      }
+    },
+    {
+      "id": "g44",
+      "label": "㊹",
+      "name": "调度执行合规",
+      "script": "check-dispatch-compliance.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "负样本残留/僵尸 RUNNING/熔断超时是调度执行台账漂移，多为别单在飞队列抖动，夜间对账清理；本次基线唯一红即此项。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime",
+          "closing_report_check"
+        ],
+        "note": "调度层当轮清理僵尸行；收口单把残留负样本与超时单入判废/回炉单。"
+      }
+    },
+    {
+      "id": "g45",
+      "label": "㊺",
+      "name": "铁律全量同步",
+      "script": "sync-ironrules.py --check",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "总纲↔必读铁律照录漂移是规则文本一致性，不影响提交产物，夜间比对即可发现。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑铁律双文件逐条比对；规则改版单回执核对两处照录。"
+      }
+    },
+    {
+      "id": "g46",
+      "label": "㊻",
+      "name": "第一读顺序",
+      "script": "check-first-read.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "必读/总纲/入口三处阅读顺序声明是会话开场纪律，属规则文档一致性，可开场核查时纠正。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑第一读核查；会话开场核查纠正漂移，漂移入规则改版单。"
+      }
+    },
+    {
+      "id": "g47",
+      "label": "㊼",
+      "name": "豁免身份化",
+      "script": "check-exempt-identity.py",
+      "nature": "bad",
+      "scope": "gate-machinery",
+      "level": "blocking",
+      "reason": "位置型豁免改名即可蒙过，会架空其余所有门禁的豁免边界；豁免必须绑 git 跟踪/内容哈希身份，属门禁机制可信度，必须拦。",
+      "compensation": null
+    },
+    {
+      "id": "g48",
+      "label": "㊽",
+      "name": "未推送报告回执",
+      "script": "check-unpushed-reports.py",
+      "nature": "bad",
+      "scope": "changed-files",
+      "level": "blocking",
+      "reason": "已提交未推送的报告同样必须过回执，堵住'先提交就永不进判据'的缺口（Q-209 事故）；判据覆盖 origin/main..HEAD ∪ 工作区。",
+      "compensation": null
+    },
+    {
+      "id": "g49",
+      "label": "㊾",
+      "name": "空集不判PASS",
+      "script": "check-vacuous-pass.py",
+      "nature": "bad",
+      "scope": "gate-machinery",
+      "level": "blocking",
+      "reason": "检查器空集 return 0 把'没有检查对象'表述成'合规'，删报告/漏传参数即可假绿；门禁机制自身不许带这种结构上线。",
+      "compensation": null
+    },
+    {
+      "id": "g50",
+      "label": "㊿",
+      "name": "无等待条款",
+      "script": "check-no-wait-rule.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "规则文本残留 wait_agent 条款是文档口径漂移，主控照读风险在规则改版时拦截更合适。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑规则文本扫描；口令落地单核对两份规则文件无挂起条款。"
+      }
+    },
+    {
+      "id": "g51",
+      "label": "51",
+      "name": "自测覆盖",
+      "script": "check-selftest-coverage.py",
+      "nature": "bad",
+      "scope": "gate-machinery",
+      "level": "audit",
+      "reason": "24 条 selftest 历史欠账走只许缩小的基线，属累积债务；新增门禁当轮补 selftest 的约束由接线/收口环节兜，历史欠账不挡 push。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑 selftest 欠账台账；新增门禁当轮必须带 --selftest，基线只许缩小。"
+      }
+    },
+    {
+      "id": "g52",
+      "label": "52",
+      "name": "视觉基线",
+      "script": "check-visual-baseline.py",
+      "nature": "warn",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "P0 截图基建未建，本项当前口径即 WARN 不算 FAIL；观感冻结产物未启动，无可阻断对象。",
+      "compensation": {
+        "channels": [
+          "full_gate_round"
+        ],
+        "note": "P0 截图基建启动后纳入阻断集；全量 gate 收口登记观感基线缺口。"
+      }
+    },
+    {
+      "id": "g53",
+      "label": "53",
+      "name": "workflow契约",
+      "script": "check-workflow-contracts.py",
+      "nature": "bad",
+      "scope": "ci-contract",
+      "level": "blocking",
+      "reason": "workflow_run 引用名与契约测试路径必须真实存在，否则 CI 矩阵永不触发或整组误红，属 CI 清单可执行硬判据。",
+      "compensation": null
+    },
+    {
+      "id": "g54",
+      "label": "54",
+      "name": "门禁接线",
+      "script": "check-gate-wiring.py",
+      "nature": "bad",
+      "scope": "gate-machinery",
+      "level": "blocking",
+      "reason": "判据写了不跑等于清单不可执行；新门禁当轮未接线必须拦，孤儿基线只许缩小。",
+      "compensation": null
+    },
+    {
+      "id": "g55",
+      "label": "55",
+      "name": "永远找问题",
+      "script": "check-problem-finding.py",
+      "nature": "bad",
+      "scope": "changed-files",
+      "level": "blocking",
+      "reason": "现行报告缺'新发现问题'节或缺状态词即核心假绿：审计停在自己手里；判据已按分界提交豁免规则前存量，只判现行报告。",
+      "compensation": null
+    },
+    {
+      "id": "g56",
+      "label": "56",
+      "name": "锁口径",
+      "script": "check-lock-rule.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "旧'禁删锁'裸句是规则文本口径冲突，属文档扫描类，夜间反向扫描可发现。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑规则文本反向扫描；锁规则变更单核对新旧口径标记。"
+      }
+    },
+    {
+      "id": "g57",
+      "label": "57",
+      "name": "空槽即红",
+      "script": "check-slot-full.py",
+      "nature": "bad",
+      "scope": "live-queue",
+      "level": "audit",
+      "reason": "有 PENDING 而 RUNNING 不满是调度排程空转，属运行态节奏，不影响已提交产物质量。",
+      "compensation": {
+        "channels": [
+          "dispatch_realtime"
+        ],
+        "note": "调度层满槽监控，积压单回查派单时延。"
+      }
+    },
+    {
+      "id": "g58",
+      "label": "58",
+      "name": "人工节",
+      "script": "check-manual-section.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "索引人工节被挪进 GEN 区间是生成器改写风险，下一次索引刷新才暴露，属文档机器边界巡检。",
+      "compensation": {
+        "channels": [
+          "index_regen_review",
+          "full_gate_round"
+        ],
+        "note": "索引生成器改写后人工节复核；全量 gate 跑人工节守卫，人工行被吞即回滚生成器输出。"
+      }
+    },
+    {
+      "id": "g59",
+      "label": "59",
+      "name": "提交来源",
+      "script": "check-commit-provenance.py",
+      "nature": "bad",
+      "scope": "git-history",
+      "level": "blocking",
+      "reason": "源码文件进提交必须有 docs 报告文件级回源，否则目录级 add 把未验收在飞产物扫进提交并导致 CI 编译真红（5ec4ada/ImportSourceGroup.kt 事故），必须阻断。",
+      "compensation": null
+    }
+  ],
+  "compensation_channels": {
+    "closing_report_check": {
+      "description": "下次开单/收口单落盘时必查：本轮报告过 ⑭回执证据、㊽未推送报告回执、55永远找问题 三道闸，缺证据或缺「新发现问题」节即不允许提交。",
+      "evidence": [
+        "data_scripts/check-evidence.py",
+        "data_scripts/check-unpushed-reports.py",
+        "data_scripts/check-problem-finding.py"
+      ],
+      "command": "python3 data_scripts/check-evidence.py --strict <本轮改动报告>"
+    },
+    "full_gate_round": {
+      "description": "每轮收口跑一次全量门禁 bash data_scripts/rule-gate.sh（不带 --blocking-only，audit 项照常出结论）；pre-push-check.sh 第 6 步固定调用全量 gate。",
+      "evidence": [
+        "data_scripts/rule-gate.sh",
+        "data_scripts/pre-push-check.sh"
+      ],
+      "command": "bash data_scripts/rule-gate.sh"
+    },
+    "handover_report": {
+      "description": "跨棒交接单核查：接手链六段与快照新鲜度由 check-handover.py 在交接/收口时核对。",
+      "evidence": [
+        "data_scripts/check-handover.py"
+      ],
+      "command": "python3 data_scripts/check-handover.py"
+    },
+    "dispatch_realtime": {
+      "description": "调度层实时监控：在飞队列/台账由 queue_stats.py 与队列、台账双源检查脚本实时出数，超阈值当轮处置。",
+      "evidence": [
+        "data_scripts/queue_stats.py",
+        "data_scripts/check-dispatch-queue.py",
+        "data_scripts/check-queue-ledger.py"
+      ],
+      "command": "python3 data_scripts/queue_stats.py"
+    },
+    "ci_compile_contract": {
+      "description": "CI 唯一可信编译/单测契约：verify.yml 分片单测与编译红即全队停发新单；本地不留编译渠道。",
+      "evidence": [
+        ".github/workflows/verify.yml"
+      ],
+      "command": "查看仓库 Actions 对应 verify run 结论"
+    },
+    "pre_push_guard": {
+      "description": "push 前一次性体检 pre-push-check.sh：清锁、刷快照、批量证据检查、跨模块预检、债务棘轮、全量 gate，非 0 不许 push。",
+      "evidence": [
+        "data_scripts/pre-push-check.sh"
+      ],
+      "command": "bash data_scripts/pre-push-check.sh"
+    },
+    "index_regen_review": {
+      "description": "索引生成器刷新后人工节复核：docs-index.py 重写索引后，58人工节门禁核对人工节未被吞进 GEN 区间。",
+      "evidence": [
+        "data_scripts/docs-index.py",
+        "data_scripts/check-manual-section.py"
+      ],
+      "command": "python3 data_scripts/check-manual-section.py"
+    }
+  }
+}
