@@ -28,7 +28,9 @@ import argparse
 import glob
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 # 始终必备的锚点：选型结论 / 实现验收
 REQUIRED = [('选型', '选型：'), ('验收', '验收：')]
@@ -111,6 +113,91 @@ def check_file(path: str):
             'readable': True, 'returned': returned}
 
 
+def selftest() -> int:
+    """双向自测：三锚点齐全且选型文档有结论 → check_file() ok=True；缺锚点 / 选型无结论 → ok=False。
+    做法：临时目录接管 ROOT 后直接调生产 check_file()，判据一行未复制；夹具收尾自删。"""
+    saved_root = ROOT
+
+    good = tempfile.mkdtemp(prefix='triple-anchor-selftest-')
+    try:
+        gdocs = os.path.join(good, 'docs')
+        os.makedirs(gdocs, exist_ok=True)
+        open(os.path.join(gdocs, '规格-design.md'), 'w', encoding='utf-8').write('# 规格设计稿（夹具）\n')
+        open(os.path.join(gdocs, '验收-选型-x.md'), 'w', encoding='utf-8').write(
+            '# 选型结论\n选中第 1 份；判低 1 份（方案 B 证据不足）。\n')
+        open(os.path.join(gdocs, '验收-x.md'), 'w', encoding='utf-8').write('# 实现验收（夹具）\n')
+        rel_good = 'docs/实现-good.md'
+        open(os.path.join(good, rel_good), 'w', encoding='utf-8').write(
+            '规格：docs/规格-design.md\n'
+            '选型：docs/验收-选型-x.md\n'
+            '验收：docs/验收-x.md\n')
+        globals()['ROOT'] = good
+        res_good = check_file(os.path.join(good, rel_good))
+        assert res_good['ok'], f"三锚点齐全应 PASS，res={res_good}"
+        print('[selftest] 好样本（规格/选型/验收三锚点 + 选型结论）PASS 通路 OK')
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(good, ignore_errors=True)
+
+    bad1 = tempfile.mkdtemp(prefix='triple-anchor-selftest-')
+    try:
+        os.makedirs(os.path.join(bad1, 'docs'), exist_ok=True)
+        rel_b1 = 'docs/实现-bad1.md'
+        open(os.path.join(bad1, rel_b1), 'w', encoding='utf-8').write(
+            '# 实现-bad1\n只有正文，三锚点一概缺失，也无任何流程说明文字。\n')
+        globals()['ROOT'] = bad1
+        res_b1 = check_file(os.path.join(bad1, rel_b1))
+        assert not res_b1['ok'], f"三锚点全缺应 FAIL，res={res_b1}"
+        assert '选型' in res_b1['missing'] and '验收' in res_b1['missing'] \
+            and any('规格' in m for m in res_b1['missing']), res_b1['missing']
+        print('[selftest] 坏样本一（三锚点全缺）FAIL 通路 OK：' + '、'.join(res_b1['missing']))
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(bad1, ignore_errors=True)
+
+    bad2 = tempfile.mkdtemp(prefix='triple-anchor-selftest-')
+    try:
+        bdocs = os.path.join(bad2, 'docs')
+        os.makedirs(bdocs, exist_ok=True)
+        # 选型文档存在但无「选中第 N 份」与「判低/淘汰」结论 → 命中选型结论核验判据
+        open(os.path.join(bdocs, '验收-选型-empty.md'), 'w', encoding='utf-8').write(
+            '# 选型文档\n看过了，差不多，未下结论。\n')
+        open(os.path.join(bdocs, '规格-design.md'), 'w', encoding='utf-8').write('# 规格（夹具）\n')
+        open(os.path.join(bdocs, '验收-x.md'), 'w', encoding='utf-8').write('# 验收（夹具）\n')
+        rel_b2 = 'docs/实现-bad2.md'
+        open(os.path.join(bad2, rel_b2), 'w', encoding='utf-8').write(
+            '规格：docs/规格-design.md\n'
+            '选型：docs/验收-选型-empty.md\n'
+            '验收：docs/验收-x.md\n')
+        globals()['ROOT'] = bad2
+        res_b2 = check_file(os.path.join(bad2, rel_b2))
+        assert not res_b2['ok'], f"选型无结论应 FAIL，res={res_b2}"
+        assert any('选中第' in m for m in res_b2['missing']), res_b2['missing']
+        print('[selftest] 坏样本二（选型文档缺选中/判低结论）FAIL 通路 OK：' + '、'.join(res_b2['missing']))
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(bad2, ignore_errors=True)
+
+    # 边界·缺文件：报告路径不存在 → 三锚点全缺、readable=False，判红不放行
+    ghost = tempfile.mkdtemp(prefix='triple-anchor-selftest-ghost-')
+    try:
+        globals()['ROOT'] = ghost
+        res_g = check_file(os.path.join(ghost, 'docs/实现-不存在.md'))
+        assert not res_g['ok'] and not res_g['readable'], f"不存在文件应 FAIL，res={res_g}"
+        print('[selftest] 边界·缺文件（报告不存在）判红通路 OK')
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(ghost, ignore_errors=True)
+
+    # 边界·空集：main 不传报告 → 生产设计返回 2（EMPTY 不判 PASS），非静默放行
+    rc_empty = main([])
+    assert rc_empty == 2, f"空集应返回 2，rc={rc_empty}"
+    print('[selftest] 边界·空集（未传报告）返回 EMPTY 码 2，不判 PASS')
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description='三段流水线锚点守卫：规格/选型/验收 三锚点齐全且选型有结论才 PASS')
@@ -143,4 +230,6 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())

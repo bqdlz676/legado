@@ -1,23 +1,15 @@
 {
  "note": "历史欠账棘轮：只许缩小，新增门禁必须自带 --selftest",
  "debt": [
-  "check-accept-claim.py",
   "check-agent-liveness.py",
-  "check-agent-timeout.py",
-  "check-anchor-integrity.py",
   "check-commit-trailer.py",
   "check-dependency-symbols.py",
   "check-dispatch-ledger.py",
   "check-drift.py",
   "check-ext-imports.py",
-  "check-float-double-mix.py",
-  "check-gradle-syntax.py",
-  "check-incident-register.py",
   "check-push-track.py",
   "check-push-window.py",
   "check-readonly-setter.py",
-  "check-test-fun-names.py",
-  "check-test-source.py",
-  "check-triple-anchor.py"
+  "check-test-source.py"
  ]
 }
