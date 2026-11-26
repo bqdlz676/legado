@@ -109,7 +109,11 @@ class InkContentEditState {
         this.loadError = message
     }
 
-    fun setSaving(value: Boolean) {
+    /**
+     * 标记保存中 / 保存收口。不命名为 `setSaving`：`var saving` 已由 Kotlin 合成 JVM 方法
+     * `setSaving`，手写同名同签名函数会触发平台签名冲突（Platform declaration clash）。
+     */
+    fun markSaving(value: Boolean) {
         saving = value
     }
 
@@ -138,12 +142,19 @@ class InkContentEditState {
         this.matchIndex = index
     }
 
-    fun setSearchError(error: String?) {
+    /**
+     * 回填正文搜索错误文案。不命名为 `setSearchError`：`var searchError` 已合成同名 JVM
+     * setter，手写函数会撞平台签名；改名仅避冲突，赋值行为与时序不变。
+     */
+    fun updateSearchError(error: String?) {
         searchError = error
     }
 
-    /** 标题行进入 / 退出行内编辑。 */
-    fun setTitleEditing(editing: Boolean) {
+    /**
+     * 标题行进入 / 退出行内编辑。不命名为 `setTitleEditing`：`var titleEditing` 已合成同名
+     * JVM setter，手写函数会撞平台签名；后缀 `State` 仅作命名区分，不改行为与时序。
+     */
+    fun setTitleEditingState(editing: Boolean) {
         titleEditing = editing
     }
 

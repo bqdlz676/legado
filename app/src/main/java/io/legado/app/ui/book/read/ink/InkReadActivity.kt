@@ -351,7 +351,7 @@ class InkReadActivity : ComponentActivity() {
     /** 保存草稿正文；成功后基线刷新并收口面板，失败留在面板给可读提示。 */
     private fun saveContentEdit() {
         val target = contentEditState.target ?: return
-        contentEditState.setSaving(true)
+        contentEditState.markSaving(true)
         lifecycleScope.launch {
             when (val result = contentEditStore.save(target, contentEditState.content)) {
                 is EditSaveResult.Ok -> {
@@ -368,7 +368,7 @@ class InkReadActivity : ComponentActivity() {
                     result.message.ifBlank { getString(R.string.unknown_error) },
                 )
             }
-            contentEditState.setSaving(false)
+            contentEditState.markSaving(false)
         }
     }
 

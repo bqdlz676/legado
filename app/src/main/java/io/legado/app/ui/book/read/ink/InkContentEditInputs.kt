@@ -77,7 +77,7 @@ internal fun TitleRow(state: InkContentEditState, onRename: (String) -> Unit) {
                         rememberInkGesture(enabled = true) {
                             draft = state.title
                             localError = null
-                            state.setTitleEditing(true)
+                            state.setTitleEditingState(true)
                         }.gestureModifier,
                     ),
             )
@@ -111,7 +111,7 @@ internal fun TitleRow(state: InkContentEditState, onRename: (String) -> Unit) {
                 when (InkContentEditRules.validateTitle(draft)) {
                     TitleValidation.Valid -> {
                         onRename(draft.trim())
-                        state.setTitleEditing(false)
+                        state.setTitleEditingState(false)
                     }
                     TitleValidation.Blank -> localError = context.getString(R.string.title)
                     is TitleValidation.TooLong -> localError = context.getString(R.string.title)
@@ -122,7 +122,7 @@ internal fun TitleRow(state: InkContentEditState, onRename: (String) -> Unit) {
                 text = context.getString(R.string.cancel),
                 variant = InkButtonVariant.GHOST,
             ) {
-                state.setTitleEditing(false)
+                state.setTitleEditingState(false)
                 localError = null
             }
         }
@@ -148,7 +148,7 @@ internal fun SearchBar(state: InkContentEditState) {
     LaunchedEffect(state.searchVisible, state.searchQuery, state.regex, state.matchCase, state.content) {
         if (!state.searchVisible || state.searchQuery.isBlank()) {
             state.setMatches(emptyList(), -1)
-            state.setSearchError(null)
+            state.updateSearchError(null)
             return@LaunchedEffect
         }
         // 120ms 防抖：与旧版 scheduleSearch 同口径，输入停顿后再跑正则扫描。
@@ -156,11 +156,11 @@ internal fun SearchBar(state: InkContentEditState) {
         val matches = runCatching {
             findContentMatches(state.content, state.searchQuery, state.regex, state.matchCase)
         }.getOrElse {
-            state.setSearchError(context.getString(R.string.content_search_invalid_regex))
+            state.updateSearchError(context.getString(R.string.content_search_invalid_regex))
             state.setMatches(emptyList(), -1)
             return@LaunchedEffect
         }
-        state.setSearchError(null)
+        state.updateSearchError(null)
         val index = matches.indexOfFirst { it.first >= 0 }
             .let { if (it >= 0) it else if (matches.isEmpty()) -1 else 0 }
         state.setMatches(matches, index)
