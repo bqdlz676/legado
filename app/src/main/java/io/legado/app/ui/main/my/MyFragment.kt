@@ -24,7 +24,6 @@ import io.legado.app.service.McpService
 import io.legado.app.service.AutoTaskScheduler
 import io.legado.app.service.WebService
 import io.legado.app.ui.about.checkAppUpdate
-import io.legado.app.ui.about.AboutActivity
 import io.legado.app.ui.about.ReadRecordActivity
 import io.legado.app.ui.autoTask.AutoTaskActivity
 import io.legado.app.ui.book.bookmark.AllBookmarkActivity
@@ -270,7 +269,6 @@ class MyFragment() : BaseFragment(R.layout.fragment_my_config), MainFragmentInte
 
                 "fileManage" -> startActivity<FileManageActivity>()
                 "readRecord" -> startActivity<ReadRecordActivity>()
-                "about" -> startActivity<AboutActivity>()
                 "exit" -> activity?.finish()
             }
             return super.onPreferenceTreeClick(preference)

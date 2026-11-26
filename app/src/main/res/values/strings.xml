@@ -48,7 +48,6 @@
     <string name="rss">RSS feeds</string>
     <string name="all">All</string>
     <string name="last_read">Last reading</string>
-    <string name="update_log">What\'s new</string>
     <string name="action_download">Download</string>
     <string name="bookshelf_layout">Layout</string>
     <string name="book_source">Book sources</string>
@@ -59,7 +58,6 @@
     <string name="theme_setting_s">Some settings related to interface or color</string>
     <string name="other_setting">Other settings</string>
     <string name="other_setting_s">Some function-related settings</string>
-    <string name="about">About</string>
     <string name="exit">Exit</string>
     <string name="exit_no_save">It has not been saved. Do you want to continue editing?</string>
     <string name="version">Version</string>
@@ -82,9 +80,6 @@
     <string name="mcp_service_start_failed">MCP service failed to start</string>
     <string name="offline_cache">Offline cache</string>
     <string name="change_origin">Change Origin</string>
-    <string name="app_share_description">
-        Legado (YueDu 3.0) download link：\n https://github.com/LegadoTeam/legado/releases
-    </string>
     <string name="pt_auto_refresh">Auto-refresh</string>
     <string name="ps_auto_refresh">Update books automatically when opening the software</string>
     <string name="backup_restore">Backup and restore</string>
@@ -677,7 +672,6 @@
     <string name="toc_updateing">Updating Chapters</string>
     <string name="media_button_on_exit_title">Headset buttons are always available</string>
     <string name="media_button_on_exit_summary">Headset buttons are available even exit the app.</string>
-    <string name="contributors">Contributors</string>
     <string name="license">License</string>
     <string name="other">Other</string>
     <string name="source_auto_changing">Changing source</string>
@@ -726,7 +720,6 @@
     <string name="safe_code_editor">Safe text editor</string>
     <string name="safe_code_editor_load_failed">The safe editor is not ready. Please wait, or go back to discard changes if loading keeps failing.</string>
     <string name="safe_code_editor_read_failed">Unable to read the safe editor content. Please try again.</string>
-    <string name="contributors_summary">gedoor,Invinciblelee,Xwite etc. Checking in github for details</string>
     <string name="clear_cache_summary">Clear the cache of the downloaded books and fonts</string>
     <string name="default_cover">Default cover</string>
     <string name="restore_ignore">Bypass list</string>
@@ -1169,8 +1162,6 @@
     <string name="adjust_chapter_index">Adjust of chapter index</string>
     <string name="clear_webview_data_success">Cleared successfully, automatically restarts the application after 3 seconds</string>
     <string name="key_page_on_long_press">Press and hold the key to turn the page</string>
-    <string name="save_log">Save logs</string>
-    <string name="create_heap_dump">Create heap dump</string>
     <string name="record_heap_dump_s">Saving a heap dump when the application crashes by OOM</string>
     <string name="record_heap_dump_t">Capture heap dump</string>
     <string name="font_weight_text">N/B/L</string>

@@ -14,12 +14,10 @@ class UpdateDialogLifecycleTest {
         ).readText()
 
         assertGuardBeforeDialog(shared, "isAdded && !childFragmentManager.isStateSaved")
-        // 旧 AboutFragment 随 Compose 重写拆除，关于页入口归 AboutActivity；MyFragment 路由保留。
-        for (path in listOf("ui/about/AboutActivity.kt", "ui/main/my/MyFragment.kt")) {
-            val caller = projectFile("src/main/java/io/legado/app/$path").readText()
-            assertTrue(caller.contains("\"check_update\" -> checkAppUpdate()"))
-            assertTrue(caller.contains("\"check_beta_update\" -> checkAppUpdate(beta = true)"))
-        }
+        // Q-280：旧关于页 Activity 已整体删除（产品裁决），检查更新 / Beta 分支仅保留 MyFragment 路由基线。
+        val caller = projectFile("src/main/java/io/legado/app/ui/main/my/MyFragment.kt").readText()
+        assertTrue(caller.contains("\"check_update\" -> checkAppUpdate()"))
+        assertTrue(caller.contains("\"check_beta_update\" -> checkAppUpdate(beta = true)"))
     }
 
     @Test

@@ -39,7 +39,6 @@
     <string name="rss">Nguồn cấp RSS</string>
     <string name="all">Tất cả</string>
     <string name="last_read">Lần đọc cuối</string>
-    <string name="update_log">Nhật ký cập nhật</string>
     <string name="action_download">Tải xuống</string>
     <string name="bookshelf_layout">Bố cục tủ sách</string>
     <string name="book_source">Nguồn sách</string>
@@ -50,7 +49,6 @@
     <string name="theme_setting_s">Một số cài đặt liên quan đến giao diện hoặc màu sắc</string>
     <string name="other_setting">Cài đặt khác</string>
     <string name="other_setting_s">Một số cài đặt liên quan đến chức năng</string>
-    <string name="about">Giới thiệu</string>
     <string name="exit">Thoát</string>
     <string name="exit_no_save">Chưa được lưu. Bạn có muốn tiếp tục chỉnh sửa?</string>
     <string name="version">Phiên bản</string>
@@ -66,7 +64,6 @@
     <string name="web_service_desc">Chỉnh sửa nguồn và đọc sách qua web</string>
     <string name="offline_cache">Bộ đệm ngoại tuyến</string>
     <string name="change_origin">Đổi nguồn</string>
-    <string name="app_share_description">Link tải Legado (YueDu 3.0):\n https://github.com/LegadoTeam/legado/releases</string>
     <string name="pt_auto_refresh">Tự động làm mới</string>
     <string name="ps_auto_refresh">Tự động cập nhật sách khi mở phần mềm</string>
     <string name="backup_restore">Sao lưu và khôi phục</string>
@@ -488,7 +485,6 @@
     <string name="toc_updateing">Đang cập nhật chương</string>
     <string name="media_button_on_exit_title">Nút tai nghe luôn khả dụng</string>
     <string name="media_button_on_exit_summary">Nút tai nghe khả dụng ngay cả khi thoát ứng dụng.</string>
-    <string name="contributors">Người đóng góp</string>
     <string name="license">Giấy phép</string>
     <string name="other">Khác</string>
     <string name="source_auto_changing">Đang đổi nguồn</string>
@@ -523,7 +519,6 @@
     <string name="disabled">Đã tắt</string>
     <string name="enabled_explore">Đã bật khám phá</string>
     <string name="disabled_explore">Đã tắt khám phá</string>
-    <string name="contributors_summary">gedoor, Invinciblelee, Xwite, v.v. Kiểm tra trên github để biết chi tiết</string>
     <string name="clear_cache_summary">Xóa bộ đệm của sách và phông chữ đã tải xuống</string>
     <string name="default_cover">Bìa mặc định</string>
     <string name="restore_ignore">Danh sách bỏ qua</string>
@@ -852,8 +847,6 @@
     <string name="adjust_chapter_index">Điều chỉnh vị trí chương</string>
     <string name="clear_webview_data_success">Xóa thành công, tự động khởi động lại ứng dụng sau 3 giây</string>
     <string name="key_page_on_long_press">Nhấn giữ phím để lật trang</string>
-    <string name="save_log">Lưu nhật ký</string>
-    <string name="create_heap_dump">Tạo heap dump</string>
     <string name="record_heap_dump_s">Lưu heap dump khi ứng dụng gặp sự cố OOM</string>
     <string name="record_heap_dump_t">Ghi heap dump</string>
     <string name="font_weight_text">Thường/Đậm/Nhạt</string>

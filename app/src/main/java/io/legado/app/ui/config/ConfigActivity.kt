@@ -30,6 +30,7 @@ import io.legado.app.ui.config.settings.SheetExitController
 import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.qrcode.QrCodeResult
+import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.toastOnUi
 
@@ -93,6 +94,11 @@ class ConfigActivity : AppCompatActivity() {
                 }
             },
             showDialog = { clazz -> showConfigDialog(clazz) },
+            showMdAsset = { titleRes, assetName ->
+                // 合规文档落点：读取 assets 内 MD 后走既有 TextDialog（MD 模式）展示，与旧关于页同一渲染通道。
+                val md = String(assets.open(assetName).readBytes())
+                showDialogFragment(TextDialog(getString(titleRes), md, TextDialog.Mode.MD))
+            },
             showVideoSettings = {
                 showDialogFragment(io.legado.app.ui.video.config.SettingsDialog(this))
             },

@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import io.legado.app.R
 import io.legado.app.constant.PreferKey
 import io.legado.app.help.config.AppConfig
+import io.legado.app.ui.about.CrashLogsDialog
 import io.legado.app.ui.config.settings.ListRow
 import io.legado.app.ui.config.settings.NumberPickerSheet
 import io.legado.app.ui.config.settings.NumberTarget
@@ -198,6 +199,20 @@ fun OtherSection(actions: SectionActions) {
                 SwitchRow(PreferKey.recordLog, stringRes(R.string.record_log), stringRes(R.string.record_debug_log), false),
                 SwitchRow(PreferKey.recordHttpLog, stringRes(R.string.record_http_log), stringRes(R.string.record_http_log_summary), false),
                 SwitchRow(PreferKey.recordHeapDump, stringRes(R.string.record_heap_dump_t), stringRes(R.string.record_heap_dump_s), false),
+                // 迁移自旧关于页：崩溃日志查看（排障基础设施，Q-280）。
+                ValueRow(stringRes(R.string.crash_log)) {
+                    actions.showDialog(CrashLogsDialog::class.java)
+                },
+                // 迁移自旧关于页：三份合规文档（隐私协议 / 开源许可 / 免责声明，Q-280）。
+                ValueRow(stringRes(R.string.privacy_policy)) {
+                    actions.showMdAsset(R.string.privacy_policy, "privacyPolicy.md")
+                },
+                ValueRow(stringRes(R.string.license)) {
+                    actions.showMdAsset(R.string.license, "LICENSE.md")
+                },
+                ValueRow(stringRes(R.string.disclaimer)) {
+                    actions.showMdAsset(R.string.disclaimer, "disclaimer.md")
+                },
             ),
         ),
     )

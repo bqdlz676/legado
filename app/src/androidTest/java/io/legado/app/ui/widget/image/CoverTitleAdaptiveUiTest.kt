@@ -30,7 +30,7 @@ import io.legado.app.constant.PreferKey
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.model.BookCover
-import io.legado.app.ui.about.AboutActivity
+import io.legado.app.ui.about.AboutInkActivity
 import io.legado.app.ui.config.ConfigActivity
 import io.legado.app.ui.config.ConfigTag
 import io.legado.app.ui.config.CoverConfigFragment
@@ -59,7 +59,7 @@ class CoverTitleAdaptiveUiTest {
     private val preferences = context.defaultSharedPreferences
     private val saved = HashMap(preferences.all)
     private var oldUseDefault = AppConfig.useDefaultCover
-    private var scenario: ActivityScenario<AboutActivity>? = null
+    private var scenario: ActivityScenario<AboutInkActivity>? = null
     private var cover: CoverImageView? = null
 
     @Before
@@ -82,7 +82,7 @@ class CoverTitleAdaptiveUiTest {
             .commit()
         AppConfig.useDefaultCover = false
         BookCover.upDefaultCover()
-        scenario = ActivityScenario.launch(AboutActivity::class.java)
+        scenario = ActivityScenario.launch(AboutInkActivity::class.java)
         scenario!!.onActivity { activity ->
             val root = FrameLayout(activity)
             val view = CoverImageView(activity)

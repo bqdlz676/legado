@@ -28,7 +28,7 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookSource
 import io.legado.app.help.webView.PooledWebView
 import io.legado.app.model.SourceCallBack
-import io.legado.app.ui.about.AboutActivity
+import io.legado.app.ui.about.AboutInkActivity
 import io.legado.app.utils.defaultSharedPreferences
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -56,12 +56,12 @@ class BottomWebViewDialogShowTest {
         enabled = false,
         enabledExplore = false,
     )
-    private var scenario: ActivityScenario<AboutActivity>? = null
+    private var scenario: ActivityScenario<AboutInkActivity>? = null
 
     @Before
     fun setUp() {
         appDb.bookSourceDao.insert(source)
-        scenario = ActivityScenario.launch(AboutActivity::class.java)
+        scenario = ActivityScenario.launch(AboutInkActivity::class.java)
     }
 
     @After

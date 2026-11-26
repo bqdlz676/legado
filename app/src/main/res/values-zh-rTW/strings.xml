@@ -35,7 +35,6 @@
     <string name="rss">訂閱</string>
     <string name="all">全部</string>
     <string name="last_read">最後閱讀</string>
-    <string name="update_log">更新日誌</string>
     <string name="action_download">下載</string>
     <string name="bookshelf_layout">書架布局</string>
     <string name="book_source">書源</string>
@@ -46,7 +45,6 @@
     <string name="theme_setting_s">與介面/顏色相關的一些設定</string>
     <string name="other_setting">其它設定</string>
     <string name="other_setting_s">與功能相關的一些設定</string>
-    <string name="about">關於</string>
     <string name="exit">退出</string>
     <string name="exit_no_save">尚未儲存，是否繼續編輯</string>
     <string name="version">版本</string>
@@ -67,9 +65,6 @@
     <string name="mcp_service_start_failed">MCP 服務啟動失敗</string>
     <string name="offline_cache">離線快取</string>
     <string name="change_origin">換源</string>
-    <string name="app_share_description">
-        閱讀3.0下載網址：\nhttps://github.com/LegadoTeam/legado/releases
-    </string>
     <string name="pt_auto_refresh">自動重新整理</string>
     <string name="ps_auto_refresh">打開軟體時自動更新書籍</string>
     <string name="backup_restore">備份與復原</string>
@@ -520,7 +515,6 @@
     <string name="toc_updateing">更新目錄中</string>
     <string name="media_button_on_exit_title">全程響應耳機按鍵</string>
     <string name="media_button_on_exit_summary">即使退出軟體也響應耳機按鍵</string>
-    <string name="contributors">開發人員</string>
     <string name="license">開源許可</string>
     <string name="other">其它</string>
     <string name="source_auto_changing">正在自動換源</string>
@@ -564,7 +558,6 @@
     <string name="disabled">已禁用</string>
     <string name="enabled_explore">已啟用發現</string>
     <string name="disabled_explore">已禁用發現</string>
-    <string name="contributors_summary">gedoor、Invinciblelee、Xwite等，詳情請在github中查看</string>
     <string name="clear_cache_summary">清除已下載書籍和字體快取</string>
     <string name="default_cover">預設封面</string>
     <string name="restore_ignore">復原忽略列表</string>
@@ -928,8 +921,6 @@
     <string name="adjust_chapter_index">调整章节位置</string>
     <string name="clear_webview_data_success">清除成功，3秒后自动重启应用</string>
     <string name="key_page_on_long_press">按键长按翻页</string>
-    <string name="save_log">保存日志</string>
-    <string name="create_heap_dump">创建堆转储</string>
     <string name="record_heap_dump_s">当应用发生OOM崩溃时保存堆转储</string>
     <string name="record_heap_dump_t">记录堆转储</string>
     <string name="font_weight_text">中/粗/细</string>

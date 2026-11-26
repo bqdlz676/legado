@@ -44,8 +44,6 @@ import io.legado.app.help.update.isIgnoredAppUpdate
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.service.BaseReadAloudService
-import io.legado.app.ui.about.CrashLogsDialog
-import io.legado.app.ui.about.UpdateDialog
 import io.legado.app.ui.autoTask.ImportAutoTaskDialog
 import io.legado.app.ui.association.ImportBookSourceDialog
 import io.legado.app.ui.association.ImportDictRuleDialog

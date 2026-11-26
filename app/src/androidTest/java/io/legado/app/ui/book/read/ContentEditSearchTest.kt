@@ -17,7 +17,7 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.help.book.BookHelp
-import io.legado.app.ui.about.AboutActivity
+import io.legado.app.ui.about.AboutInkActivity
 import io.legado.app.utils.hideSoftInput
 import io.legado.app.utils.defaultSharedPreferences
 import org.junit.After
@@ -45,7 +45,7 @@ class ContentEditSearchTest {
     private val chapter = BookChapter(bookUrl = book.bookUrl, url = "${book.bookUrl}/0", title = "Chapter")
     private val content = "Alpha alpha ALPHA\na.b aXb\n" +
         (0 until 500).joinToString("\n") { "Line $it: editable chapter text for scrolling." }
-    private var scenario: ActivityScenario<AboutActivity>? = null
+    private var scenario: ActivityScenario<AboutInkActivity>? = null
     private val originalPlainText = context.defaultSharedPreferences.all["contentEditPlainText"] as? Boolean
 
     @Before
@@ -54,7 +54,7 @@ class ContentEditSearchTest {
         appDb.bookDao.insert(book)
         appDb.bookChapterDao.insert(chapter)
         BookHelp.saveText(book, chapter, content)
-        scenario = ActivityScenario.launch(AboutActivity::class.java)
+        scenario = ActivityScenario.launch(AboutInkActivity::class.java)
         scenario!!.onActivity { activity ->
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             ContentEditDialog().apply {

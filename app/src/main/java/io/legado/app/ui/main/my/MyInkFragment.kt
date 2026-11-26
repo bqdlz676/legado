@@ -16,7 +16,6 @@ import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.service.AutoTaskScheduler
 import io.legado.app.service.McpService
 import io.legado.app.service.WebService
-import io.legado.app.ui.about.AboutActivity
 import io.legado.app.ui.about.ReadRecordActivity
 import io.legado.app.ui.about.checkAppUpdate
 import io.legado.app.ui.autoTask.AutoTaskActivity
@@ -94,6 +93,10 @@ class MyInkFragment() : BaseFragment(R.layout.fragment_my_ink), MainFragmentInte
         rows += Row(Row.HEAD, "外 观")
         rows += Row(Row.VALUE, "主题模式", "日间 / 夜间 / 跟随系统", R.drawable.ic_cfg_theme, "", "跟随系统") {
             openConfig(ConfigTag.THEME_CONFIG)
+        }
+        // Q-280：旧关于页拆除后，崩溃日志 / 三份合规文档迁移至「其他设置」分区，由此入口可达。
+        rows += Row(Row.NAV, "其他设置", "崩溃日志、隐私协议与更多选项", R.drawable.ic_settings) {
+            openConfig(ConfigTag.OTHER_CONFIG)
         }
 
         rows += Row(Row.HEAD, "数 据")

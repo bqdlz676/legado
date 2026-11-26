@@ -26,6 +26,8 @@ class SectionActions(
     val showIconPicker: (entries: List<String>, values: List<String>, current: String, onPick: (String) -> Unit) -> Unit,
     /** 弹既有 DialogFragment（按类名）。 */
     val showDialog: (Class<*>) -> Unit,
+    /** 展示 assets 内的 Markdown 文档（隐私协议 / 免责声明 / 开源许可），标题取字符串资源。 */
+    val showMdAsset: (titleRes: Int, assetName: String) -> Unit,
     /** 视频播放设置弹窗（video 域既有 DialogFragment，跨域入口）。 */
     val showVideoSettings: () -> Unit,
     /** 轻提示。 */

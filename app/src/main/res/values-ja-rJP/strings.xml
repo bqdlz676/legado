@@ -40,7 +40,6 @@
     <string name="all">All</string>
     <string name="custom_export_section">カスタムEPUBエクスポートの章</string>
     <string name="last_read">Last reading</string>
-    <string name="update_log">What\'s new</string>
     <string name="action_download">Download</string>
     <string name="bookshelf_layout">Layout</string>
     <string name="book_source">Book sources</string>
@@ -51,7 +50,6 @@
     <string name="theme_setting_s">Some settings related to interface or color</string>
     <string name="other_setting">Other settings</string>
     <string name="other_setting_s">Some function-related settings</string>
-    <string name="about">About</string>
     <string name="exit">Exit</string>
     <string name="exit_no_save">It has not been saved. Do you want to continue editing?</string>
     <string name="version">Version</string>
@@ -67,9 +65,6 @@
     <string name="web_service_desc">Web edit source and read book</string>
     <string name="offline_cache">Offline cache</string>
     <string name="change_origin">Change Origin</string>
-    <string name="app_share_description">
-        Legado (YueDu 3.0) download link：\n https://github.com/LegadoTeam/legado/releases
-    </string>
     <string name="pt_auto_refresh">Auto-refresh</string>
     <string name="ps_auto_refresh">Update books automatically when opening the software</string>
     <string name="backup_restore">Backup and restore</string>
@@ -490,7 +485,6 @@
     <string name="toc_updateing">Updating Chapters</string>
     <string name="media_button_on_exit_title">Headset buttons are always available</string>
     <string name="media_button_on_exit_summary">Headset buttons are available even exit the app.</string>
-    <string name="contributors">Contributors</string>
     <string name="license">License</string>
     <string name="other">Other</string>
     <string name="source_auto_changing">Changing source</string>
@@ -525,7 +519,6 @@
     <string name="disabled">Disabled</string>
     <string name="enabled_explore">Discovery Enabled</string>
     <string name="disabled_explore">Discovery Disabled</string>
-    <string name="contributors_summary">gedoor,Invinciblelee,Xwite etc. Checking in github for details</string>
     <string name="clear_cache_summary">Clear the cache of the downloaded books and fonts</string>
     <string name="default_cover">Default cover</string>
     <string name="restore_ignore">Bypass list</string>
@@ -859,8 +852,6 @@
     <string name="adjust_chapter_index">调整章节位置</string>
     <string name="clear_webview_data_success">清除成功，3秒后自动重启应用</string>
     <string name="key_page_on_long_press">按键长按翻页</string>
-    <string name="save_log">保存日志</string>
-    <string name="create_heap_dump">创建堆转储</string>
     <string name="record_heap_dump_s">当应用发生OOM崩溃时保存堆转储</string>
     <string name="record_heap_dump_t">记录堆转储</string>
     <string name="font_weight_text">中/粗/细</string>
