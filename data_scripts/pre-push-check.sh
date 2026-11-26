@@ -53,6 +53,11 @@ if ! python3 data_scripts/check-report-fields.py | tail -3; then
   FAILED=1
 fi
 
+# 3.6) Kotlin 语法级预检：沙箱无编译链，语法错只能靠云端 CI 发现，一次错让两路 CI 同时红
+if ! python3 data_scripts/kotlin-syntax-lint.py | tail -3; then
+  echo "[3.6] Kotlin 语法预检未过"; FAILED=1
+fi
+
 # 4) 跨模块编译面预检
 if ! python3 data_scripts/cross-module-guard.py $STRICT | tail -6; then
   echo "[4/5] 跨模块预检未过"; FAILED=1
