@@ -42,14 +42,42 @@ def strip_noise(src: str) -> str:
             out.append('""' if not triple else '"""')
             i += 3 if triple else 1
             while i < n:
-                if triple and src[i:i + 3] == '"""':
-                    i += 3
-                    break
-                if not triple and src[i] == '"':
+                if triple:
+                    # 原始串结尾常见 `"""...""""`：连续 3+ 个引号一并算作收尾，
+                    # 多出的引号是内容里的引号，不能当成重新开串（实测误报来源）。
+                    run = 0
+                    while i + run < n and src[i + run] == '"':
+                        run += 1
+                    if run >= 3:
+                        i += run
+                        break
+                    out.append(' ')
+                    i += 1
+                    continue
+                if i >= 0 and src[i] == '"':
                     i += 1
                     break
+                if not triple and src[i] == '$' and i + 1 < n and src[i + 1] == '{':
+                    # 模板 ${...} 里可以跨行，内容自成配平：整段按不可见处理，
+                    # 否则规范串被换行截断，模板代码被当成真代码 → 括号失衡误报（实测）。
+                    depth, i = 0, i + 1
+                    while i < n:
+                        if src[i] == '{':
+                            depth += 1
+                        elif src[i] == '}':
+                            depth -= 1
+                            if depth == 0:
+                                i += 1
+                                break
+                        out.append('\n' if src[i] == '\n' else ' ')
+                        i += 1
+                    continue
                 if not triple and src[i] == '\n':
                     break
+                if src[i] == '\\':  # 转义：\" 不是字符串结束（实测误报来源）
+                    out.append('  ')
+                    i += 2
+                    continue
                 out.append('\n' if src[i] == '\n' else ' ')
                 i += 1
         elif c == "'":

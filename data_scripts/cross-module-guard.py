@@ -82,14 +82,26 @@ def main():
     modified = [p for s, p in rows if s.strip().startswith(("M", "A", "R", "?"))]
 
     # F1：删除的文件，类名是否仍被全仓引用（排除它自己被删这件事）。
+    # 2026-11-26 修：注释里提到被删文件名不算引用（实测 SearchContractTest 只在一条
+    # `// D3 收口：旧独立搜索页壳 SearchScreen.kt 已删…` 注释里出现，却把整单拦下）。
+    # 判据收窄为「去掉注释后仍有词边界命中」才算失败，避免假红吃掉一次 land 运行。
     for path in deleted:
         stem = os.path.splitext(os.path.basename(path))[0]
         if len(stem) < 4:
             continue
-        hits = run("grep", "-rln", stem, "app/src", "screenshot/src", "modules").splitlines()
-        hits = [h for h in hits if not h.endswith(os.path.basename(path))]
+        hits = []
+        for row in run("grep", "-rn", stem, "app/src", "screenshot/src", "modules").splitlines():
+            parts = row.split(":", 2)
+            if len(parts) < 3 or parts[0].endswith(os.path.basename(path)):
+                continue
+            text = parts[2]
+            code = text.split("//", 1)[0]
+            if code.strip().startswith("*") or code.strip().startswith("/*"):
+                continue
+            if stem in code:
+                hits.append("%s:%s" % (parts[0], parts[1]))
         if hits:
-            fails.append(f"F1 删除 {os.path.basename(path)} 后仍被引用：{', '.join(hits[:4])}")
+            fails.append(f"F1 删除 {os.path.basename(path)} 后仍被代码引用：{', '.join(hits[:4])}")
 
     # F4：测试里的"字面串断言"——形如 "attach(null, null)" 的标记，签名一改就静默失效。
     # 2026-11-26 实测踩过：跨页接线后 InkShelfFragment 改 attach(key, scope)，测试仍在找旧字面串，
