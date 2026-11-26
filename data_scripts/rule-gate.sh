@@ -436,6 +436,11 @@ DC44=$(python3 data_scripts/check-dispatch-compliance.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊹调度执行合规" "$(echo "$DC44" | grep 'DISPATCH-COMPLIANCE: PASS')"; else bad "㊹调度执行合规" "$(echo "$DC44" | grep -E 'FAIL' | head -3 | tr '\n' ' ')"; fi
 echo "$DC44" | grep 'DISPATCH-C: PASS（INFO' | while read -r w; do say "㊹调度执行合规(提示)" "$w（不影响 GATE 结论）"; done
 
+# ㊺ 铁律全量同步（用户 2026-11-26 口令「把铁律所有东西加入进规则与总控必读文件」「两份文件都要有铁律」）。
+#   为什么：铁律只在总纲一处时，主控读必读就会缺条；一旦照录到两处，又必然漂移，所以照录+逐条机检成对出现。
+IR45=$(python3 data_scripts/sync-ironrules.py --check 2>&1)
+if [ $? -eq 0 ]; then ok "㊺铁律全量同步" "$(echo "$IR45" | grep 'IRONRULES: PASS')"; else bad "㊺铁律全量同步" "$(echo "$IR45" | grep -E 'FAIL|  - ' | head -3 | tr '\n' ' ')"; fi
+
 echo
 
 # 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
