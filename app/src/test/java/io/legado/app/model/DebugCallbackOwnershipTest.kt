@@ -71,7 +71,7 @@ class DebugCallbackOwnershipTest {
         }
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun concurrentAcquireHasSingleOwner() {
         val first = callback()
         val second = callback()
@@ -82,10 +82,13 @@ class DebugCallbackOwnershipTest {
 
         listOf(first, second).forEach { candidate ->
             Thread {
-                start.await()
-                if (Debug.tryAcquireCallback(candidate)) {
-                    acquired.incrementAndGet()
-                    winner.set(candidate)
+                // 5s 兜底：start 是纯内存放行 latch；超时未放行则不参与竞争，
+                // done 仍正常计数，主线程 done.await(2s) 会以可读断言失败报出，避免 worker 永久阻塞。
+                if (start.await(5, TimeUnit.SECONDS)) {
+                    if (Debug.tryAcquireCallback(candidate)) {
+                        acquired.incrementAndGet()
+                        winner.set(candidate)
+                    }
                 }
                 done.countDown()
             }.start()

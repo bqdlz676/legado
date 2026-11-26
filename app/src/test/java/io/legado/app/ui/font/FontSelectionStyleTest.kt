@@ -125,7 +125,7 @@ class FontSelectionStyleTest {
         }
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `concurrent font imports never overwrite the same target`() {
         val root = Files.createTempDirectory("font-import-concurrent").toFile()
         val executor = Executors.newFixedThreadPool(2)
@@ -135,7 +135,11 @@ class FontSelectionStyleTest {
             val contents = listOf("first-font", "second-font")
             val futures = contents.map { content ->
                 executor.submit<File> {
-                    start.await()
+                    // 5s 兜底：start 是纯内存放行 latch；超时未放行则抛可读异常由 Future.get 包装上报，
+                    // 不等同于静默继续。临时文件安装由下方 Future.get(5s) 兜底，不另设 10s。
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw IllegalStateException("font import start latch timed out")
+                    }
                     installFontFile(
                         ByteArrayInputStream(content.encodeToByteArray()),
                         "Concurrent.ttf",

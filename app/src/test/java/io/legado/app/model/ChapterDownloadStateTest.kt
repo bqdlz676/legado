@@ -35,7 +35,7 @@ class ChapterDownloadStateTest {
         assertFalse(state.requestsResourceRefresh(3))
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `refresh replaces only target owners and preserves explicit caching`() = runBlocking {
         val state = ChapterDownloadState()
         state.enqueue(listOf(1, 2, 4))
@@ -43,8 +43,10 @@ class ChapterDownloadStateTest {
         val outside = state.claimRead(2).first
         val readerOnly = state.claimRead(3).first
         state.invalidate(listOf(1, 3))
-        assertNull(old.result.await())
-        assertNull(readerOnly.result.await())
+        // 5s 兜底：状态机纯内存（synchronized + CompletableDeferred），无 DB/IO；
+        // invalidate 必然 complete 对应 ticket，裸 await 只在状态机缺陷时挂死，超时转为可读失败。
+        assertNull(withTimeout(5_000) { old.result.await() })
+        assertNull(withTimeout(5_000) { readerOnly.result.await() })
         assertEquals(listOf(4, 1), state.waitingIndexes())
         assertSame(outside, state.claimRead(2).first)
         val fresh = state.claimRead(1).first
@@ -102,12 +104,12 @@ class ChapterDownloadStateTest {
         assertTrue(state.isIdle)
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `completion checks shelf intent atomically and resumes readers outside the lock`() = runBlocking {
         val state = ChapterDownloadState()
         val ticket = state.claimRead(1).first
         val waiter = async(Dispatchers.Unconfined) {
-            val result = ticket.result.await()
+            val result = withTimeout(5_000) { ticket.result.await() }
             assertFalse("Reader continuation must not run under the download lock", Thread.holdsLock(state))
             result!!.getOrThrow()
         }
@@ -116,7 +118,7 @@ class ChapterDownloadStateTest {
             assertTrue("Shelf intent must be checked under the enqueue lock", Thread.holdsLock(state))
             !state.requestsResourceRefresh(1)
         })
-        assertEquals("old resources", waiter.await())
+        assertEquals("old resources", withTimeout(5_000) { waiter.await() })
         assertEquals(listOf(1), state.waitingIndexes())
         assertTrue(state.requestsResourceRefresh(1))
     }
@@ -144,7 +146,7 @@ class ChapterDownloadStateTest {
         assertTrue(state.canBatch(1))
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `partial batch success is not returned or marked for fallback`() = runBlocking {
         val state = ChapterDownloadState()
         state.enqueue(listOf(1, 2))
@@ -153,7 +155,7 @@ class ChapterDownloadStateTest {
         state.finish(batch[1], fallback = true)
         batch.forEach { state.finish(it, fallback = true) }
         assertEquals(listOf(2), state.waitingIndexes())
-        assertEquals("first", batch[0].result.await()!!.getOrThrow())
+        assertEquals("first", withTimeout(5_000) { batch[0].result.await()!!.getOrThrow() })
         assertTrue(state.canBatch(1))
         assertFalse(state.canBatch(2))
         assertTrue(state.claimBatch(listOf(2), manual = false).isEmpty())
@@ -177,7 +179,7 @@ class ChapterDownloadStateTest {
         assertTrue(state.isIdle)
     }
 
-    @Test
+    @Test(timeout = 5_000)
     fun `overlapping reads share one owner and cancelling a waiter preserves its result`() = runBlocking {
         withTimeout(5000) {
             val state = ChapterDownloadState()

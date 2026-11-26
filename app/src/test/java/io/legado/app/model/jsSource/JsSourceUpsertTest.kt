@@ -183,7 +183,9 @@ class JsSourceUpsertTest {
                 "first"
             }
         }
-        firstEntered.await()
+        // 5s 兜底：纯内存 Mutex 排队，无 DB/IO（与 SourceLockTest 既有 5s latch 口径一致）；
+        // 若加锁协程永不进入，裸 await 会让 runBlocking 永久挂起，超时只把挂死变成可读失败。
+        withTimeout(5_000) { firstEntered.await() }
         val second = async(Dispatchers.Default) {
             JsSourceUpsert.withSaveLock {
                 secondEntered.complete(Unit)
@@ -194,7 +196,7 @@ class JsSourceUpsertTest {
         assertNull(withTimeoutOrNull(200) { secondEntered.await() })
         releaseFirst.complete(Unit)
         withTimeout(1_000) { secondEntered.await() }
-        assertEquals("first", first.await())
-        assertEquals("second", second.await())
+        assertEquals("first", withTimeout(5_000) { first.await() })
+        assertEquals("second", withTimeout(5_000) { second.await() })
     }
 }
