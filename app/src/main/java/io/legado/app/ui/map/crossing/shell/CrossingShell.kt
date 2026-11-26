@@ -500,8 +500,11 @@ private fun CompareColumn(
             sideEvents.forEach { entry ->
                 BasicText(
                     text = "· ${entry.text}",
-                    style = TextStyle(color = Color(CrossingTokens.textSecondary), fontSize = 11.sp),
-                    fontFamily = FontFamily.Serif,
+                    style = TextStyle(
+                        color = Color(CrossingTokens.textSecondary),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Serif,
+                    ),
                 )
             }
         }

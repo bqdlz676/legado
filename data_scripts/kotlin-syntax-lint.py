@@ -144,6 +144,33 @@ def check_cond_trailing_comma(clean: str):
     return errs
 
 
+def check_style_only_params(clean: str):
+    """S3：BasicText/Text 不接 fontFamily —— 它只能写在 TextStyle 里。
+
+    实测 2026-11-26：B10 接线在 `BasicText(text=..., style=..., fontFamily=...)`
+    上把 fontFamily 当参数直传，两路 CI 编译红。自定义壳 `InkText`/`SpanStyle`
+    确实接这个参数，所以只对 BasicText/Text 两个真不接的名字判死，避免误杀。
+    """
+    errs = []
+    for m in re.finditer(r'[Ff]ontFamily\s*=', clean):
+        pre = clean[:m.start()]
+        depth, i = 0, len(pre) - 1
+        while i >= 0:
+            c = pre[i]
+            if c == ')':
+                depth += 1
+            elif c == '(':
+                if depth == 0:
+                    name = re.search(r'([A-Za-z_]\w*)\s*$', pre[:i])
+                    if name and name.group(1) in ('BasicText', 'Text'):
+                        errs.append((clean.count('\n', 0, m.start()) + 1,
+                                     '%s 不接受 fontFamily 参数（应写进 TextStyle）' % name.group(1)))
+                    break
+                depth -= 1
+            i -= 1
+    return errs
+
+
 def main() -> int:
     args = sys.argv[1:]
     if args:
@@ -165,7 +192,7 @@ def main() -> int:
         except OSError:
             continue
         clean = strip_noise(src)
-        for ln, why in check_balance(clean) + check_cond_trailing_comma(clean):
+        for ln, why in check_balance(clean) + check_cond_trailing_comma(clean) + check_style_only_params(clean):
             print('FAIL %s:%d %s' % (f, ln, why))
             bad += 1
     print('KOTLIN-LINT: %s（%d 个文件）' % ('FAIL' if bad else 'PASS', len(files)))
