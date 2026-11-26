@@ -60,7 +60,7 @@ class ImportSourceGroupTest {
         val reserved = "$IMPORT_GROUP_NAME_PREFIX$tag my-list.json"
         assertTrue(matchesImportGroupTag(reserved, tag))
         assertFalse(matchesImportGroupTag("我的书单", tag))
-        assertFalse(matchesImportGroupTag("$IMPORT_GROUP_NAME_PREFIXothertag name", tag))
+        assertFalse(matchesImportGroupTag("${IMPORT_GROUP_NAME_PREFIX}othertag name", tag))
     }
 
     @Test
