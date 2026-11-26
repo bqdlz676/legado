@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
+import androidx.lifecycle.lifecycleScope
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookProgress
@@ -30,8 +31,12 @@ import io.legado.app.ui.book.read.ReadBookViewModel
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.utils.eventObservable
+import io.legado.app.utils.getPrefBoolean
+import io.legado.app.utils.putPrefBoolean
+import io.legado.app.utils.sendToClip
 import io.legado.app.utils.toastOnUi
 import io.legado.app.R
+import kotlinx.coroutines.launch
 
 /**
  * 落文 · 竖排阅读壳宿主（U5-A 灵魂闭环入口）。
@@ -58,6 +63,17 @@ class InkReadActivity : ComponentActivity() {
      * 故不再由 remember 在组合内创建，改在 onCreate 实例化后传入 [InkReaderBook]。
      */
     private lateinit var controller: InkReadController
+
+    /**
+     * 内容编辑面板状态与数据桥（B31 承接件第 1 件）。
+     * 菜单通道 [onMenu] 打开本面板；草稿 / 搜索 / 离场确认状态在 [contentEditState]，
+     * 磁盘 / 书源读写收口在 [contentEditStore]，本 Activity 只做状态搬运与回调接线。
+     */
+    private val contentEditState = InkContentEditState()
+    private val contentEditStore = InkContentEditStore()
+
+    /** 进程重建后是否已带草稿恢复；带草稿则跳过二次磁盘加载，避免覆盖未保存改动。 */
+    private var editRestoredWithDraft = false
 
     /**
      * MEDIA_BUTTON 广播接收器（交接清单 #11 遗留：新壳此前未订阅媒体键）。
@@ -162,6 +178,11 @@ class InkReadActivity : ComponentActivity() {
         viewModel.initData(intent)
         refreshFromReadBook()
 
+        // 进程重建恢复编辑面板草稿：带草稿直接沿用；无草稿（加载中被重建）回磁盘重载兜底。
+        val editRestored = contentEditState.restoreFromBundle(savedInstanceState, STATE_EDIT_PANEL)
+        editRestoredWithDraft = editRestored && contentEditState.content.isNotEmpty()
+        if (editRestored && !editRestoredWithDraft) reloadContentEdit()
+
         // 控制器在组合外实例化，供 onKeyDown / 媒体键通道直接调用；朗读切换回调接服务起停。
         controller = InkReadController(this)
         controller.onReadAloudToggle = {
@@ -241,11 +262,23 @@ class InkReadActivity : ComponentActivity() {
                 body = chapterBody,
                 onCatalog = { tocLauncher.launch(bookId) },
                 onTts = { runCatching { ReadAloud.play(this@InkReadActivity) } },
-                // 排版 / 字体 / 更多菜单由 U1 组件库后续接入；回调位保留，当前不做空跳转。
-                onMenu = { Unit },
+                // 菜单通道：打开内容编辑半屏面板（B31 承接件第 1 件）；其余排版 / 字体菜单后续批次接入。
+                onMenu = { openContentEdit() },
                 onSeek = { fraction -> controller.seekTo(fraction) },
                 controller = controller,
                 onFallback = fallbackHandler,
+            )
+
+            // 内容编辑面板覆盖层：状态在 contentEditState，数据读写走 contentEditStore。
+            InkContentEditSheet(
+                state = contentEditState,
+                onSave = { saveContentEdit() },
+                onReset = { resetContentEdit() },
+                onRename = { renameContentEdit(it) },
+                onCopyAll = { copyAllContent() },
+                onTogglePlainText = { togglePlainText(it) },
+                onReload = { reloadContentEdit() },
+                onDismiss = { handleContentEditDismiss() },
             )
         }
     }
@@ -280,6 +313,118 @@ class InkReadActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    // ── 内容编辑面板接线（B31 承接件第 1 件） ──────────────────────────────
+
+    /** 菜单入口：从 [ReadBook] 取当前书 / 章 / 标题构造编辑目标，打开面板并回读磁盘正文。 */
+    private fun openContentEdit() {
+        val book = ReadBook.book ?: return
+        val chapterIndex = ReadBook.durChapterIndex
+        val title = ReadBook.curTextChapter
+            ?.takeIf { it.chapter.bookUrl == book.bookUrl && it.chapter.index == chapterIndex }
+            ?.title
+            ?: book.durChapterTitle?.takeIf { book.durChapterIndex == chapterIndex }
+            ?: ""
+        val target = InkEditTarget(book.bookUrl, chapterIndex, ReadBook.durChapterPos)
+        contentEditState.open(target, title.orEmpty(), getPrefBoolean(PREF_PLAIN_TEXT, false))
+        reloadContentEdit()
+    }
+
+    /** 回读当前章可编辑正文；书 / 章 / 内容缺失与异常各走可读兜底，不留白、不崩。 */
+    private fun reloadContentEdit() {
+        val target = contentEditState.target ?: return
+        lifecycleScope.launch {
+            when (val result = contentEditStore.load(target)) {
+                is EditLoadResult.Ok -> contentEditState.applyLoaded(result.content, result.title)
+                EditLoadResult.BookMissing ->
+                    contentEditState.applyLoadError(getString(R.string.book_not_exist))
+                EditLoadResult.ChapterMissing ->
+                    contentEditState.applyLoadError(getString(R.string.content_empty))
+                EditLoadResult.ContentMissing ->
+                    contentEditState.applyLoadError(getString(R.string.content_empty))
+                is EditLoadResult.Failed -> contentEditState.applyLoadError(
+                    result.message.ifBlank { getString(R.string.unknown_error) },
+                )
+            }
+        }
+    }
+
+    /** 保存草稿正文；成功后基线刷新并收口面板，失败留在面板给可读提示。 */
+    private fun saveContentEdit() {
+        val target = contentEditState.target ?: return
+        contentEditState.setSaving(true)
+        lifecycleScope.launch {
+            when (val result = contentEditStore.save(target, contentEditState.content)) {
+                is EditSaveResult.Ok -> {
+                    contentEditState.markContentSaved()
+                    contentEditState.showMessage(EditMessageKind.SUCCESS, getString(R.string.success))
+                    contentEditState.close()
+                }
+                EditSaveResult.BookMissing ->
+                    contentEditState.showMessage(EditMessageKind.FAILURE, getString(R.string.book_not_exist))
+                EditSaveResult.ChapterMissing ->
+                    contentEditState.showMessage(EditMessageKind.FAILURE, getString(R.string.content_empty))
+                is EditSaveResult.Failed -> contentEditState.showMessage(
+                    EditMessageKind.FAILURE,
+                    result.message.ifBlank { getString(R.string.unknown_error) },
+                )
+            }
+            contentEditState.setSaving(false)
+        }
+    }
+
+    /** 标题改名落盘；成功回填展示标题并刷新基线，失败给失败提示。 */
+    private fun renameContentEdit(newTitle: String) {
+        val target = contentEditState.target ?: return
+        lifecycleScope.launch {
+            when (val result = contentEditStore.rename(target, newTitle)) {
+                is EditSaveResult.Ok -> {
+                    contentEditState.markTitleSaved(result.displayTitle ?: newTitle)
+                    contentEditState.showMessage(EditMessageKind.SUCCESS, getString(R.string.success))
+                }
+                else -> contentEditState.showMessage(
+                    EditMessageKind.FAILURE,
+                    getString(R.string.unknown_error),
+                )
+            }
+        }
+    }
+
+    /** 重置当前章：清本地缓存并按书源重新拉取，回读成功后刷新草稿与基线。 */
+    private fun resetContentEdit() {
+        val target = contentEditState.target ?: return
+        lifecycleScope.launch {
+            when (val result = contentEditStore.reset(target)) {
+                is EditLoadResult.Ok -> contentEditState.applyLoaded(result.content, result.title)
+                else -> contentEditState.showMessage(
+                    EditMessageKind.FAILURE,
+                    getString(R.string.unknown_error),
+                )
+            }
+        }
+    }
+
+    /** 复制全部：标题 + 正文进剪贴板，回执轻提示。 */
+    private fun copyAllContent() {
+        sendToClip("${contentEditState.title}\n${contentEditState.content}")
+        contentEditState.showMessage(EditMessageKind.INFO, getString(R.string.copy_complete))
+    }
+
+    /** 纯文本模式开关：状态切换 + 偏好持久化，键与旧版一致，老用户设置不丢。 */
+    private fun togglePlainText(plain: Boolean) {
+        contentEditState.plainText = plain
+        putPrefBoolean(PREF_PLAIN_TEXT, plain)
+    }
+
+    /** 遮罩 / 取消关闭请求：离场裁决在状态层，脏数据先弹放弃确认。 */
+    private fun handleContentEditDismiss() {
+        contentEditState.requestDismiss()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        contentEditState.saveToBundle(outState, STATE_EDIT_PANEL)
+    }
+
     /** 从 [ReadBook] 全局单例回填当前书 / 章 / 正文到 Compose 状态。 */
     private fun refreshFromReadBook() {
         val book = ReadBook.book
@@ -306,5 +451,13 @@ class InkReadActivity : ComponentActivity() {
             .lines()
             .filter { it.isNotBlank() }
             .joinToString("\n")
+    }
+
+    companion object {
+        /** 纯文本模式偏好键，与旧 ContentEditDialog 同键，老用户设置不丢。 */
+        private const val PREF_PLAIN_TEXT = "contentEditPlainText"
+
+        /** 编辑面板 savedInstanceState 前缀，隔离宿主其它状态键。 */
+        private const val STATE_EDIT_PANEL = "inkContentEdit"
     }
 }
