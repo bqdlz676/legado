@@ -435,6 +435,15 @@ TSTSRC_RC=$?
 if [ "$TSTSRC_RC" -eq 0 ]; then ok "⑬测试源码陷阱" "$(echo "$TSTSRC" | grep -F 'ERROR=')"; else bad "⑬测试源码陷阱" "$(echo "$TSTSRC" | grep -E 'R1|R2' | head -3)"; fi
 else skip_audit "⑬测试源码陷阱"; fi
 
+# 61 Compose 手写陷阱（2026-11-27 编译面三连红复盘）：A scope 成员扩展顶层 import /
+# B 非 Composable 事件 lambda 内调 Composable / C 动画工厂裸类型参。三类均 kotlinc ERROR，
+# 文本层合法、既有语法 lint 看不见，沙箱无编译链，故在 push 前静态拦；扫描域含 screenshot 模块。
+if gate_active g61; then
+CP61=$(python3 data_scripts/check-compose-pitfalls.py app/src screenshot/src 2>&1)
+CP61_RC=$?
+if [ "$CP61_RC" -eq 0 ]; then ok "61Compose陷阱" "$(echo "$CP61" | grep 'COMPOSE-PITFALLS: PASS')"; else bad "61Compose陷阱" "$(echo "$CP61" | grep -E '\[A\]|\[B\]|\[C\]' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "61Compose陷阱"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**

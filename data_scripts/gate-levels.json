@@ -897,6 +897,17 @@
       "level": "blocking",
       "reason": "空等会让整条流水线停摆且用户看不到：调度层 PENDING 悬挂、槽未满空转、主控轨迹挂起等待任一发生即全线停摆且无外部可见动静；输入空集不可判定亦不许假绿，必须阻断。",
       "compensation": null
+    },
+    {
+      "id": "g61",
+      "label": "61",
+      "name": "Compose陷阱",
+      "script": "check-compose-pitfalls.py app/src screenshot/src",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "三类形态（scope 成员扩展顶层 import / 非 Composable 事件 lambda 内调 Composable / 动画工厂裸类型参）都是 kotlinc ERROR，文本层完全合法，kotlin-syntax-lint 与既有扩展 import 闸判不到；沙箱无编译链无法本地复现，只有 CI 才红，与 ⑫/⑬/㉜ 同属代码能否编译的硬判据，必须 push 前拦住。",
+      "compensation": null
     }
   ],
   "compensation_channels": {
