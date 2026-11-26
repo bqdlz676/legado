@@ -71,7 +71,14 @@ class B3SettingModelsTest {
 
     @Test
     fun `whole group hidden when no row matches`() {
-        val visible = filterB3Groups(sampleGroups(), "缓存")
+        // 夹具两组的 title/summary/keywords 都不含「缓存」，故整组隐藏、返回空列表；
+        // 断言必须与纯函数语义一致（原断言要求 size=1 会在 CI 单测直接抛断言失败）。
+        assertTrue(filterB3Groups(sampleGroups(), "缓存").isEmpty())
+    }
+
+    @Test
+    fun `whole group kept when one row matches`() {
+        val visible = filterB3Groups(sampleGroups(), "webdav")
         assertEquals(1, visible.size)
         assertEquals("备份与云同步", visible.first().title)
     }
