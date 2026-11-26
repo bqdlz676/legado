@@ -21,7 +21,10 @@ permissions:
 # cancel-in-progress 只取消旧 run，不跳过测试、不削弱汇总断言。
 concurrency:
   group: verify-${{ github.ref }}
-  cancel-in-progress: true
+  # 为什么改 false：连推时 cancel-in-progress 会把上一轮正在跑的 shard 连同失败 XML 一起掐掉，
+  # 等于"每个新提交都销毁前一轮证据"（2026-11-26 实测 f590b58/a10e0b3 两轮 Verify 全 cancelled，零结论）。
+  # 改为排队：新 run 等到旧 run 结束再跑，证据链完整；代价是最多等一轮，可接受。
+  cancel-in-progress: false
 
 # 口径与护栏（改动前先读）：
 # - 基线测试数 3185 的权威来源：docs/台账-CI转绿登记.md 与 docs/复盘-CI连红到全绿-根因清单.md
