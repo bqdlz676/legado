@@ -20,8 +20,11 @@ import datetime
 import os
 import json
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LEDGER = os.path.join(ROOT, "docs", "派单台账.md")
@@ -159,5 +162,125 @@ def main() -> int:
     return 0
 
 
+def _write(root: str, rel: str, content: str) -> None:
+    p = os.path.join(root, rel)
+    if os.path.dirname(rel):
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+    open(p, 'w', encoding='utf-8').write(content)
+
+
+def selftest() -> int:
+    """双向自测：台账/队列/路径齐全且新鲜 → PASS；缺台账 / 台账落后 HEAD / 幻影路径 /
+    在飞数不一致 / 超硬上限 → FAIL rc=1；当日无登记行 → WARN rc=0。
+    夹具 tempfile.mkdtemp + rmtree 自删；LEDGER 路径与 head_commit_ts 临时接管并在 finally 还原，
+    判定回调生产 main()；基线 json 走真实棘轮比对（夹具 Q 号均同时登记在台账，不触发新增欠账）。"""
+    saved_ledger, saved_head = LEDGER, head_commit_ts
+    today = datetime.date.today().isoformat()
+
+    def _make_docs(ledger_rows: list[str], queue_rows: list[str] | None,
+                   anchor_files: tuple = ()) -> str:
+        tmp = tempfile.mkdtemp(prefix='dispatch-ledger-selftest-')
+        docs = os.path.join(tmp, 'docs')
+        os.makedirs(docs, exist_ok=True)
+        _write(docs, '派单台账.md', '# 派单台账（夹具）\n' + '\n'.join(ledger_rows) + '\n')
+        if queue_rows is not None:
+            _write(docs, '派单队列.md', '# 派单队列（夹具）\n' + '\n'.join(queue_rows) + '\n')
+        for rel in anchor_files:
+            _write(docs, rel.replace('docs/', '', 1), '# 夹具锚点\n')
+        return tmp
+
+    def _run(ledger_root: str, head_ts: float) -> int:
+        globals()['LEDGER'] = os.path.join(ledger_root, 'docs', '派单台账.md')
+        globals()['head_commit_ts'] = lambda: head_ts
+        return main()
+
+    def _active_row(qid: str, doc: str) -> str:
+        return f'| {qid} | 第三批自测 | {today} | 无 | 🟡 在飞 | 无 | {doc} |'
+
+    def _queue_row(qid: str, doc: str) -> str:
+        return (f'| {qid} | 第三批自测 | {today} 10:00 | '
+                f'RUNNING（s_selftest，起始 {today} 10:00，预算 40 工具 / 15min 熔断） | 无 | {doc} |')
+
+    anchor = 'docs/锚点/Q328-门禁自测第三批.md'
+
+    try:
+        # 好样本：台账 1 条在飞、队列 1 行 RUNNING、点名锚点实存、HEAD 旧于台账 → PASS
+        good = _make_docs([_active_row('Q-328', anchor)], [_queue_row('Q-328', anchor)],
+                          (anchor,))
+        try:
+            rc_good = _run(good, time.time() - 300)
+            assert rc_good == 0, f"齐全且新鲜应 PASS，rc={rc_good}"
+            print('[selftest] 好样本（台账/队列/路径一致且新鲜）PASS 通路 OK')
+        finally:
+            shutil.rmtree(good, ignore_errors=True)
+
+        # 坏样本一：台账文件不存在 → 缺台账 FAIL（空集不许静默放行）
+        bad1 = tempfile.mkdtemp(prefix='dispatch-ledger-selftest-noledger-')
+        try:
+            rc_b1 = _run(bad1, time.time() - 300)
+            assert rc_b1 == 1, f"缺台账应 FAIL，rc={rc_b1}"
+            print('[selftest] 坏样本一（台账文件缺失）FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad1, ignore_errors=True)
+
+        # 坏样本二：HEAD 时间比台账新 >60 分钟 → 新鲜度 FAIL
+        bad2 = _make_docs([_active_row('Q-328', anchor)], [_queue_row('Q-328', anchor)],
+                          (anchor,))
+        try:
+            rc_b2 = _run(bad2, time.time() + 120 * 60)
+            assert rc_b2 == 1, f"台账落后 HEAD 应 FAIL，rc={rc_b2}"
+            print('[selftest] 坏样本二（HEAD 比台账新 >60 分钟）新鲜度 FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad2, ignore_errors=True)
+
+        # 坏样本三：非在飞行点名不存在的 docs 报告 → 幻影路径 FAIL
+        bad3 = _make_docs([f'| Q-329 | 幻影单 | {today} | 无 | 🔵 待派 | 无 | docs/no-such.md |'], None)
+        try:
+            rc_b3 = _run(bad3, time.time() - 300)
+            assert rc_b3 == 1, f"幻影路径应 FAIL，rc={rc_b3}"
+            print('[selftest] 坏样本三（台账点名不存在的报告路径）幻影 FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad3, ignore_errors=True)
+
+        # 坏样本四：台账标记 1 条在飞、队列无 RUNNING → 在飞数不一致 FAIL
+        bad4 = _make_docs([_active_row('Q-328', anchor)], None, (anchor,))
+        try:
+            rc_b4 = _run(bad4, time.time() - 300)
+            assert rc_b4 == 1, f"在飞数不一致应 FAIL，rc={rc_b4}"
+            print('[selftest] 坏样本四（台账在飞与队列 RUNNING 数不符）计数 FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad4, ignore_errors=True)
+
+        # 坏样本五：队列 6 行 RUNNING、台账 6 条在飞，超硬上限 5 → FAIL
+        qids = [f'Q-{n}' for n in range(328, 334)]
+        rows_l = [_active_row(q, anchor) for q in qids]
+        rows_q = [_queue_row(q, anchor) for q in qids]
+        bad5 = _make_docs(rows_l, rows_q, (anchor,))
+        try:
+            rc_b5 = _run(bad5, time.time() - 300)
+            assert rc_b5 == 1, f"超硬上限应 FAIL，rc={rc_b5}"
+            print('[selftest] 坏样本五（在飞 6 条超硬上限 5）超限 FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad5, ignore_errors=True)
+
+        # WARN 通路：台账无今日行 → 当日未登记提示，rc=0
+        warn = _make_docs([f'| Q-328 | 历史单 | 2000-01-01 | 无 | ✅ 已收口 | 无 | {anchor} |'],
+                          None, (anchor,))
+        try:
+            rc_warn = _run(warn, time.time() - 300)
+            assert rc_warn == 0, f"当日无登记仅 WARN 应 rc=0，rc={rc_warn}"
+            print('[selftest] WARN 通路（台账无今日行）提示通路 OK')
+        finally:
+            shutil.rmtree(warn, ignore_errors=True)
+    finally:
+        globals()['LEDGER'] = saved_ledger
+        globals()['head_commit_ts'] = saved_head
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == "__main__":
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())

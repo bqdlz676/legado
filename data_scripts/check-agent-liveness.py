@@ -24,7 +24,9 @@ import glob
 import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -142,5 +144,115 @@ def main() -> int:
     return 0
 
 
+def _make_agent(tmp: str, agent_id: str, rows: list) -> str:
+    """在临时目录造一个代理轨迹夹具：<tmp>/agents/<id>/system/trajectory.jsonl。
+
+    为什么列结构照真轨迹：read_trajectory 逐行 json.loads、first_of 按 role 取首条、
+    tool_count 数 role=tool；夹具行缺 role/content 会被静默跳过，坏样本就打不到判据。"""
+    agents_root = os.path.join(tmp, 'agents')
+    d = os.path.join(agents_root, agent_id, 'system')
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, 'trajectory.jsonl'), 'w', encoding='utf-8') as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + '\n')
+    return agents_root
+
+
+def selftest() -> int:
+    """双向自测：有回执有工具调用 → PASS；零工具调用未登记 → FAIL（无回执/有回执两形态）；
+    已登记台账 → 不计 FAIL；缺台账 → FAIL；空会话集 → 零扫描 PASS。
+    做法：monkeypatch 模块级 session_agent_dirs / ledger_ids 指向临时目录与夹具集合，
+    判定全走生产 main()，不另写轨迹比对；夹具 tempfile.mkdtemp + rmtree 自删。"""
+    saved_dirs, saved_ledger = session_agent_dirs, ledger_ids
+
+    def _run(agents_root: list, registered: set) -> int:
+        globals()['session_agent_dirs'] = lambda: agents_root
+        globals()['ledger_ids'] = lambda: registered
+        return main()
+
+    try:
+        # 好样本：首条 assistant 带 ANCHOR-ACK，2 次工具调用，未登记也不命中 FAIL/WARN
+        good = tempfile.mkdtemp(prefix='agent-liveness-selftest-')
+        try:
+            root_good = _make_agent(good, 's_good1', [
+                {'role': 'assistant', 'content': 'ANCHOR-ACK 三行已回执'},
+                {'role': 'tool', 'content': 'grep 回证'},
+                {'role': 'tool', 'content': '读取切片'},
+            ])
+            rc_good = _run([root_good], {'s_dummy'})
+            assert rc_good == 0, f"有回执有工具调用应 PASS，rc={rc_good}"
+            print('[selftest] 好样本（ANCHOR-ACK + 2 次工具调用）PASS 通路 OK')
+        finally:
+            shutil.rmtree(good, ignore_errors=True)
+
+        # 坏样本一：首条 assistant 无 ANCHOR-ACK、零工具调用、未登记 → 疑似跑题 FAIL
+        bad1 = tempfile.mkdtemp(prefix='agent-liveness-selftest-')
+        try:
+            root_b1 = _make_agent(bad1, 's_bad1', [
+                {'role': 'assistant', 'content': '小红书风格文案，与本单无关'},
+            ])
+            rc_b1 = _run([root_b1], {'s_dummy'})
+            assert rc_b1 == 1, f"零工具调用且无回执应 FAIL，rc={rc_b1}"
+            print('[selftest] 坏样本一（零工具调用 + 无 ANCHOR-ACK）FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad1, ignore_errors=True)
+
+        # 坏样本二：首条 assistant 带 ANCHOR-ACK 但零工具调用、未登记 → 回执空转 FAIL
+        bad2 = tempfile.mkdtemp(prefix='agent-liveness-selftest-')
+        try:
+            root_b2 = _make_agent(bad2, 's_bad2', [
+                {'role': 'assistant', 'content': 'ANCHOR-ACK 已写，但没有后续动作'},
+            ])
+            rc_b2 = _run([root_b2], {'s_dummy'})
+            assert rc_b2 == 1, f"有回执但零工具调用应 FAIL，rc={rc_b2}"
+            print('[selftest] 坏样本二（ANCHOR-ACK 但零工具调用）FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad2, ignore_errors=True)
+
+        # 边界·已登记台账：零工具调用但 id 在判废白名单内 → 不计 FAIL
+        reg = tempfile.mkdtemp(prefix='agent-liveness-selftest-')
+        try:
+            root_reg = _make_agent(reg, 's_reg1', [
+                {'role': 'assistant', 'content': '通用寒暄'},
+            ])
+            rc_reg = _run([root_reg], {'s_reg1'})
+            assert rc_reg == 0, f"已登记台账的判废代理应 PASS，rc={rc_reg}"
+            print('[selftest] 边界·已登记（判废白名单内零工具调用）按设计放行 OK')
+        finally:
+            shutil.rmtree(reg, ignore_errors=True)
+
+        # 边界·缺台账：ledger_ids 返回空集 → 守卫无白名单，FAIL 通路（空集不许静默放行）
+        rc_noledger = _run([], set())
+        assert rc_noledger == 1, f"缺台账应 FAIL，rc={rc_noledger}"
+        print('[selftest] 边界·缺台账（守卫无白名单）FAIL 通路 OK')
+
+        # 边界·空会话集：无活动会话目录，扫描 0 个代理 → 现有设计 PASS
+        rc_empty = _run([], {'s_other'})
+        assert rc_empty == 0, f"空会话集现有设计应 rc=0，rc={rc_empty}"
+        print('[selftest] 边界·空集（无活动会话目录）按现有设计放行，已记录口径')
+
+        # WARN 通路：1 次工具调用、轨迹 ≥30 行 → 读多写少 WARN，退出码仍 0
+        warn = tempfile.mkdtemp(prefix='agent-liveness-selftest-')
+        try:
+            rows = [{'role': 'assistant', 'content': 'ANCHOR-ACK 回执'}]
+            rows += [{'role': 'user', 'content': f'背景片段 {i}'} for i in range(28)]
+            rows.append({'role': 'tool', 'content': '一次调用'})
+            root_warn = _make_agent(warn, 's_warn1', rows)
+            rc_warn = _run([root_warn], {'s_dummy'})
+            assert rc_warn == 0, f"读多写少仅 WARN 应 rc=0，rc={rc_warn}"
+            print('[selftest] WARN 通路（轨迹 30 行仅 1 次工具调用）提示通路 OK')
+        finally:
+            shutil.rmtree(warn, ignore_errors=True)
+    finally:
+        # 模块函数必须还原：断言失败也不能把生产轨迹根接管留在临时目录上
+        globals()['session_agent_dirs'] = saved_dirs
+        globals()['ledger_ids'] = saved_ledger
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == "__main__":
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())

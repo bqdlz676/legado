@@ -16,8 +16,10 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROPS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'readonly-props.json')
@@ -129,5 +131,84 @@ def main() -> int:
     return 1 if bad else 0
 
 
+def _write_kt(root: str, name: str, src: str) -> str:
+    d = os.path.join(root, 'src')
+    os.makedirs(d, exist_ok=True)
+    p = os.path.join(d, name)
+    open(p, 'w', encoding='utf-8').write(src)
+    return p
+
+
+def _run(argv: list[str]) -> int:
+    old = sys.argv
+    sys.argv = ['check-readonly-setter.py'] + argv
+    try:
+        return main()
+    finally:
+        sys.argv = old
+
+
+def selftest() -> int:
+    """双向自测：合法滚动状态读写 → PASS；只读 .value / .maxValue / .firstVisibleItemIndex 被赋值 → FAIL rc=1。
+    夹具 tempfile.mkdtemp + rmtree 自删；判定回调生产 check()/main()，名单走真实 load_props()。"""
+    props = load_props()
+
+    # 好样本：rememberLazyListState + scrollToItem 合法调用，无只读属性赋值
+    good = tempfile.mkdtemp(prefix='readonly-setter-selftest-')
+    try:
+        g = _write_kt(good, 'Good.kt',
+                      'val list = rememberLazyListState()\n'
+                      'list.scrollToItem(3)\n')
+        errs_good = check(g, props)
+        assert errs_good == [], f"合法读写应无错误，errs={errs_good}"
+        rc_good = _run([g])
+        assert rc_good == 0, f"合法样本应 PASS，rc={rc_good}"
+        print('[selftest] 好样本（scrollToItem 合法调用）PASS 通路 OK')
+    finally:
+        shutil.rmtree(good, ignore_errors=True)
+
+    # 坏样本一：ScrollState.value 只读被直写 → 命中 .value 只读判据
+    bad1 = tempfile.mkdtemp(prefix='readonly-setter-selftest-')
+    try:
+        b1 = _write_kt(bad1, 'BadValue.kt',
+                       'val scroll: ScrollState = rememberScrollState(0)\n'
+                       'scroll.value = 100\n')
+        errs_b1 = check(b1, props)
+        assert errs_b1, f".value 直写应报错，errs={errs_b1}"
+        rc_b1 = _run([b1])
+        assert rc_b1 == 1, f"只读 .value 直写应 FAIL，rc={rc_b1}"
+        print('[selftest] 坏样本一（ScrollState.value 只读被赋值）FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad1, ignore_errors=True)
+
+    # 坏样本二：LazyListState.firstVisibleItemIndex 只读被直写 → 命中滚动状态属性判据
+    bad2 = tempfile.mkdtemp(prefix='readonly-setter-selftest-')
+    try:
+        b2 = _write_kt(bad2, 'BadIndex.kt',
+                       'val list: LazyListState = rememberLazyListState()\n'
+                       'list.firstVisibleItemIndex = 5\n')
+        errs_b2 = check(b2, props)
+        assert errs_b2, f"firstVisibleItemIndex 直写应报错，errs={errs_b2}"
+        rc_b2 = _run([b2])
+        assert rc_b2 == 1, f"只读属性直写应 FAIL，rc={rc_b2}"
+        print('[selftest] 坏样本二（LazyListState.firstVisibleItemIndex 只读被赋值）FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad2, ignore_errors=True)
+
+    # 边界·空集：传入不存在的文件路径 → check 返回空，零违规真绿，现有设计 PASS
+    empty = tempfile.mkdtemp(prefix='readonly-setter-selftest-empty-')
+    try:
+        rc_empty = _run([os.path.join(empty, 'Nope.kt')])
+        assert rc_empty == 0, f"无待检文件现有设计应 rc=0，rc={rc_empty}"
+        print('[selftest] 边界·空集（无待检 .kt）按现有设计放行，已记录口径')
+    finally:
+        shutil.rmtree(empty, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())

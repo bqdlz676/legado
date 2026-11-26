@@ -1,15 +1,7 @@
 {
- "note": "历史欠账棘轮：只许缩小，新增门禁必须自带 --selftest",
+ "note": "门禁 --selftest 覆盖欠账基线：只减不增；debt 集合必须与 check-selftest-coverage.py 实测 missing 集合严格相等。Q-308 24→18，Q-321 18→10，Q-328 10→2（liveness/trailer 两条待裁转正；drift 待裁、push-window 判废，事实依据见 docs/修复-门禁自测欠账第三批.md）",
  "debt": [
-  "check-agent-liveness.py",
-  "check-commit-trailer.py",
-  "check-dependency-symbols.py",
-  "check-dispatch-ledger.py",
   "check-drift.py",
-  "check-ext-imports.py",
-  "check-push-track.py",
-  "check-push-window.py",
-  "check-readonly-setter.py",
-  "check-test-source.py"
+  "check-push-window.py"
  ]
 }

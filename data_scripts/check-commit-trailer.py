@@ -12,9 +12,12 @@ trailer（写在 message 末尾空一行后）：
 用法：`python3 data_scripts/check-commit-trailer.py`（门禁 ㊴ 以 say 展示，不 bad）。
 """
 import argparse
+import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 TRAILER_RE = re.compile(r'^(Verified-by|Wip|Docs-only):\s*(.*)$')
 SUGGEST = ('建议补 trailer（三选一，写在 message 末尾空一行后）：'
@@ -109,5 +112,91 @@ def main() -> int:
     return 0
 
 
+def _git(repo: str, *args) -> subprocess.CompletedProcess:
+    return subprocess.run(['git', '-c', 'core.quotepath=false', *args],
+                          cwd=repo, capture_output=True, text=True)
+
+
+def _make_repo(commits: list[tuple[str, dict]]) -> str:
+    """临时 git 仓库夹具：commits 为 [(提交信息, {相对路径: 内容})]。
+
+    为什么在 /tmp 建真 git 仓库：collect() 走 git rev-parse / git log 子进程，
+    纯目录夹具触发不了提交枚举；身份用 -c 内联配置，不写全局 gitconfig。"""
+    repo = tempfile.mkdtemp(prefix='commit-trailer-selftest-')
+    _git(repo, 'init', '-q')
+    for msg, files in commits:
+        for rel, content in files.items():
+            p = os.path.join(repo, rel)
+            if os.path.dirname(rel):
+                os.makedirs(os.path.dirname(p), exist_ok=True)
+            open(p, 'w', encoding='utf-8').write(content)
+        _git(repo, 'add', '-A')
+        _git(repo, '-c', 'user.email=selftest@example.com', '-c', 'user.name=selftest',
+             'commit', '-q', '-m', msg)
+    # 挂本地 origin/main 到首提交：rev-parse origin/main 成功后走 origin/main..HEAD 窗口，
+    # 避免单提交仓库回退 HEAD~5..HEAD 时 HEAD~5 不可解析、误触 git 不可用 FAIL 通路。
+    if len(commits) >= 2:
+        _git(repo, 'branch', '-f', 'origin/main', 'HEAD~1')
+    return repo
+
+
+def _run(argv: list[str]) -> int:
+    old = sys.argv
+    sys.argv = ['check-commit-trailer.py'] + argv
+    try:
+        return main()
+    finally:
+        sys.argv = old
+
+
+def selftest() -> int:
+    """双向自测：git log 不可用 → FAIL rc=1；合规 trailer → PASS rc=0；
+    缺/不合规 trailer → WARN rc=0（WARN-only 设计，不阻断 push）。
+    夹具全部 tempfile.mkdtemp + rmtree 自删；判定回调生产 main()/collect()。"""
+    # 坏样本一：非 git 目录 → rev-parse 与 git log 均失败，命中「git 不可用不许按空集放行」FAIL 通路
+    bad_git = tempfile.mkdtemp(prefix='commit-trailer-selftest-nogit-')
+    try:
+        rc_b1 = _run([bad_git])
+        assert rc_b1 == 1, f"git 不可用应 FAIL，rc={rc_b1}"
+        print('[selftest] 坏样本一（非 git 目录，git log 不可用）FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad_git, ignore_errors=True)
+
+    # 好样本：纯文档单带 Docs-only trailer → classify 合规，PASS 通路
+    good = _make_repo([('chore: 基线', {'docs/base.md': '# base\n'}),
+                       ('docs: 夹具说明\n\nDocs-only: 夹具纯文档单', {'docs/note.md': '# 笔记\n'})])
+    try:
+        rc_good = _run([good])
+        assert rc_good == 0, f"Docs-only trailer 应 PASS，rc={rc_good}"
+        print('[selftest] 好样本（Docs-only 认证书尾）PASS 通路 OK')
+    finally:
+        shutil.rmtree(good, ignore_errors=True)
+
+    # 坏样本二：提交无任何 trailer → MISSING，WARN 通路（WARN-only 设计，rc=0）
+    warn_missing = _make_repo([('chore: 基线', {'docs/base.md': '# base\n'}),
+                               ('无尾注提交', {'docs/a.md': '# a\n'})])
+    try:
+        rc_w1 = _run([warn_missing])
+        assert rc_w1 == 0, f"缺 trailer 仅 WARN 应 rc=0，rc={rc_w1}"
+        print('[selftest] 坏样本二（缺 trailer）WARN 通路 OK（WARN-only 不阻断）')
+    finally:
+        shutil.rmtree(warn_missing, ignore_errors=True)
+
+    # 坏样本三：两条 trailer 并列 → INVALID，WARN 通路
+    warn_invalid = _make_repo([('chore: 基线', {'docs/base.md': '# base\n'}),
+                               ('双尾注提交\n\nVerified-by: s_acc1\nWip: 保槽', {'docs/b.md': '# b\n'})])
+    try:
+        rc_w2 = _run([warn_invalid])
+        assert rc_w2 == 0, f"多 trailer 仅 WARN 应 rc=0，rc={rc_w2}"
+        print('[selftest] 坏样本三（trailer 多行 INVALID）WARN 通路 OK（WARN-only 不阻断）')
+    finally:
+        shutil.rmtree(warn_invalid, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())

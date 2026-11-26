@@ -26,8 +26,10 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX = os.path.join(ROOT, "data_scripts", "dep-symbols.json")
@@ -123,5 +125,89 @@ def main():
     return 1 if total_fail else 0
 
 
+def selftest() -> int:
+    """双向自测：索引内符号 → PASS；包不在索引 / 类不在分桶 → FAIL rc=1；
+    小驼峰符号未收录 → WARN rc=0；索引文件缺失 → FAIL rc=1。
+    夹具 tempfile.mkdtemp + rmtree 自删；ROOT/INDEX 临时接管并在 finally 还原，判定回调生产 main()。"""
+    saved_root, saved_index = ROOT, INDEX
+
+    # 夹具索引：只登记 foundation 包的 Row / Modifier / RowKt，其余符号按生产分桶规则判据
+    tmp = tempfile.mkdtemp(prefix='dep-symbols-selftest-')
+    fake_index = os.path.join(tmp, 'fake-index.json')
+    with open(fake_index, 'w', encoding='utf-8') as f:
+        json.dump({
+            'packages': {
+                'androidx.compose.foundation': {
+                    'classes': ['Row'], 'decls': ['Modifier'], 'ktClasses': ['RowKt'],
+                }
+            },
+            'meta': {'indexedRoots': ['androidx.compose.']},
+        }, f, ensure_ascii=False)
+
+    def _write(rel: str, src: str) -> None:
+        p = os.path.join(tmp, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        open(p, 'w', encoding='utf-8').write(src)
+
+    def _run(argv: list[str]) -> int:
+        old = sys.argv
+        sys.argv = ['check-dependency-symbols.py'] + argv
+        try:
+            return main()
+        finally:
+            sys.argv = old
+
+    try:
+        globals()['ROOT'] = tmp
+        globals()['INDEX'] = fake_index
+
+        # 好样本：类 Row 与顶层声明 Modifier 均在分桶内 → 无 bad
+        _write('src/Good.kt',
+               'import androidx.compose.foundation.Row\n'
+               'import androidx.compose.foundation.Modifier\n')
+        rc_good = _run(['src/Good.kt'])
+        assert rc_good == 0, f"索引内符号应 PASS，rc={rc_good}"
+        print('[selftest] 好样本（类/顶层声明均在索引分桶）PASS 通路 OK')
+
+        # 坏样本一：包不在索引 → 包不存在 FAIL
+        _write('src/BadPkg.kt', 'import androidx.compose.unknown.Foo\n')
+        rc_b1 = _run(['src/BadPkg.kt'])
+        assert rc_b1 == 1, f"未登记包应 FAIL，rc={rc_b1}"
+        print('[selftest] 坏样本一（包不在索引）FAIL 通路 OK')
+
+        # 坏样本二：类名在包内分桶缺失 → 类不存在 FAIL
+        _write('src/BadCls.kt', 'import androidx.compose.foundation.MissingCls\n')
+        rc_b2 = _run(['src/BadCls.kt'])
+        assert rc_b2 == 1, f"未登记类应 FAIL，rc={rc_b2}"
+        print('[selftest] 坏样本二（类不在分桶）FAIL 通路 OK')
+
+        # WARN 通路：小驼峰符号未收录 → 警告，rc=0
+        _write('src/WarnDecl.kt', 'import androidx.compose.foundation.missingDecl\n')
+        rc_warn = _run(['src/WarnDecl.kt'])
+        assert rc_warn == 0, f"未收录小驼峰符号仅 WARN 应 rc=0，rc={rc_warn}"
+        print('[selftest] WARN 通路（小驼峰符号未收录）提示通路 OK')
+
+        # 跳过通路：非根前缀包 → 不参与核对
+        _write('src/Skip.kt', 'import androidx.core.Core\n')
+        rc_skip = _run(['src/Skip.kt'])
+        assert rc_skip == 0, f"非根前缀应跳过，rc={rc_skip}"
+        print('[selftest] 跳过通路（非根前缀包）按设计放行 OK')
+    finally:
+        # 索引缺失 FAIL 通路须在还原前单独跑：INDEX 指向不存在文件，main 直接守卫返回
+        globals()['INDEX'] = os.path.join(tmp, 'no-such-index.json')
+        rc_noidx = _run([])
+        assert rc_noidx == 1, f"索引缺失应 FAIL，rc={rc_noidx}"
+        print('[selftest] 边界·索引文件缺失 FAIL 通路 OK')
+
+        globals()['ROOT'] = saved_root
+        globals()['INDEX'] = saved_index
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == "__main__":
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main())

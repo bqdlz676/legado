@@ -20,7 +20,9 @@
 """
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 # 名字 -> 可能的完整 import 路径（任一命中即视为已导入）
 KEXT = {
@@ -192,5 +194,73 @@ def main(root: str) -> int:
     return 0
 
 
+def _write_kt(root: str, name: str, src: str) -> str:
+    d = os.path.join(root, 'src')
+    os.makedirs(d, exist_ok=True)
+    p = os.path.join(d, name)
+    open(p, 'w', encoding='utf-8').write(src)
+    return p
+
+
+def selftest() -> int:
+    """双向自测：扩展函数带 import → PASS；缺 import / 错包 import → FAIL rc=1。
+    夹具 tempfile.mkdtemp + rmtree 自删；判定回调生产 main(root)，不另写 import 比对。"""
+    # 好样本：padding 点调用与 import 成对出现 → 无缺失
+    good = tempfile.mkdtemp(prefix='ext-imports-selftest-')
+    try:
+        _write_kt(good, 'Good.kt',
+                  'import androidx.compose.foundation.layout.padding\n'
+                  'import androidx.compose.runtime.Composable\n\n'
+                  '@Composable\nfun Box(modifier: Modifier) {\n'
+                  '    modifier\n'
+                  '        .padding(8.dp)\n}\n')
+        rc_good = main(good)
+        assert rc_good == 0, f"import 齐全应 PASS，rc={rc_good}"
+        print('[selftest] 好样本（扩展函数 import 成对）PASS 通路 OK')
+    finally:
+        shutil.rmtree(good, ignore_errors=True)
+
+    # 坏样本一：.clip( 点调用但无 clip import → 扩展函数缺 import FAIL
+    bad1 = tempfile.mkdtemp(prefix='ext-imports-selftest-')
+    try:
+        _write_kt(bad1, 'BadClip.kt',
+                  'import androidx.compose.runtime.Composable\n\n'
+                  '@Composable\nfun Box(modifier: Modifier) {\n'
+                  '    modifier\n'
+                  '        .clip(RoundedCornerShape(4.dp))\n}\n')
+        rc_b1 = main(bad1)
+        assert rc_b1 == 1, f"缺 clip import 应 FAIL，rc={rc_b1}"
+        print('[selftest] 坏样本一（.clip( 缺对应 import）FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad1, ignore_errors=True)
+
+    # 坏样本二：错包 import android.annotation.RequiresApi → 错包 import FAIL
+    bad2 = tempfile.mkdtemp(prefix='ext-imports-selftest-')
+    try:
+        _write_kt(bad2, 'BadPkg.kt',
+                  'import android.annotation.RequiresApi\n'
+                  'import androidx.compose.runtime.Composable\n\n'
+                  '@Composable\nfun Box() {}\n')
+        rc_b2 = main(bad2)
+        assert rc_b2 == 1, f"错包 import 应 FAIL，rc={rc_b2}"
+        print('[selftest] 坏样本二（android.annotation 错包 import）FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad2, ignore_errors=True)
+
+    # 边界·空集：目录内无 .kt 文件 → 零违规真绿，现有设计 PASS
+    empty = tempfile.mkdtemp(prefix='ext-imports-selftest-empty-')
+    try:
+        rc_empty = main(empty)
+        assert rc_empty == 0, f"无 kt 文件现有设计应 rc=0，rc={rc_empty}"
+        print('[selftest] 边界·空集（无 .kt 源码）按现有设计放行，已记录口径')
+    finally:
+        shutil.rmtree(empty, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else 'app/src/main/java'))

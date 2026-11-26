@@ -33,7 +33,9 @@
 """
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 # R1：Kotlin 标识符（含反引号名）禁止出现的字符（复盘事故原文列出）
 ILLEGAL_BACKTICK_CHARS = set('/\\:<>*?|"')
@@ -260,5 +262,75 @@ def main(root: str) -> int:
     return 1 if errors else 0
 
 
+def _write_kt(root: str, rel: str, src: str) -> str:
+    p = os.path.join(root, rel)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    open(p, 'w', encoding='utf-8').write(src)
+    return p
+
+
+def selftest() -> int:
+    """双向自测：干净源码 → ERROR=0 PASS；反引号名非法字符 / 静态调用实例方法 → ERROR rc=1。
+    夹具 tempfile.mkdtemp + rmtree 自删；判定回调生产 main(root)，规则集不另写副本。"""
+    # 好样本：普通函数与合法调用，无 R1/R2 ERROR
+    good = tempfile.mkdtemp(prefix='test-source-selftest-')
+    try:
+        _write_kt(good, 'main/Good.kt',
+                  'fun add(a: Int, b: Int): Int = a + b\n'
+                  'val x = 1.0.isNaN()\n')
+        rc_good = main(good)
+        assert rc_good == 0, f"干净源码应 PASS，rc={rc_good}"
+        print('[selftest] 好样本（无非法字符 / 无静态实例调用）PASS 通路 OK')
+    finally:
+        shutil.rmtree(good, ignore_errors=True)
+
+    # 坏样本一：反引号函数名含 / → R1 ERROR
+    bad1 = tempfile.mkdtemp(prefix='test-source-selftest-')
+    try:
+        _write_kt(bad1, 'test/BadSlash.kt',
+                  'fun `B9-10 1/4/10`() {}\n')
+        rc_b1 = main(bad1)
+        assert rc_b1 == 1, f"反引号名含 / 应 FAIL，rc={rc_b1}"
+        print('[selftest] 坏样本一（反引号名含非法字符 /）R1 FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad1, ignore_errors=True)
+
+    # 坏样本二：Double.isNaN( 静态调用实例方法 → R2 ERROR
+    bad2 = tempfile.mkdtemp(prefix='test-source-selftest-')
+    try:
+        _write_kt(bad2, 'main/BadStatic.kt',
+                  'fun check(v: Double): Boolean = Double.isNaN(v)\n')
+        rc_b2 = main(bad2)
+        assert rc_b2 == 1, f"静态调用实例方法应 FAIL，rc={rc_b2}"
+        print('[selftest] 坏样本二（Double.isNaN 静态调用实例方法）R2 FAIL 通路 OK')
+    finally:
+        shutil.rmtree(bad2, ignore_errors=True)
+
+    # WARN 通路：test 目录内 springFor 缺显式类型实参 → R5 WARN，不计失败 rc=0
+    warn = tempfile.mkdtemp(prefix='test-source-selftest-')
+    try:
+        _write_kt(warn, 'test/BadGeneric.kt',
+                  'fun case() {\n    springFor(role)\n}\n')
+        rc_warn = main(warn)
+        assert rc_warn == 0, f"R5 仅 WARN 应 rc=0，rc={rc_warn}"
+        print('[selftest] WARN 通路（test 内 springFor 缺类型实参）提示通路 OK')
+    finally:
+        shutil.rmtree(warn, ignore_errors=True)
+
+    # 边界·空集：目录内无 .kt → ERROR=0 真绿，现有设计 PASS
+    empty = tempfile.mkdtemp(prefix='test-source-selftest-empty-')
+    try:
+        rc_empty = main(empty)
+        assert rc_empty == 0, f"无 kt 文件现有设计应 rc=0，rc={rc_empty}"
+        print('[selftest] 边界·空集（无 .kt 源码）按现有设计放行，已记录口径')
+    finally:
+        shutil.rmtree(empty, ignore_errors=True)
+
+    print('[selftest] 夹具已自删，双向自测通过。')
+    return 0
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv:
+        sys.exit(selftest())
     sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else 'app/src'))
