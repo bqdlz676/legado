@@ -1,6 +1,7 @@
 package io.legado.app.security
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
@@ -9,7 +10,8 @@ import javax.xml.parsers.DocumentBuilderFactory
  * Manifest 导出契约（Q-241）：
  * - 仅内部拉起的 MainActivity / ReadBookActivity 必须 exported=false；
  * - 桌面启动器、分享、深链、文件打开、系统绑定、媒体按键等外部入口必须保持 exported=true；
- * - ReaderProvider 本单不动，仍为 true，待另案补 signature 权限。
+ * - ReaderProvider 已整体清除（Q-282）：manifest 不得再声明该 provider，
+ *   防止后续重构把跨 App 互通的 ContentProvider 重新注册回来。
  * 防止后续重构把两处内部组件重新导出。
  */
 class ManifestExportedContractTest {
@@ -66,8 +68,17 @@ class ManifestExportedContractTest {
     }
 
     @Test
-    fun `reader provider untouched pending signature permission ticket`() {
-        val map = exportedByComponent()
-        assertEquals("ReaderProvider 本单不改，待另案补 signature 权限", "true", map[".api.ReaderProvider"])
+    fun `reader provider removed and must not be re-declared`() {
+        // 正向安全断言：Q-282 裁决不做跨 App 互通，ReaderProvider 整体清除；
+        // manifest 中不得再出现该 provider（无论 exported 取何值）。
+        val factory = DocumentBuilderFactory.newInstance()
+        factory.isNamespaceAware = false
+        val doc = factory.newDocumentBuilder().parse(manifest)
+        val providerNames = doc.getElementsByTagName("provider")
+            .let { nodes -> List(nodes.length) { (nodes.item(it) as org.w3c.dom.Element).getAttribute("android:name") } }
+        assertNull(
+            "ReaderProvider 已封死清除，manifest 不得再声明 .api.ReaderProvider",
+            providerNames.firstOrNull { it == ".api.ReaderProvider" }
+        )
     }
 }

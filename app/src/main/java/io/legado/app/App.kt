@@ -15,6 +15,7 @@ import com.jeremyliao.liveeventbus.logger.DefaultLogger
 import com.script.rhino.ReadOnlyJavaObject
 import com.script.rhino.RhinoScriptEngine
 import com.script.rhino.RhinoWrapFactory
+import io.legado.app.api.ShortCuts
 import io.legado.app.base.AppContextWrapper
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.AppConst.channelIdDownload
@@ -86,6 +87,10 @@ class App : Application() {
         WallpaperTheme.syncWithPreferences(this)
         applyDayNightInit(this)
         registerActivityLifecycleCallbacks(LifecycleHelp)
+        // 动态快捷方式原由已移除的跨 App ContentProvider.onCreate 承载；封死后迁此重建。
+        // 快捷方式失败属可降级项，runCatching 兜底，绝不把启动拖成崩溃。
+        runCatching { ShortCuts.buildShortCuts(this) }
+            .onFailure { AppLog.put("重建桌面快捷方式失败", it) }
         defaultSharedPreferences.registerOnSharedPreferenceChangeListener(AppConfig)
         initRhino()
         Coroutine.async {
