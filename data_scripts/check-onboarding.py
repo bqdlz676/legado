@@ -39,6 +39,14 @@ RULES = {
 LEGACY_NOTE = '回执缺失（规则上线前交付，留档）'  # 旧报告豁免标记：必须在报告里明写并进台账，不许默免
 REPORT_PATTERNS = ('docs/修复-*.md', 'docs/验收-*.md', 'docs/实现-*.md', 'docs/组装-*.md')
 
+# 回归夹具目录/后缀：测试样本是资产，不与真报告混命名空间，门禁一律跳过（2026-11-26 追加）。
+FIXTURE_DIR = 'data_scripts/fixtures'
+FIXTURE_SUFFIX = '.fixture'
+
+
+def is_fixture(path):
+    return FIXTURE_DIR in path or path.endswith(FIXTURE_SUFFIX)
+
 
 def sha12(path):
     full = os.path.join(ROOT, path)
@@ -82,14 +90,21 @@ def check_report(path):
     # 指纹：至少一枚与当前磁盘一致
     fps = dict(re.findall(r'(docs/机制-[^\s；;=]+\.md)\s*=\s*([0-9a-f]{6,})', block))
     ok_fp = 0
+    stale = []
     for p, h in fps.items():
         cur = sha12(p)
-        if cur and cur.startswith(h[:12]) or (cur and h.startswith(cur[:12])):
+        if cur and (cur.startswith(h[:12]) or h.startswith(cur[:12])):
             ok_fp += 1
         elif cur:
-            problems.append('指纹过期：%s 磁盘=%s 报告=%s（守则已改，须重读）' % (p, cur, h))
+            stale.append('%s 磁盘=%s 报告=%s' % (p, cur, h))
     if not fps:
         problems.append('指纹行缺少正确格式（docs/机制-xxx.md=<sha256 前 12 位>）')
+    elif ok_fp == 0:
+        # 判死只在"一枚都对不上"时发生。为什么改：主控每轮会修订必读，
+        # 旧规则是"任一枚过期即判死"，等于主控一改书就打挂全仓在用报告，
+        # 逼着大家别再改守则——制度无法进化。现在要求"至少一枚现行命中"，
+        # 过期项降为提示，报告仍须在下次修订时刷新。
+        problems.append('指纹全部过期（须重读守则并刷新）：' + '；'.join(stale))
 
     # 逐字引用：至少 3 条，且必须回源命中
     quotes = re.findall(r'逐字引用\s*\d+：(.*?)(?:\n|$)', block)
@@ -130,6 +145,8 @@ def changed_reports():
     files = []
     for row in out.splitlines():
         status, path = row[:2], row[3:].strip().strip('"')
+        if is_fixture(path):
+            continue
         if status.strip() and status[0] in 'AM?' and any(
                 fnmatch.fnmatch(path, pat) for pat in REPORT_PATTERNS):
             files.append(path)
@@ -143,6 +160,8 @@ def audit_all():
     bad = []
     for f in sorted(set(files)):
         rel = os.path.relpath(f, ROOT)
+        if is_fixture(rel):
+            continue
         probs = check_report(f)
         if probs:
             bad.append((rel, probs[0]))

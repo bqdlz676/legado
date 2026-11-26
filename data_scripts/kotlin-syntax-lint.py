@@ -237,6 +237,40 @@ def pkg_decls():
     return _PKG
 
 
+UNIT_EXT = {'dp': 'androidx.compose.ui.unit.dp',
+            'sp': 'androidx.compose.ui.unit.sp',
+            'em': 'androidx.compose.ui.unit.em',
+            'pt': 'androidx.compose.ui.unit.pt'}
+UNIT_USE_RE = re.compile(r'(?<![\w.])\d+(?:\.\d+)?\.(dp|sp|em|pt)\b(?!\s*\()')
+UNIT_SELF_DECL = re.compile(r'(?m)^\s*(?:internal\s+|private\s+|public\s+)?'
+                            r'val\s+(?:Int|Float|Double)\.(dp|sp|em|pt)\b')
+
+
+def check_unit_ext_import(path: str, clean: str):
+    """S8b：小写扩展属性 .dp/.sp/.em/.pt 必须能在 import 里找到出处。
+
+    为什么：S8 只判大写符号、S6 只扫 import 行，`fun f() = 8.dp` 这种小写扩展属性
+    漏 import 两路都看不见（2026-11-26 复核实测：KOTLIN-LINT PASS + DEP-SYMBOLS PASS，
+    编译器却必红）。这条按"使用点 ↔ import"补出处，只在小写扩展属性上生效，不误伤大写符号。
+    例外：星号导入 `androidx.compose.ui.unit.*`、同文件自定义 `val Int.dp` 不判（归属不唯一）。
+    """
+    errs = []
+    if not UNIT_USE_RE.search(clean):
+        return errs
+    if re.search(r'(?m)^import\s+androidx\.compose\.ui\.unit\.\*\s*$', clean):
+        return errs
+    if UNIT_SELF_DECL.search(clean):
+        return errs
+    for name in sorted(set(UNIT_USE_RE.findall(clean))):
+        pat = r'(?m)^import\s+' + re.escape(UNIT_EXT[name]) + r'\s*$'
+        if re.search(pat, clean):
+            continue
+        m = re.search(r'(?<![\w.])\d+(?:\.\d+)?\.' + name + r'\b', clean)
+        ln = clean.count('\n', 0, m.start()) + 1 if m else 1
+        errs.append((ln, 'S8b 扩展属性 .%s 无 import（需 %s，编译必错）' % (name, UNIT_EXT[name])))
+    return errs
+
+
 def check_symbol_origin(path: str, clean: str):
     """S8：用到的每个大写符号必须有出处（import / 同文件声明 / 同包声明）。
 
@@ -443,6 +477,7 @@ def main() -> int:
         for ln, why in (check_balance(clean) + check_cond_trailing_comma(clean)
                          + check_style_only_params(clean) + check_new_oversized(f)
                          + check_import_package(f, pmap) + check_symbol_origin(f, clean)
+                         + check_unit_ext_import(f, clean)
                          + check_visibility(f, clean)):
             print('FAIL %s:%d %s' % (f, ln, why))
             bad += 1

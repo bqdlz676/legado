@@ -4,11 +4,47 @@
 # 适用：每次 commit / push / 派单前跑一遍；任何一项 FAIL 不许继续下一步。
 cd "$(dirname "$0")/.." || exit 1
 FAIL=0
+FAIL_ITEMS=()
+SKIP_LEGACY=()
 OUT=/tmp/.gate_cur
+MANIFEST=/tmp/.gate_failures
+: > "$MANIFEST"
 exec > >(tee "$OUT")
 say() { printf '%-42s %s\n' "$1" "$2"; }
-bad() { FAIL=1; say "$1" "FAIL  $2"; }
+# bad() 同时登记失败清单（控制台 + /tmp/.gate_failures 机读清单），终结行逐条回列；
+# 消息里的换行压成空格，避免续行脱离步骤号、在 tail 截断后变成无主信息。
+bad() {
+  FAIL=1
+  local flat=${2//$'\n'/ / }
+  flat=$(printf '%s' "$flat" | sed 's/[[:space:]]\+/ /g')
+  FAIL_ITEMS+=("$1｜$flat")
+  printf '%s｜%s\n' "$1" "$flat" >> "$MANIFEST"
+  say "$1" "FAIL  $2"
+}
 ok()  { say "$1" "ok    $2"; }
+
+# 存量留痕豁免判据（2026-11-26 追加）：⑲/⑭/⑮ 只判"本轮新报告 / 改了正文的存量件"。
+# 为什么：230 份历史报告批量补回执留痕行（纯头部插入），拿新规回头逐份判等于逼人伪造证据。
+# 两条同时成立才跳过：① HEAD 中已存在（存量件，非本轮新文件）；
+# ② 本轮 diff 所有新增行（排除 +++ 头）都命中头部留痕标记之一。
+# 跳过不静默：打 SKIP-LEGACY 行并计入末行 GATE 摘要，保证可审计。
+LEGACY_MARKERS='回执补录|证据三件套留档|锚点卡：|F-73 退回设计段声明|留档豁免'
+# 回归夹具是测试资产，不与真报告混命名空间，⑲/⑭/⑮ 一律跳过（2026-11-26 追加）。
+is_fixture() { case "$1" in data_scripts/fixtures/*|*.fixture) return 0;; *) return 1;; esac; }
+is_legacy_header_only() {
+  local path="$1" diff added body_changes
+  git cat-file -e "HEAD:$path" 2>/dev/null || return 1
+  diff=$(git diff -U0 -- "$path" 2>/dev/null)
+  [ -z "$diff" ] && diff=$(git diff -U0 --cached -- "$path" 2>/dev/null)
+  # 去掉行首 + 号与纯空行：Markdown 头部留痕常夹带空行/分隔线，空行不算正文改动。
+  added=$(printf '%s\n' "$diff" | grep '^+' | grep -v '^+++' | sed 's/^+//' | grep -v '^[[:space:]]*$' || true)
+  [ -z "$added" ] && return 1
+  body_changes=$(printf '%s\n' "$added" | grep -Ev "$LEGACY_MARKERS" || true)
+  [ -z "$body_changes" ] && return 0
+  # 位置判据兜底：新增行全部落在文件前 60 行（头部区块）也算纯头部留痕。
+  # 为什么：回执块会夹 E1/E2 证据行与指纹行，逐行命中五标记会误杀合规留痕。
+  python3 data_scripts/is-legacy-headonly.py "$path" >/dev/null 2>&1
+}
 
 # ① 铁律55附①：commit 前工作区自盘（不许有未提交改动被漏提）
 if [ -z "$(git status --porcelain)" ]; then ok "①工作区自盘" "干净"; else say "①工作区自盘" "有未提交改动（提交前须逐条判断是否漏提）"; fi
@@ -102,12 +138,27 @@ if [ -f "$LEDGER" ] && [ -f "$TIER" ]; then
   else ok "⑨并发上限" "负载 $LOAD1($BAND) 上限 $CAP，RUNNING $OPEN / PENDING $PEND（分槽建议 写3验2）"; fi
 else bad "⑨并发上限" "缺 $LEDGER 或 $TIER"; fi
 
-# ⑯ 台账新鲜度（F-79/F-80）：HEAD 比台账新 >60min 即 FAIL；在飞超硬上限 FAIL；无当日行仅 WARN。
+# ⑯ 台账新鲜度（F-79/F-80）：在飞超硬上限 FAIL；新鲜度 FAIL 按 2026-11-26 追加口径豁免——
+#    台账文件本轮在工作区被改过，或 HEAD 提交本身含台账路径，即视为台账已随本轮推进登记，
+#    不再用 mtime 差值逼人去改一个没内容可写的台账；在飞超限仍是硬 FAIL，不豁免。
 # 输出纪律（M-10 收口）：结论行只保留一处 ok/FAIL 与最终 PASS 判据串；脚本内部 ok 不再回显，
 # WARN 单独成行并标注「不影响 GATE 结论」，不与 ok 混排。
 LED16=$(python3 data_scripts/check-dispatch-ledger.py 2>&1)
-if [ $? -eq 0 ]; then ok "⑯台账新鲜度" "$(echo "$LED16" | grep -E 'PASS' | tail -1)"; else bad "⑯台账新鲜度" "$(echo "$LED16" | grep 'FAIL' | head -3 | tr '\n' ' ')"; fi
-echo "$LED16" | grep 'WARN' | while read -r w; do say "⑯台账新鲜度(提示)" "$w（不影响 GATE 结论）"; done
+LED16_RC=$?
+FRESH_FAIL=$(printf '%s\n' "$LED16" | grep 'HEAD 比台账新' || true)
+CAP_FAIL=$(printf '%s\n' "$LED16" | grep '超硬上限' || true)
+LEDGER_DIRTY=$(git status --porcelain -- "$LEDGER" | head -1)
+LEDGER_IN_HEAD=$(git show --stat --format= HEAD -- "$LEDGER" | head -1)
+if [ -n "$CAP_FAIL" ]; then
+  bad "⑯台账新鲜度" "$CAP_FAIL"
+elif [ -n "$FRESH_FAIL" ] && { [ -n "$LEDGER_DIRTY" ] || [ -n "$LEDGER_IN_HEAD" ]; }; then
+  ok "⑯台账新鲜度" "台账本轮在改/HEAD 已含台账提交，新鲜度豁免（$(printf '%s' "$FRESH_FAIL" | sed 's/^FAIL  *//')）"
+elif [ "$LED16_RC" -eq 0 ]; then
+  ok "⑯台账新鲜度" "$(printf '%s\n' "$LED16" | grep -E 'PASS' | tail -1)"
+else
+  bad "⑯台账新鲜度" "$(printf '%s\n' "$LED16" | grep 'FAIL' | head -3 | tr '\n' ' ')"
+fi
+printf '%s\n' "$LED16" | grep 'WARN' | while read -r w; do say "⑯台账新鲜度(提示)" "$w（不影响 GATE 结论）"; done
 
 # ⑰ 并发档位表在册（F-82）：口径冻结必须含三档串，并发档位.md 必须存在且含"当前档位："行；
 #    防"只落最低档、后两档被摘要吞掉"（2026-11-24 漏改事故：口令被压缩时未落地部分被当成已完结）。
@@ -135,11 +186,26 @@ CHANGED_ANCHOR=$(git -c core.quotepath=false status --porcelain docs 2>/dev/null
   gsub(/^ +/, ""); gsub(/^"/, ""); gsub(/"$/, "");
   if ($0 ~ /(修复|实现|验收)-.*\.md$/) print $0
 }')
+JUDGE19=()
 if [ -z "$CHANGED_ANCHOR" ]; then
   ok "⑲锚点卡" "本次改动无新增/修改的写码/验收报告"
 else
-  ANC19=$(python3 data_scripts/check-anchor-card.py --strict $CHANGED_ANCHOR 2>&1)
-  if [ $? -eq 0 ]; then ok "⑲锚点卡" "$(echo "$CHANGED_ANCHOR" | wc -l | tr -d ' ') 份报告锚点齐全"; else bad "⑲锚点卡" "$(echo "$ANC19" | grep '→ FAIL' | head -3)"; fi
+  while IFS= read -r p; do
+    [ -z "$p" ] && continue
+    if is_fixture "$p"; then continue; fi
+    if is_legacy_header_only "$p"; then
+      SKIP_LEGACY+=("$p")
+      echo "SKIP-LEGACY $p（存量件，仅头部留痕）"
+    else
+      JUDGE19+=("$p")
+    fi
+  done <<< "$CHANGED_ANCHOR"
+  if [ ${#JUDGE19[@]} -eq 0 ]; then
+    ok "⑲锚点卡" "${#SKIP_LEGACY[@]} 份存量留痕跳过，无待判报告"
+  else
+    ANC19=$(python3 data_scripts/check-anchor-card.py --strict "${JUDGE19[@]}" 2>&1)
+    if [ $? -eq 0 ]; then ok "⑲锚点卡" "${#JUDGE19[@]} 份报告锚点齐全"; else bad "⑲锚点卡" "$(echo "$ANC19" | grep '→ FAIL' | head -3)"; fi
+  fi
 fi
 # M-08 R3：仓库级孤儿卡扫描（WARN 不判红）；引用来源＝报告 + 派单队列 + 派单台账。
 ORPH19=$(python3 data_scripts/check-anchor-card.py --orphan 2>&1)
@@ -192,11 +258,26 @@ CHANGED_RPTS=$(git -c core.quotepath=false status --porcelain docs 2>/dev/null |
   gsub(/^ +/, ""); gsub(/^"/, ""); gsub(/"$/, "");
   if ($0 ~ /(修复|验收)-.*\.md$/) print $0
 }')
+JUDGE14=()
 if [ -z "$CHANGED_RPTS" ]; then
   ok "⑭回执证据" "本次改动无新增/修改报告"
 else
-  EV14=$(python3 data_scripts/check-evidence.py --strict $CHANGED_RPTS 2>&1)
-  if [ $? -eq 0 ]; then ok "⑭回执证据" "$(echo "$CHANGED_RPTS" | wc -l | tr -d ' ') 份报告回证齐全"; else bad "⑭回执证据" "$(echo "$EV14" | grep '→ FAIL' | head -3)"; fi
+  while IFS= read -r p; do
+    [ -z "$p" ] && continue
+    if is_fixture "$p"; then continue; fi
+    if is_legacy_header_only "$p"; then
+      SKIP_LEGACY+=("$p")
+      echo "SKIP-LEGACY $p（存量件，仅头部留痕）"
+    else
+      JUDGE14+=("$p")
+    fi
+  done <<< "$CHANGED_RPTS"
+  if [ ${#JUDGE14[@]} -eq 0 ]; then
+    ok "⑭回执证据" "${#SKIP_LEGACY[@]} 份存量留痕跳过，无待判报告"
+  else
+    EV14=$(python3 data_scripts/check-evidence.py --strict "${JUDGE14[@]}" 2>&1)
+    if [ $? -eq 0 ]; then ok "⑭回执证据" "${#JUDGE14[@]} 份报告回证齐全"; else bad "⑭回执证据" "$(echo "$EV14" | grep '→ FAIL' | head -3)"; fi
+  fi
 fi
 
 # ⑮ 三段流水线锚点守卫（F-78）：无规格功能必须走 设计规格→独立选型→（全部判低双换回炉）→写码；
@@ -210,11 +291,26 @@ CHANGED_TRIPLE=$(git -c core.quotepath=false status --porcelain docs 2>/dev/null
   gsub(/^ +/, ""); gsub(/^"/, ""); gsub(/"$/, "");
   if ($0 ~ /(实现|交付)-.*\.md$/ || $0 ~ /卡片-.*\.md$/ || $0 ~ /图标单卡\/.*\.md$/) print $0
 }')
+JUDGE15=()
 if [ -z "$CHANGED_TRIPLE" ]; then
   ok "⑮三段锚点" "本次改动无新增/修改的实现/交付报告"
 else
-  TRI15=$(python3 data_scripts/check-triple-anchor.py $CHANGED_TRIPLE 2>&1)
-  if [ $? -eq 0 ]; then ok "⑮三段锚点" "$(echo "$CHANGED_TRIPLE" | wc -l | tr -d ' ') 份报告三锚点齐全"; else bad "⑮三段锚点" "$(echo "$TRI15" | grep '→ FAIL' | head -3)"; fi
+  while IFS= read -r p; do
+    [ -z "$p" ] && continue
+    if is_fixture "$p"; then continue; fi
+    if is_legacy_header_only "$p"; then
+      SKIP_LEGACY+=("$p")
+      echo "SKIP-LEGACY $p（存量件，仅头部留痕）"
+    else
+      JUDGE15+=("$p")
+    fi
+  done <<< "$CHANGED_TRIPLE"
+  if [ ${#JUDGE15[@]} -eq 0 ]; then
+    ok "⑮三段锚点" "${#SKIP_LEGACY[@]} 份存量留痕跳过，无待判报告"
+  else
+    TRI15=$(python3 data_scripts/check-triple-anchor.py "${JUDGE15[@]}" 2>&1)
+    if [ $? -eq 0 ]; then ok "⑮三段锚点" "${#JUDGE15[@]} 份报告三锚点齐全"; else bad "⑮三段锚点" "$(echo "$TRI15" | grep '→ FAIL' | head -3)"; fi
+  fi
 fi
 
 # ⑳ 缝合怪清理（F-86）：扫双轨/兼容层/超大文件/废弃调用/wip 半成品分支；
@@ -297,8 +393,6 @@ if [ $? -eq 0 ]; then ok "㊱锚点防洗白" "$(echo "$AI36" | grep -E 'PASS|WA
 AC37=$(python3 data_scripts/check-accept-claim.py 2>&1)
 if [ $? -eq 0 ]; then ok "㊲验收字样" "$(echo "$AC37" | grep 'ACCEPT-CLAIM')"; else bad "㊲验收字样" "$(echo "$AC37" | grep 'FAIL' | head -2 | tr '\n' ' ')"; fi
 
-# ⑧' 变化摘要（O8）：与上一次快照 diff，新增 FAIL 标 NEW，免每次肉眼扫 34+ 项。
-CUR_FAIL=$(grep -E '^[^ ]+ +FAIL' /tmp/.gate_cur 2>/dev/null | awk '{print $1}')
 # ㉕ 子代理超时熔断/工具预算：不设独立实现块。该职能已并入 ㊳ check-agent-timeout.py
 #    （Q-22 结单落 ㊳：>15min WARN / >60min FAIL）。保留㉕号仅作历史归档，避免同一职能双号
 #    重复判据；原三处文档引用的㉕号已统一改指 ㊳。
@@ -338,5 +432,17 @@ echo "$BL43" | grep -E '^(INFO|WARN)' | while read -r w; do say "㊸验收积压
 
 echo
 
-echo
-[ "$FAIL" -eq 0 ] && echo "GATE: PASS（可继续下一步）" || { echo "GATE: FAIL（按上面 FAIL 项先补齐）"; exit 1; }
+# 存量留痕跳过清单进末行摘要：跳过必须可审计，不许静默豁免。
+if [ ${#SKIP_LEGACY[@]} -gt 0 ]; then
+  echo "SKIP-LEGACY 合计 ${#SKIP_LEGACY[@]} 份（存量件仅头部留痕，⑲/⑭/⑮ 豁免）："
+  for p in "${SKIP_LEGACY[@]}"; do echo "  · $p"; done
+fi
+
+if [ "$FAIL" -eq 0 ]; then
+  echo "GATE: PASS（可继续下一步；存量留痕跳过 ${#SKIP_LEGACY[@]} 份）"
+  exit 0
+fi
+echo "GATE: FAIL —— 失败步骤清单（${#FAIL_ITEMS[@]} 项）："
+for item in "${FAIL_ITEMS[@]}"; do echo "  ✗ $item"; done
+echo "（逐条补齐后重跑 bash data_scripts/rule-gate.sh；完整输出见 $OUT）"
+exit 1

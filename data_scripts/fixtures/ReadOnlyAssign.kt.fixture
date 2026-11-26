@@ -1,0 +1,9 @@
+package io.legado.app.ui.regress
+
+import androidx.compose.foundation.ScrollState
+
+val scrollState: ScrollState = ScrollState(0)
+
+fun bug() {
+    scrollState.value = 100
+}

@@ -76,9 +76,14 @@ jobs:
           done
           echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
-      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+      - name: Install SDK components (skip when image preinstalled)
         run: |
           set -e
+          # 快路径：镜像已带 platform 36 + build-tools 36.0.0 时直接跳过（每 job 省 30~60s，
+          # 5~6 个 job 合计一轮省 3~6 分钟）。组件缺失才走原 retry 安装，语义不变。
+          if [ -d "${ANDROID_HOME}/platforms/android-36" ] && [ -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            echo "SDK 组件已预装，跳过 sdkmanager"; exit 0
+          fi
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -106,7 +111,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'gradle.properties') }}
           restore-keys: |
             gradle-${{ steps.cachekey.outputs.dist-hash }}-
             gradle-
@@ -169,9 +174,14 @@ jobs:
           done
           echo "::error::JDK21 三条路径都不可用（预装缺失 + 下载三次失败）"; exit 1
 
-      - name: Install SDK components (platform 36 / build-tools 36.0.0)
+      - name: Install SDK components (skip when image preinstalled)
         run: |
           set -e
+          # 快路径：镜像已带 platform 36 + build-tools 36.0.0 时直接跳过（每 job 省 30~60s，
+          # 5~6 个 job 合计一轮省 3~6 分钟）。组件缺失才走原 retry 安装，语义不变。
+          if [ -d "${ANDROID_HOME}/platforms/android-36" ] && [ -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            echo "SDK 组件已预装，跳过 sdkmanager"; exit 0
+          fi
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -199,7 +209,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('**/build.gradle', '**/build.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-${{ steps.cachekey.outputs.dist-hash }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'gradle.properties') }}
           restore-keys: |
             gradle-${{ steps.cachekey.outputs.dist-hash }}-
             gradle-

@@ -88,6 +88,31 @@ def changed_status():
     return rows
 
 
+def rev_status(rev):
+    """--rev 模式的改动集合：`git diff --name-status <rev>^ <rev>`。
+
+    为什么必须单独实现：早前版本在 --rev 下仍调 changed_status()，
+    结果 --rev 89bac0c 报的是工作区、判定"无代码改动 PASS"——
+    那笔提交正是 24 条编译错的那单，等于验收工具自己假绿。
+    适用条件：只读，根提交（无父）时退回 `git show --name-status`。
+    """
+    rc, out, err = git('diff', '--name-status', '%s^' % rev, rev)
+    if rc != 0:
+        rc, out, err = git('show', '--name-status', '--format=', rev)
+        if rc != 0:
+            return [], err
+    rows = []
+    for line in out.splitlines():
+        parts = line.split('\t')
+        if len(parts) < 2:
+            continue
+        status = parts[0][:1]
+        path = parts[-1].strip()
+        if path:
+            rows.append((status, path))
+    return rows, ''
+
+
 def strip_noise(src):
     """去注释/字符串内容，保留换行与引号占位，避免括号/标识符误配。"""
     out = []
@@ -360,11 +385,32 @@ def main():
     if args.paths:
         wanted = set(args.paths)
         rows = [(('A' if REV else '??'), p) for p in args.paths]
-        if not REV:
+        if REV:
+            # D1（M-34）：--paths 必须真属于 --rev 的改动集合。旧实现照单全收，幻影路径
+            # 后来落到"读取失败"软类别 → 结论仍 PASS、rc=0（2026-11-26 实测复现）。
+            # 为什么硬失败：路径都不在本单 diff 里，这份"证据"证明不了本单的任何事。
+            rev_rows, rev_err = rev_status(REV)
+            if not rev_rows:
+                print('REV-DIFF: FAIL %s 取不到改动集合：%s' % (REV, rev_err.strip()[:200]))
+                return 2
+            rev_set = {p.lstrip('./') for _, p in rev_rows}
+            phantom = [p for p in (q.lstrip('./') for q in args.paths) if p not in rev_set]
+            if phantom:
+                print('REV-PATHS: FAIL 以下路径不在 %s 的改动集合内（幻影路径，证据无效）：' % REV)
+                for p in phantom:
+                    print('  - %s' % p)
+                return 2
+        else:
             stat_map = {p: s for s, p in changed_status()}
             rows = [(stat_map.get(p, '??'), p) for p in args.paths]
     else:
-        rows = changed_status()
+        if REV:
+            rows, err = rev_status(REV)
+            if not rows:
+                print('REV-DIFF: FAIL %s 取不到改动集合：%s' % (REV, err.strip()[:200]))
+                return 2
+        else:
+            rows = changed_status()
         wanted = None
 
     kt_files, md_files = [], []
@@ -460,9 +506,17 @@ def main():
                        'public 暴露 internal', '行数超限', '疑似漏 import'}
     soft_hits = sorted({r['category'] for a in analyzed for r in a['risks']
                         if r['category'] in soft_categories})
+    # D2（M-34）：读取失败是"取不到内容"，不是"没问题"。旧实现把它排除在 soft_categories
+    # 之外 → 无 soft_hits → 直接 PASS，属于假绿；这里单列硬 FAIL。
+    read_fail = [a['path'] for a in analyzed
+                 if any(r['category'] == '读取失败' for r in a['risks'])]
     if machine_fail:
         verdict = 'FAIL'
         reasons = ['存在机检 FAIL，按门禁直接判 FAIL，不得写有条件通过或 PASS']
+    elif read_fail:
+        verdict = 'FAIL'
+        reasons = ['存在读取失败文件（%s）：快照与工作区都取不到内容，无法判定，按 FAIL 处理'
+                   % '、'.join(read_fail)]
     elif soft_hits:
         verdict = '有条件通过（编译面待 CI）'
         reasons = ['存在编译面敏感改动：' + '、'.join(soft_hits),

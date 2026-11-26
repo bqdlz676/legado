@@ -26,8 +26,15 @@ SKIP_NAMES = ('索引-', '回执补录-', '台账-', '派单', '问题清单', '
               '分析-回执存量审计', '分析-判低理由词典', '落文-规矩总纲')
 BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drift-baseline.json')
 
-CODE_RE = re.compile(r'([\w./\-]+\.kt):(\d+)(?:-(\d+))?')
-DOC_RE = re.compile(r'((?:docs/)?[\w./\-]+\.md):(\d+)')
+# 基名解析索引覆盖的源码根：app/src 为主证据域；screenshot/src（Paparazzi 快照测试）
+# 与 modules/**（rhino 等独立 Gradle 模块）是域外栈，文件实存但不属仓内 app 证据链，
+# 解析得到后记 SKIP-EXTERNAL，不计入失联（2026-11-26 单 F 扩范围）。
+CODE_GLOBS = ['app/src/**/*.kt', 'screenshot/src/**/*.kt', 'modules/**/*.kt']
+EXTERNAL_PREFIXES = ('screenshot/', 'modules/')
+
+# 冒号兼容半角/全角：历史报告里 `X.kt：567` 全角写法曾被正则整体漏掉，解析时归一为半角。
+CODE_RE = re.compile(r'([\w./\-]+\.kt)[：:](\d+)(?:-(\d+))?')
+DOC_RE = re.compile(r'((?:docs/)?[\w./\-]+\.md)[：:](\d+)')
 IDENT_RE = re.compile(r'[`*]{1,2}([A-Za-z_][\w.]*)[`*]{1,2}|\b([A-Z][A-Za-z0-9_]{2,})\b')
 
 STOP = {'Android', 'Compose', 'Kotlin', 'JVM', 'CI', 'APK', 'TODO', 'FAIL', 'PASS',
@@ -68,6 +75,23 @@ def idents_of(line, symbol_hint):
 _BASE = {}
 
 
+def _build_base():
+    """建基名 -> 全路径索引；build/ 产物目录一律排除，避免把编译输出当源码。"""
+    for g in CODE_GLOBS:
+        for k in glob.glob(g, recursive=True):
+            if '/build/' in k or os.sep + 'build' in k:
+                continue
+            _BASE.setdefault(os.path.basename(k), []).append(k)
+    for k in glob.glob('docs/**/*.md', recursive=True):
+        _BASE.setdefault(os.path.basename(k), []).append(k)
+
+
+def is_external(path):
+    """域外引用：screenshot/ 快照测试栈与 modules/ 独立 Gradle 模块，不占 app 失联基线。"""
+    p = (path or '').replace(os.sep, '/')
+    return p.startswith(EXTERNAL_PREFIXES) or '/screenshot/' in p or '/modules/' in p
+
+
 def resolve(path):
     """报告里的锚点常写短名（`InkContentEditSheet.kt:273`），先按唯一基名解析全路径。
 
@@ -76,8 +100,7 @@ def resolve(path):
     if os.path.exists(path):
         return path
     if not _BASE:
-        for k in glob.glob('app/src/**/*.kt', recursive=True) + glob.glob('docs/**/*.md', recursive=True):
-            _BASE.setdefault(os.path.basename(k), []).append(k)
+        _build_base()
     hits = _BASE.get(os.path.basename(path), [])
     if len(hits) == 1:
         return hits[0]
@@ -118,19 +141,68 @@ def check_anchor(path, line_no, cand, cache):
     return 'MISSING', '符号全文件失联'
 
 
+# 漂移记录件头标：文件仅登记已失效锚点（历史快照/重判清单），不是现行主张，
+# 整份跳过扫描，避免登记的死锚点把棘轮基线虚高。头标必须落在文件头 20 行内。
+SKIP_RECORD_MARKER = '> 漂移记录件：本文件仅登记已失效锚点'
+# 整份已废头标：重判后结论标注已废的报告，其锚点一律记 VOID，不计失联，但仍逐条列出可审计。
+VOID_FILE_MARKER = '漂移重判：原锚已失效'
+# 逐条豁免关键词：锚点所在行或紧邻下一行出现「已废」，该条记 VOID。
+VOID_WORD = '已废'
+
+# 留档豁免：规则上线前交付的存量报告，文件内明写留档声明即整份跳过，
+# 与 check-evidence.py / check-onboarding.py 的留档豁免同一口径（须文件内声明，可审计）。
+ARCHIVE_MARKERS = ('证据三件套留档', '留档豁免')
+
+SKIPPED_RECORD = []
+SKIPPED_VOID = []
+SKIPPED_ARCHIVE = []
+
+
 def scan():
     files = report_files()
     allkt = None
     rows = []
     cache = {}
+    skipped = []
+    void_files = []
+    archive_files = []
+    SKIPPED_RECORD.clear()
+    SKIPPED_VOID.clear()
+    SKIPPED_ARCHIVE.clear()
     for f in files:
         try:
             text = open(f, encoding='utf-8', errors='ignore').read()
         except OSError:
             continue
-        for i, line in enumerate(text.splitlines(), 1):
+        lines = text.splitlines()
+        head = '\n'.join(lines[:20])
+        if SKIP_RECORD_MARKER in head:
+            skipped.append(f)
+            continue
+        if any(m in text for m in ARCHIVE_MARKERS):
+            archive_files.append(f)
+            continue
+        void_file = VOID_FILE_MARKER in head
+        if void_file:
+            void_files.append(f)
+
+        def anchor_void(i, line):
+            # 逐条豁免：所在行或紧邻下一行含「已废」；整份豁免由 void_file 兜住。
+            return void_file or (VOID_WORD in line) or (i < len(lines) and VOID_WORD in lines[i])
+
+        for i, line in enumerate(lines, 1):
             for m in CODE_RE.finditer(line):
                 path, a, b = m.group(1), int(m.group(2)), m.group(3)
+                real = resolve(path)
+                # 域外引用（screenshot 快照测试 / modules 独立模块）：不计入失联基线。
+                if is_external(path) or is_external(real):
+                    rows.append((f, i, path + ':' + str(a), 'SKIP-EXTERNAL', '域外引用，不计入失联'))
+                    continue
+                # 畸形区间：起行大于止行（前一轮 --fix-lines 把起点改成新行号、旧止行残留，
+                # 如 `567-306`）。倒挂区间不做双端核对，退回单行锚按起点行判。
+                inverted = bool(b and int(b) < a)
+                if inverted:
+                    b = None
                 hint = None
                 im = re.search(r'`([A-Za-z_][\w.]*)`', line)
                 if im:
@@ -141,7 +213,11 @@ def scan():
                     st2, det2 = check_anchor(path, int(b), cand, cache)
                     if st2 == 'OK':
                         st, det = 'OK', ''
-                rows.append((f, i, '%s:%s' % (path, a), st, det))
+                if anchor_void(i, line):
+                    st, det = 'VOID', ('报告头已废标注，整份豁免' if void_file else '行内已废标注，逐条豁免')
+                elif inverted and st != 'OK':
+                    det = '区间倒挂已退回单行锚；' + det
+                rows.append((f, i, path + ':' + str(a), st, det))
                 if st == 'MISSING' and allkt is None:
                     allkt = set()
                     for k in glob.glob('app/src/**/*.kt', recursive=True):
@@ -152,7 +228,12 @@ def scan():
                     continue
                 cand = idents_of(line, None)
                 st, det = check_anchor(path, a, cand, cache)
+                if anchor_void(i, line):
+                    st, det = 'VOID', ('报告头已废标注，整份豁免' if void_file else '行内已废标注，逐条豁免')
                 rows.append((f, i, '%s:%d' % (path, a), st, det))
+    SKIPPED_RECORD.extend(skipped)
+    SKIPPED_VOID.extend(void_files)
+    SKIPPED_ARCHIVE.extend(archive_files)
     return rows
 
 
@@ -173,9 +254,9 @@ def fix_lines(dry=False):
         new = list(lines)
         for i, line in enumerate(lines):
             for m in CODE_RE.finditer(line):
-                path, old = m.group(1), m.group(2)
+                path, old, rend = m.group(1), m.group(2), m.group(3)
                 real = resolve(path)
-                if not os.path.exists(real):
+                if not os.path.exists(real) or is_external(real):
                     continue
                 if real not in cache:
                     cache[real] = open(real, encoding='utf-8', errors='ignore').read().splitlines()
@@ -186,7 +267,15 @@ def fix_lines(dry=False):
                     continue
                 hits = [j for j, l in enumerate(src, 1) if any(h in l for h in hint)]
                 if len(hits) == 1 and hits[0] != int(old):
-                    new[i] = new[i].replace('%s:%s' % (path, old), '%s:%d' % (path, hits[0]), 1)
+                    colon = '：' if '：' in m.group(0) else ':'
+                    if rend and hits[0] > int(rend):
+                        # 新起点大于旧止行：保留区间会形成倒挂，退回单行锚。
+                        new_anchor = path + colon + str(hits[0])
+                    elif rend:
+                        new_anchor = path + colon + '%d-%s' % (hits[0], rend)
+                    else:
+                        new_anchor = path + colon + str(hits[0])
+                    new[i] = new[i].replace(m.group(0), new_anchor, 1)
                     fixed += 1
         if new != lines and not dry:
             open(f, 'w', encoding='utf-8').write('\n'.join(new) + '\n')
@@ -199,22 +288,31 @@ def main() -> int:
     for r in rows:
         stat[r[3]] = stat.get(r[3], 0) + 1
     args = sys.argv[1:]
+    for tag, store, note in (
+            ('SKIP-RECORD', SKIPPED_RECORD, '漂移记录件整份跳过'),
+            ('SKIP-VOID', SKIPPED_VOID, '报告头已废标注整份豁免（锚点记 VOID，不计失联）'),
+            ('SKIP-ARCHIVE', SKIPPED_ARCHIVE, '留档豁免整份跳过')):
+        if store:
+            print('RADAR: %s 聚合 %d 份%s' % (tag, len(store), note))
+            for path in store:
+                print('RADAR: %s %s' % (tag, path))
     if '--fix-lines' in args:
         fix_lines()
         rows = scan()
     if '--write' in args:
         out = ['# 索引 · 结论漂移雷达（自动生成，勿手改）', '',
                '> `python3 data_scripts/check-drift.py --write` 生成。每一行是「报告:行 -> 锚点」的机检结论：',
-               '> OK 符号对得上／DRIFT 行号漂了（结论需重贴锚）／MISSING 符号全文件失联（结论必须重判）／DEADFILE 文件已删。',
+               '> OK 符号对得上／DRIFT 行号漂了（结论需重贴锚）／VOID 已废标注豁免（报告头或行内标已废，不计失联，仍逐条列出）／MISSING 符号全文件失联（结论必须重判）／DEADFILE 文件已删。',
+               '> SKIP-EXTERNAL 域外引用（screenshot/ 快照测试、modules/ 独立模块），文件实存但不属 app 证据链，不计入失联。',
                '> 不自动改行号：行号漂往往意味着代码演进、口径可能一起变，自动重贴会把旧结论伪装成新证据。',
                '']
-        out.append('- 总计 %d 个锚点：OK %d ／ DRIFT %d ／ MISSING %d ／ DEADFILE %d' % (
-            len(rows), stat.get('OK', 0), stat.get('DRIFT', 0),
-            stat.get('MISSING', 0), stat.get('DEADFILE', 0)))
+        out.append('- 总计 %d 个锚点：OK %d ／ DRIFT %d ／ VOID %d ／ MISSING %d ／ DEADFILE %d ／ SKIP-EXTERNAL %d' % (
+            len(rows), stat.get('OK', 0), stat.get('DRIFT', 0), stat.get('VOID', 0),
+            stat.get('MISSING', 0), stat.get('DEADFILE', 0), stat.get('SKIP-EXTERNAL', 0)))
         out.append('')
         byf = {}
         for r in rows:
-            if r[3] != 'OK':
+            if r[3] != 'OK' and r[3] != 'SKIP-EXTERNAL':
                 byf.setdefault(r[0], []).append(r)
         out.append('## 非 OK 明细（按报告分组）')
         for f in sorted(byf):
@@ -233,11 +331,12 @@ def main() -> int:
         if bad > base.get('bad', bad):
             print('RADAR: FAIL 失联 %d 超基线 %d（结论失联只增不减，先重判再放行）' % (bad, base.get('bad', 0)))
             return 1
-        base['bad'] = bad
-        json.dump(base, open(BASELINE, 'w', encoding='utf-8'), ensure_ascii=False)
-    print('RADAR: 锚点 %d｜OK %d｜DRIFT %d｜MISSING %d｜DEADFILE %d（失联 %d）' % (
-        len(rows), stat.get('OK', 0), stat.get('DRIFT', 0),
-        stat.get('MISSING', 0), stat.get('DEADFILE', 0), bad))
+        # 通过时不回写基线：脚本不得自动下调基线；下调只留总控手动入口，
+        # 且须留痕批次号与前后数值。这里只打印比对结果，基线文件保持不动。
+        print('RATCHET: PASS 当前值 %d 小于等于基线 %d，基线未动' % (bad, base.get('bad', bad)))
+    print('RADAR: 锚点 %d｜OK %d｜DRIFT %d｜VOID %d｜MISSING %d｜DEADFILE %d｜SKIP-EXTERNAL %d（失联 %d）' % (
+        len(rows), stat.get('OK', 0), stat.get('DRIFT', 0), stat.get('VOID', 0),
+        stat.get('MISSING', 0), stat.get('DEADFILE', 0), stat.get('SKIP-EXTERNAL', 0), bad))
     return 0
 
 

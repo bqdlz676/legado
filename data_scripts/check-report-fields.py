@@ -46,6 +46,11 @@ def only_backfill(path):
     return bool(ins) and all(("回执补录" in l) or ("回执缺失" in l and "留档" in l) for l in ins)
 
 
+def is_fixture(path):
+    # 回归夹具（data_scripts/fixtures/ 下、.fixture 后缀）是测试资产，不按真报告判（2026-11-26 追加）。
+    return "data_scripts/fixtures" in path or path.endswith(".fixture")
+
+
 def changed_reports():
     out = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
                          capture_output=True, text=True,
@@ -53,6 +58,8 @@ def changed_reports():
     paths = []
     for line in out.splitlines():
         p = line[3:].strip().strip('"')
+        if is_fixture(p):
+            continue
         if re.match(r"docs/(修复|验收|组装|分析)-.*\.md$", p) and not only_backfill(p):
             paths.append(p)
     return paths
@@ -92,6 +99,8 @@ def main():
         return 0
     bad = 0
     for p in paths:
+        if is_fixture(p):
+            continue
         fails = check(p)
         if fails:
             bad += 1
