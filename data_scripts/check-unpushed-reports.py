@@ -75,6 +75,18 @@ def judge(root, files):
             probs = co.check_report(rel)
         finally:
             os.chdir(cwd0)
+        if not probs and re.match(r'docs/(修复|实现)-.*\.md$', rel):
+            # ⑲ 也只看 git status 的"本轮改动"，同样能被"先提交"绕过（M-42 同族）。
+            # 只对 修复/实现 类追锚点卡：验收/机制/规格/复盘 是证据与制度文书，锚点卡语义不适用；
+            # 三段锚点（⑮）对"修一个缺陷"的报告要求 规格+选型 两锚，语义错配，本轮不并入（登记 M-42 待裁）。
+            for script, args in (('check-anchor-card.py', ['--strict', rel]),):
+                r = subprocess.run([sys.executable, 'data_scripts/' + script] + args,
+                                   cwd=str(root), capture_output=True, text=True)
+                if r.returncode != 0:
+                    tail = (r.stdout or r.stderr).strip().splitlines()
+                    msg = next((x for x in tail if 'FAIL' in x), tail[-1] if tail else 'rc=%d' % r.returncode)
+                    probs = ['%s：%s' % (script, msg.strip()[:80])]
+                    break
         if probs:
             bad.append((rel, probs))
     return bad
