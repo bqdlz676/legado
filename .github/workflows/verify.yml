@@ -157,44 +157,13 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # 枚举编译产物中的顶层类，按排序后 round-robin 切成 4 份；
-      # 并集必须 == 全量清单、两两不得重叠——这是"分片并集=全集"的第一道机制保证。
-      - name: Enumerate compiled test classes and split into 4 shards
-        run: |
-          python3 - <<'PY'
-          import glob, os, json, sys
-          # 兼容 Kotlin/Java 两种编译产物根目录的实际落盘位置（变体名漂移时用通配兜底）
-          roots = glob.glob('app/build/tmp/kotlin-classes/*UnitTest*') + \
-                  glob.glob('app/build/intermediates/javac/*UnitTest*/classes')
-          SKIP_BASE = {'R.class', 'BuildConfig.class', 'module-info.class'}
-          classes = set()
-          for root in roots:
-              for path in glob.glob(os.path.join(root, '**', '*.class'), recursive=True):
-                  rel = os.path.relpath(path, root)
-                  base = os.path.basename(rel)
-                  if '$' in base:
-                      continue
-                  if base in SKIP_BASE:
-                      continue
-                  classes.add(rel[:-6].replace(os.sep, '.'))
-          if not classes:
-              sys.exit('::error::未枚举到任何测试类（编译产物目录缺失？），拒绝生成空分片清单')
-          cls = sorted(classes)
-          shards = [sorted(cls[i::4]) for i in range(4)]
-          union = set().union(*map(set, shards))
-          if union != set(cls):
-              sys.exit('::error::分片并集 != 全量测试类清单')
-          for a in range(4):
-              for b in range(a + 1, 4):
-                  overlap = set(shards[a]) & set(shards[b])
-                  if overlap:
-                      sys.exit(f'::error::分片 {a+1} 与 {b+1} 存在重叠类: {sorted(overlap)[:5]}')
-          for i, shard in enumerate(shards, start=1):
-              with open(f'shard-{i}.txt', 'w') as f:
-                  f.write('\n'.join(shard) + '\n')
-          json.dump({'total': len(cls), 'classes': cls}, open('manifest.json', 'w'), ensure_ascii=False, indent=1)
-          print(f'测试类总数={len(cls)}，分片大小={[len(s) for s in shards]}')
-          PY
+      # 枚举编译产物 → 按磁盘源码逐条净化 → 排序 round-robin 切 4 份；
+      # 并集必须 == 净化后全集、两两不得重叠（脚本内断言，"分片并集=全集"第一道机制保证）。
+      # 净化在分片之前做：bench 引擎 object / 报告 data class / 分类标记 interface / 文件 facade /
+      # 无 @Test 辅助类不进 --tests 清单；@Category 打标类归 rhino/slow-bench 独立 job。
+      # 逻辑落在 data_scripts/emit-shard-lists.py：可回放既有 artifact 清单、可 --selftest 双向夹具。
+      - name: Enumerate, purify compiled test classes and split into 4 shards
+        run: python3 data_scripts/emit-shard-lists.py --from-build --out-dir .
 
       - name: Upload test class lists
         uses: actions/upload-artifact@v4
