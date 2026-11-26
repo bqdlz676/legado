@@ -83,6 +83,26 @@ def main() -> int:
             print('ok    台账内容对账：队列 %d 个 Q 号均在台账内或已在历史基线（基线 %d 条待销）'
                   % (len(qids), len(base)))
 
+    # ①c 幻影路径（M-31 同族）：台账里点名的报告路径必须真实存在，否则等于"记账抵了交付"。
+    phantom = []
+    for line in text.splitlines():
+        if not line.startswith('|') or 'docs/' not in line:
+            continue
+        # 在飞行点名的"未来报告"尚不存在属正常（DoD 未完），不判幻影。
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        if any(c.startswith(('🟡 在飞', '在飞')) for c in cells):
+            continue
+        # 标了"（预定）"的是计划产物、尚未落盘，属占位不是幻影。
+        if '（预定）' in line:
+            continue
+        for rel in re.findall(r'docs/[^\s|），]+?\.md', line):
+            if not os.path.isfile(os.path.join(os.path.dirname(LEDGER), '..', rel)):
+                phantom.append(rel)
+    if phantom:
+        fails.append('台账点名 %d 个不存在的报告路径：%s' % (len(phantom), '、'.join(sorted(set(phantom))[:5])))
+    else:
+        print('ok    台账路径存在性：点名的报告均实存')
+
     # ② 在草稿数超硬上限 → FAIL
     # 旧判据只数台账里带"在飞"标记的行：台账不写就没有在飞，等于自己给自己开脱（M-45）。
     # 现判据以队列 RUNNING 行数为真值，台账标记数必须与之相等。
