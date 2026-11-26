@@ -18,6 +18,7 @@
 """
 import datetime
 import os
+import json
 import re
 import subprocess
 import sys
@@ -60,6 +61,27 @@ def main() -> int:
             )
         else:
             print(f"ok    台账新鲜度：台账 mtime 距 HEAD {gap_min:.0f} 分钟内")
+
+    # ①b 内容对账（M-33/M-44）：mtime 只能证明"文件被动过"，证明不了"这一单登记了"。
+    #     台账可被 touch 刷新而内容缺行（拿位置/时间当内容），也可内容齐全而 mtime 陈旧。
+    #     判据改为身份对账：派单队列里的每个 Q 号必须在台账文本中出现。
+    queue_path = os.path.join(os.path.dirname(LEDGER), '派单队列.md')
+    if os.path.isfile(queue_path):
+        qids = sorted(set(re.findall(r'Q-\d+', open(queue_path, encoding='utf-8').read())))
+        missing = [q for q in qids if q not in text]
+        # 历史欠账走棘轮基线（只在变小方向更新）：基线里的号允许暂缺，基线外缺号一律 FAIL。
+        # 为什么不用"Q 号 >= 200"这类位置口径：编号是身份，阈值是位置，身份才不可伪造。
+        base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dispatch-ledger-baseline.json')
+        base = set()
+        if os.path.isfile(base_path):
+            base = set(json.load(open(base_path, encoding='utf-8')).get('missing', []))
+        new_missing = [q for q in missing if q not in base]
+        if new_missing:
+            fails.append('台账缺 %d 个队列已登记的派单号（基线外新增欠账）：%s'
+                         % (len(new_missing), '、'.join(new_missing[:8])))
+        else:
+            print('ok    台账内容对账：队列 %d 个 Q 号均在台账内或已在历史基线（基线 %d 条待销）'
+                  % (len(qids), len(base)))
 
     # ② 在飞行数超硬上限 → FAIL
     open_count = sum(
