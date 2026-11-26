@@ -29,7 +29,7 @@ import org.junit.Test
 
 /**
  * 书目 / 专题 / 战役 / 人物 / 搜索结果等目录卡片，以及阅读页 Compose 底栏截图帧。
- * 卡片均复用 [CardSurface] 基座五态；底栏是阅读壳中可脱离分页引擎 View 独立渲染的片段。
+ * 卡片均复用 [CardBase] 基座五态；底栏是阅读壳中可脱离分页引擎 View 独立渲染的片段。
  */
 class CatalogCardsSnapshotTest {
 

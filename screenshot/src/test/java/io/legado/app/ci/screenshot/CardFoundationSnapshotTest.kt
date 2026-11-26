@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import io.legado.app.ui.card.CardState
-import io.legado.app.ui.card.CardSurface
+import io.legado.app.ui.card.CardBase
 import org.junit.Rule
 import org.junit.Test
 
@@ -50,7 +50,7 @@ class CardFoundationSnapshotTest {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                CardSurface(
+                CardBase(
                     state = state,
                     modifier = Modifier.width(240.dp).height(140.dp),
                 ) {
