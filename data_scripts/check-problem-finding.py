@@ -195,7 +195,7 @@ def _decide(rel: str, txt: str, data: bytes, base: dict, bulk: dict, boundary: i
 def report_paths() -> list[pathlib.Path]:
     out = []
     try:
-        r = subprocess.run(['git', 'rev-list', '--objects', 'origin/main..HEAD'],
+        r = subprocess.run(['git', '-c', 'core.quotepath=false', 'rev-list', '--objects', 'origin/main..HEAD'],
                            cwd=ROOT, capture_output=True, text=True)
         for line in r.stdout.splitlines():
             parts = line.split(' ', 1)
@@ -210,6 +210,23 @@ def report_paths() -> list[pathlib.Path]:
         p = _status_path(line)
         if NAME_RE.match(p) and (ROOT / p).is_file():
             out.append(ROOT / p)
+    # 回退窗口：工作区已全部提交并推送后，"origin/main..HEAD + 工作树"会空集，
+    # 而空集按 ㊾ 不许判 PASS，会让每次 push 之后 55 必红（假红比漏检更贵：会把真红淹没）。
+    # 故空集时从最近 30 条提交里回溯"最近一次真的新增/改动报告"的那一棒，覆盖面只增不减。
+    if not out:
+        try:
+            c = subprocess.run(['git', '-c', 'core.quotepath=false', 'log', '-30', '--format=%H', '--', 'docs/'],
+                               cwd=ROOT, capture_output=True, text=True)
+            for sha in [s.strip() for s in c.stdout.splitlines() if s.strip()]:
+                r3 = subprocess.run(['git', '-c', 'core.quotepath=false', 'show', '--pretty=format:', '--name-only', sha],
+                                    cwd=ROOT, capture_output=True, text=True)
+                hits = [n.strip() for n in r3.stdout.splitlines()
+                        if NAME_RE.match(n.strip()) and (ROOT / n.strip()).is_file()]
+                if hits:
+                    out.extend(ROOT / n for n in hits)
+                    break
+        except Exception:
+            pass
     return sorted(set(out))
 
 
