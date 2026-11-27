@@ -25,9 +25,6 @@ import io.legado.app.ui.card.TopicCardData
  * 旧 `ui/main/explore/ExploreViewModel.kt` 的书源置顶 / 删除编排归书源域，不进本 VM。
  */
 
-/** 发现页五区枚举：战役 / 典籍 / 专题 / 马恩 / 生字本。 */
-enum class DiscoverRegion { BATTLE, CLASSIC, TOPIC, MARX, NOTEBOOK }
-
 /** 分区状态位：骨架加载中 / 有内容 / 空列表 / 离线 / 出错。 */
 enum class RegionStatus { LOADING, CONTENT, EMPTY, OFFLINE, ERROR }
 
@@ -147,23 +144,35 @@ class DiscoverViewModel(
         synchronized(lock) { heroState = applyRegion(heroState, mapped) }
     }
 
-    /** 刷新生字本区；只计数，不做掌握态判定。 */
+    /**
+     * 刷新生字本区；只计数，不做掌握态判定。
+     *
+     * 坏条目口径（与其余四区同构）：`token` 空白视为坏条目，剔出入口卡计数并计入
+     * [RegionState.dropped]；bookName / chapterTitle 缺省按空串兜底、timestamp 非正
+     * 不预判新列，二者不计坏。本区恒带一张入口卡，空态由 count==0 表达，不是返回空列表。
+     * 映射与过滤同四区一样包在 `mapCatching` 内：映射期异常不拖垮整区，进失败分支保留
+     * 上一轮内容并置离线位。
+     */
     fun refreshNotebook() {
-        val loaded = runCatching { notebookSource.load() }
-        synchronized(lock) {
-            val failure = loaded.exceptionOrNull()
-            if (failure != null) {
-                notebookState = notebookState.copy(
-                    offline = true,
-                    errorMessage = failure.message ?: "数据源不可达",
-                    status = if (notebookState.items.isEmpty()) RegionStatus.OFFLINE else RegionStatus.ERROR,
+        val mapped = runCatching { notebookSource.load() }
+            .mapCatching { raw ->
+                val good = raw.filter { it.token.trim().isNotBlank() }
+                MapOutcome(
+                    items = listOf(good.toNotebookEntryCard()),
+                    dropped = raw.size - good.size,
                 )
+            }
+        synchronized(lock) {
+            val failure = mapped.exceptionOrNull()
+            if (failure != null) {
+                notebookState = offlineCopy(notebookState, failure)
             } else {
-                val card = loaded.getOrThrow().toNotebookEntryCard()
+                val outcome = mapped.getOrThrow()
+                val card = outcome.items.first()
                 notebookState = RegionState(
                     status = if (card.count == 0) RegionStatus.EMPTY else RegionStatus.CONTENT,
-                    items = listOf(card),
-                    dropped = 0,
+                    items = outcome.items,
+                    dropped = outcome.dropped,
                     offline = false,
                     errorMessage = "",
                 )
@@ -209,11 +218,7 @@ class DiscoverViewModel(
     ): RegionState<T> {
         val failure = mapped.exceptionOrNull()
         if (failure != null) {
-            return current.copy(
-                offline = true,
-                errorMessage = failure.message ?: "数据源不可达",
-                status = if (current.items.isEmpty()) RegionStatus.OFFLINE else RegionStatus.ERROR,
-            )
+            return offlineCopy(current, failure)
         }
         val outcome = mapped.getOrThrow()
         val items = outcome.items.toList()
@@ -225,4 +230,17 @@ class DiscoverViewModel(
             errorMessage = "",
         )
     }
+
+    /**
+     * 失败兜底副本：置离线位与异常摘要；无旧内容置 OFFLINE，有旧内容置 ERROR 并保留
+     * 上一轮 items，不空白不崩溃。五区失败分支共用，避免各自拷贝口径漂移。
+     */
+    private fun <T> offlineCopy(
+        current: RegionState<T>,
+        failure: Throwable,
+    ): RegionState<T> = current.copy(
+        offline = true,
+        errorMessage = failure.message ?: "数据源不可达",
+        status = if (current.items.isEmpty()) RegionStatus.OFFLINE else RegionStatus.ERROR,
+    )
 }

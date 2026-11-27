@@ -389,12 +389,16 @@ PACK_MAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'import-pack
 
 
 def load_pack_map():
-    """S5 的判据来源：从 CI 绿基线（16bc12b）生成的 符号->唯一包 种子。
+    """S5 的判据来源：从 CI 绿基线（16bc12b）生成的 符号->包 种子。
 
     为什么不用"扫当前工作树"：错误的 import 本身就在树里（88e62bc 已推红），
     自举会把错包算成合法用法。种子来自干净基线 + 人工维护，才判得动。
     为什么不覆盖非 compose 符号：同名跨域太密（Canvas 有 android.graphics 版），
     全量比对误报 2300+ 条，实测不可用；compose 面才是手抄错包的重灾区。
+
+    值形态：单源条目是 "包名" 字符串；同名多源条目是 {"pkgs": [...], "note": "..."}
+    对象（如 SpringSpec 同时存在 Compose 泛型版与契约层 data class 版），判据按
+    pkgs 集合成员比对，两个已核实来源之间放行，第三来源仍判不符。
     """
     try:
         with open(PACK_MAP, encoding='utf-8') as f:
@@ -425,8 +429,17 @@ def check_import_package(path: str, pmap):
             continue
         pkg, name = q.rsplit('.', 1)
         want = pmap.get(name)
-        if want and want != pkg:
-            errs.append((i, 'import %s 的包与基线登记不符（基线：%s）' % (q, want.replace('/', ' 或 '))))
+        if not want:
+            continue
+        # 同名多源条目值为对象（pkgs 白名单）；单源条目仍是字符串包名。
+        if isinstance(want, dict):
+            allowed = want.get('pkgs') or []
+            if not allowed:
+                continue  # 种子条目缺来源清单，按未知符号交 CI 编译兜底，不硬判
+        else:
+            allowed = [want]
+        if pkg not in allowed:
+            errs.append((i, 'import %s 的包与基线登记不符（基线：%s）' % (q, ' 或 '.join(allowed))))
     return errs
 
 

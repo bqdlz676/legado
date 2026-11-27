@@ -66,7 +66,13 @@
 "Spacer": "androidx.compose.foundation.layout",
 "SpanStyle": "androidx.compose.ui.text",
 "Spring": "androidx.compose.animation.core",
-"SpringSpec": "androidx.compose.animation.core",
+"SpringSpec": {
+ "pkgs": [
+  "androidx.compose.animation.core",
+  "io.legado.app.ui.motion.contract"
+ ],
+ "note": "同名多源：前者为 Compose 泛型 SpringSpec<T>（存量 CrossingShell.kt:4 import）；后者为契约层 data class SpringSpec(stiffness/dampingRatio/label)（MotionSpec.kt:25）。两源均仓内合法，S5 只拦第三来源；同名不同类型互串交 CI 编译兜底。"
+},
 "Stable": "androidx.compose.runtime",
 "Stroke": "androidx.compose.ui.graphics.drawscope",
 "StrokeCap": "androidx.compose.ui.graphics",

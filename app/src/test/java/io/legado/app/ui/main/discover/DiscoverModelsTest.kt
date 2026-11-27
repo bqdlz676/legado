@@ -221,8 +221,13 @@ class DiscoverModelsTest {
     @Test
     fun `classicBook resolves to card package and source has no explore import`() {
         assertEquals("io.legado.app.ui.card", ClassicBook::class.java.`package`?.name)
-        assertFalse("不得跨包引用旧 explore 同名模型", modelsSource.contains("ui.main.explore"))
+        // 先剥注释面再断：与上一用例同口径——KDoc / 块注释里若写到旧包路径或卡片族 import
+        // 字样，整文件 contains 会把注释这句话自证成红；判据只落在剥过注释的代码面上。
+        val codeLines = modelsSource.lines()
+            .filterNot { it.trimStart().startsWith("//") || it.trimStart().startsWith("*") || it.trimStart().startsWith("/**") }
+            .joinToString("\n")
+        assertFalse("不得跨包引用旧 explore 同名模型", codeLines.contains("ui.main.explore"))
         assertTrue("只允许引用卡片族 ClassicBook",
-            modelsSource.contains("import io.legado.app.ui.card.ClassicBook"))
+            codeLines.contains("import io.legado.app.ui.card.ClassicBook"))
     }
 }

@@ -42,12 +42,13 @@ class DiscoverViewModelTest {
         hero: List<HeroSource> = emptyList(),
         notebook: List<NotebookEntrySource> = emptyList(),
         battleBoom: Throwable? = null,
+        notebookBoom: Throwable? = null,
     ): DiscoverViewModel {
         val bp = CountingPort(battle, battleBoom)
         val cp = CountingPort(classic)
         val tp = CountingPort(topic)
         val hp = CountingPort(hero)
-        val np = CountingPort(notebook)
+        val np = CountingPort(notebook, notebookBoom)
         val vm = DiscoverViewModel(
             battleSource = BattleSourcePort { bp.load() },
             classicSource = ClassicSourcePort { cp.load() },
@@ -205,11 +206,86 @@ class DiscoverViewModelTest {
         val state = model.notebookState()
         assertEquals(RegionStatus.CONTENT, state.status)
         assertEquals(2, state.items.first().count)
+        assertEquals(0, state.dropped)
 
         val emptyModel = vm()
         emptyModel.refreshNotebook()
         assertEquals(RegionStatus.EMPTY, emptyModel.notebookState().status)
         assertEquals(0, emptyModel.notebookState().items.first().count)
+        assertEquals(0, emptyModel.notebookState().dropped)
+    }
+
+    @Test
+    fun `notebook bad token entries drop from count and report dropped`() {
+        val entries = listOf(
+            NotebookEntrySource("之", "史记", "五帝本纪", 1L),
+            NotebookEntrySource("   ", "左传", "隐公元年", 2L),
+            NotebookEntrySource("乎", "论语", "学而", 3L),
+        )
+        val model = vm(notebook = entries)
+        model.refreshNotebook()
+        val state = model.notebookState()
+        assertEquals(RegionStatus.CONTENT, state.status)
+        assertEquals(1, state.items.size)
+        assertEquals(2, state.items.first().count)
+        assertEquals(1, state.dropped)
+        assertFalse(state.offline)
+    }
+
+    @Test
+    fun `notebook all bad entries keep one empty card with dropped count`() {
+        val entries = listOf(
+            NotebookEntrySource("", "史记", "五帝本纪", 1L),
+            NotebookEntrySource("   ", "左传", "隐公元年", 2L),
+        )
+        val model = vm(notebook = entries)
+        model.refreshNotebook()
+        val state = model.notebookState()
+        assertEquals(RegionStatus.EMPTY, state.status)
+        assertEquals(1, state.items.size)
+        assertEquals(0, state.items.first().count)
+        assertEquals(2, state.dropped)
+        assertFalse(state.offline)
+    }
+
+    @Test
+    fun `notebook failure keeps previous entry card in error state`() {
+        val good = listOf(NotebookEntrySource("之", "史记", "五帝本纪", 1L))
+        var failNext = false
+        val notebookPort = object : NotebookSourcePort {
+            override fun load(): List<NotebookEntrySource> {
+                if (failNext) throw RuntimeException("生字本断网")
+                return good
+            }
+        }
+        val model = DiscoverViewModel(
+            battleSource = BattleSourcePort { CountingPort(emptyList<BattleSource>()).load() },
+            classicSource = ClassicSourcePort { CountingPort(emptyList<ClassicSource>()).load() },
+            topicSource = TopicSourcePort { CountingPort(emptyList<TopicSource>()).load() },
+            heroSource = HeroSourcePort { CountingPort(emptyList<HeroSource>()).load() },
+            notebookSource = notebookPort,
+        )
+        model.refreshNotebook()
+        assertEquals(RegionStatus.CONTENT, model.notebookState().status)
+        failNext = true
+        model.refreshNotebook()
+        val state = model.notebookState()
+        assertEquals(RegionStatus.ERROR, state.status)
+        assertTrue(state.offline)
+        assertEquals(1, state.items.size)
+        assertEquals(1, state.items.first().count)
+        assertEquals("生字本断网", state.errorMessage)
+    }
+
+    @Test
+    fun `notebook failure on empty region marks offline`() {
+        val model = vm(notebookBoom = RuntimeException("生字本不可达"))
+        model.refreshNotebook()
+        val state = model.notebookState()
+        assertEquals(RegionStatus.OFFLINE, state.status)
+        assertTrue(state.offline)
+        assertTrue(state.items.isEmpty())
+        assertEquals("生字本不可达", state.errorMessage)
     }
 
     // ─────────────────────────── 进度 / 掌握态不自存 ───────────────────────────
