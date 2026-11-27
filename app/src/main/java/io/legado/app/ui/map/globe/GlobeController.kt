@@ -1,6 +1,8 @@
 package io.legado.app.ui.map.globe
 
+import io.legado.app.ui.map.globe.astro.contract.CameraYawPitch
 import io.legado.app.ui.map.globe.astro.contract.SkyFrame
+import io.legado.app.ui.map.globe.astro.contract.SkyParams
 import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
 import io.legado.app.ui.map.globe.offline.AssetStatus
 import io.legado.app.ui.map.globe.offline.OfflineFallback
@@ -30,8 +32,42 @@ class GlobeController(
 
     fun onDragEnd() = scene.rotator.onDragEnd()
 
-    /** 双指捏合：scaleFactor >1 拉近，<1 推远。 */
-    fun onZoom(scaleFactor: Float) = scene.zoom(scaleFactor)
+    /**
+     * 双指捏合：scaleFactor >1 拉近，<1 推远。
+     *
+     * 相机先按既有地球仪态钳在 [0.6R, 10R]（§十.1）；10R 之后不再推相机，超出部分由
+     * [skyZoom] 等效缩放标量续走 `skyBlend` 单曲线（§十.3），满混合锚 = [SkyParams.SKY_BLEND_FULL_ZOOM]。
+     */
+    fun onZoom(scaleFactor: Float) {
+        scene.zoom(scaleFactor)
+        applySkyZoom(scaleFactor)
+    }
+
+    /** 等效缩放标量（半径倍数）；0 = 尚未从场景距离比初始化，首次捏合时对齐。 */
+    private var skyZoom: Float = 0f
+
+    /** 相机 10R 以外的捏合增量 → blend；与 [SkyParams.magLimitFromBlend] 同一条曲线（§十.9）。 */
+    private fun applySkyZoom(scaleFactor: Float) {
+        if (scaleFactor == 1f) return
+        if (skyZoom <= 0f) skyZoom = scene.distanceRatio
+        skyZoom = (skyZoom / scaleFactor).coerceIn(
+            GlobeConfig.CAMERA_MIN_DISTANCE_RATIO, SkyParams.SKY_BLEND_FULL_ZOOM,
+        )
+        val blend = blendFromZoom(skyZoom)
+        when {
+            blend > 0f && scene.sky == null -> enterSky(SkyViewMode.SKY_HEAVEN)
+            blend <= 0f && scene.sky != null -> { exitSky(); skyZoom = scene.distanceRatio; return }
+        }
+        if (scene.sky != null) setSkyBlend(blend)
+    }
+
+    /** 等效缩放标量 → blend 0..1：≤10R 地球仪态 blend=0；10R→12R 连续升到 1（§十.3、§十六.14）。 */
+    private fun blendFromZoom(zoom: Float): Float {
+        if (zoom <= GlobeConfig.CAMERA_MAX_DISTANCE_RATIO) return 0f
+        return ((zoom - GlobeConfig.CAMERA_MAX_DISTANCE_RATIO) /
+            (SkyParams.SKY_BLEND_FULL_ZOOM - GlobeConfig.CAMERA_MAX_DISTANCE_RATIO))
+            .coerceIn(0f, 1f)
+    }
 
     /** 双击飞到点击经纬度。 */
     fun onFlyTo(lat: Double, lng: Double) = scene.flyTo(lat, lng)
@@ -85,9 +121,30 @@ class GlobeController(
 
     /**
      * 连续混合标量：0 地球视觉直径 400px，1 缩到 40px 锚（§十.3）；钳 [0,1]，
-     * 保留当前帧其它字段现值。
+     * 保留当前帧其它字段现值。magLimit 走同一曲线 [SkyParams.magLimitFromBlend]（§十.9），
+     * 不再由调用方另算星等上限。
      */
     fun setSkyBlend(v: Float) {
-        scene.sky = (scene.sky ?: SkyFrame()).copy(skyBlend = v.coerceIn(0f, 1f))
+        val blend = v.coerceIn(0f, 1f)
+        scene.sky = (scene.sky ?: SkyFrame()).copy(
+            skyBlend = blend,
+            magLimit = SkyParams.magLimitFromBlend(blend),
+        )
+    }
+
+    /** 退出星空：清空星空帧，地球仪态行为回到进入前一字不差（§十.3 反向对称）。 */
+    fun exitSky() {
+        scene.sky = null
+    }
+
+    /** 点选写回：选中星 / 星官 / 星座 / 分野 id；未入星空时忽略，不凭空建帧。 */
+    fun selectStar(id: Long?) {
+        scene.sky = scene.sky?.copy(selectedId = id)
+    }
+
+    /** 星空相机姿态写回（天外旋转天球 / 地上平移方位）；未入星空时忽略。 */
+    fun setSkyPose(yawDeg: Double, pitchDeg: Double) {
+        val cur = scene.sky ?: return
+        scene.sky = cur.copy(cameraYawPitch = CameraYawPitch(yawDeg, pitchDeg))
     }
 }

@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -40,7 +41,10 @@ import androidx.compose.ui.unit.sp
 import io.legado.app.ui.map.globe.GlobeConfig
 import io.legado.app.ui.map.globe.GlobeSpecSurface
 import io.legado.app.ui.map.globe.GlobeTokens
+import io.legado.app.ui.map.globe.astro.data.StarStore
+import io.legado.app.ui.map.globe.astro.data.StarStoreProvider
 import io.legado.app.ui.map.globe.geo.Geo
+import io.legado.app.ui.map.globe.offline.AssetStatus
 import io.legado.app.ui.map.globe.offline.DegradationLevel
 import io.legado.app.ui.map.globe.render.FrameSnapshot
 import io.legado.app.ui.map.globe.replay.FactionPalette
@@ -73,6 +77,10 @@ fun GlobeScreenHost(
             color = (GlobeTokens.bgPage and 0xFFFFFFFFL).toInt()
         }
     }
+    val context = LocalContext.current
+    val density = context.resources.displayMetrics.density
+    val starStore = remember { StarStoreProvider.get(context.assets) }
+    val skyHandler = remember { SkyInputHandler(host.controller, SkyCanvasRenderer) }
 
     // 帧节拍：推进门面一帧并取回不可视快照；离开组合时循环随 LaunchedEffect 取消，不白烧 GPU。
     LaunchedEffect(Unit) {
@@ -94,23 +102,22 @@ fun GlobeScreenHost(
             .onSizeChangedCompat { w, h -> viewport = w to h }
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
-                    if (zoom != 1.0f) {
-                        host.zoom(zoom)
-                    } else {
-                        host.drag(pan.x.toDouble(), pan.y.toDouble())
-                    }
+                    skyHandler.onZoom(zoom)
+                    if (zoom == 1.0f) skyHandler.onDrag(pan.x, pan.y)
                 }
             }
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { host.dragStart() },
-                    onDrag = { _, delta -> host.drag(delta.x.toDouble(), delta.y.toDouble()) },
-                    onDragEnd = { host.dragEnd() },
-                    onDragCancel = { host.dragEnd() },
+                    onDragStart = { offset -> skyHandler.onDragStart(offset.x, offset.y) },
+                    onDrag = { _, delta -> skyHandler.onDrag(delta.x, delta.y) },
+                    onDragEnd = { skyHandler.onDragEnd() },
+                    onDragCancel = { skyHandler.onDragEnd() },
                 )
             }
             .pointerInput(Unit) {
                 detectTapGestures(
+                    onTap = { offset -> skyHandler.onTap(offset.x, offset.y) },
+                    onLongPress = { offset -> skyHandler.onLongPress(offset.x, offset.y) },
                     onDoubleTap = { offset ->
                         val (w, h) = viewport
                         if (w > 0f && h > 0f) {
@@ -125,7 +132,7 @@ fun GlobeScreenHost(
                 )
             },
     ) {
-        GlobeCanvas(host, snapshot, viewport, labelPaint)
+        GlobeCanvas(host, snapshot, viewport, labelPaint, starStore, density)
 
         // 顶栏：返回 + 标题 + 兜底档位徽记。
         Row(
@@ -206,11 +213,17 @@ private fun GlobeCanvas(
     snapshot: FrameSnapshot,
     viewport: Pair<Float, Float>,
     labelPaint: Paint,
+    store: StarStore,
+    density: Float,
 ) {
     val (w, h) = viewport
     Canvas(Modifier.fillMaxSize()) {
         if (w <= 0f || h <= 0f) return@Canvas
-        SkyCanvasRenderer.draw(drawContext.canvas.nativeCanvas, snapshot, w, h, labelPaint)
+        SkyCanvasRenderer.lowPower = snapshot.degradation == DegradationLevel.PROCEDURAL_ONLY
+        SkyCanvasRenderer.offline = !host.controller.scene.fallback.online
+        // 无真实下载进度源：有待就位素材时给可见半幅金线占位（§七.4），真实 0..1 进度待下载器接线单回填。
+        SkyCanvasRenderer.loadingProgress = if (snapshot.fallbackResolutions.any { it.status == AssetStatus.PENDING_DOWNLOAD }) 0.5f else -1f
+        SkyCanvasRenderer.draw(drawContext.canvas.nativeCanvas, snapshot, w, h, labelPaint, store = store, density = density)
         val radiusPx = min(w, h) * 0.32f
         val proj = projOf(host, w, h)
 
