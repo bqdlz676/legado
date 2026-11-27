@@ -154,11 +154,13 @@ jobs:
 
       - name: Report fields gate (EMPTY rc=2 neutral)
         run: |
+          set +e
           python3 data_scripts/check-report-fields.py; rc=$?
           if [ "$rc" -eq 2 ]; then echo "::notice::report-fields EMPTY 空集，中性放行"; else exit "$rc"; fi
 
       - name: Anchor card gate --strict (EMPTY rc=2 neutral)
         run: |
+          set +e
           python3 data_scripts/check-anchor-card.py --strict; rc=$?
           if [ "$rc" -eq 2 ]; then echo "::notice::anchor-card EMPTY 空集，中性放行"; else exit "$rc"; fi
 
