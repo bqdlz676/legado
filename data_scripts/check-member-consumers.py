@@ -36,24 +36,151 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE_ROOTS = ['app/src', 'screenshot/src']
 
-# ---- 声明头正则 -------------------------------------------------------------
+# ---- 声明头扫描 -------------------------------------------------------------
 
-# sealed class / interface 头
-SEALED_HEAD = re.compile(r'^\s*sealed\s+(?:class|interface)\s+(?P<name>[A-Za-z_]\w*)')
 # enum class 头
 ENUM_HEAD = re.compile(r'^\s*enum\s+class\s+(?P<name>[A-Za-z_]\w*)')
-# 子类声明：`data class Foo(args...) : Bar.Baz(...)` / `object Foo : Bar()`，
-# 主构造参数列表允许夹在名字与父类型之间；父类型可带泛型。
-SUB_HEAD = re.compile(
-    r'^\s*(?:@\w+(?:\([^)]*\))?\s*)*'
-    r'(?:data\s+)?(?:object|class)\s+(?P<name>[A-Za-z_]\w*)'
-    r'(?:\([^)]*\))?'
-    r'\s*(?::\s*(?P<parent>[A-Za-z_][\w.]*(?:<[^>]*>)?))?'
-)
 COMPANION_HEAD = re.compile(r'^\s*companion\s+object')
 VAL_HEAD = re.compile(r'^\s*(?:const\s+)?val\s+(?P<name>[A-Za-z_]\w*)')
 # when 块在 find_whens 里手工配平 subject 括号，兼容 `when (val x = f(a, b)) {` 内层括号。
 IDENT = re.compile(r'[A-Za-z_]\w*')
+
+# 根声明修饰符：带这些修饰符的 class/object 是类型根本身，不登记成某个父类型的子类。
+# 为什么单列：同行扫描时 `abstract class Foo : Bar`、`sealed class Foo : Bar` 也带父类型冒号，
+# 若不剔除会把根错并进子类集合；`data` 不是根修饰符（data class 仍是子类形态）。
+_ROOT_MODS = {'sealed', 'enum', 'abstract', 'open', 'final', 'inner', 'interface',
+              'private', 'internal', 'public', 'protected', 'companion', 'const',
+              'override', 'lateinit'}
+
+
+def _skip_ws(s: str, i: int) -> int:
+    while i < len(s) and s[i] in ' \t':
+        i += 1
+    return i
+
+
+def _balanced_paren(s: str, i: int, open_c: str = '(', close_c: str = ')'):
+    """s[i] 为开括号；字符串 / 字符字面量感知配平，返回闭括号后一位下标；配不平返回 None。
+
+    为什么不靠 `[^)]*` 惰性正则：主构造参数含函数类型 `() -> Unit`、嵌套括号
+    `(val f: (String) -> Unit)` 或串内括号时，第一个 `)` 就会截断参数列表，父类型识别落空
+    （真仓实例 InkBottomSheet.kt:91 的 `Wired` 因此漏登记）。
+    """
+    depth = 0
+    state = None  # None / str / char / raw
+    n = len(s)
+    while i < n:
+        c = s[i]
+        three = s[i:i + 3]
+        if state is None:
+            if three == '"""':
+                state, i = 'raw', i + 3
+                continue
+            if c == '"':
+                state, i = 'str', i + 1
+                continue
+            if c == "'":
+                state, i = 'char', i + 1
+                continue
+            if c == open_c:
+                depth += 1
+            elif c == close_c:
+                depth -= 1
+                if depth == 0:
+                    return i + 1
+            i += 1
+            continue
+        if state == 'raw':
+            if three == '"""':
+                state, i = None, i + 3
+                continue
+            i += 1
+            continue
+        if state == 'str':
+            if c == '\\':
+                i += 2
+                continue
+            if c == '"':
+                state = None
+            i += 1
+            continue
+        if state == 'char':
+            if c == '\\':
+                i += 2
+                continue
+            if c == "'":
+                state = None
+            i += 1
+            continue
+    return None
+
+
+def _read_parent(s: str, i: int):
+    """从冒号后读父类型短名 / 限定名 + 可选泛型；返回 (parent, 新下标)，无则 (None, i)。"""
+    i = _skip_ws(s, i)
+    m = re.match(r'[A-Za-z_][\w.]*', s[i:])
+    if not m:
+        return None, i
+    parent = m.group(0)
+    i += m.end()
+    if i < len(s) and s[i] == '<':
+        close = _balanced_paren(s, i, '<', '>')
+        if close:
+            i = close
+    return parent, i
+
+
+def _iter_sub_heads(line: str):
+    """扫描一行内全部子类声明，产出 (name, parent)；支持同行多个声明与内联花括号写法。
+
+    覆盖形态：`data class Wired(val onAction: () -> Unit) : SheetOfflineAction`、
+    `object Foo : Bar.Baz`、`data object HintOnly : SheetOfflineAction`，以及
+    `sealed interface A { object X : A; object Y : A }` 同行排布。根修饰符前置的声明跳过。
+    """
+    s = line
+    n = len(s)
+    i = 0
+    pending_root = False
+    while i < n:
+        if not (s[i].isalpha() or s[i] == '_'):
+            i += 1
+            continue
+        m = re.match(r'[A-Za-z_]\w*', s[i:])
+        if not m:
+            # 非 ASCII 字母（如串内汉字）不构成 Kotlin 标识符，跳过该字符。
+            i += 1
+            continue
+        word, wend = m.group(0), i + m.end()
+        if word in _ROOT_MODS:
+            pending_root = True
+            i = wend
+            continue
+        if word == 'data':
+            i = wend
+            continue
+        if word in ('object', 'class'):
+            is_root, pending_root = pending_root, False
+            j = _skip_ws(s, wend)
+            nm = re.match(r'[A-Za-z_]\w*', s[j:])
+            if not nm:
+                i = wend
+                continue
+            name = nm.group(0)
+            j += nm.end()
+            j = _skip_ws(s, j)
+            if j < n and s[j] == '(':
+                close = _balanced_paren(s, j)
+                j = close if close else n
+                j = _skip_ws(s, j)
+            parent = None
+            if j < n and s[j] == ':':
+                parent, _ = _read_parent(s, j + 1)
+            if parent and not is_root:
+                yield name, parent
+            i = wend
+            continue
+        pending_root = False
+        i = wend
 
 
 # ---- 注释 / 字符串状态机 ----------------------------------------------------
@@ -136,6 +263,90 @@ def strip_comments(text: str) -> str:
                 continue
             if c == "'":
                 state = None
+            i += 1
+            continue
+    return ''.join(out)
+
+
+def _mask_code(text: str) -> str:
+    """等长掩码：注释面 + 字符串 / 字符字面量内容替换成空格（换行保留）。
+
+    与 strip_comments 的分工：删除面残留 grep 保留字符串（handler 字符串映射算真残留）；
+    归属提及匹配反过来要把注释和字符串都抹掉——注释里写父类型名、字符串里拼父类型名都不是
+    真消费方，不能据此把文件纳入 when 覆盖候选。等长掩码偏移可复用，串内括号不计入代码位。
+    写法思路同仓内 check-member-override.py 的 _mask 状态机。
+    """
+    out = []
+    i, n = 0, len(text)
+    state = None  # None / line / block / str / char / raw
+    while i < n:
+        c = text[i]
+        two = text[i:i + 2]
+        three = text[i:i + 3]
+        if state is None:
+            if two == '//':
+                state, i = 'line', i + 2
+                out.append(' '); out.append(' ')
+                continue
+            if two == '/*':
+                state, i = 'block', i + 2
+                out.append(' '); out.append(' ')
+                continue
+            if three == '"""':
+                state, i = 'raw', i + 3
+                out.extend([' ', ' ', ' '])
+                continue
+            if c == '"':
+                state, i = 'str', i + 1
+                out.append(' ')
+                continue
+            if c == "'":
+                state, i = 'char', i + 1
+                out.append(' ')
+                continue
+            out.append(c)
+            i += 1
+            continue
+        if state == 'line':
+            out.append('\n' if c == '\n' else ' ')
+            if c == '\n':
+                state = None
+            i += 1
+            continue
+        if state == 'block':
+            if two == '*/':
+                out.append(' '); out.append(' ')
+                state, i = None, i + 2
+                continue
+            out.append('\n' if c == '\n' else ' ')
+            i += 1
+            continue
+        if state == 'raw':
+            if three == '"""':
+                state, i = None, i + 3
+                out.extend([' ', ' ', ' '])
+                continue
+            out.append('\n' if c == '\n' else ' ')
+            i += 1
+            continue
+        if state == 'str':
+            if c == '\\':
+                out.append(' '); out.append(' ')
+                i += 2
+                continue
+            if c == '"':
+                state = None
+            out.append('\n' if c == '\n' else ' ')
+            i += 1
+            continue
+        if state == 'char':
+            if c == '\\':
+                out.append(' '); out.append(' ')
+                i += 2
+                continue
+            if c == "'":
+                state = None
+            out.append('\n' if c == '\n' else ' ')
             i += 1
             continue
     return ''.join(out)
@@ -308,10 +519,11 @@ def parse_decls(text: str) -> dict:
             i += 1
             continue
 
-        m_sub = SUB_HEAD.match(line)
-        if m_sub and m_sub.group('parent'):
-            parent = re.sub(r'<[^>]*>$', '', m_sub.group('parent'))
-            subs.append((m_sub.group('name'), parent))
+        # 子类声明走括号配平扫描器：支持函数类型 / 嵌套括号构造参数、同行多个声明。
+        # 先过掩码抹掉字符串 / 字符内容，避免串里写着 `object Foo : Bar` 被全局扫描误登记。
+        for sub_name, sub_parent in _iter_sub_heads(_mask_code(line)):
+            sub_parent = re.sub(r'<[^>]*>$', '', sub_parent)
+            subs.append((sub_name, sub_parent))
         i += 1
 
     for type_name, body in enum_bodies:
@@ -366,8 +578,45 @@ def _kt_files(root: str) -> list:
     return sorted(out)
 
 
+# 局部绑定收集：val / var / fun 声明名 + 函数形参名。最小符号表只认同文件内的局部绑定，
+# 不做跨函数作用域解析（静态闸拿不到完整类型表）；命中是否降级还要叠加位置强弱判定。
+LOCAL_BIND = re.compile(r'\b(?:val|var|fun)\s+([A-Za-z_]\w*)')
+LOCAL_PARAM = re.compile(r'\(\s*([A-Za-z_]\w*)\s*:')
+
+
+def _local_bindings(code: str) -> set:
+    names = set()
+    for m in LOCAL_BIND.finditer(code):
+        names.add(m.group(1))
+    for m in LOCAL_PARAM.finditer(code):
+        names.add(m.group(1))
+    return names
+
+
+def _strong_position(line: str, start: int) -> bool:
+    """命中是否落在类型 / 限定引用位：`.Name`、import、is/as、类型标注 `: Name`。
+
+    这些位置基本不可能是同名局部变量遮蔽；裸标识符独立出现（赋值右值、表达式变量）
+    才可能是局部变量撞名，交给 local 标记降级。
+    """
+    k = start - 1
+    while k >= 0 and line[k] in ' \t':
+        k -= 1
+    if k >= 0 and line[k] == '.':
+        return True
+    head = line[:start]
+    if re.search(r'\b(import|is|as)\s*$', head) or re.search(r':\s*$', head):
+        return True
+    return False
+
+
 def grep_name(name: str, roots: list) -> list:
-    """全仓 token 边界 grep 成员名；剥注释、保留字符串。返回 [(path, line, 片段)]。"""
+    """全仓 token 边界 grep 成员名；剥注释、保留字符串。
+
+    返回命中 dict 列表：path / line / snippet / strong（类型或限定引用位）/
+    local（该名在本文件有局部 val/var/fun/形参绑定）。删除面判红只认强位或非局部命中；
+    仅局部绑定支持的裸标识符命中交上层降为提示，避免同名局部变量造成 blocking 误报。
+    """
     hits = []
     pat = re.compile(r'(?<![A-Za-z0-9_])' + re.escape(name) + r'(?![A-Za-z0-9_])')
     for root in roots:
@@ -379,10 +628,14 @@ def grep_name(name: str, roots: list) -> list:
             except OSError:
                 continue
             code = strip_comments(text)
+            locals_ = _local_bindings(code)
             for ln, raw in enumerate(code.splitlines(), 1):
-                if pat.search(raw):
-                    snippet = raw.strip()[:80]
-                    hits.append((f, ln, snippet))
+                for m in pat.finditer(raw):
+                    hits.append({
+                        'path': f, 'line': ln, 'snippet': raw.strip()[:80],
+                        'strong': _strong_position(raw, m.start()),
+                        'local': name in locals_,
+                    })
     return hits
 
 
@@ -447,12 +700,13 @@ def _parent_short(parent: str) -> str:
 def check_added_members(added: list, roots: list) -> tuple:
     """新增面：对每个新成员，找归属父类型的 when 块，缺 else 且未覆盖则 WARN 点名。
 
-    返回 (warns, notes)：warns 为须点名的缺口（含找不到 when 块的 INFO 留痕）；
-    notes 为配对留痕（有 else 兜底 / 已有候选分支）。归属口径（静态闸拿不到接收者
-    类型，拿不到就不硬判）：when 主体显式标注父类型，或所在文件文本提到父类型短名。
+    返回 (warns, infos, notes)：warns 为须点名的 WARN 缺口；infos 为 INFO 留痕
+    （找不到归属 when 块）；notes 为配对留痕（有 else 兜底 / 已有候选分支）。三类分行，
+    不混列。归属口径（静态闸拿不到接收者类型，拿不到就不硬判）：when 主体显式标注父类型，
+    或所在文件掩码后（注释 / 字符串已抹除）仍提到父类型短名——注释或串里的同名提及不算消费方。
     """
-    warns, notes = [], []
-    # 预扫文件：文件路径 → 文本 / when 列表 / 是否提到父短名
+    warns, infos, notes = [], [], []
+    # 预扫文件：文件路径 → 掩码文 / when 列表（归属提及只认掩码后的代码位）
     files = []
     for root in roots:
         if not os.path.isdir(root):
@@ -462,21 +716,22 @@ def check_added_members(added: list, roots: list) -> tuple:
                 text = open(f, encoding='utf-8', errors='ignore').read()
             except OSError:
                 continue
-            files.append((f, text, find_whens(text)))
+            files.append((f, _mask_code(text), find_whens(text)))
 
     for kind, name, parent in added:
         if kind not in ('sub', 'enum'):
             continue
         pshort = _parent_short(parent)
         candidates = []
-        for f, text, whens in files:
-            mentions = (not pshort) or (re.search(r'(?<![A-Za-z0-9_])' + re.escape(pshort) + r'(?![A-Za-z0-9_])', text) is not None)
+        for f, masked, whens in files:
+            mentions = (not pshort) or (re.search(
+                r'(?<![A-Za-z0-9_])' + re.escape(pshort) + r'(?![A-Za-z0-9_])', masked) is not None)
             for w in whens:
                 typed = bool(pshort) and pshort in w['subj']
                 if mentions or typed:
                     candidates.append((f, w))
         if not candidates:
-            warns.append(f'INFO  [WHEN-COVER] 新成员 {parent}.{name}：未找到归属父类型 {parent} 的 when 块（无 else 可核，留人工复查）')
+            infos.append(f'INFO  [WHEN-COVER] 新成员 {parent}.{name}：未找到归属父类型 {parent} 的 when 块（无 else 可核，留人工复查）')
             continue
         for f, w in candidates:
             if w['else']:
@@ -489,7 +744,7 @@ def check_added_members(added: list, roots: list) -> tuple:
             warns.append(
                 f'WARN  [WHEN-COVER] {f}:{w["line"]} when 无 else 且未覆盖新成员 {name}'
                 f'（父类型 {parent}；bare={w["bare"]}）')
-    return warns, notes
+    return warns, infos, notes
 
 
 # ---- 改动面采集 -------------------------------------------------------------
@@ -532,8 +787,13 @@ def git_show_old(path: str, base: str = 'origin/main') -> str:
 # ---- 主判定 -----------------------------------------------------------------
 
 def evaluate(pairs: list, roots: list, audit: bool) -> tuple:
-    """pairs: [(rel_path, old_text, new_text)]。返回 (fail_lines, warn_lines, stats)。"""
-    fails, warns, pairs_record = [], [], []
+    """pairs: [(rel_path, old_text, new_text)]。
+
+    返回 (fails, warns, infos, records, stats)：fails=DELETE/改名残留 blocking；
+    warns=新增面 WARN 点名；infos=INFO 提示（局部遮蔽 / 无归属 when / 改名跳过）；
+    records=配对留痕（REF-CHECK 零残留、PAIR 配对、RENAME 真实改名对）。
+    """
+    fails, warns, infos, records = [], [], [], []
     removed_all, added_all = [], []
     per_file = []
 
@@ -544,41 +804,63 @@ def evaluate(pairs: list, roots: list, audit: bool) -> tuple:
         removed_all.extend((rel, *v) for v in d['removed'])
         added_all.extend((rel, *v) for v in d['added'])
 
-    # 1) 删除面：旧名残留 grep，任一命中即红。
+    # 1) 删除面：旧名残留 grep。强位（类型/限定引用）或非局部绑定命中才判红；
+    #    仅同名局部变量 / 裸标识符支持的命中降为 INFO 提示，不进 blocking。
     for rel, kind, name, parent in removed_all:
         hits = grep_name(name, roots)
-        # 排除声明文件自身在旧版本里的声明行——工作树中该声明已删，残留只看工作树现状。
-        if hits:
-            loc = '；'.join(f'{h[0]}:{h[1]}' for h in hits[:5])
-            more = f' 等 {len(hits)} 处' if len(hits) > 5 else ''
+        blocking = [h for h in hits if h['strong'] or not h['local']]
+        shadow = [h for h in hits if not h['strong'] and h['local']]
+        if blocking:
+            loc = '；'.join(f'{h["path"]}:{h["line"]}' for h in blocking[:5])
+            more = f' 等 {len(blocking)} 处' if len(blocking) > 5 else ''
             fails.append(f'DELETE {rel} 删掉 {kind} 成员 `{name}`（{parent}）后仍有残留引用：{loc}{more}')
+        elif shadow:
+            h0 = shadow[0]
+            infos.append(
+                f'INFO  [LOCAL-SHADOW] {rel} 删除 `{name}`（{parent}）仅余 {len(shadow)} 处'
+                f'同名局部变量/裸标识符命中（{h0["path"]}:{h0["line"]}），无包级/类级声明支持，降为提示不判红')
         else:
-            pairs_record.append(f'REF-CHECK 删除成员 `{name}`（{parent}）全仓残留 0 处')
+            records.append(f'REF-CHECK 删除成员 `{name}`（{parent}）全仓残留 0 处')
 
-    # 3) 改名面：同文件同类一删一增，配对记录；旧名残留已在上面 DELETE 面判过。
+    # 3) 改名面：同类且同父类型短名才构成真实改名对，1:1 配对；不做旧×新笛卡尔积。
     for rel, d in per_file:
-        by_kind_old = {}
-        by_kind_new = {}
+        by_kind_old, by_kind_new = {}, {}
         for kind, name, parent in d['removed']:
             by_kind_old.setdefault(kind, []).append((name, parent))
         for kind, name, parent in d['added']:
             by_kind_new.setdefault(kind, []).append((name, parent))
         for kind, olds in by_kind_old.items():
             news = by_kind_new.get(kind, [])
+            used = set()
             for old_name, old_parent in olds:
-                for new_name, new_parent in news:
-                    pairs_record.append(
+                op = _parent_short(old_parent)
+                match_idx = None
+                for idx, (new_name, new_parent) in enumerate(news):
+                    if idx in used:
+                        continue
+                    if _parent_short(new_parent) == op:
+                        match_idx = idx
+                        break
+                if match_idx is not None:
+                    new_name, new_parent = news[match_idx]
+                    used.add(match_idx)
+                    records.append(
                         f'RENAME 配对（{rel}）：`{old_name}`（{old_parent}）→ `{new_name}`（{new_parent}）')
+                else:
+                    infos.append(
+                        f'INFO  [RENAME-SKIP] {rel}：`{old_name}`（{old_parent}）在同类同父类型'
+                        f'新增面无配对新名，不记改名配对（旧名残留已在 DELETE 面核过）')
 
-    # 2) 新增面：when 覆盖 WARN 点名 + 配对留痕。
+    # 2) 新增面：when 覆盖 WARN 点名 + INFO 留痕 + 配对留痕，三类分行。
     added_plain = [(kind, name, parent) for _, kind, name, parent in added_all]
-    add_warns, add_notes = check_added_members(added_plain, roots)
+    add_warns, add_infos, add_notes = check_added_members(added_plain, roots)
     warns.extend(add_warns)
-    pairs_record.extend(add_notes)
+    infos.extend(add_infos)
+    records.extend(add_notes)
 
     stats = {'removed': len(removed_all), 'added': len(added_all),
              'files': len(per_file)}
-    return fails, warns, pairs_record, stats
+    return fails, warns, infos, records, stats
 
 
 def collect_roots() -> list:
@@ -620,21 +902,25 @@ def main(only_changed: bool = False, audit: bool = False) -> int:
             new = open(os.path.join(ROOT, rel), encoding='utf-8', errors='ignore').read()
             pairs.append((rel, old, new))
 
-    fails, warns, records, stats = evaluate(pairs, roots, audit=False)
+    fails, warns, infos, records, stats = evaluate(pairs, roots, audit=False)
 
+    # 分类分行打：WARN 缺口、INFO 提示与配对留痕、FAIL 残留各占一段，不混列计数。
     for w in warns:
         print(w)
+    for i in infos:
+        print(i)
     for r in records:
         print(f'INFO  {r}')
     for f in fails:
         print(f'FAIL  {f}')
 
+    n_info = len(infos) + len(records)
     if fails:
         print(f'MEMBER-CONSUMERS: FAIL（改动面 {stats["files"]} 文件；删除/改名残留 {len(fails)} 处；'
-              f'新增面 WARN {len(warns)} 条）')
+              f'新增面 WARN {len(warns)} 条；INFO 提示/配对 {n_info} 条）')
         return 1
     print(f'MEMBER-CONSUMERS: PASS（改动面 {stats["files"]} 文件；删除 {stats["removed"]} / '
-          f'新增 {stats["added"]}，残留 0；新增面 WARN {len(warns)} 条）')
+          f'新增 {stats["added"]}，残留 0；新增面 WARN {len(warns)} 条；INFO 提示/配对 {n_info} 条）')
     return 0
 
 
@@ -648,15 +934,19 @@ def _write_kt(root, rel, body):
 
 
 def _run_case(files: dict) -> tuple:
-    """单样本独立跑：临时目录写夹具文件，直接走生产 evaluate()，返回 (rc, fails, warns)。"""
+    """单样本独立跑：临时目录写夹具文件，直接走生产 evaluate()。
+
+    返回 (rc, fails, warns, infos, records)；断言按类别（FAIL/WARN/INFO/PASS）+ 文件 + 行名核，
+    不只比退出码。
+    """
     d = tempfile.mkdtemp(prefix='member-consumers-')
     try:
         pairs = []
         for rel, (old, new) in files.items():
             _write_kt(d, rel, new)
             pairs.append((rel, old, new))
-        fails, warns, records, stats = evaluate(pairs, [d], audit=False)
-        return (1 if fails else 0), fails, warns, records
+        fails, warns, infos, records, stats = evaluate(pairs, [d], audit=False)
+        return (1 if fails else 0), fails, warns, infos, records
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -675,7 +965,7 @@ def selftest() -> int:
             'package a\nimport a.Mode\nfun f(m: Mode) = when (m) {\n'
             '    Mode.OLD_MODE -> 1\n    Mode.NEW_MODE -> 2\n}\n'),
     }
-    rc, fails, warns, _ = _run_case(bad_delete)
+    rc, fails, warns, _, _ = _run_case(bad_delete)
     if rc != 1 or not any('OLD_MODE' in f for f in fails):
         ok = False
         print(f'  SELFTEST FAIL 删除残留样本应判红：rc={rc} fails={fails}')
@@ -688,7 +978,7 @@ def selftest() -> int:
             'package a\nsealed class Bar {\n    object OldFoo : Bar\n    object NewFoo : Bar\n}\n',
             'package a\nsealed class Bar {\n    object NewFoo : Bar\n}\n'),
     }
-    rc, fails, warns, records = _run_case(good_delete)
+    rc, fails, warns, _, records = _run_case(good_delete)
     if rc != 0 or fails:
         ok = False
         print(f'  SELFTEST FAIL 无残留样本应 PASS：rc={rc} fails={fails}')
@@ -704,7 +994,7 @@ def selftest() -> int:
             'package a\nfun f(b: Bar) = when (b) {\n    is Bar.OldFoo -> 1\n    else -> 0\n}\n',
             'package a\nfun f(b: Bar) = when (b) {\n    is Bar.OldFoo -> 1\n    else -> 0\n}\n'),
     }
-    rc, fails, warns, records = _run_case(good_add)
+    rc, fails, warns, _, records = _run_case(good_add)
     pair = [r for r in records if r.startswith('PAIR') and 'NewFoo' in r]
     if rc != 0 or any('NewFoo' in w for w in warns) or not pair:
         ok = False
@@ -721,7 +1011,7 @@ def selftest() -> int:
             'package a\nfun f(b: Bar) = when (b) {\n    is Bar.OldFoo -> 1\n}\n',
             'package a\nfun f(b: Bar) = when (b) {\n    is Bar.OldFoo -> 1\n}\n'),
     }
-    rc, fails, warns, _ = _run_case(bad_add)
+    rc, fails, warns, _, _ = _run_case(bad_add)
     if rc != 0 or not any('NewFoo' in w and 'Caller.kt:' in w for w in warns):
         ok = False
         print(f'  SELFTEST FAIL 无 else 样本应点名：rc={rc} warns={warns}')
@@ -734,7 +1024,7 @@ def selftest() -> int:
             'package a\nsealed class Bar {\n    object OldFoo : Bar\n}\n',
             'package a\nsealed class Bar {\n    object RenamedFoo : Bar\n}\n'),
     }
-    rc, fails, warns, records = _run_case(good_rename)
+    rc, fails, warns, _, records = _run_case(good_rename)
     rename_rec = [r for r in records if r.startswith('RENAME')]
     if rc != 0 or fails or not rename_rec:
         ok = False
@@ -751,7 +1041,7 @@ def selftest() -> int:
             'package a\nfun f(b: Bar) = b is Bar.OldFoo\n',
             'package a\nfun f(b: Bar) = b is Bar.OldFoo\n'),
     }
-    rc, fails, _, _ = _run_case(bad_rename)
+    rc, fails, _, _, _ = _run_case(bad_rename)
     if rc != 1 or not any('OldFoo' in f for f in fails):
         ok = False
         print(f'  SELFTEST FAIL 改名残留应判红：rc={rc} fails={fails}')
@@ -767,7 +1057,7 @@ def selftest() -> int:
             'package a\nfun f(b: Bar.Baz) = when (b) {\n    Bar.Baz.One -> 1\n}\n',
             'package a\nfun f(b: Bar.Baz) = when (b) {\n    Bar.Baz.One -> 1\n}\n'),
     }
-    rc, fails, warns, _ = _run_case(nested)
+    rc, fails, warns, _, _ = _run_case(nested)
     if rc != 0 or not any('Two' in w for w in warns):
         ok = False
         print(f'  SELFTEST FAIL 嵌套子类 when 覆盖应点名 Two：rc={rc} warns={warns}')
@@ -785,7 +1075,7 @@ def selftest() -> int:
             'package a\nfun f() = when (val x: Bar = getBar()) {\n    is Bar.OldFoo -> 1\n}\n'),
     }
     parsed = find_whens('package a\nfun f() = when (val x: Bar = getBar()) {\n    is Bar.OldFoo -> 1\n}\n')
-    rc, fails, warns, _ = _run_case(val_subj)
+    rc, fails, warns, _, _ = _run_case(val_subj)
     if rc != 0 or len(parsed) != 1 or not parsed[0]['subj'].startswith('val x') \
             or not any('NewFoo' in w for w in warns):
         ok = False
@@ -793,10 +1083,202 @@ def selftest() -> int:
     else:
         print('[selftest] 夹具八 when(val x = …) 内层括号解析 + 无 else 点名 OK：' + warns[0][:70])
 
+    # 夹具九（修复1 · 函数类型 / 嵌套括号构造参数）：
+    # 放行-解析登记：主构造参数含 `() -> Unit` 与嵌套括号的子类必须进子类集合。
+    parse9 = parse_decls(
+        'package a\ninternal sealed interface SheetOfflineAction {\n'
+        '    data class Wired(val onAction: () -> Unit) : SheetOfflineAction\n'
+        '    data object HintOnly : SheetOfflineAction\n}\n')
+    subs9 = dict(parse9['subs'])
+    if 'Wired' not in subs9 or subs9['Wired'] != 'SheetOfflineAction':
+        ok = False
+        print(f'  SELFTEST FAIL 夹具九 解析登记：函数类型构造参数子类未入集合：subs={parse9["subs"]}')
+    else:
+        print('[selftest] 夹具九 解析登记 OK：Wired（SheetOfflineAction）函数类型/嵌套括号已配平入表')
+
+    # 守护：字符串字面量里写着 `object Foo : Bar` 不得被全局扫描误登记为子类。
+    parse_guard = parse_decls('package a\nval label = "object Foo : Bar"\n')
+    if 'Foo' in dict(parse_guard['subs']):
+        ok = False
+        print(f'  SELFTEST FAIL 夹具九 串内声明幻影：subs={parse_guard["subs"]}')
+    else:
+        print('[selftest] 夹具九 串内词守护 OK：字符串里的 object/Parent 未误登记')
+
+    # 必失败-删除面：Wired 被删后另一文件限定引用 `SheetOfflineAction.Wired` 必须判红。
+    fix1_delete = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed interface SheetOfflineAction {\n'
+            '    data class Wired(val onAction: () -> Unit) : SheetOfflineAction\n'
+            '    data object HintOnly : SheetOfflineAction\n}\n',
+            'package a\nsealed interface SheetOfflineAction {\n'
+            '    data object HintOnly : SheetOfflineAction\n}\n'),
+        'app/src/main/java/a/Caller.kt': (
+            'package a\nfun act() = SheetOfflineAction.Wired { }\n',
+            'package a\nfun act() = SheetOfflineAction.Wired { }\n'),
+    }
+    rc, fails, warns, _, _ = _run_case(fix1_delete)
+    if rc != 1 or not any('Wired' in f and 'Caller.kt:' in f for f in fails):
+        ok = False
+        print(f'  SELFTEST FAIL 夹具九 删除残留应判红点名 Wired/Caller.kt：rc={rc} fails={fails}')
+    else:
+        print('[selftest] 夹具九 删除面必失败 OK：' + fails[0][:70])
+
+    # 夹具十（修复2 · 密封头与子类同行声明）：
+    # 放行-解析登记：单行内联花括号排布的两个子类都要建表。
+    parse10 = parse_decls(
+        'package a\nsealed interface SheetOfflineAction { '
+        'data class Wired(val onAction: () -> Unit) : SheetOfflineAction; '
+        'data object HintOnly : SheetOfflineAction }\n')
+    subs10 = dict(parse10['subs'])
+    if 'Wired' not in subs10 or 'HintOnly' not in subs10:
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十 同行声明两子类未全入表：subs={parse10["subs"]}')
+    else:
+        print('[selftest] 夹具十 同行声明解析登记 OK：Wired / HintOnly 均入表')
+
+    # 必失败-删除面：同行行内删掉 Wired，另一文件残留引用必须判红。
+    fix2_delete = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed interface A { object X : A; object Y : A }\n',
+            'package a\nsealed interface A { object Y : A }\n'),
+        'app/src/main/java/a/Caller.kt': (
+            'package a\nfun act() = A.X\n',
+            'package a\nfun act() = A.X\n'),
+    }
+    rc, fails, warns, _, _ = _run_case(fix2_delete)
+    if rc != 1 or not any('X' in f and 'Caller.kt:' in f for f in fails):
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十 同行删除残留应判红：rc={rc} fails={fails}')
+    else:
+        print('[selftest] 夹具十 删除面必失败 OK：' + fails[0][:70])
+
+    # 夹具十一（修复3 · 注释 / 字符串提及不算归属消费方）：
+    # 放行-不误报：父类型名只出现在行注释与字符串字面量里，掩码后不应纳入 when 覆盖候选，
+    # 不得对该文件打 WARN 点名。
+    fix3_comment = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed class Bar { object OldFoo : Bar }\n',
+            'package a\nsealed class Bar { object OldFoo : Bar; object NewFoo : Bar }\n'),
+        'app/src/main/java/a/Caller.kt': (
+            'package a\n// 注释里提到 Bar，不算消费方\n'
+            'val tag = "Bar"\nfun f() = 1\n',
+            'package a\n// 注释里提到 Bar，不算消费方\n'
+            'val tag = "Bar"\nfun f() = 1\n'),
+    }
+    rc, fails, warns, infos, _ = _run_case(fix3_comment)
+    if rc != 0 or any('Caller.kt:' in w for w in warns):
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十一 注释/串提及不应误报 WARN：rc={rc} warns={warns}')
+    else:
+        print('[selftest] 夹具十一 注释/串提及放行 OK：未对 Caller.kt 打 WARN')
+
+    # 对照-真提及仍纳入：代码位真实出现父类型 Bar、when 无 else，仍须 WARN 点名 NewFoo。
+    fix3_real = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed class Bar { object OldFoo : Bar }\n',
+            'package a\nsealed class Bar { object OldFoo : Bar; object NewFoo : Bar }\n'),
+        'app/src/main/java/a/Caller.kt': (
+            'package a\nfun f(b: Bar) = when (b) { is Bar.OldFoo -> 1 }\n',
+            'package a\nfun f(b: Bar) = when (b) { is Bar.OldFoo -> 1 }\n'),
+    }
+    rc, fails, warns, _, _ = _run_case(fix3_real)
+    if rc != 0 or not any('NewFoo' in w and 'Caller.kt:' in w for w in warns):
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十一 真提及应照常 WARN 点名：rc={rc} warns={warns}')
+    else:
+        print('[selftest] 夹具十一 真提及对照 OK：代码位 Bar 仍纳入覆盖判定')
+
+    # 夹具十二（修复4 · 同名局部变量降为提示，不强堵）：
+    # 红样本：限定 `.OldFoo` 强位残留仍判红。
+    fix4_strong = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed class Bar { object OldFoo : Bar }\n',
+            'package a\nsealed class Bar { }\n'),
+        'app/src/main/java/a/Caller.kt': (
+            'package a\nfun f(b: Bar) = Bar.OldFoo\n',
+            'package a\nfun f(b: Bar) = Bar.OldFoo\n'),
+    }
+    rc, fails, _, _, _ = _run_case(fix4_strong)
+    if rc != 1 or not any('OldFoo' in f for f in fails):
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十二 强位残留应判红：rc={rc} fails={fails}')
+    else:
+        print('[selftest] 夹具十二 强位残留必失败 OK：' + fails[0][:70])
+
+    # 提示放行样本：同名局部 `val OldFoo = …` 裸绑定，无包级/类级声明支持，降 INFO 不判红。
+    fix4_local = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed class Bar { object OldFoo : Bar }\n',
+            'package a\nsealed class Bar { }\n'),
+        'app/src/main/java/a/Caller.kt': (
+            'package a\nfun f() { val OldFoo = localThing(); return OldFoo }\n',
+            'package a\nfun f() { val OldFoo = localThing(); return OldFoo }\n'),
+    }
+    rc, fails, warns, infos, _ = _run_case(fix4_local)
+    shadow = [i for i in infos if 'LOCAL-SHADOW' in i and 'OldFoo' in i and 'Caller.kt' in i]
+    if rc != 0 or fails or not shadow:
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十二 同名局部应降 INFO 不判红：rc={rc} fails={fails} infos={infos}')
+    else:
+        print('[selftest] 夹具十二 局部遮蔽提示放行 OK：' + shadow[0][:70])
+
+    # 夹具十三（修复5 · 分类分行 + 改名只配真实同父对）：
+    # 分类样本：构造一个 WARN 与一个 INFO 并存的场景，断言两类不混列。
+    fix5_class = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed class Bar { object OldFoo : Bar }\n',
+            'package a\nsealed class Bar { object OldFoo : Bar; object NewFoo : Bar }\n'),
+        'app/src/main/java/a/Caller.kt': (
+            'package a\nfun f(b: Bar) = when (b) { is Bar.OldFoo -> 1 }\n',
+            'package a\nfun f(b: Bar) = when (b) { is Bar.OldFoo -> 1 }\n'),
+        'app/src/main/java/a/Other.kt': (
+            'package a\n// 另一个文件只在注释提 Bar\nval x = "Bar"\n',
+            'package a\n// 另一个文件只在注释提 Bar\nval x = "Bar"\n'),
+    }
+    rc, fails, warns, infos, _ = _run_case(fix5_class)
+    if rc != 0 or any(not w.startswith('WARN') for w in warns) \
+            or any(not i.startswith('INFO') for i in infos):
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十三 WARN/INFO 应分类分行：warns={warns} infos={infos}')
+    else:
+        print('[selftest] 夹具十三 分类分行 OK：WARN 与 INFO 各自成段不混列')
+
+    # 改名语义样本：同父类型一删一增 1:1 配对，只出 2 条 RENAME，不出笛卡尔积 4 条。
+    fix5_rename = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed class Bar { object A : Bar; object B : Bar }\n',
+            'package a\nsealed class Bar { object C : Bar; object D : Bar }\n'),
+    }
+    rc, fails, _, _, records = _run_case(fix5_rename)
+    ren = [r for r in records if r.startswith('RENAME')]
+    if rc != 0 or len(ren) != 2:
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十三 同父改名应 1:1 两条配对：rc={rc} ren={ren}')
+    else:
+        print('[selftest] 夹具十三 同父改名 1:1 配对 OK：' + '；'.join(r[:40] for r in ren))
+
+    # 跨父类型：旧名父 Foo、新名父 Bar，不构成真实改名对，不落 RENAME，落 RENAME-SKIP INFO。
+    fix5_cross = {
+        'app/src/main/java/a/Models.kt': (
+            'package a\nsealed class Foo { object X : Foo }\n'
+            'sealed class Bar { }\n',
+            'package a\nsealed class Foo { }\n'
+            'sealed class Bar { object Y : Bar }\n'),
+    }
+    rc, fails, _, infos, records = _run_case(fix5_cross)
+    cross_ren = [r for r in records if r.startswith('RENAME')]
+    skip = [i for i in infos if 'RENAME-SKIP' in i and 'X' in i]
+    if rc != 0 or cross_ren or not skip:
+        ok = False
+        print(f'  SELFTEST FAIL 夹具十三 跨父改名不应配对：rc={rc} ren={cross_ren} infos={infos}')
+    else:
+        print('[selftest] 夹具十三 跨父改名跳过 OK：' + skip[0][:70])
+
     if not ok:
         print('SELFTEST: FAIL（存在未通过的夹具）')
         return 1
-    print('[selftest] 夹具已自删，双向自测通过（删除红/绿、新增 else 放行/无 else 点名、改名配对/残留红、嵌套子类、val-subject）。')
+    print('[selftest] 夹具已自删，双向自测通过（删除红/绿、新增 else 放行/无 else 点名、改名配对/残留红、嵌套子类、val-subject、'
+          '函数类型构造配平、同行声明、注释串掩码、局部遮蔽降级、分类分行与改名语义配对）。')
     return 0
 
 

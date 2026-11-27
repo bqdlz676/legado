@@ -435,10 +435,31 @@ def scan_members(decl: Decl, body: str, base_line: int) -> None:
         stripped = line.strip()
 
         if depth == 0 and COMPANION_HEAD.match(line):
-            # 伴生对象整段跳过：其内同名成员不是类体重声明。
+            # 伴生对象整段跳过：其内同名成员不是类体重声明；块内 fun/val/var
+            # 记 SKIP:COMPANION 放行计数（可审计），不进类成员匹配，放行行为不变。
             brace = body.find('{', sum(len(l) + 1 for l in lines[:idx]))
             if brace >= 0:
-                _balanced_block(body, brace)  # 配平跳过，不递归
+                comp_body = _balanced_block(body, brace)
+                c_lines = comp_body.splitlines()
+                c_masked = _mask(comp_body)
+                c_depths, c_depth = [0], 0
+                for ch in c_masked:
+                    if ch == '{':
+                        c_depth += 1
+                    elif ch == '}':
+                        c_depth -= 1
+                    elif ch == '\n':
+                        c_depths.append(max(c_depth, 0))
+                for j, cl in enumerate(c_lines):
+                    cd = c_depths[j] if j < len(c_depths) else 0
+                    if cd != 0:
+                        continue
+                    if FUN_RE.match(cl) or PROP_RE.match(cl):
+                        decl.members.append({
+                            'skip': 'COMPANION',
+                            'line': base_line + idx + 1 + j,
+                            'raw': cl.strip(),
+                        })
             idx += 1
             continue
 
@@ -487,8 +508,11 @@ def scan_members(decl: Decl, body: str, base_line: int) -> None:
         idx += 1
 
 
-def parse_file(rel: str, text: str) -> list:
-    """抽出文件内全部顶层/嵌套声明；返回 Decl 列表（嵌套类挂在 members.nested）。
+def parse_file(rel: str, text: str) -> tuple:
+    """抽出文件内全部顶层/嵌套声明；返回 (Decl 列表, 顶层声明计数)。
+
+    嵌套类挂在 members.nested；顶层 fun/val/var（类/接口体外）不进任何声明体，
+    单列计数交 SKIP:TOPLEVEL 放行审计，不参与类成员匹配。
 
     配平在原文上做：strip_comments 会吃掉字符转义的第二字符（'\\n' 变 '\\'），
     再交给掩码就会把闭引号当转义吞掉、深度漂移。成员正则才用剥注释后的体。
@@ -500,6 +524,34 @@ def parse_file(rel: str, text: str) -> list:
     for ln in orig_lines:
         offsets.append(off)
         off += len(ln) + 1
+
+    # 文件级深度：掩码等长，花括号与圆括号深度都为 0 的 fun/val/var 才是顶层声明。
+    # 为什么要带括号深度：无类体的 data class 主构造参数跨多行、没有类体花括号，
+    # 只看花括号深度会把构造参数属性误判成顶层声明（Book.kt 一度 35 处误计）。
+    toplevel = 0
+    code_masked = _mask(code)
+    tl_depths, tl_parens, tl_depth, tl_paren = [], [], 0, 0
+    for ch in code_masked:
+        if ch == '{':
+            tl_depth += 1
+        elif ch == '}':
+            tl_depth -= 1
+        elif ch == '(':
+            tl_paren += 1
+        elif ch == ')':
+            tl_paren -= 1
+        elif ch == '\n':
+            tl_depths.append(max(tl_depth, 0))
+            tl_parens.append(max(tl_paren, 0))
+    for ln, raw in enumerate(lines):
+        d = tl_depths[ln] if ln < len(tl_depths) else 0
+        p = tl_parens[ln] if ln < len(tl_parens) else 0
+        if d != 0 or p != 0:
+            continue
+        if IFACE_HEAD.match(raw) or ABSTRACT_HEAD.match(raw) or CLASS_HEAD.match(raw):
+            continue
+        if FUN_RE.match(raw) or PROP_RE.match(raw):
+            toplevel += 1
 
     decls: list[Decl] = []
     i = 0
@@ -535,16 +587,20 @@ def parse_file(rel: str, text: str) -> list:
         scan_members(decl, body, i + 1)
         decls.append(decl)
         i = brace_line + 1
-    return decls
+    return decls, toplevel
 
 
 def build_model(root_dirs: list) -> tuple:
-    """全仓建模：返回 (decls 扁平列表, table: 父类型短名 -> {methods, props})。
+    """全仓建模：返回 (decls 扁平列表, table: 父类型短名 -> {methods, props}, 顶层声明计数表)。
 
     table 只收 interface 全部成员；abstract class 只收 abstract/open 成员
     （Kotlin 类成员默认 final，final 同名不是被重写的候选）。
+
+    路径口径：Decl.file 一律存仓内相对根（`app/src/main/...`），与 git_kt_diff()
+    返回的改动面文件名同一命名空间；不再按各自源码根取相对名，避免改动面直配落空。
     """
     decls: list[Decl] = []
+    toplevel_by_file: dict[str, int] = {}
     for root in root_dirs:
         if not os.path.isdir(root):
             continue
@@ -558,10 +614,12 @@ def build_model(root_dirs: list) -> tuple:
                 except OSError:
                     continue
                 try:
-                    rel = os.path.relpath(f, root)
+                    rel = os.path.relpath(f, ROOT)
                 except ValueError:
                     rel = f
-                decls.extend(parse_file(rel, text))
+                file_decls, toplevel = parse_file(rel, text)
+                decls.extend(file_decls)
+                toplevel_by_file[rel] = toplevel
 
     # 展开嵌套类到扁平表（嵌套类自身也是实现方）。
     flat: list[Decl] = []
@@ -589,7 +647,7 @@ def build_model(root_dirs: list) -> tuple:
                 if d.kind == 'interface' or ({'abstract', 'open'} & mb['mods']):
                     entry['props'].add(mb['name'])
         table[d.name] = entry
-    return flat, table
+    return flat, table, toplevel_by_file
 
 
 def resolve_inherited(decl: Decl, decl_by_name: dict, table: dict) -> dict:
@@ -663,8 +721,12 @@ def check_decl(decl: Decl, inherited: dict) -> tuple:
     for mb in decl.members:
         if 'nested' in mb:
             continue
-        if mb.get('skip') == 'LOCAL':
-            skips['LOCAL'] += 1
+        if mb.get('skip'):
+            # 放行类别计数：LOCAL / COMPANION 等已登记标签各归其计数器；
+            # 未登记标签不计数，避免新标签静默吃掉计数。
+            label = mb['skip']
+            if label in skips:
+                skips[label] += 1
             continue
         consider(mb)
     return fails, skips, matched
@@ -698,10 +760,12 @@ def collect_roots() -> list:
 
 # ---- 主判定 -----------------------------------------------------------------
 
-def evaluate(flat: list, table: dict, judge_files: set | None = None) -> tuple:
+def evaluate(flat: list, table: dict, judge_files: set | None = None,
+             toplevel: dict | None = None) -> tuple:
     """judge_files 非空时只判这些文件内的声明（改动面口径）。
 
     返回 (fails, skips 汇总, matched 数, 参与判定的实现声明数)。
+    toplevel: 文件 → 顶层声明计数；改动面口径只汇总命中文件，全仓口径汇总全部。
     """
     decl_by_name = {d.name: d for d in flat}
     fails, total_skips, matched, impl_count = [], {}, 0, 0
@@ -719,16 +783,23 @@ def evaluate(flat: list, table: dict, judge_files: set | None = None) -> tuple:
         matched += m
         for k, v in sk.items():
             total_skips[k] = total_skips.get(k, 0) + v
+    if toplevel:
+        # 与其余放行计数同口径：只在有计数时落末行，0 不占位。
+        tl = (sum(toplevel.values()) if judge_files is None
+              else sum(v for k, v in toplevel.items() if k in judge_files))
+        if tl:
+            total_skips['TOPLEVEL'] = tl
     return fails, total_skips, matched, impl_count
 
 
 def main(only_changed: bool = False, audit: bool = False) -> int:
     roots = collect_roots()
-    flat, table = build_model(roots)
+    flat, table, toplevel = build_model(roots)
 
     if audit:
         # 全仓 audit 清单：只盘点不判红，存量债务不挡 push。
-        fails, skips, matched, impl_count = evaluate(flat, table, judge_files=None)
+        fails, skips, matched, impl_count = evaluate(
+            flat, table, judge_files=None, toplevel=toplevel)
         print(f'MEMBER-OVERRIDE AUDIT: 全仓清单（接口/抽象类 {len(table)} 个 / '
               f'实现声明 {impl_count} 个 / 候选缺 override {len(fails)} 处 / '
               f'已配对 override {matched} 处；存量只登记不判红）')
@@ -742,7 +813,8 @@ def main(only_changed: bool = False, audit: bool = False) -> int:
     else:
         judge = set(git_kt_diff())
 
-    fails, skips, matched, impl_count = evaluate(flat, table, judge_files=judge)
+    fails, skips, matched, impl_count = evaluate(
+        flat, table, judge_files=judge, toplevel=toplevel)
 
     for f in fails:
         print(f'FAIL  [{f["label"]}] {f["file"]}:{f["line"]} {f["kind"]} '
@@ -774,9 +846,29 @@ def _run_case(files: dict) -> tuple:
     try:
         for rel, body in files.items():
             _write_kt(d, rel, body)
-        flat, table = build_model([d])
-        fails, skips, matched, impl = evaluate(flat, table, judge_files=None)
+        flat, table, toplevel = build_model([d])
+        fails, skips, matched, impl = evaluate(
+            flat, table, judge_files=None, toplevel=toplevel)
         return (1 if fails else 0), fails, skips, matched, impl
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def _run_changed(files: dict, targets: list) -> tuple:
+    """改动面口径样本：临时目录写夹具，evaluate 只判文件名命中 targets 的声明。
+
+    返回 (rc, fails, skips, matched, impl, judge 集)；targets 用仓内相对名后缀匹配，
+    与生产 git_kt_diff 返回的仓内相对名同一口径。
+    """
+    d = tempfile.mkdtemp(prefix='member-override-')
+    try:
+        for rel, body in files.items():
+            _write_kt(d, rel, body)
+        flat, table, toplevel = build_model([d])
+        judge = {x.file for x in flat if any(t in x.file for t in targets)}
+        fails, skips, matched, impl = evaluate(
+            flat, table, judge_files=judge, toplevel=toplevel)
+        return (1 if fails else 0), fails, skips, matched, impl, judge
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -892,12 +984,13 @@ def selftest() -> int:
             'class C : Foo { override fun bar() {} }\n'
             'fun bar() = Unit\n'),
     }
-    rc, fails, _, _, _ = _run_case(top)
-    if rc != 0 or fails:
+    rc, fails, skips, _, _ = _run_case(top)
+    if rc != 0 or fails or skips.get('TOPLEVEL', 0) < 1:
         ok = False
-        print(f'  SELFTEST FAIL 顶层同名函数应放行：rc={rc} fails={fails}')
+        print(f'  SELFTEST FAIL 顶层同名函数应放行且计数递增：rc={rc} fails={fails} skips={skips}')
     else:
-        print('[selftest] 夹具六 接口外普通同名顶层函数 → SKIP:TOPLEVEL 放行 OK')
+        print('[selftest] 夹具六 接口外普通同名顶层函数 → SKIP:TOPLEVEL 放行 OK（计数 '
+              f'{skips.get("TOPLEVEL", 0)}）')
 
     # 夹具七（放行 COMPANION）：伴生对象内同名成员不是类体重声明。
     comp = {
@@ -909,11 +1002,12 @@ def selftest() -> int:
             '}\n'),
     }
     rc, fails, skips, _, _ = _run_case(comp)
-    if rc != 0 or fails:
+    if rc != 0 or fails or skips.get('COMPANION', 0) < 1:
         ok = False
-        print(f'  SELFTEST FAIL 伴生对象同名应放行：rc={rc} fails={fails} skips={skips}')
+        print(f'  SELFTEST FAIL 伴生对象同名应放行且计数递增：rc={rc} fails={fails} skips={skips}')
     else:
-        print('[selftest] 夹具七 伴生对象内同名 → SKIP:COMPANION 放行 OK')
+        print('[selftest] 夹具七 伴生对象内同名 → SKIP:COMPANION 放行 OK（计数 '
+              f'{skips.get("COMPANION", 0)}）')
 
     # 夹具八（放行 LOCAL）：方法体内部局部函数同名，不参与类成员匹配。
     local = {
@@ -945,6 +1039,49 @@ def selftest() -> int:
     else:
         print(f'[selftest] 夹具九 间接实现 B : A : Foo 重声明缺 override → 沿链 FAIL OK：'
               f'{fails[0]["file"]}:{fails[0]["line"]}')
+
+    # 夹具十（改动面必红，样本 a）：改动文件内实现缺 override → --changed 口径 rc=1，
+    # 红行点名 文件:行 + 成员名。
+    changed_bad = {
+        'app/src/main/java/a/ProbeHost.kt': (
+            'package a\ninterface ProbeHost {\n'
+            '    fun probeName(): String\n    val probeTitle: String\n}\n'),
+        'app/src/main/java/a/ProbeBad.kt': (
+            'package a\nclass ProbeBad : ProbeHost {\n'
+            '    fun probeName(): String = "bad"\n    val probeTitle: String = "t"\n}\n'),
+        'app/src/main/java/a/ProbeGood.kt': (
+            'package a\nclass ProbeGood : ProbeHost {\n'
+            '    override fun probeName(): String = "good"\n'
+            '    override val probeTitle: String = "t"\n}\n'),
+    }
+    rc, fails, _, _, _, judge = _run_changed(changed_bad, ['ProbeBad.kt'])
+    bad_fails = [f for f in fails if f['file'].endswith('ProbeBad.kt')]
+    if rc != 1 or len(bad_fails) != 2 or not all(f['line'] and f['name'] for f in bad_fails):
+        ok = False
+        print(f'  SELFTEST FAIL 改动面内缺 override 应判红并点名行/成员：rc={rc} fails={fails}')
+    else:
+        print(f'[selftest] 夹具十 改动面必红 OK：{len(bad_fails)} 条，'
+              f'{bad_fails[0]["file"]}:{bad_fails[0]["line"]} `{bad_fails[0]["name"]}`，'
+              f'{bad_fails[1]["file"]}:{bad_fails[1]["line"]} `{bad_fails[1]["name"]}`')
+
+    # 夹具十一（改动面必绿，样本 b）：改动文件实现已带 override → --changed 口径 rc=0，
+    # 已配对 2，不误报。
+    rc, fails, _, matched, _, _ = _run_changed(changed_bad, ['ProbeGood.kt'])
+    if rc != 0 or fails or matched != 2:
+        ok = False
+        print(f'  SELFTEST FAIL 改动面内已配对应 PASS：rc={rc} fails={fails} matched={matched}')
+    else:
+        print('[selftest] 夹具十一 改动面必绿 OK，已配对 2')
+
+    # 夹具十二（防反，样本 c）：缺 override 的 ProbeBad 不在改动面 → 不得被 --changed 判红；
+    # judge 集只含 ProbeGood.kt，ProbeBad.kt 排除在外。
+    rc, fails, _, _, _, judge = _run_changed(changed_bad, ['ProbeGood.kt'])
+    bad_in_judge = any('ProbeBad.kt' in j for j in judge)
+    if rc != 0 or fails or bad_in_judge:
+        ok = False
+        print(f'  SELFTEST FAIL 非改动文件缺 override 不得判红：rc={rc} fails={fails} judge={judge}')
+    else:
+        print('[selftest] 夹具十二 防反 OK：非改动文件 ProbeBad.kt 未进改动面，0 红')
 
     if not ok:
         print('SELFTEST: FAIL（存在未通过的夹具）')
