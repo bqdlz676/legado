@@ -22,6 +22,18 @@ readText 藏在首个 `}` 之后的嵌套 lambda 里会漏判（P2）；合法 f
 白名单（已剥注释面 / 已 filterNot / 已 strip_comments）判断也在整个配平块内生效，
 不只看首行或首段。
 
+2026-11-27 三次加固（g64 再加固），两条验收实测假通路：
+- D1 先声明后赋值漏判：`var src: String? = null` 与后续跨语句 `src = File(...).readText()`
+  旧版只认声明头那一条语句，后续裸赋值不进绑定模型，整文件 contains 断言漏判。本次把 var
+  声明后的裸赋值纳入归并，RHS 带 readText 即并入同一绑定，行号回指最初声明行。
+- D2 串内白名单字样误放行：本绑定 RHS 内部字符串字面量（如 `replace("filterNot", "")`）
+  出现白名单关键词时，旧版子串判定把它当成真 filterNot 调用而误放行。本次先扫字符串区间
+  生成掩码副本，readText 与白名单都只在掩码后的代码面上判断。
+
+已知不做（登记在报告清单，不在本单建模）：
+- 内联 readText 断言（断言实参内直接 `File(...).readText().contains(...)`，无绑定变量）；
+- 分支控制流内多次赋值（不同分支各自 readText，需 CFA 才能判定断言取到哪一支的值）。
+
 口径：只扫 app/src/test 下 *.kt；单行/块注释里出现上述字样不算命中（先剥注释面再判）。
 零输入按「没东西可判」直接 PASS，不假红。
 """
@@ -192,6 +204,27 @@ def _scan_string_ranges(text: str) -> list:
 
 def _in_ranges(ranges: list, idx: int) -> bool:
     return any(a <= idx < b for a, b in ranges)
+
+
+def _mask_strings(code: str) -> str:
+    """把字符串 / 字符字面量区间内的字符换成空格（换行保留），返回与 code 等长的掩码副本。
+
+    为什么要掩码：readText / 白名单标记（filterNot、filter {、strip_comments）必须判在代码面；
+    测试串里写着 `"filterNot"` 这类字样时，子串命中只是被断言的文本，不是真调用。区间外的
+    字符原样留下，区间内逐字符置空，下标与行号都不变，切片可直接对齐回 code。
+    """
+    ranges = _scan_string_ranges(code)
+    chars = list(code)
+    for a, b in ranges:
+        for i in range(a, b):
+            if chars[i] != '\n':
+                chars[i] = ' '
+    return ''.join(chars)
+
+
+def _slice_has(masked: str, start: int, expr: str, mark: str) -> bool:
+    """判断 expr 截面（在 masked 副本上对齐）代码面是否出现 mark。"""
+    return mark in masked[start:start + len(expr)]
 
 
 def _balanced_block(text: str, i: int, open_ch: str, close_ch: str) -> tuple:
@@ -380,18 +413,29 @@ def _assert_arg_body(code: str, start: int) -> str:
 def extract_readtext_bindings(code: str) -> dict:
     """收集「读全文且未过滤」的绑定名 → 声明行号。
 
-    两种绑定形态都认：普通赋值 `val src = ...`、lazy 委托 `val src by lazy { ... }`。
-    块体由状态机配平提取，嵌套 lambda 任意深度、字符串内括号都不影响截面；
-    白名单关键词在整个配平块内（含续行与嵌套 lambda）生效。
+    三种绑定形态都认：
+    - 普通赋值 `val src = ...`；
+    - lazy 委托 `val src by lazy { ... }`；
+    - 先声明后赋值（D1）：`var src: String? = null` 之后跨语句 `src = File(...).readText()`，
+      两条语句归并为同一绑定，绑定行号回指最初的声明行。
+
+    块体由状态机配平提取，嵌套 lambda 任意深度、字符串内括号都不影响截面；readText 与
+    白名单关键词只判掩码副本上的代码面，字符串字面量内部的字样不算真调用（D2）。
     """
     str_ranges = _scan_string_ranges(code)
+    masked = _mask_strings(code)
     bindings = {}
+    declared = {}  # name → (声明行号, 是否 var)；var 才可被后续裸赋值归并
+
     for m in DECL_HEAD_PAT.finditer(code):
         if _in_ranges(str_ranges, m.start()):
             continue  # 关键词落在字符串字面量里，不是真实声明
         name = m.group('name')
+        decl_line = line_of(code, m.start())
+        declared.setdefault(name, (decl_line, m.group('kind') == 'var'))
         j = _skip_ws(code, m.end())
         expr = None
+        start = -1
 
         # 形态一：by lazy { 块体 }
         if code[j:j + 2] == 'by' and (j + 2 >= len(code) or code[j + 2] in ' \t\r\n'):
@@ -400,18 +444,39 @@ def extract_readtext_bindings(code: str) -> dict:
                 k = _skip_ws(code, k + 4)
                 if k < len(code) and code[k] == '{':
                     expr, _ = _balanced_block(code, k, '{', '}')
+                    start = k + 1
 
         # 形态二：= RHS（含续行链式调用）
         if expr is None and j < len(code) and code[j] == '=':
-            expr = _rhs_until_boundary(code, j + 1)
+            start = j + 1
+            expr = _rhs_until_boundary(code, start)
 
         if expr is None:
             continue
-        if 'readText' not in expr:
-            continue  # 绑定 RHS / lazy 块内没有 readText，不属本闸对象
-        if any(mark in expr for mark in WHITELIST_MARKS):
-            continue  # 已剥注释面 / 已滤行，属合规写法
-        bindings.setdefault(name, line_of(code, m.start()))
+        if not _slice_has(masked, start, expr, 'readText'):
+            continue  # 绑定 RHS / lazy 块代码面没有 readText，不属本闸对象
+        if any(_slice_has(masked, start, expr, mark) for mark in WHITELIST_MARKS):
+            continue  # 已剥注释面 / 已滤行，属合规写法（串内字样已被掩码剔除）
+        bindings.setdefault(name, decl_line)
+
+    # D1 跨语句归并：var 声明后又出现裸赋值 `name = ...`，RHS 代码面带 readText 即并入同一绑定。
+    # 为什么只认 var：val 不可重新赋值；为什么按声明行号回指：断言提示要能定位到最初声明处。
+    for name, (decl_line, is_var) in declared.items():
+        if name in bindings or not is_var:
+            continue
+        pat = re.compile(r'(?<![A-Za-z0-9_])' + re.escape(name) + r'\s*=(?!=)')
+        for am in pat.finditer(code):
+            if _in_ranges(str_ranges, am.start()):
+                continue
+            rhs_start = am.end()
+            expr = _rhs_until_boundary(code, rhs_start)
+            if not _slice_has(masked, rhs_start, expr, 'readText'):
+                continue
+            if any(_slice_has(masked, rhs_start, expr, mark) for mark in WHITELIST_MARKS):
+                continue
+            bindings.setdefault(name, decl_line)
+            break
+
     return bindings
 
 
@@ -549,6 +614,19 @@ def selftest() -> int:
          '        val src by lazy { java.io.File("x.kt").readText().replace("}", "") }\n'
          '        org.junit.Assert.assertFalse("不得预判", src.contains("mastered"))\n'
          '    }\n}\n'),
+        ('RAWSOURCE 先声明 null 后跨语句赋值 readText（D1）',
+         'package a\nclass BadReassignTest {\n'
+         '    fun t() {\n'
+         '        var src: String? = null\n'
+         '        src = java.io.File("x.kt").readText()\n'
+         '        org.junit.Assert.assertFalse("不得预判", src.contains("mastered"))\n'
+         '    }\n}\n'),
+        ('RAWSOURCE RHS 串内写着 filterNot 字样（D2）',
+         'package a\nclass BadStringMarkTest {\n'
+         '    fun t() {\n'
+         '        val src = java.io.File("x.kt").readText().replace("filterNot", "")\n'
+         '        org.junit.Assert.assertFalse("不得预判", src.contains("mastered"))\n'
+         '    }\n}\n'),
         ('EMPTYASSERT 空断言',
          'package a\nclass BadEmptyTest { fun t() { org.junit.Assert.assertTrue(true) } }\n'),
     ]
@@ -593,6 +671,22 @@ def selftest() -> int:
          '            java.io.File("x.kt").readText().replace("}", "")\n'
          '                .filterNot { it.trimStart().startsWith("*") }\n'
          '        }\n'
+         '        org.junit.Assert.assertFalse("k", code.contains("mastered"))\n'
+         '    }\n}\n'),
+        ('剥注释面（D1，先声明 null 后跨语句赋值 filterNot 链）',
+         'package a\nclass GoodReassignTest {\n'
+         '    fun t() {\n'
+         '        var code: String? = null\n'
+         '        code = java.io.File("x.kt").readText().lines()\n'
+         '            .filterNot { it.trimStart().startsWith("*") }\n'
+         '            .joinToString("\\n")\n'
+         '        org.junit.Assert.assertFalse("k", code.contains("mastered"))\n'
+         '    }\n}\n'),
+        ('剥注释面（D2，串内 filterNot 字样 + 代码面真 filterNot）',
+         'package a\nclass GoodStringMarkFilterTest {\n'
+         '    fun t() {\n'
+         '        val code = java.io.File("x.kt").readText().replace("filterNot", "")\n'
+         '            .filterNot { it.trimStart().startsWith("*") }\n'
          '        org.junit.Assert.assertFalse("k", code.contains("mastered"))\n'
          '    }\n}\n'),
         ('普通字符串断言（无 readText 绑定）',
