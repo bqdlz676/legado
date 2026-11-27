@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.ui.map.globe.GlobeConfig
 import io.legado.app.ui.map.globe.GlobeSpecSurface
+import io.legado.app.ui.map.globe.astro.ui.CsvSkyNameProvider
+import io.legado.app.ui.map.globe.astro.ui.SkySheet
 import io.legado.app.ui.map.globe.GlobeTokens
 import io.legado.app.ui.map.globe.astro.data.StarStore
 import io.legado.app.ui.map.globe.astro.data.StarStoreProvider
@@ -528,6 +530,23 @@ private fun TimelineRow(host: GlobeHostController, snapshot: FrameSnapshot) {
                 center = Offset(size.width * progress, size.height / 2),
             )
         }
+    }
+
+    // 星空 Sheet（§九.3）：仅选中星时出现；关闭只清 selectedId，相机与姿态一字不动（§十四.12）。
+    val skyNames = remember {
+        runCatching {
+            CsvSkyNameProvider(
+                context.assets.open("astro/star_names.csv").bufferedReader().use { it.readLines() },
+            )
+        }.getOrNull()
+    }
+    snapshot.sky?.selectedId?.let { id ->
+        SkySheet(
+            selectedId = id,
+            store = starStore,
+            nameProvider = skyNames,
+            onDismiss = { host.controller.selectStar(null) },
+        )
     }
 }
 
