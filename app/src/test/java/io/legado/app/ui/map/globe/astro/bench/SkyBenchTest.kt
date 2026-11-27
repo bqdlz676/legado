@@ -87,13 +87,13 @@ class SkyBenchTest {
         val mag = ArrayList<Float>()
         val id = ArrayList<Long>()
         lines.drop(1).forEach { line ->
-            if (line.isBlank()) return@forEachIndexed
+            if (line.isBlank()) return@forEach
             val f = line.split(",")
-            if (f.size < 5) return@forEachIndexed
-            ra += f[2].toDoubleOrNull() ?: return@forEachIndexed
-            dec += f[3].toDoubleOrNull() ?: return@forEachIndexed
-            mag += f[4].toFloatOrNull() ?: return@forEachIndexed
-            id += f[0].toLongOrNull() ?: return@forEachIndexed
+            if (f.size < 5) return@forEach
+            ra += f[2].toDoubleOrNull() ?: return@forEach
+            dec += f[3].toDoubleOrNull() ?: return@forEach
+            mag += f[4].toFloatOrNull() ?: return@forEach
+            id += f[0].toLongOrNull() ?: return@forEach
         }
         return Catalog(
             ra = ra.toDoubleArray(),
@@ -317,12 +317,12 @@ class SkyBenchTest {
     private fun loadConstellationLines(): List<ConstellationLineEntity> {
         val out = ArrayList<ConstellationLineEntity>()
         File(astroDir(), "constellation_lines.csv").readLines().drop(1).forEach { line ->
-            if (line.isBlank()) return@forEachIndexed
+            if (line.isBlank()) return@forEach
             val f = line.split(",")
-            if (f.size < 4) return@forEachIndexed
+            if (f.size < 4) return@forEach
             out += ConstellationLineEntity(
-                fromStarId = f[0].toLongOrNull() ?: return@forEachIndexed,
-                toStarId = f[1].toLongOrNull() ?: return@forEachIndexed,
+                fromStarId = f[0].toLongOrNull() ?: return@forEach,
+                toStarId = f[1].toLongOrNull() ?: return@forEach,
                 constellationId = f[2],
                 style = if (f.size >= 4) f[3] else "constellation",
             )
@@ -334,20 +334,20 @@ class SkyBenchTest {
         val asterismLines = File(astroDir(), "asterisms.csv").readLines().drop(1)
         val membersByCode = HashMap<String, ArrayList<AsterismMember>>()
         File(astroDir(), "asterism_members.csv").readLines().drop(1).forEach { line ->
-            if (line.isBlank()) return@forEachIndexed
+            if (line.isBlank()) return@forEach
             val f = line.split(",")
-            if (f.size < 4) return@forEachIndexed
+            if (f.size < 4) return@forEach
             membersByCode.getOrPut(f[0]) { ArrayList() } += AsterismMember(
-                starId = f[1].toLongOrNull() ?: return@forEachIndexed,
+                starId = f[1].toLongOrNull() ?: return@forEach,
                 memberIndex = f[2],
                 linkToNext = f[3].toBooleanStrictOrNull() ?: false,
             )
         }
         val groups = ArrayList<AsterismGroup>()
         asterismLines.forEach { line ->
-            if (line.isBlank()) return@forEachIndexed
+            if (line.isBlank()) return@forEach
             val f = line.split(",")
-            if (f.size < 3) return@forEachIndexed
+            if (f.size < 3) return@forEach
             groups += AsterismGroup(
                 code = f[0],
                 name = f[1],
@@ -361,9 +361,9 @@ class SkyBenchTest {
     private fun loadFieldEntries(): List<FieldEntry> {
         val out = ArrayList<FieldEntry>()
         File(astroDir(), "field_allocations.csv").readLines().drop(1).forEach { line ->
-            if (line.isBlank()) return@forEachIndexed
+            if (line.isBlank()) return@forEach
             val f = line.split(",")
-            if (f.size < 5) return@forEachIndexed
+            if (f.size < 5) return@forEach
             out += FieldEntry(
                 asterismCode = f[0],
                 regionName = f[1],
