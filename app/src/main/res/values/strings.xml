@@ -851,6 +851,7 @@
     <string name="null_url">Null url</string>
     <string name="dict">dict</string>
     <string name="unknown_error">unknown error</string>
+    <string name="content_edit_conflict">Content was changed elsewhere; reopen the panel to merge</string>
     <string name="export_no_chapter_name">No export chapter names</string>
     <string name="end">end</string>
     <string name="custom_group_summary">Turn off Replace Group / Turn on Add Group</string>

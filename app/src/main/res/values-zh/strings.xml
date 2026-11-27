@@ -847,6 +847,7 @@
     <string name="null_url">URL 为空</string>
     <string name="dict">字典</string>
     <string name="unknown_error">未知错误</string>
+    <string name="content_edit_conflict">正文已被外部修改，请重新打开面板合并</string>
     <string name="end">结束</string>
     <string name="custom_group_summary">关闭替换分组/开启添加分组</string>
     <string name="pref_media_button_per_next">媒体按钮•上一首|下一首</string>

@@ -363,6 +363,11 @@ class InkReadActivity : ComponentActivity() {
                     contentEditState.showMessage(EditMessageKind.FAILURE, getString(R.string.book_not_exist))
                 EditSaveResult.ChapterMissing ->
                     contentEditState.showMessage(EditMessageKind.FAILURE, getString(R.string.content_empty))
+                EditSaveResult.Conflict ->
+                    contentEditState.showMessage(
+                        EditMessageKind.FAILURE,
+                        getString(R.string.content_edit_conflict),
+                    )
                 is EditSaveResult.Failed -> contentEditState.showMessage(
                     EditMessageKind.FAILURE,
                     result.message.ifBlank { getString(R.string.unknown_error) },
