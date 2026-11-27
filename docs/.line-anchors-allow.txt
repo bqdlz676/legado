@@ -1,0 +1,9 @@
+docs/验收-复核-g66改动面路径.md	app/src/main/java/a/ProbeBad.kt:3	仓外 /tmp 临时镜像仓样本（判据 1 必红 FAIL 行逐字证据），仓内不存在，非源码锚点	Q-431
+docs/验收-复核-g66改动面路径.md	app/src/main/java/a/ProbeBad.kt:4	仓外 /tmp 临时镜像仓样本（判据 1 必红 FAIL 行逐字证据），仓内不存在，非源码锚点	Q-431
+docs/验收-复核-g63行注释栈.md	app/src/main/java/io/legado/app/use/Use.kt:3	仓外 /tmp 迷你仓样本（判据 1 必失败复现探针末行逐字证据），仓内不存在，非源码锚点	Q-428
+docs/验收-复核-g67语料断言.md	app/src/test/ink/BadHonestyTest.kt:6	仓外 /tmp 临时镜像仓样本（判据 1 必红 FAIL 行逐字证据），仓内不存在，非源码锚点	Q-432
+docs/验收-复核-g62棘轮与CI车道.md	app/NoSuchFileZZZ.kt:5	验收 A1 仓内临时探针样本（判据 1 必红 NEW 行逐字证据），验毕已删，仓内不存在，非源码锚点	Q-435
+docs/验收-复核-g62棘轮与CI车道.md	:102	验收 A2 引用存量键的裸书写锚点片段（Pathfinder.kt 第 102 行），证据回引非本报告自身锚点	Q-435
+docs/验收-复核-g62棘轮与CI车道.md	app/Gone.kt:7	验收 A3 仓外 /tmp 夹具死锚点样本，夹具验毕自删，仓内不存在，非源码锚点	Q-435
+docs/验收-复核-g62棘轮与CI车道.md	app/Gone2.kt:9	验收 A3/A6 仓外 /tmp 夹具死锚点样本，夹具验毕自删，仓内不存在，非源码锚点	Q-435
+docs/验收-复核-g62棘轮与CI车道.md	:132-140	验收 A5 引用基线存量键的裸书写锚点区间片段（ArtifactBubbleProvider.kt 132-140 行），证据回引非本报告自身锚点	Q-435
