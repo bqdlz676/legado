@@ -73,22 +73,49 @@ def report_files():
     return sorted(out)
 
 
+_PATH_SUFFIX = ('.kt', '.md', '.json', '.yml', '.yaml', '.py', '.sh', '.xml',
+                '.gradle', '.png', '.jpg', '.apk', '.txt', '.csv')
+
+
+def _pathish(token):
+    """W-436：反引号里常写的是「路径锚」而不是符号。
+
+    为什么必须剔：`app/src/main/.../Chronology.kt:521` 这类串被 IDENT_RE 截成
+    `app`（首个 [A-Za-z_] 段），`app` 又恰好不是停用词，于是成了候选符号；
+    目标行当然不含 `app`，锚点被判 MISSING。2026-11-27 实测这类假失联 262 条
+    （890→628），会让「结论失联只增不减」的棘轮长期红、诱使人去改历史报告。
+    路径串只表达「文件:行」，符号语义由同行的其它反引号符号承担。
+    """
+    if '/' in token or ':' in token:
+        return True
+    return token.lower().endswith(_PATH_SUFFIX)
+
+
 def idents_of(line, symbol_hint):
     """只认反引号包住的符号：报告里真正想指的符号都写成 `Foo`。
 
     早版把 CamelCase 普通词也算进来，实测 3900+ 条假 DRIFT（一句结论里提到
     多个类名，只要目标行不含其中任一个就误判行漂）。窄口径宁缺不误杀。
+    W-436：改成「先取整段反引号内容再切词」，因为 IDENT_RE 会在 `app/src/...`
+    的斜杠处截断成 `app`，绕过 _pathish 判断。
     """
     cand = set()
-    for m in IDENT_RE.finditer(line):
-        c = m.group(1)
-        if not c:
+    for mo in re.finditer(r'[`*]{1,2}([^`*\n]+)[`*]{1,2}', line):
+        tok = mo.group(1).strip()
+        if _pathish(tok):
             continue
-        c = c.split('.')[-1]
-        if c in STOP or len(c) < 3:
-            continue
-        cand.add(c)
-    if symbol_hint:
+        for part in re.split(r'[^\w]+', tok):
+            part = part.split('.')[-1]
+            if len(part) < 3 or part in STOP:
+                continue
+            if not re.match(r'^[A-Za-z_]\w*$', part):
+                continue
+            cand.add(part)
+    for mo in re.finditer(r'\b([A-Z][A-Za-z0-9_]{2,})\b', line):
+        c = mo.group(1)
+        if c not in STOP:
+            cand.add(c)
+    if symbol_hint and not _pathish(symbol_hint) and re.match(r'^[A-Za-z_]\w*$', symbol_hint):
         cand.add(symbol_hint)
     return cand
 
@@ -231,9 +258,16 @@ def scan():
                 if inverted:
                     b = None
                 hint = None
-                im = re.search(r'`([A-Za-z_][\w.]*)`', line)
-                if im:
-                    hint = im.group(1).split('.')[-1]
+                # W-436：hint 取「第一个反引号纯符号」，跳过路径串；否则
+                # `app/src/.../Foo.kt:12` 会被截成 app 当符号（假 MISSING 根因）。
+                for im in re.finditer(r'[`*]{1,2}([^`*\n]+)[`*]{1,2}', line):
+                    tok = im.group(1).strip()
+                    if _pathish(tok):
+                        continue
+                    parts = [p for p in re.split(r'[^\w]+', tok) if p]
+                    if parts and re.match(r'^[A-Za-z_]\w*$', parts[-1]) and parts[-1] not in STOP:
+                        hint = parts[-1]
+                        break
                 cand = idents_of(line, hint)
                 st, det = check_anchor(path, a, cand, cache)
                 if st != 'OK' and b:
