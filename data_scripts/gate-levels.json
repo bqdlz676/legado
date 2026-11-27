@@ -968,6 +968,17 @@
       "level": "blocking",
       "reason": "实现方同签名重声明接口/抽象类成员却缺 override 修饰符，kotlinc 报 hides member of supertype and needs an 'override' modifier（2026-11-27 CI 红 0c9fd30：InkReadController.kt:141/:149 两个重写方法缺 override，修红提交 35bbb54 只补两个关键字；当时 g63 NODEF/ARITY/PACKAGE 全 0、g64/g65/compose 陷阱/lint 全绿，无静态闸能拦）。静态闸先建接口/抽象类成员表（名字+参数个数+类型串归一），再对继承方同签名声明核对 override；private 成员、不同接收者扩展函数、泛型实参不同的异签名、局部函数、伴生对象同名、接口外顶层同名六类建放行样本。间接实现沿父类型链 BFS 追表；Java/Android 父类与中间具体类自带 open 成员不在表内。默认只判改动面（--changed），全仓存量走 audit 清单，不挡 push。",
       "compensation": null
+    },
+    {
+      "id": "g67",
+      "label": "67",
+      "name": "语料断言诚实性",
+      "script": "check-test-corpus-honesty.py --changed",
+      "nature": "bad",
+      "scope": "test-code",
+      "level": "blocking",
+      "reason": "CI run 45946032048（HEAD 259482c2，shard 3/4）红根因：单测断言把「字典语料恰好收录/未收录某词」当成代码层固定事实——resolve(\"春秋\",99) 期望 MISSING/token 秋、resolve(\"魑魅魍魉\",0) 期望整词 token，期望值随 WORD_TSV/CHAR_TSV 种子漂移（修法见 docs/CI核验-InkBubbleRouteResolverTest修红.md，修红提交 558273f 换成 ※ 非汉字符号与夹取一致性对比）。g64 只管空断言/整文件 contains/反射取成员，管不到「断言期望值来自语料数据」这一类。静态闸扫 app/src/test 与 screenshot/src/test 的 Kotlin 测试，拦四类：LITERAL-ENTRY 断言字面量精确命中种子词目/字头/专名；LITERAL-TSV 断言字面量是制表符分隔语料行形态；API-EXPECTED 语料查询 API（wordAt/getChar/getShuowen/getUsage/counts/queryToken 等）返回值进比较型断言当 expected；CORPUS-WORDING 必须命中/未收录类数据依赖字样且同文件引用语料常量。五类放行各有夹具：NONHAN 非汉字符号（※ U+203B）、ECHO 输入回显透传、SELF 两次调用输出自洽对比、STRUCT 非空/非崩/不空白结构完整性、INVARIANT 纯函数不变量。默认只判改动面（--changed），全仓存量走 --audit 清单登记不判红；空集 EMPTY rc=2 不判 PASS。",
+      "compensation": null
     }
   ],
   "compensation_channels": {

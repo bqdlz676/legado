@@ -37,10 +37,142 @@ concurrency:
 # - 本文件由原 build.yml 验证侧 job 逐字搬运；出包 job 见 package.yml。
 
 jobs:
+  # ---------- 路径分流：先判本轮改动落在哪条车道（docs-only / scripts-only / code），纯 git diff，不装 JDK/Gradle ----------
+  # 为什么先分类再跑构建：纯文档 / 纯门禁脚本提交对 APK 与截图零影响，不再拉起 Android 构建链；
+  # 判据保守——白名单之外的一切路径默认按码变处理，宁多跑不可少跑（见 docs/修复-CI路径分流提速.md）。
+  classify-paths:
+    name: Classify changed paths (lane)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code_changed: ${{ steps.classify.outputs.code_changed }}
+      lane: ${{ steps.classify.outputs.lane }}
+      changed_files: ${{ steps.classify.outputs.changed_files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files into lane
+        id: classify
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+
+          def git(*args):
+              # quotepath=false：非 ASCII 路径（中文文件名）不被加引号转义，
+              # 否则前缀匹配（app/、data_scripts/ 等）会被引号挡掉，码变路径可能误判 docs-only。
+              r = subprocess.run(['git', '-c', 'core.quotepath=false', *args],
+                                 capture_output=True, text=True)
+              return r.returncode, r.stdout.strip()
+
+          event = '${{ github.event_name }}'
+          before = '${{ github.event.before }}'
+          files = []
+
+          if event == 'workflow_dispatch':
+              # 手动触发保守按码变全量跑：手动车道多用于基线对照/补跑，不享受分流跳过。
+              files = []
+          elif event == 'pull_request':
+              base_sha = '${{ github.event.pull_request.base.sha }}'
+              rc, mb = git('merge-base', base_sha, 'HEAD')
+              base = mb if rc == 0 and mb else base_sha
+              rc, out = git('diff', '--name-only', base, 'HEAD')
+              files = [f for f in out.splitlines() if f]
+          else:
+              if not before or set(before) == {'0'}:
+                  rc, parent = git('rev-parse', 'HEAD~1')
+                  base = parent if rc == 0 and parent else ''
+              else:
+                  base = before
+              if base:
+                  rc, out = git('diff', '--name-only', base, 'HEAD')
+                  files = [f for f in out.splitlines() if f]
+
+          # 码变白名单（命中任一即必须跑完整构建链）：应用/模块/截图/三方源码、Gradle 构建面、
+          # CI 配置与 composite action、版本号、以及两个被 workflow 直接调用的数据脚本。
+          CODE_PREFIXES = ('app/', 'modules/', 'screenshot/', 'third_party/',
+                           'gradle/', 'buildSrc/', '.github/')
+          CODE_EXACT = {'build.gradle', 'settings.gradle', 'settings.gradle.kts',
+                        'gradle.properties', 'gradlew', 'gradlew.bat',
+                        '.versioncode', 'package.json'}
+          CI_INVOKED_SCRIPTS = {'data_scripts/emit-shard-lists.py',
+                                'data_scripts/frame-manifest.py'}
+
+          def is_code(p):
+              if p in CODE_EXACT or p in CI_INVOKED_SCRIPTS:
+                  return True
+              if p.endswith('.gradle') or p.endswith('.gradle.kts'):
+                  return True
+              return any(p.startswith(pre) for pre in CODE_PREFIXES)
+
+          def is_safe(p):
+              # 可跳过 Android 构建的非码变域：docs/、data_scripts/、任意层级 *.md。
+              # 注意优先级：先判码变白名单，落在 app/ 等目录下的 *.md 仍按码变处理。
+              return p.startswith('docs/') or p.startswith('data_scripts/') or p.endswith('.md')
+
+          code_changed = any(is_code(p) for p in files)
+          if not files:
+              # 空集保守按码变：取不到 diff（首推/异常）时不允许跳过构建链。
+              lane = 'code'
+              code_changed = True
+          elif code_changed:
+              lane = 'code'
+          elif any(p.startswith('data_scripts/') for p in files):
+              lane = 'scripts-only'
+          else:
+              lane = 'docs-only'
+
+          out_path = os.environ['GITHUB_OUTPUT']
+          with open(out_path, 'a') as fh:
+              fh.write('code_changed=%s\n' % ('true' if code_changed else 'false'))
+              fh.write('lane=%s\n' % lane)
+              fh.write('changed_files<<EOF\n')
+              fh.write('\n'.join(files))
+              fh.write('\nEOF\n')
+          print('lane=%s code_changed=%s' % (lane, code_changed))
+          print('changed_files=%s' % files)
+          PY
+
+  # ---------- 静态门禁：任何车道都跑（含 docs-only / scripts-only），只读检查，不装 JDK/Gradle ----------
+  # 为什么必须常驻：分流只跳过 Android 构建/截图/打包，文档与门禁脚本本身的质量闸不能跟着跳过。
+  # 空集（rc=2）按中性放行：本轮无待检报告不是"合规"，也不是红，同 ㊾ 口径；rc=1 才置红。
+  static-gate:
+    name: Static gate (read-only, always runs)
+    needs: classify-paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compile gate scripts (syntax only, no Gradle)
+        run: python3 -m py_compile data_scripts/*.py
+
+      - name: Report fields gate (EMPTY rc=2 neutral)
+        run: |
+          python3 data_scripts/check-report-fields.py; rc=$?
+          if [ "$rc" -eq 2 ]; then echo "::notice::report-fields EMPTY 空集，中性放行"; else exit "$rc"; fi
+
+      - name: Anchor card gate --strict (EMPTY rc=2 neutral)
+        run: |
+          python3 data_scripts/check-anchor-card.py --strict; rc=$?
+          if [ "$rc" -eq 2 ]; then echo "::notice::anchor-card EMPTY 空集，中性放行"; else exit "$rc"; fi
+
+      - name: Problem finding gate
+        run: python3 data_scripts/check-problem-finding.py
+
+      - name: Onboarding receipt gate
+        run: python3 data_scripts/check-onboarding.py
+
   # ---------- 分片 0：编译测试源码，枚举测试类并切成 4 份确定性清单 ----------
   discover:
     name: Discover test classes (shard lists)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    needs: classify-paths
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && needs.classify-paths.outputs.code_changed == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -177,8 +309,9 @@ jobs:
   # ---------- 4 个分片并行跑单测；fail-fast=false 保证任一失败时其余分片仍跑完留证 ----------
   test-shard:
     name: Unit tests shard ${{ matrix.shard }}/4
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
-    needs: discover
+    # 车道闸：仅码变车道拉起；docs-only / scripts-only 连 checkout/JDK/Gradle 都不进（needs 不挂本 job）。
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && needs.classify-paths.outputs.code_changed == 'true' }}
+    needs: [classify-paths, discover]
     runs-on: ubuntu-latest
     # 超时 15 分钟：绿跑实测单片 ~5 分钟（268~320s），45 分钟只让"静默挂死"白等 40 分钟且拿不到证据；
     # 收到 15 分钟后 job 取消 → 可直接下载 job 日志，用 testLogging 的 STARTED 行定位最后用例（Q-261 起有此日志）。
@@ -344,7 +477,9 @@ jobs:
   # 这类测试混进分片会把 test worker 拖死（shard 2 挂死 30 分钟以上）。隔离后挂死只红本 job，不拖累 4 分片。
   rhino-eval-tests:
     name: Rhino eval tests (isolated)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    # 车道闸：仅码变车道拉起；非码变车道不进 checkout/JDK/Gradle。
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && needs.classify-paths.outputs.code_changed == 'true' }}
+    needs: [classify-paths]
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -469,7 +604,9 @@ jobs:
   # 与 Rhino 同族：不靠 @Test(timeout)（杀不掉已进入大批量循环的线程），分类隔离后慢速只红本 job。
   slow-bench-tests:
     name: Slow bench tests (isolated)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
+    # 车道闸：仅码变车道拉起；非码变车道不进 checkout/JDK/Gradle。
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && needs.classify-paths.outputs.code_changed == 'true' }}
+    needs: [classify-paths]
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -591,8 +728,9 @@ jobs:
   # ---------- 汇总：needs 全部分片、Rhino 与 slow-bench 独立 job，求和 XML tests= 并硬断言基线 ----------
   test-aggregate:
     name: Aggregate & assert test totals
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true }}
-    needs: [discover, test-shard, rhino-eval-tests, slow-bench-tests]
+    # 车道闸：仅码变车道执行基线总数硬断言；非码变车道本 job 跳过，结论由 lane-summary 给出。
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && needs.classify-paths.outputs.code_changed == 'true' }}
+    needs: [classify-paths, discover, test-shard, rhino-eval-tests, slow-bench-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -696,6 +834,30 @@ jobs:
               with open(summary, 'a') as fh:
                   fh.write(f'- 测试总条数：{total}（基线 {BASELINE}）；failures={failures} errors={errors} skipped={skipped}\n')
                   fh.write(f'- 各分片条数：{dict(sorted(per_shard.items()))}\n')
+          PY
+
+  # ---------- 非码变车道汇总：docs-only / scripts-only 车道的明确 success 结论 ----------
+  # 为什么独立成 job：needs 只挂恒存在的 classify-paths / static-gate，不依赖会被整链跳过的
+  # Android 链下游；非码变车道下本 job 给出本车道的显式成功结论。
+  # 假绿红线：本 job 不用 continue-on-error、不用 if: always()、不通过跳过测试冒充通过；
+  # static-gate 失败时本 job 随 needs 失败传播，不产出 success 结论。它不替代码变车道的
+  # 3185 基线总数断言——那条结论只由 test-aggregate 在码变车道给出。
+  lane-summary:
+    name: Lane summary (docs-only / scripts-only gate)
+    needs: [classify-paths, static-gate]
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && needs.classify-paths.outputs.code_changed == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record non-code lane conclusion
+        run: |
+          python3 - <<'PY'
+          import sys
+          lane = '${{ needs.classify-paths.outputs.lane }}'
+          if lane not in ('docs-only', 'scripts-only'):
+              sys.exit('::error::lane=%s 不在非码变车道枚举内（docs-only / scripts-only）' % lane)
+          print('lane=%s 非码变车道：静态门禁已过，Android 构建链本轮不拉起' % lane)
+          print('本结论不替代码变车道的测试总数基线断言；码变车道结论见 test-aggregate。')
           PY
 
   # ---------- baseline 对照模式：workflow_dispatch 勾选 baseline_full_test 时单 job 跑全量 ----------

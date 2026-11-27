@@ -489,6 +489,21 @@ MO66=$(python3 data_scripts/check-member-override.py --changed 2>&1)
 if [ $? -eq 0 ]; then ok "66实现成员override" "$(echo "$MO66" | grep 'MEMBER-OVERRIDE: PASS')"; else bad "66实现成员override" "$(echo "$MO66" | grep -E 'MEMBER-OVERRIDE|FAIL' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "66实现成员override"; fi
 
+# 67 语料断言诚实性（2026-11-27 CI 红 run 45946032048 / HEAD 259482c2 根因）：单测断言把
+#    「语料种子恰好收录/未收录某词」当成代码层固定事实，期望值随 WORD_TSV/CHAR_TSV 漂移；
+#    g64 只管空断言/整文件 contains/反射，管不到期望值来自语料数据。四类：LITERAL-ENTRY
+#    断言字面量命中种子条目 / LITERAL-TSV 制表符语料行形态 / API-EXPECTED 语料 API 返回值
+#    当 expected / CORPUS-WORDING 必须命中未收录字样且同文件引语料常量。※非汉字、输入回显、
+#    输出自洽对比、结构完整性、纯不变量五类放行。默认只判改动面，全仓存量走 audit 清单；
+#    空集 rc=2 按 EMPTY 记提示不记失败（同 pre-push-check 三态口径，空集≠核验通过）。
+if gate_active g67; then
+CH67=$(python3 data_scripts/check-test-corpus-honesty.py --changed 2>&1)
+RC67=$?
+if [ "$RC67" -eq 0 ]; then ok "67语料断言诚实性" "$(echo "$CH67" | grep 'TEST-CORPUS-HONESTY: PASS')"
+elif [ "$RC67" -eq 2 ]; then say "67语料断言诚实性" "EMPTY：本轮改动面无待检测试文件（空集不判 PASS，不记失败）"
+else bad "67语料断言诚实性" "$(echo "$CH67" | grep -E 'FAIL|LITERAL|API-EXPECTED|CORPUS-WORDING' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "67语料断言诚实性"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**

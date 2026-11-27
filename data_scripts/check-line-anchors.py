@@ -28,6 +28,8 @@
 退出码：0 = 无 DEADFILE / OUTOFRANGE（SUSPECT 仅 WARN）；1 = 有 FAIL 项或白名单缺理由。
 用法：python3 data_scripts/check-line-anchors.py [--selftest]
 """
+import datetime
+import json
 import os
 import re
 import shutil
@@ -37,6 +39,13 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS_DIR = 'docs'
 ALLOW_REL = 'docs/.line-anchors-allow.txt'
+# 存量棘轮基线（2026-11-27 补）：g62 一上线就撞上全仓 327 份历史报告、4200 余条老锚点，
+# 逐份回改历史报告语义被「不许改历史报告语义」红线禁止，而门禁默认全量模式又把存量算进 GATE FAIL，
+# 结果门禁等于恒红、失去信号价值。按仓内既有棘轮范式（debt-ratchet/lock-rule/problem-finding）
+# 冻结「当前存量键集合」，之后只许减不许增：任何新出现的 DEADFILE/OUTOFRANGE 键一律判红。
+# 为什么要键而不是计数：只比总数时「新增一条 + 修掉一条」会互相抵消，信号被洗白；
+# 键 = 引用文档|级别|目标文件|书写锚点，锚点被改到别处即视为新键，不给位置型后门。
+BASELINE_REL = 'data_scripts/line-anchors-baseline.json'
 # 按既有惯例排除：原始切片（规格来源不是报告）、锚点卡（设计件）、原文转储（逐字底稿）。
 EXCLUDE_DIRS = {'落文-规格切片', '锚点', '落文-原文'}
 EXTS = r'(?:kt|md|py|sh|xml|json|yml|yaml|gradle|txt)'
@@ -227,7 +236,30 @@ def collect_docs(root: str) -> list:
     return sorted(out)
 
 
-def main(root: str = ROOT, allow_rel: str = ALLOW_REL) -> int:
+def load_baseline(root: str, rel: str = BASELINE_REL) -> set:
+    """读存量基线键集合。文件缺失返回空集＝所有存量都算新增（fail-safe：没基线就等于没冻结）。"""
+    path = os.path.join(root, rel)
+    if not os.path.isfile(path):
+        return set()
+    with open(path, encoding='utf-8') as fh:
+        try:
+            data = json.load(fh)
+        except ValueError:
+            return set()
+    return set(data.get('keys') or [])
+
+
+def finding_key(rel: str, sev: str, target: str, written: str) -> str:
+    """存量键：引用文档 | 级别 | 目标文件 | 书写锚点。
+
+    不带报告自身行号：报告正文增删一行会让行号整体平移，带行号会把存量全判成新增，
+    棘轮立刻变成噪声源；书写锚点已足够锁住「哪一段引用」。
+    """
+    return '%s|%s|%s|%s' % (rel, sev, target, written)
+
+
+def main(root: str = ROOT, allow_rel: str = ALLOW_REL, baseline_rel: str = BASELINE_REL,
+         update_baseline: bool = False) -> int:
     entries, malformed = load_allow(root, allow_rel)
     docs = collect_docs(root)
     base_index = build_base_index(root)
@@ -249,13 +281,55 @@ def main(root: str = ROOT, allow_rel: str = ALLOW_REL) -> int:
     # 白名单自身缺理由先列 FAIL，再列锚点判定结果。
     for m in malformed:
         print('BADALLOW  %s' % m)
+    fail_keys = set()
     for sev, rel, lineno, written, target, msg in all_findings:
+        if sev == 'SUSPECT':
+            # SUSPECT 只 WARN，不进基线：它随时可能因目标文件正常改动而退出/进入，冻结它只会骗自己。
+            print('  SUSPECT %s:%d %s → %s（%s）' % (rel, lineno, written, target, msg))
+            continue
+        key = finding_key(rel, sev, target, written)
+        fail_keys.add(key)
         print('  %s %s:%d %s → %s（%s）' % (sev, rel, lineno, written, target, msg))
-    fail = dead + oob + len(malformed)
-    verdict = 'FAIL' if fail else 'PASS'
-    print('LINE-ANCHORS: %s（扫描 %d 份，锚点 %d 条，DEADFILE %d / OUTOFRANGE %d / SUSPECT %d）'
-          % (verdict, len(docs), total_anchors, dead, oob, suspect))
-    return 1 if fail else 0
+
+    baseline = load_baseline(root, baseline_rel)
+    new_keys = fail_keys - baseline
+    fixed_keys = baseline - fail_keys
+
+    # 存量键逐条说明：默认模式不列（4200 条会把真信号淹没），只在末行报计数。
+    if update_baseline:
+        path = os.path.join(root, baseline_rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        payload = {
+            'keys': sorted(fail_keys),
+            'note': ('存量锚点漂移冻结基线（g62 棘轮）。新增 DEADFILE/OUTOFRANGE 一律判红；'
+                     '本基线只许收紧。上调须 data_scripts/check-line-anchors.py --baseline-update，'
+                     '并在 docs/台账-三件缺项.md 登记上调理由与责任人。'),
+            'updated': datetime.date.today().isoformat(),
+        }
+        with open(path, 'w', encoding='utf-8') as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=1)
+            fh.write('\n')
+        print('LINE-ANCHORS: BASELINE-UPDATED（写入 %d 条存量键 → %s）' % (len(fail_keys), baseline_rel))
+        print('  提醒：上调基线＝接受债务增加，必须在 docs/台账-三件缺项.md 记一行理由。')
+        return 0
+
+    if malformed or new_keys:
+        print('LINE-ANCHORS: FAIL（新增 DEADFILE/OUTOFRANGE %d 条 / 基线豁免存量 %d 条 / 白名单缺理由 %d 条）'
+              % (len(new_keys), len(fail_keys) - len(new_keys), len(malformed)))
+        for k in sorted(new_keys)[:6]:
+            print('  NEW %s' % k)
+        if len(new_keys) > 6:
+            print('  NEW … 另有 %d 条，全量见上方明细' % (len(new_keys) - 6))
+        return 1
+
+    # 未冻结的死锚点若全部落在基线内即 PASS；同时把「基线可收紧多少」明说出来，
+    # 不给「存量永久合法」的错觉——修掉的老账应当用 --baseline-update 收下来。
+    print('LINE-ANCHORS: PASS（扫描 %d 份，锚点 %d 条；新增 0 / 基线存量 %d 条；SUSPECT %d 条仅提示）'
+          % (len(docs), total_anchors, len(fail_keys), suspect))
+    if fixed_keys:
+        print('  可收紧：%d 条基线键已不再命中，跑 `python3 data_scripts/check-line-anchors.py --baseline-update` 收下存量'
+              % len(fixed_keys))
+    return 0
 
 
 def _write(root: str, rel: str, src: str) -> str:
@@ -338,6 +412,26 @@ def selftest() -> int:
     finally:
         shutil.rmtree(ex, ignore_errors=True)
 
+    # 棘轮通路（2026-11-27 新增）：存量键冻结后同一死锚点 rc=0，但再添一条新死锚点必须 rc=1。
+    # 为什么必须有这一条：冻结机制最大的风险是"一键冻结全部"把新漂移一起洗掉，
+    # 只有造"冻结后再新增"的必失败样本，才能证明基线不是洗白工具。
+    rat = tempfile.mkdtemp(prefix='line-anchors-selftest-')
+    try:
+        _write(rat, 'docs/报告-ratchet.md', '见 app/Gone.kt:7\n')
+        rc = main(rat)
+        assert rc == 1, f"无基线时死锚点应 FAIL，rc={rc}"
+        rc = main(rat, update_baseline=True)
+        assert rc == 0, f"冻结应写基线并 rc=0，rc={rc}"
+        rc = main(rat)
+        assert rc == 0, f"冻结后同一死锚点应 PASS，rc={rc}"
+        # 必失败样本：冻结后新写一条死锚点，必须被抓。
+        _write(rat, 'docs/报告-ratchet.md', '见 app/Gone.kt:7 与 app/Gone2.kt:9\n')
+        rc = main(rat)
+        assert rc == 1, f"冻结后新增死锚点应 FAIL，rc={rc}"
+        print('[selftest] 棘轮通路（存量冻结 PASS / 冻结后新增 FAIL）OK')
+    finally:
+        shutil.rmtree(rat, ignore_errors=True)
+
     print('[selftest] 夹具已自删，双向自测通过。')
     return 0
 
@@ -345,4 +439,4 @@ def selftest() -> int:
 if __name__ == '__main__':
     if '--selftest' in sys.argv:
         sys.exit(selftest())
-    sys.exit(main())
+    sys.exit(main(update_baseline='--baseline-update' in sys.argv))
