@@ -446,6 +446,9 @@ private fun actionLabel(action: Action): String = when (action) {
 }
 
 private fun resolveBody(content: BubbleContent): String {
-    if (content.kind == BubbleKind.MISSING) return content.body
-    return content.body.ifBlank { content.detail }
+    // 正文 / 详情双空时落无载占位文案，不出空气泡解释行（C3 不空屏兜底）。
+    if (content.kind == BubbleKind.MISSING) {
+        return content.body.ifBlank { HalfSheetFallback.MISSING_TEXT }
+    }
+    return content.body.ifBlank { content.detail }.ifBlank { HalfSheetFallback.MISSING_TEXT }
 }

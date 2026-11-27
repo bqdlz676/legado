@@ -3,26 +3,35 @@ package io.legado.app.ui.book.read.ink
 import android.content.Context
 import android.content.Intent
 import io.legado.app.help.bubble.Action
+import io.legado.app.help.bubble.contract.Action as ContractAction
 import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.ui.main.PersonDetailActivity
 import io.legado.app.ui.main.PlaceMapActivity
 import io.legado.app.ui.main.RelationActivity
 
 /**
- * 气泡动作分发层（切片-02 §1 Action 冻结四类；模块契约 §2 气泡契约）。
+ * 气泡动作分发层（切片-02 §1 Action 冻结五子类；模块契约 §2 气泡契约）。
  *
  * 职责边界：本层只做「动作 → 目标页 / 卡片」的路由与 Intent 装配；
  * 目标页内部的数据加载、消歧、渲染由各页自己负责，本层不复制其逻辑。
- * 未接通的动作 [route] 返回 null，气泡侧 chip 据此置灰不可点，不呈现为可点击。
+ * 未接通的动作 [route] / [routeContract] 返回 null，气泡侧 chip 据此置灰不可点，不呈现为可点击。
+ *
+ * 动作契约双轨口径（B4-08）：
+ *  - 既有链 [Action]（help.bubble.BubbleModels 旧 C2 实现）：四子类，供存量 Provider 产出的
+ *    旧 [BubbleContent] 消费；[route] / [canDispatch] / [dispatch] 与其签名对齐。
+ *  - 冻结契约 [ContractAction]（help.bubble.contract，索引:150 五子类 OpenMap /
+ *    OpenPerson / OpenTimeline / OpenRelation / OpenArtifact，此后不再增删）：
+ *    [routeContract] / [canDispatchContract] 按五子类穷尽分支映射；名物详情
+ *    OpenArtifact 的 Sheet 消费方尚未接线，本单返回 null，chip 置灰，不兜底跳转。
  *
  * 不变式（归位口径，B4-05）：
  *  - 唯一出口：拉起目标页的 `startActivity` 全仓只经 [dispatch] 一处；[route] /
- *    [canDispatch] 是纯判定，不碰 Context、不做副作用；[buildIntent] 仅为静态走查与
- *    单测核对 extra 键的内部接缝；
+ *    [routeContract] / [canDispatch] / [canDispatchContract] 是纯判定，不碰 Context、不做副作用；
+ *    [buildIntent] 仅为静态走查与单测核对 extra 键的内部接缝；
  *  - Action 动作集合冻结不增删（A5）；未接通 / 拉起失败均回 false，调用方不做兜底跳转；
  *  - 本对象为无状态路由表，不持有 Context / Activity 缓存，Context 由每次调用入参传入。
  *
- * 路由口径（冻结协议，四类穷尽分支，不许增删 Action）：
+ * 路由口径（既有链，四类穷尽分支，不许增删 Action）：
  *  - [Action.OpenMap]      → 古今地图 [PlaceMapActivity]；地名优先取 placeName，缺省回退 placeId；
  *                            年代取共享锚点 [ContextAnchor] 当前年，供地图选朝代图层。
  *  - [Action.OpenPerson]   → 人物档案 [PersonDetailActivity]；personId 随 extra 透传（页面暂按名检索）；
@@ -69,6 +78,47 @@ object InkActionDispatcher {
     /** 该动作是否已有真实消费方；气泡 chip 启用 / 置灰据此判定。 */
     fun canDispatch(action: Action, anchor: ContextAnchor = ContextAnchor): Boolean =
         route(action, anchor) != null
+
+    /**
+     * 冻结契约五子类 → 路由映射（纯函数，可单测）。
+     *
+     * 契约动作主键比既有链更窄（无 placeName / personId / label 附加信息），附加字段回退 null；
+     * 锚点年代口径与既有链一致。[ContractAction.OpenArtifact] 名物详情 Sheet 消费方尚未接线，
+     * 返回 null：chip 置灰不可点，不呈现为可点击，也不做兜底跳转。
+     */
+    fun routeContract(action: ContractAction, anchor: ContextAnchor): InkRoute? = when (action) {
+        is ContractAction.OpenMap -> InkRoute.Map(
+            placeName = action.placeId,
+            year = anchor.getYear(),
+        )
+
+        is ContractAction.OpenPerson -> InkRoute.Person(
+            name = action.name,
+            personId = null,
+            anchorYear = anchor.getYear(),
+            anchorLabel = anchor.eraLabel(),
+        )
+
+        is ContractAction.OpenRelation -> InkRoute.Relation(
+            name = action.name,
+            anchorYear = anchor.getYear(),
+            anchorLabel = anchor.eraLabel(),
+        )
+
+        is ContractAction.OpenTimeline -> InkRoute.Timeline(
+            year = action.year,
+            label = null,
+        )
+
+        // 名物详情：详情 Sheet 消费方归后续名物详情接线单；未接通前不映射路由。
+        is ContractAction.OpenArtifact -> null
+    }
+
+    /** 冻结契约五子类是否已有接通消费方；未接通返回 false，UI 禁用对应按钮。 */
+    fun canDispatchContract(
+        action: ContractAction,
+        anchor: ContextAnchor = ContextAnchor,
+    ): Boolean = routeContract(action, anchor) != null
 
     /**
      * 分发动作（冻结集成签名）。接通则拉起目标页并返回 true；未接通返回 false，
