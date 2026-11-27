@@ -63,6 +63,9 @@ REPORT_PREFIXES = ("修复-", "验收-", "实现-", "清理-")
 
 
 def classify(path: str) -> str:
+    # 目录优先：docs/锚点/ 下的文件本身就是锚点卡，若按文件名前缀当报告判会要求它给自己写卡（假红）。
+    if "/锚点/" in path.replace("\\", "/") or path.startswith("docs/锚点/"):
+        return "other"
     name = os.path.basename(path)
     if name.startswith(("修复-", "实现-")):
         return "write"
