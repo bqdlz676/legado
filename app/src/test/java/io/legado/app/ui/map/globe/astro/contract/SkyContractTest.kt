@@ -322,13 +322,13 @@ class SkyContractTest {
 
     @Test
     fun `投影-地上观地平换算前方可见`() {
-        // 赤道上观测点（lat=0），春分点上中天（H=0, dec=0）→ 正南方地平；
-        // 相机须朝南（yaw=180）才「前方可见」——yaw=0 面向北时该星在相机背面，
-        // 由 `z2 <= 1e-9` 判 false 是正确行为（原断言把朝向写反过，已按物理修正）。
+        // 赤道上观测点（lat=0）看南天：H=0（上中天）、dec=−45° → 高度角 45°、正南方。
+        // 相机朝南（yaw=180）时该星在正前方，落在屏幕中心正上方 40px（focal=100，tan45°=1）。
+        // 注：dec=0 在 lat=0 的上中天是**天顶**（alt=90°），方位角退化，不能拿它当「南方地平」用例。
         val out = projectorOut()
         val ok = StarProjector.project(
             SkyViewMode.SKY_EARTH,
-            raDeg = 0.0, decDeg = 0.0,
+            raDeg = 0.0, decDeg = -45.0,
             yawDeg = 180.0, pitchDeg = 0.0,
             focalPx = 100.0, cx = 540.0, cy = 960.0,
             latDeg = 0.0, lonDeg = 0.0, lstDeg = 0.0,
@@ -336,5 +336,7 @@ class SkyContractTest {
         )
         assertTrue(ok)
         assertTrue(out[2] > 0f)
+        assertEquals(540f, out[0], 1e-2f)
+        assertEquals(860f, out[1], 1e-2f)
     }
 }
