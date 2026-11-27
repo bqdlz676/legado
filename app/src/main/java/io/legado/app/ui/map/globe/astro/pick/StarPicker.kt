@@ -84,7 +84,7 @@ class StarPicker(
                     val dy = ys[idx] - touchY
                     if (dx * dx + dy * dy > radiusSq) continue
                     val m = mags[idx]
-                    if (m.isNaN() || m > bestMag) continue
+                    if (m.isNaN() || m >= bestMag) continue // 严格小于才替换：星等并列时保留先扫到的（索引靠前），结果确定可复测
                     bestMag = m
                     best = idx
                 }

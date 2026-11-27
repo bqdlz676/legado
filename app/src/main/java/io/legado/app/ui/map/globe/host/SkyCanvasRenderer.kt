@@ -1,6 +1,7 @@
 package io.legado.app.ui.map.globe.host
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
@@ -158,7 +159,8 @@ object SkyCanvasRenderer {
             val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
             val shader = RadialGradient(px / 2f, px / 2f, px / 2f,
-                intArrayOf(0xFFFFFFFF.toInt(), 0x99FFFFFF.toInt(), 0x1FFFFFFF.toInt()),
+                intArrayOf(Color.argb(255, 255, 255, 255), Color.argb(153, 255, 255, 255),
+                    Color.argb(31, 255, 255, 255)),
                 floatArrayOf(0f, 0.35f, 1f), Shader.TileMode.CLAMP)
             c.drawRect(0f, 0f, px.toFloat(), px.toFloat(), Paint().apply { this.shader = shader })
             atlas[i] = bmp
@@ -166,8 +168,7 @@ object SkyCanvasRenderer {
         return atlas.requireNoNulls()
     }
 }
-/** 画布热区；id 供接线单命中判定，rect 为 ≥48dp 透明外扩框。 */
-data class HotZone(val id: String, val label: String, val rect: RectF)
+data class HotZone(val id: String, val label: String, val rect: RectF) // 画布热区：id 供接线单命中判定，rect 为 ≥48dp 透明外扩框
 /** 帧间复用的投影星缓冲；扩容 2 倍拷贝，热路径不 new 列表（§十二.2）。 */
 private class ProjectedStars {
     var count = 0
@@ -182,8 +183,7 @@ private class ProjectedStars {
         x[count] = px; y[count] = py; mag[count] = m; id[count] = starId; count++
     }
 }
-/** pass1：星空底离屏位图；视角 / 缩放不变整幅复用（§八.1）。 */
-private class SkyBackdropRenderer {
+private class SkyBackdropRenderer { // pass1：星空底离屏位图，视角/缩放不变则整幅复用（§八.1）
     private val fbm = FbmNoise(20261128); private var cachedKey: String? = null
     fun render(cached: Bitmap?, key: String, sky: SkyFrame, w: Float, h: Float, lowPower: Boolean, offline: Boolean): Bitmap {
         if (cached != null && cached.width == w.toInt() && cached.height == h.toInt() && key == cachedKey) return cached
@@ -336,14 +336,14 @@ private class SkyStarSpriteRenderer {
                 val freq = 0.6 + skyHash(i, 12) * 0.8
                 alpha *= 1f + 0.08f * sin(2.0 * PI * freq * nowMs / 1000.0 + phase).toFloat()
             }
-            paint.colorFilter = PorterDuffColorFilter(0xFF000000.toInt() or rgb, PorterDuff.Mode.SRC_IN)
+            paint.colorFilter = PorterDuffColorFilter((0xFF shl 24) or rgb, PorterDuff.Mode.SRC_IN)
             paint.alpha = (alpha * 255f).toInt().coerceIn(0, 255)
             val half = d / 2f
             rect.set(stars.x[i] - half, stars.y[i] - half, stars.x[i] + half, stars.y[i] + half)
             canvas.drawBitmap(atlas[tierOf(d)], null, rect, paint)
             if (mag < SkyParams.STAR_SPIKE_MAG) { // 四芒只给 mag<0.5（§八.8），同 pass 补短芒线
                 paint.colorFilter = null
-                paint.color = 0xFF000000.toInt() or rgb
+                paint.color = (0xFF shl 24) or rgb
                 val r = d * 1.4f
                 canvas.drawLine(stars.x[i] - r, stars.y[i], stars.x[i] + r, stars.y[i], paint)
                 canvas.drawLine(stars.x[i], stars.y[i] - r, stars.x[i], stars.y[i] + r, paint)
@@ -371,7 +371,7 @@ private class SkyStarSpriteRenderer {
         val progress = t / 1200.0
         val hx = (0.2 + 0.6 * skyHash(5, 33) * w).toFloat()
         val hy = (0.25 + 0.3 * skyHash(6, 34) * h).toFloat()
-        paint.color = 0xFF000000.toInt() or SkySpecColor.METEOR_HEAD_RGB
+        paint.color = (0xFF shl 24) or SkySpecColor.METEOR_HEAD_RGB
         paint.alpha = ((1.0 - progress) * 255).toInt()
         canvas.drawLine(hx - 0.12f * w * progress.toFloat(), hy + 0.06f * h * progress.toFloat(), hx, hy, paint)
         paint.alpha = 255
@@ -396,5 +396,5 @@ private fun skyArgb(token: Long, alphaRatio: Float? = null): Int {
 private fun skyHash(i: Int, salt: Int): Double {
     var h = i * 374761393 + salt * 668265263 + 9173 * 2246822519
     h = h xor (h ushr 13); h *= 1274126177; h = h xor (h ushr 16)
-    return (h and 0x7FFFFFFF).toDouble() / 0x7FFFFFFF
+    return (h and Int.MAX_VALUE).toDouble() / Int.MAX_VALUE
 }
