@@ -258,7 +258,7 @@ import re,sys
 n=0
 for line in open(sys.argv[1],encoding='utf-8'):
     if not line.startswith('|'): continue
-    ids=set(re.findall(r'(?<![A-Za-z])(B|C|D|E|F|N)(\d+R?\d*)(?![0-9])', line))
+    ids=set(re.findall(r'(?<![A-Za-z0-9])(B|C|D|E|F|N)(\d+R?\d*)(?![0-9])', line))
     if len({a+b for a,b in ids})>=2: n+=1
 print(n)
 PY2
@@ -454,11 +454,12 @@ echo "$LA62" | grep 'SUSPECT' | while read -r w; do say "62锚点行号(提示)"
 else skip_audit "62锚点行号"; fi
 
 # 63 符号存在性与重载配平（2026-11-27 CI 红根因 87c7e0d：matchesB3Query 一参扩展被四参调用）。
-#    NODEF：自有 import 符号仓内反查不到 fun/构造定义；ARITY：可核对重载无一容纳实参个数。
+#    NODEF：自有 import 符号仓内反查不到 fun/构造定义；ARITY：可核对重载无一容纳实参个数；
+#    PACKAGE：名字仓内有但包不对（import 指向别包同名声明 / 通配符包不存在）→ kotlinc Unresolved reference。
 #    生成符号/外部库/标准库/接收者类型未知者按计数跳过，不硬判；与 ⑫/⑬/㉜/61 同属编译硬判据。
 if gate_active g63; then
 SE63=$(python3 data_scripts/check-symbol-existence.py 2>&1)
-if [ $? -eq 0 ]; then ok "63符号存在配平" "$(echo "$SE63" | grep 'SYMBOL-EXISTENCE: PASS')"; else bad "63符号存在配平" "$(echo "$SE63" | grep -E 'NODEF|ARITY' | head -3 | tr '\n' ' ')"; fi
+if [ $? -eq 0 ]; then ok "63符号存在配平" "$(echo "$SE63" | grep 'SYMBOL-EXISTENCE: PASS')"; else bad "63符号存在配平" "$(echo "$SE63" | grep -E 'NODEF|ARITY|PACKAGE' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "63符号存在配平"; fi
 
 # 64 单测判据真值（2026-11-27 CI 三红根因：反射取成员抛 KotlinReflectionNotSupportedError /
@@ -468,6 +469,25 @@ if gate_active g64; then
 ATT64=$(python3 data_scripts/check-test-assert-truth.py --changed 2>&1)
 if [ $? -eq 0 ]; then ok "64单测判据真值" "$(echo "$ATT64" | grep 'TEST-ASSERT-TRUTH: PASS')"; else bad "64单测判据真值" "$(echo "$ATT64" | grep '^FAIL' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "64单测判据真值"; fi
+
+# 65 消费方反查（2026-11-27 复盘-B6-04：DiscoverRegion 枚举删前未 grep 消费方；
+#    InkReadController 跨包 import 是真红）。删除面：enum entry / sealed 子类 / 伴生常量
+#    删掉后全仓 token 边界反查残留（import、when 分支、类型引用、字符串 handler 映射）；
+#    新增面 when 缺 else 只 WARN 点名不硬红；改名面旧名残留即红。全仓存量走 audit 不挡 push。
+if gate_active g65; then
+MC65=$(python3 data_scripts/check-member-consumers.py --changed 2>&1)
+if [ $? -eq 0 ]; then ok "65消费方反查" "$(echo "$MC65" | grep 'MEMBER-CONSUMERS: PASS')"; else bad "65消费方反查" "$(echo "$MC65" | grep -E 'FAIL|MEMBER-CONSUMERS' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "65消费方反查"; fi
+
+# 66 同签名实现成员缺 override（2026-11-27 CI 红 0c9fd30：InkReadController.kt:141/:149
+#    两重写方法缺 override，kotlinc hides member of supertype；g63/g64/g65 当时全绿无人拦）。
+#    接口/抽象类成员表（名字+参数个数+类型串归一）→ 实现方同签名声明缺 override 判
+#    MEMBER-OVERRIDE；private / 扩展接收者 / 类型串异签名 / 局部函数 / 伴生 / 顶层同名放行。
+#    间接实现沿父类型链 BFS 追表；默认只判改动面（--changed），全仓存量走 audit 不挡 push。
+if gate_active g66; then
+MO66=$(python3 data_scripts/check-member-override.py --changed 2>&1)
+if [ $? -eq 0 ]; then ok "66实现成员override" "$(echo "$MO66" | grep 'MEMBER-OVERRIDE: PASS')"; else bad "66实现成员override" "$(echo "$MO66" | grep -E 'MEMBER-OVERRIDE|FAIL' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "66实现成员override"; fi
 
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。

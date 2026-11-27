@@ -934,7 +934,7 @@
       "nature": "bad",
       "scope": "product-code",
       "level": "blocking",
-      "reason": "仓内无该重载却按多参调用（87c7e0d matchesB3Query 一参扩展被四参调用）是 kotlinc Argument count mismatch ERROR，文本层合法、回执闸只数调用名不核定义配平；沙箱无编译链无法本地复现，与 ⑫/⑬/㉜/61 同属代码能否编译的硬判据，必须 push 前拦住。",
+      "reason": "仓内无该重载却按多参调用（87c7e0d matchesB3Query 一参扩展被四参调用）是 kotlinc Argument count mismatch ERROR，文本层合法、回执闸只数调用名不核定义配平；沙箱无编译链无法本地复现，与 ⑫/⑬/㉜/61 同属代码能否编译的硬判据，必须 push 前拦住。PACKAGE 形态：名字仓内有但包不对——import 指向别的包同名声明，或通配符 import 的目标包在仓内无任何 package 声明，kotlinc 报 Unresolved reference ERROR；旧判据只查名字有无，包不对照样放行。2026-11-27 加固：宽松兜底 fun 分支限定到行首/缩进后声明位且名字紧接左括号，不跨函数体匹配后续提及；自有 `包.*` 通配符 import 纳入 PACKAGE 判定；自测坏样本断言类别标签（NODEF/ARITY/PACKAGE）与被判文件行；补扩展跨包错引、嵌套/伴生外层放行、泛型接收者扩展放行、通配符包存在/不存在通路夹具。",
       "compensation": null
     }    ,{
       "id": "g64",
@@ -945,6 +945,28 @@
       "scope": "test-code",
       "level": "blocking",
       "reason": "三类写法文本层全合法、运行期却打不出真值：①X::class.members 反射取成员，单测 classpath 无 kotlin-reflect，运行期必抛 KotlinReflectionNotSupportedError（实测 DiscoverViewModelTest.kt:210）；②拿 readText() 整份源文件直接 contains，源文件 KDoc 里写着同一句话就自证成红（实测 DiscoverModelsTest.kt:200）；③assertTrue(true) 类空断言判据恒真，打不假任何实现。三种都是「单测写了但等于没测」，只有 CI 跑起来才红，必须 push 前拦住。全仓存量 306 处属历史债务、按 audit 台账清，门禁只判相对 origin/main 的改动面，避免红墙变噪声。",
+      "compensation": null
+    },
+    {
+      "id": "g65",
+      "label": "65",
+      "name": "消费方反查",
+      "script": "check-member-consumers.py --changed",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "删掉 enum entry / sealed 子类 / 伴生常量前不查消费方，残留的 import、when 分支、类型引用与字符串 handler 映射只有编译期才炸（DiscoverRegion 删前未 grep；InkReadController 跨包 import 是真红）；静态闸在 push 前全仓 token 边界反查残留，属代码能否编译的硬判据。新增面 when 缺 else 只 WARN 点名不硬红；全仓存量走 audit 清单，不挡 push。",
+      "compensation": null
+    },
+    {
+      "id": "g66",
+      "label": "66",
+      "name": "实现成员override",
+      "script": "check-member-override.py --changed",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "实现方同签名重声明接口/抽象类成员却缺 override 修饰符，kotlinc 报 hides member of supertype and needs an 'override' modifier（2026-11-27 CI 红 0c9fd30：InkReadController.kt:141/:149 两个重写方法缺 override，修红提交 35bbb54 只补两个关键字；当时 g63 NODEF/ARITY/PACKAGE 全 0、g64/g65/compose 陷阱/lint 全绿，无静态闸能拦）。静态闸先建接口/抽象类成员表（名字+参数个数+类型串归一），再对继承方同签名声明核对 override；private 成员、不同接收者扩展函数、泛型实参不同的异签名、局部函数、伴生对象同名、接口外顶层同名六类建放行样本。间接实现沿父类型链 BFS 追表；Java/Android 父类与中间具体类自带 open 成员不在表内。默认只判改动面（--changed），全仓存量走 audit 清单，不挡 push。",
       "compensation": null
     }
   ],
