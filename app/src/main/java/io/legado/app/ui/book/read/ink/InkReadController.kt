@@ -14,10 +14,15 @@ import io.legado.app.help.bubble.BubbleContent
 import io.legado.app.help.bubble.BubbleResolver
 import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.config.AppConfig
+import io.legado.app.model.ReadBook
 import io.legado.app.service.BaseReadAloudService
+import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngine
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngineFactory
 import io.legado.app.ui.book.read.vertical.VerticalPage
+import io.legado.app.ui.book.read.vertical.VerticalPageView
+import io.legado.app.ui.book.read.vertical.verticalBodyText
+import io.legado.app.ui.book.read.vertical.verticalTitle
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.getPrefString
 import kotlin.math.roundToInt
@@ -25,31 +30,38 @@ import kotlin.math.roundToInt
 /**
  * 阅读页三引擎接线宿主（U5-A ↔ V1 竖排 / C2 气泡 / C1 时空锚）。
  *
+ * 状态源（R5，B4-06）：章 / 页 / 进度 / 样式真值唯一在 [ReadBook]——
+ * 书 [ReadBook.book]、当前章 [ReadBook.curTextChapter]、章序号 [ReadBook.durChapterIndex]、
+ * 章内位置 [ReadBook.durChapterPos]、页序号 [ReadBook.durPageIndex] 一律从 [ReadBook] 读；
+ * 进章 / 翻页 / 进度跳转的变更一律写回 [ReadBook]（[openChapter] / moveToNextPage /
+ * moveToPrevPage / moveToNextChapter / moveToPrevChapter / setPageIndex）。本类不自存第二份
+ * 章文本 / 章标题 / 章标识 / 进度真值；两级缓存只作提速，渲染侧页序计数随引擎派生。
+ *
  * 闭环链路：
- *  1. [bindChapter]：把当前书 / 章 / 正文写入 [ContextAnchor]，先按章标题与正文前段线索
- *     猜候选年代区间；再交分页引擎分页排版。
+ *  1. [syncChapterFromReadBook]：从 [ReadBook] 取当前书 / 章锚定时空总线，清气泡热缓存后重排。
  *  2. [probeChar]：触摸点先走 [VerticalLayoutEngine.hitTest]，字命中优先于边缘翻页；
  *     命中后按字位回填气泡锚点矩形。
  *  3. [requestBubble]：把命中段的 (paragraphText, pos) 喂给 [BubbleResolver.resolve]，
  *     锚点传共享总线 [ContextAnchor]；Resolver 内部 Missing 兜底，壳侧不空气泡。
- *  4. [turnPage]：掀角动画期间屏蔽新翻页；引擎 prev / next 翻页，回填进度并关闭气泡。
+ *  4. [turnPage]：掀角动画期间屏蔽新翻页；页内翻页走 [ReadBook.moveToNextPage] /
+ *     [ReadBook.moveToPrevPage]，章边界续接 [ReadBook.moveToNextChapter] /
+ *     [ReadBook.moveToPrevChapter]，状态由 [ReadBook] 回调回灌后再本地幂等同步。
  *  5. [switchCandidate]：候选循环切换，按候选裸查询词走 [BubbleResolver.queryToken] 重解析回填。
  *
- * 不变式（归位口径，B4-05）：
+ * 不变式（归位口径，B4-05 / B4-06）：
  *  - 三引擎编排唯一收口在本类：分页引擎·竖排模式 / 气泡 Resolver / 时空锚的接线顺序与翻页闸串联
  *    只此一份，壳层与手势层不经第二控制器重复编排；
- *  - 两级缓存口径：[chapterCache] 按章预热正文（前后各 [InkTokens.CHAPTER_CACHE_RADIUS] 章），
- *    [bubbleCache] 按「章 + 页 + 段 + 字位」缓存解析结果；缓存只作提速，状态真值仍在
- *    [io.legado.app.model.ReadBook]（R5），本类不自存第二份章文本 / 进度 / 样式；
+ *  - 缓存口径：[bubbleCache] 按「章 + 页 + 段 + 字位」缓存解析结果；章正文 / 进度 / 样式
+ *    真值唯一在 [ReadBook]（R5），本类不自存章正文 / 标题 / 标识 / 进度镜像；前后相邻章预热
+ *    由 [ReadBook] 内部邻章加载承担，控制器不另存正文副本；
  *  - Context 注入槽：构造期传入一次；偏好读取走 applicationContext，本类不把 Activity
  *    写进任何 object / companion / 全局总线；View 构造所需 themed Context 仅存活于本实例，
  *    随宿主销毁由 [release] 摘挂；
- *  - 重复 attach 幂等：View 监听只在 init 挂一次，[bindChapter] 重复调用只刷新章 / 缓存 /
- *    排版，不重复注册监听、不叠第二份回调。
+ *  - 重复 attach 幂等：View 监听只在 init 挂一次，[syncChapterFromReadBook] 重复调用只刷新章 /
+ *    缓存 / 排版，不重复注册监听、不叠第二份回调。
  *
  * 性能（切片-08）：
- *  - 章节正文按前后各 [InkTokens.CHAPTER_CACHE_RADIUS] 章缓存在 [chapterCache]，
- *    翻章命中缓存即重排，不等正文二次加载，章节切换 0 白屏；
+ *  - 前后相邻章由 [ReadBook] 预载，翻章即取已就绪邻章，不等正文二次加载，章节切换 0 白屏；
  *  - 气泡解析结果按「章 + 页 + 段 + 字位」进 [bubbleCache]，同一页反复点同一字不重走解析链。
  *
  * 边界兜底：空正文 / 空尺寸 / 越界命中 / 字典缺失全部 runCatching 降级，不崩、不空白态。
@@ -68,18 +80,6 @@ class InkReadController(
     val pageView: VerticalPageView = VerticalPageView(context)
 
     private var engine: VerticalLayoutEngine? = null
-    private var chapterId: String = ""
-    private var chapterTitle: String? = null
-    private var chapterBody: String = ""
-
-    /** 已知总页数（引擎未暴露页数访问器；随翻页回填收敛，jumpTo 内部另有越界夹取兜底）。 */
-    private var knownPageCount: Int = 1
-
-    /** 章节正文预热缓存：翻章命中即取，避免章节切换白屏（容量按前后各 3 章收口）。 */
-    private val chapterCache = object : LinkedHashMap<String, CachedChapter>(8, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedChapter>?): Boolean =
-            size > CHAPTER_CACHE_MAX
-    }
 
     /** 气泡解析结果按页缓存：同一页反复点同一字直接回填，不重走 Provider 链。 */
     private val bubbleCache = object : LinkedHashMap<String, BubbleContent>(32, 0.75f, true) {
@@ -87,13 +87,13 @@ class InkReadController(
             size > BUBBLE_CACHE_MAX
     }
 
-    // ---------- 暴露给 Compose 壳的状态 ----------
+    // ---------- 暴露给 Compose 壳的视图状态（派生自 ReadBook，非第二份真值） ----------
 
     /** 当前气泡内容；null = 无气泡（Resolver 未收录时也由其产出 Missing 兜底）。 */
     var bubbleContent by mutableStateOf<BubbleContent?>(null)
         private set
 
-    /** 阅读进度 0f..1f。 */
+    /** 阅读进度 0f..1f；由 ReadBook 当前章 / 页派生，不在壳内另存进度真值。 */
     var progress by mutableStateOf(0f)
         private set
 
@@ -117,39 +117,48 @@ class InkReadController(
         pageView.typeface = InkFonts.viewTypeface
     }
 
+    // ---------- 三路状态源接线（R5：读写均收敛到 ReadBook） ----------
+
     /**
-     * 预热一章正文（切片-08「预载前后各一章」）。列表 / 相邻章就绪后调用，
-     * 仅写入缓存不触发排版；真翻到该章时 [bindChapter] 直接取用。
+     * 进章通道：委托 [ReadBook.openChapter] 打开指定章 / 位置；正文就绪由 [ReadBook] 回调
+     * （`CallBack.upContent` / `pageChanged` / `contentLoadFinish`）回灌，宿主再调
+     * [syncChapterFromReadBook] 同步壳视图。本方法不在壳内另存章标识 / 标题 / 正文镜像。
+     *
+     * @param index 章序号；@param durChapterPos 章内位置；@param success 加载完成回调。
      */
-    fun prefetchChapter(chapterId: String, title: String?, body: String) {
-        if (chapterId.isBlank() || body.isBlank()) return
-        chapterCache[chapterId] = CachedChapter(title?.takeIf { it.isNotBlank() }, body)
+    fun openChapter(index: Int, durChapterPos: Int = 0, success: (() -> Unit)? = null) {
+        ReadBook.openChapter(
+            index = index,
+            durChapterPos = durChapterPos,
+            success = success,
+        )
     }
 
     /**
-     * 章切换接线：锚点总线写书 / 章，按标题 + 正文前段线索锚定候选年代区间，
-     * 清气泡热缓存后重排分页引擎。
-     *
-     * @param bookId   当前书标识
-     * @param chapterId 当前章标识
-     * @param title    章节标题（可空）
-     * @param body     章节正文文本流（段落以换行分隔）
+     * 出页通道：取 [ReadBook] 当前页 [TextPage]，交 B4-07 文字面 `ContentTextView.setContent`
+     * 上屏；章未加载 / 页序号越界时返回 null，壳侧空页兜底，不出空白态。本方法只做回源读取，
+     * 不在控制器内另存第二份页文本。
      */
-    fun bindChapter(bookId: String, chapterId: String, title: String?, body: String) {
-        this.chapterId = chapterId
-        chapterTitle = title?.takeIf { it.isNotBlank() }
-        chapterBody = body.ifBlank { chapterCache[chapterId]?.body.orEmpty() }
-        chapterCache[chapterId] = CachedChapter(chapterTitle, chapterBody)
+    fun currentTextPage(): TextPage? =
+        ReadBook.curTextChapter?.getPage(ReadBook.durPageIndex)
+
+    /**
+     * 状态回源：从 [ReadBook] 取当前书 / 章，锚定时空总线、清气泡热缓存后重排分页引擎·竖排模式。
+     * 章标识 / 标题 / 正文 / 进度全部现取现用，不落本类字段；重复调用幂等。
+     */
+    fun syncChapterFromReadBook() {
+        val book = ReadBook.book
+        val chapter = ReadBook.curTextChapter
 
         runCatching {
-            ContextAnchor.setChapter(bookId, chapterTitle)
-            ContextAnchor.chapterId = chapterId
+            ContextAnchor.setChapter(book?.bookUrl, chapter?.verticalTitle())
+            ContextAnchor.chapterId = chapter?.chapter?.url.orEmpty()
             // 已有强锚定（用户点年号确认）不覆盖；无锚点时按本章线索猜候选年代区间。
             if (!ContextAnchor.hasAnchor()) {
                 val clue = buildString {
-                    append(chapterTitle.orEmpty())
+                    append(chapter?.verticalTitle().orEmpty())
                     if (isNotEmpty()) append('\n')
-                    append(chapterBody.take(CHAPTER_CLUE_CHARS))
+                    append(chapter?.verticalBodyText().orEmpty().take(CHAPTER_CLUE_CHARS))
                 }
                 ContextAnchor.guessFromText(clue)
             }
@@ -162,25 +171,32 @@ class InkReadController(
         layoutIfNeeded(pageView.width, pageView.height)
     }
 
-    /** 版面尺寸确定 / 变化后重排；空尺寸兜底直接返回，不崩。 */
+    /** 版面尺寸确定 / 变化后重排；空尺寸兜底直接返回，不崩。正文从 [ReadBook] 当前章现取。 */
     internal fun layoutIfNeeded(widthPx: Int, heightPx: Int) {
         if (widthPx <= 0 || heightPx <= 0) return
         val e = engine ?: VerticalLayoutEngineFactory
             .create(widthPx, heightPx, typeface = InkFonts.viewTypeface)
             .also { engine = it }
+        val chapter = ReadBook.curTextChapter
+        val body = chapter?.verticalBodyText().orEmpty()
+        val title = chapter?.verticalTitle()
         val page = runCatching {
-            e.layout(chapterBody, widthPx, heightPx, chapterTitle)
+            e.layout(body, widthPx, heightPx, title)
         }.getOrNull()
         publishPage(page)
     }
 
     private fun publishPage(page: VerticalPage?) {
         pageView.render(page)
-        progress = page?.progress ?: 0f
-        if (page != null) {
-            knownPageCount = knownPageCount.coerceAtLeast(page.pageIndex + 1)
-            if (engine?.canNext == false) knownPageCount = page.pageIndex + 1
-        }
+        progress = page?.progress ?: readBookProgress()
+    }
+
+    /** 进度由 ReadBook 当前章 / 页派生：无章归零，单页归一，多页按页序号夹取 0f..1f。 */
+    private fun readBookProgress(): Float {
+        val chapter = ReadBook.curTextChapter ?: return 0f
+        val size = chapter.pageSize
+        if (size <= 1) return if (chapter.pages.isEmpty()) 0f else 1f
+        return (ReadBook.durPageIndex.toFloat() / (size - 1)).coerceIn(0f, 1f)
     }
 
     // ---------- ReaderShellHost ----------
@@ -207,15 +223,19 @@ class InkReadController(
         if (pageView.isTurnAnimating()) return
         // 掀角动画自右下掀起；动画期间由 isPageAnimating 屏蔽新的翻页与气泡。
         pageView.startPageTurn(direction)
-        val page = runCatching {
-            when (direction) {
-                EdgeDirection.Prev -> e.prev()
-                EdgeDirection.Next -> e.next()
+        // 页内翻页先走 ReadBook 页通道；章边界页通道落空后续接翻章通道。翻页状态真值在 ReadBook。
+        when (direction) {
+            EdgeDirection.Next -> {
+                ReadBook.moveToNextPage() || ReadBook.moveToNextChapter(upContent = true)
             }
-        }.getOrNull()
+            EdgeDirection.Prev -> {
+                ReadBook.moveToPrevPage() || ReadBook.moveToPrevChapter(upContent = true, toLast = false)
+            }
+        }
         bubbleContent = null
         pageTick++
-        publishPage(page)
+        // ReadBook 回调已回灌状态；本地再按 ReadBook 现状幂等同步一次 interim 视图。
+        syncChapterFromReadBook()
     }
 
     override fun onCenterTap(x: Float, y: Float, hit: CharHit?) {
@@ -232,7 +252,8 @@ class InkReadController(
         val anchor = hit.anchor
         pageView.burstAt((anchor.left + anchor.right) / 2f, (anchor.top + anchor.bottom) / 2f)
 
-        val cacheKey = "${chapterId}:${engine?.currentPage?.pageIndex ?: 0}:${hit.paragraphText}:${hit.pos}"
+        val chapterUrl = ReadBook.curTextChapter?.chapter?.url.orEmpty()
+        val cacheKey = "$chapterUrl:${engine?.currentPage?.pageIndex ?: 0}:${hit.paragraphText}:${hit.pos}"
         val cached = bubbleCache[cacheKey]
         if (cached != null) {
             bubbleContent = cached
@@ -299,17 +320,20 @@ class InkReadController(
         bubbleContent = content
     }
 
-    /** 底栏进度跳转：按 0f..1f 比例收敛到最近一页；越界由引擎 jumpTo 内部夹取。 */
+    /**
+     * 底栏进度跳转：按 0f..1f 比例收敛到当前章最近一页，页码经 [ReadBook.setPageIndex]
+     * 写回状态源；越界由 ReadBook / 章节夹取兜底。章边界之外的整章跳转归目录 / 翻章通道。
+     */
     fun seekTo(fraction: Float) {
-        val e = engine ?: return
-        val count = knownPageCount.coerceAtLeast(1)
-        val pageIndex = (fraction.coerceIn(0f, 1f) * count)
+        val chapter = ReadBook.curTextChapter ?: return
+        val count = chapter.pageSize.coerceAtLeast(1)
+        val pageIndex = (fraction.coerceIn(0f, 1f) * (count - 1))
             .roundToInt()
             .coerceIn(0, count - 1)
-        val page = runCatching { e.jumpTo(pageIndex) }.getOrNull() ?: return
+        ReadBook.setPageIndex(pageIndex)
         bubbleContent = null
         pageTick++
-        publishPage(page)
+        syncChapterFromReadBook()
     }
 
     // ---------- 外部翻页通道：硬件键 / 媒体键（交接清单 #11 遗留） ----------
@@ -383,10 +407,10 @@ class InkReadController(
     /**
      * 宿主销毁 / 摘挂接缝：清两级缓存与引擎排版缓存、复位气泡态，断开 View 监听闭包，
      * 避免控制器闭包持有已销毁宿主。重复 attach 前由宿主调用；未调用时实例随宿主回收，
-     * 本类不进任何全局单例。release 后若再 [bindChapter]，引擎与缓存按新会话重建。
+     * 本类不进任何全局单例。release 后若再 [syncChapterFromReadBook]，引擎与缓存按新会话重建。
+     * ReadBook 全局单例的注册 / 反注册由宿主 Activity 生命周期管理，不在本摘挂范围内。
      */
     fun release() {
-        chapterCache.clear()
         bubbleCache.clear()
         bubbleContent = null
         onReadAloudToggle = null
@@ -400,9 +424,6 @@ class InkReadController(
         /** 章切换时取正文前段多少字参与年代线索猜测。 */
         const val CHAPTER_CLUE_CHARS = 500
 
-        /** 章节正文缓存容量：前后各 [InkTokens.CHAPTER_CACHE_RADIUS] 章 + 当前章。 */
-        val CHAPTER_CACHE_MAX = InkTokens.CHAPTER_CACHE_RADIUS * 2 + 1
-
         /** 气泡解析结果缓存条数（够一章反复点按）。 */
         const val BUBBLE_CACHE_MAX = 32
 
@@ -412,8 +433,6 @@ class InkReadController(
          */
         const val PREF_DISABLE_RETURN_KEY = "disableReturnKey"
     }
-
-    private data class CachedChapter(val title: String?, val body: String)
 }
 
 /** 宿主 Composable 侧取控制器：随 Composition 记住单例。 */

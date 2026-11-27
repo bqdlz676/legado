@@ -15,14 +15,15 @@ import io.legado.app.help.chrono.ContextAnchor
  * 把 [InkReadController]（分页引擎 / 气泡引擎 / 时空锚接线宿主）与 [InkReaderShell]
  * （手势遮罩 + 气泡层 + 底栏壳）组装到一起：
  *
- * 打开书 → [InkReadController.bindChapter] 锚定书 / 章与候选年代区间、竖排分页 →
- * 竖排逐字绘制 → 短按字 hitTest 命中 → BubbleResolver.resolve 出气泡；
- * 边缘空白翻页走引擎 prev / next；长按不出气泡。
+ * 打开书 → [InkReadController.syncChapterFromReadBook] 从 `model/ReadBook` 回源当前书 / 章、
+ * 锚定时空总线与候选年代区间、竖排分页 → 竖排逐字绘制 → 短按字 hitTest 命中 →
+ * BubbleResolver.resolve 出气泡；边缘空白翻页走 ReadBook 页 / 章通道；长按不出气泡。
  *
- * 宿主 Activity 把当前书章标题与正文文本流传进来，并接好
- * 目录 / 朗读 / 更多 / 进度跳转 / 气泡动作 / 候选切换回调；引擎细节不在此层外露。
+ * 状态源（R5，B4-06）：本件不再把书 / 章标题 / 正文文本流传进控制器；章 / 页 / 进度真值
+ * 唯一在 `model/ReadBook`，控制器从 ReadBook 现读、变更写回。宿主 Activity 把
+ * 目录 / 朗读 / 更多 / 进度跳转 / 气泡动作 / 候选切换回调接进来；引擎细节不在此层外露。
  *
- * 不变式（归位口径，B4-05）：
+ * 不变式（归位口径，B4-05 / B4-06）：
  *  - 本件只做装配，不复制控制器的引擎编排 / 缓存 / 裁决逻辑；控制器经 [controller] 槽位
  *    注入，缺省由 [rememberInkReadController] 随 Composition 记住单例，宿主可自定义接管；
  *  - 动作 / 候选回调缺省实现保留：[onBubbleAction] 缺省走 [InkActionDispatcher.dispatch]
@@ -38,10 +39,6 @@ import io.legado.app.help.chrono.ContextAnchor
  */
 @Composable
 fun InkReaderBook(
-    bookId: String,
-    chapterId: String,
-    title: String?,
-    body: String,
     onCatalog: () -> Unit,
     onTts: () -> Unit,
     onMenu: () -> Unit,
@@ -64,9 +61,10 @@ fun InkReaderBook(
     val candidateHandler: (BubbleCandidate) -> Unit =
         onCandidateSelect ?: controller::switchCandidate
 
-    // 书 / 章 / 正文变化时重锚时空总线并重排分页引擎；空文本由引擎与渲染层兜底。
-    LaunchedEffect(bookId, chapterId, title, body) {
-        controller.bindChapter(bookId, chapterId, title, body)
+    // 控制器随 Composition 挂载后从 ReadBook 回源当前章 / 页；
+    // 后续章 / 页变化由 ReadBook 回调触发控制器再同步，本效应不另存章文本镜像。
+    LaunchedEffect(controller) {
+        controller.syncChapterFromReadBook()
     }
 
     InkReaderShell(

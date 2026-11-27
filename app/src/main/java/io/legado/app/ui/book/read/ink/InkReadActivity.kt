@@ -12,10 +12,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
@@ -28,7 +24,6 @@ import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.ReadBookViewModel
-import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.utils.eventObservable
 import io.legado.app.utils.getPrefBoolean
@@ -49,7 +44,7 @@ import kotlinx.coroutines.launch
  * [ReadBook.CallBack] 回填章节正文 → [InkReaderBook] 竖排渲染 →
  * 点字出气泡 → 动作经 [InkActionDispatcher] 分发地图 / 人物 / 纪年 / 关系页。
  *
- * 性能（切片-08）：当前章就绪后，把前后相邻章正文预热进控制器缓存，翻章 0 白屏。
+ * 性能（切片-08）：前后相邻章由 ReadBook 预载，翻章即取已就绪邻章，翻章 0 白屏。
  *
  * 兜底：章节尚未加载完成时正文为空串，壳与引擎按空页兜底，不出空白态、不崩；
  * 正文加载完成后回调刷新，状态自动回填。
@@ -89,11 +84,7 @@ class InkReadActivity : ComponentActivity() {
         }
     }
 
-    // ── 搬运到 Compose 壳的书 / 章状态 ──────────────────────────────
-    private var bookId by mutableStateOf("")
-    private var chapterId by mutableStateOf("")
-    private var chapterTitle by mutableStateOf<String?>(null)
-    private var chapterBody by mutableStateOf("")
+    // ── 书 / 章状态真值唯一在 ReadBook（R5，B4-06）；本 Activity 不再存第二份镜像 ──
 
     private val tocLauncher = registerForActivityResult(TocActivityResult()) { result ->
         result ?: return@registerForActivityResult
@@ -212,24 +203,6 @@ class InkReadActivity : ComponentActivity() {
         })
 
         setContent {
-            // 相邻章正文预热：切片-08「预载前后各一章」，翻章命中缓存即重排，不等二次加载。
-            LaunchedEffect(chapterId, chapterBody) {
-                ReadBook.prevTextChapter?.let { prev ->
-                    controller.prefetchChapter(
-                        chapterId = prev.chapter.url,
-                        title = prev.title,
-                        body = chapterBodyText(prev),
-                    )
-                }
-                ReadBook.nextTextChapter?.let { next ->
-                    controller.prefetchChapter(
-                        chapterId = next.chapter.url,
-                        title = next.title,
-                        body = chapterBodyText(next),
-                    )
-                }
-            }
-
             // 兜底入口真实接线：web → 浏览器网页搜索当前气泡词条；notebook → 生字本本地落库并回执。
             val fallbackHandler: (String) -> Unit = fallbackHandler@{ kind ->
                 val token = controller.bubbleContent?.token?.trim().orEmpty()
@@ -244,7 +217,7 @@ class InkReadActivity : ComponentActivity() {
                             context = this@InkReadActivity,
                             token = token,
                             bookName = ReadBook.book?.name.orEmpty(),
-                            chapterTitle = chapterTitle.orEmpty(),
+                            chapterTitle = ReadBook.curTextChapter?.title.orEmpty(),
                         )
                         Toast.makeText(
                             this@InkReadActivity,
@@ -256,11 +229,7 @@ class InkReadActivity : ComponentActivity() {
             }
 
             InkReaderBook(
-                bookId = bookId,
-                chapterId = chapterId,
-                title = chapterTitle,
-                body = chapterBody,
-                onCatalog = { tocLauncher.launch(bookId) },
+                onCatalog = { tocLauncher.launch(ReadBook.book?.bookUrl.orEmpty()) },
                 onTts = { runCatching { ReadAloud.play(this@InkReadActivity) } },
                 // 菜单通道：打开内容编辑半屏面板（B31 承接件第 1 件）；其余排版 / 字体菜单后续批次接入。
                 onMenu = { openContentEdit() },
@@ -310,6 +279,9 @@ class InkReadActivity : ComponentActivity() {
 
     override fun onDestroy() {
         ReadBook.unregister(readCallback)
+        // 控制器摘挂回路（B4-05 验收遗留 O1）：清两级缓存 / 引擎缓存与 View 监听闭包，
+        // 避免控制器闭包持有已销毁宿主；ReadBook 全局单例反注册在上一行已完成。
+        if (::controller.isInitialized) controller.release()
         super.onDestroy()
     }
 
@@ -430,32 +402,13 @@ class InkReadActivity : ComponentActivity() {
         contentEditState.saveToBundle(outState, STATE_EDIT_PANEL)
     }
 
-    /** 从 [ReadBook] 全局单例回填当前书 / 章 / 正文到 Compose 状态。 */
-    private fun refreshFromReadBook() {
-        val book = ReadBook.book
-        val chapter = ReadBook.curTextChapter
-        bookId = book?.bookUrl ?: intent.getStringExtra("bookUrl").orEmpty()
-        chapterId = chapter?.chapter?.url.orEmpty()
-        chapterTitle = chapter?.title
-        chapterBody = chapter?.let(::chapterBodyText).orEmpty()
-    }
-
     /**
-     * 章节正文抽取：优先段落项（段落边界完整）；段落项未就绪时退回各页文本拼接。
-     * 图片 / 空白段落不造字，空文本交壳层兜底。
+     * ReadBook 全局回调刷新：交控制器从 ReadBook 回源当前章 / 页；
+     * 控制器尚未初始化（initData 早于控制器实例化）时跳过，等控制器就位后的挂载效应回源。
      */
-    private fun chapterBodyText(chapter: TextChapter): String {
-        val items = chapter.paragraphItems
-        if (items.isNotEmpty()) {
-            return items.joinToString("\n") { it.text.toString().trim() }
-                .lines()
-                .filter { it.isNotBlank() }
-                .joinToString("\n")
-        }
-        return chapter.pages.joinToString("\n") { it.text }
-            .lines()
-            .filter { it.isNotBlank() }
-            .joinToString("\n")
+    private fun refreshFromReadBook() {
+        if (!::controller.isInitialized) return
+        controller.syncChapterFromReadBook()
     }
 
     companion object {

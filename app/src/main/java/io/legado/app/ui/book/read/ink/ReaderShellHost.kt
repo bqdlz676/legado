@@ -12,6 +12,11 @@ package io.legado.app.ui.book.read.ink
  *  - 未 attach / 引擎未排版态下各方法给安全默认：[probeChar] 返回 null、[turnPage] /
  *    [onCenterTap] / [onCenterLongPress] 为空操作或关气泡、[handleBack] 逐层消化后落到退出分支；
  *  - 返回裁决只有 [handleBack] 一个出口，手势层 / 硬件键 / Activity 不许另写一套层级判定。
+ *
+ * 状态源（R5，B4-06）：章 / 页 / 进度 / 样式真值唯一在 `model/ReadBook`；本协议不持有第二份
+ * 章文本 / 标题 / 进度镜像。进章 `openChapter`、翻页 `moveToNextPage/moveToPrevPage`、
+ * 出页 `TextPage` 交 `setContent` 由控制器实现侧接 ReadBook；当前 TextPage 出页缝在控制器
+ * （`InkReadController.currentTextPage`），供 B4-07 文字面 AndroidView 上屏取页。
  */
 interface ReaderShellHost {
 
