@@ -12,8 +12,15 @@ B 注释面（RAWSOURCE）：把 readText() 读来的**整份源文件**直接�
    仓库里「不预判 mastered 新列」这种话本身写在 KDoc 里，整文件 contains 会把注释里的
    这句话自证成红。实测命中 DiscoverModelsTest.kt:200。判据必须落在剥过注释的代码面。
    绑定形态除普通赋值 `val src = File(...).readText()` 外，还包括 lazy 委托
-   `val src by lazy { File(...).readText() }`；2026-11-27 加固前正则只认 `=`，lazy 块里
-   的绑定名抓不到，整文件 contains 被漏判，本次一并补齐。
+   `val src by lazy { File(...).readText() }`。
+
+2026-11-27 二次加固：旧版 lazy 块体用「首个 `}`」正则截断，被验收实测出双向失真——
+readText 藏在首个 `}` 之后的嵌套 lambda 里会漏判（P2）；合法 filterNot 写法的关键词
+落在首个 `}` 之后会被假红（P7/P8）；字符串字面量里的 `}` 会把截面提前截断（P3）。
+本次把块体提取改成括号 / 字符串状态机配平：区分代码括号与字符串内的 `{` `}`，覆盖
+双引号串、字符字面量、三引号串与反斜杠转义；readText 出现在语句块内任何深度都能识别，
+白名单（已剥注释面 / 已 filterNot / 已 strip_comments）判断也在整个配平块内生效，
+不只看首行或首段。
 
 口径：只扫 app/src/test 下 *.kt；单行/块注释里出现上述字样不算命中（先剥注释面再判）。
 零输入按「没东西可判」直接 PASS，不假红。
@@ -31,18 +38,14 @@ REFLECT_PAT = re.compile(
     r'|import\s+kotlin\.reflect)'
 )
 
-# 普通赋值绑定：val src[: String] = File(...).readText()[.lines().filterNot{...}...]
-# RHS 截到下一条声明（val/var/fun/private/import/@/注释）为止，续行链式调用留在截面上：
-# filterNot 写在续行时旧正则只截到 readText()，白名单看不见，会把已剥注释面的合法写法打成假红。
-ASSIGN_READTEXT_PAT = re.compile(
-    r'(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z0-9_<>.?]+)?\s*='
-    r'\s*(?P<expr>.*?)(?=\n\s*(?:val\s|var\s|fun\s|private\s|import\s|@|//)|\Z)', re.S)
+# 声明头：val / var 绑定名（含可选类型标注），修饰符（private 等）在前面不影响匹配。
+DECL_HEAD_PAT = re.compile(
+    r'\b(?P<kind>val|var)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)'
+    r'\s*(?::\s*[A-Za-z0-9_<>.?]+)?'
+)
 
-# lazy 委托绑定：val src[: String] by lazy { File(...).readText()[....] }
-# 加固前盲区：readText 包进 lazy 块后旧正则只认 `=`，绑定名抓不到，整文件 contains 漏判。
-LAZY_READTEXT_PAT = re.compile(
-    r'(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z0-9_<>.?]+)?'
-    r'\s*by\s+lazy\s*\{(?P<expr>.*?)\}', re.S)
+# 赋值 RHS 的语句边界：行首出现下一条声明 / 成员 / 注解即截断（注释面已先剥掉，无需再认 //）。
+RHS_BOUNDARY_WORDS = ('val ', 'var ', 'fun ', 'private ', 'import ', '@')
 
 ASSERT_PAT = re.compile(r'(assertFalse|assertTrue)\s*\(')
 
@@ -51,6 +54,9 @@ EMPTY_ASSERT_PAT = re.compile(
     r'(assertTrue\s*\(\s*true\s*\)|assertFalse\s*\(\s*false\s*\)'
     r'|assertTrue\s*\(\s*1\s*==\s*1\s*\)|assertNotNull\s*\(\s*"[^"]*"\s*\))'
 )
+
+# 白名单关键词：块体内出现即视为已剥注释面 / 已滤行，属合规写法。
+WHITELIST_MARKS = ('filterNot', 'filter {', 'strip_comments')
 
 
 def strip_comments(text: str) -> str:
@@ -126,6 +132,289 @@ def line_of(text: str, idx: int) -> int:
     return text.count('\n', 0, idx) + 1
 
 
+def _skip_ws(text: str, i: int) -> int:
+    n = len(text)
+    while i < n and text[i] in ' \t\r\n':
+        i += 1
+    return i
+
+
+def _scan_string_ranges(text: str) -> list:
+    """返回字符串 / 字符字面量的 [start, end) 区间（含引号）。
+    为什么要单独扫一遍：声明头正则若落在字符串字面量内部（如测试串里写着 "val x ="），
+    不能当成真实绑定；区间表供匹配点回查。"""
+    ranges = []
+    i, n = 0, len(text)
+    state = None  # None / 'str' / 'char' / 'raw'
+    start = 0
+    while i < n:
+        c = text[i]
+        three = text[i:i + 3]
+        if state is None:
+            if three == '"""':
+                state, start, i = 'raw', i, i + 3
+                continue
+            if c == '"':
+                state, start, i = 'str', i, i + 1
+                continue
+            if c == "'":
+                state, start, i = 'char', i, i + 1
+                continue
+            i += 1
+            continue
+        if state == 'raw':
+            if three == '"""':
+                ranges.append((start, i + 3))
+                state, i = None, i + 3
+                continue
+            i += 1
+            continue
+        if state == 'str':
+            if c == '\\':
+                i += 2
+                continue
+            if c == '"':
+                ranges.append((start, i + 1))
+                state = None
+            i += 1
+            continue
+        if state == 'char':
+            if c == '\\':
+                i += 2
+                continue
+            if c == "'":
+                ranges.append((start, i + 1))
+                state = None
+            i += 1
+            continue
+    return ranges
+
+
+def _in_ranges(ranges: list, idx: int) -> bool:
+    return any(a <= idx < b for a, b in ranges)
+
+
+def _balanced_block(text: str, i: int, open_ch: str, close_ch: str) -> tuple:
+    """从 text[i] 的开括号起做括号 / 字符串感知配平，返回 (块体文本, 闭括号下标)。
+
+    字符串（双引号串 / 字符字面量 / 三引号串）内的括号不计深度；双引号串与字符串
+    内的反斜杠转义跳过下一字符。配平失败（源码截断）兜底取到末尾，不抛异常。
+    """
+    depth = 0
+    state = None  # None / 'str' / 'char' / 'raw'
+    n = len(text)
+    j = i
+    while j < n:
+        c = text[j]
+        three = text[j:j + 3]
+        if state is None:
+            if three == '"""':
+                state, j = 'raw', j + 3
+                continue
+            if c == '"':
+                state, j = 'str', j + 1
+                continue
+            if c == "'":
+                state, j = 'char', j + 1
+                continue
+            if c == open_ch:
+                depth += 1
+            elif c == close_ch:
+                depth -= 1
+                if depth == 0:
+                    return text[i + 1:j], j
+            j += 1
+            continue
+        if state == 'raw':
+            if three == '"""':
+                state, j = None, j + 3
+                continue
+            j += 1
+            continue
+        if state == 'str':
+            if c == '\\':
+                j += 2
+                continue
+            if c == '"':
+                state = None
+            j += 1
+            continue
+        if state == 'char':
+            if c == '\\':
+                j += 2
+                continue
+            if c == "'":
+                state = None
+            j += 1
+            continue
+    return text[i + 1:], n - 1
+
+
+# 续行尾运算符：当前物理行以这些字符收尾时，下一行视为链式 / 表达式续行，RHS 不收口。
+RHS_TAIL_OPERATORS = set('(,+-*/%&|?:=')
+
+
+def _rhs_until_boundary(text: str, i: int) -> str:
+    """赋值 RHS：括号 / 字符串感知地取到本语句结束为止。
+
+    收口条件（深度 0 的换行处判断）：行首出现下一条声明边界词；或当前语句已结束，
+    且下一行不是链式续行（不以 `.` 开头）、当前行尾也没有未闭合括号 / 续行运算符。
+    为什么必须按语句收口：旧实现一直吞到下一条声明行，会把后面兄弟语句 / 辅助函数
+    体一起卷进截面，readText 出现在被吞进的辅助函数里就会把派生变量误登记为全文持有人。
+    字符串内的换行 / 括号不参与边界判断。
+    """
+    n = len(text)
+    depth = 0
+    state = None
+    j = i
+    start = i
+    line_start = i
+    while j < n:
+        c = text[j]
+        three = text[j:j + 3]
+        if state is None:
+            if three == '"""':
+                state, j = 'raw', j + 3
+                continue
+            if c == '"':
+                state, j = 'str', j + 1
+                continue
+            if c == "'":
+                state, j = 'char', j + 1
+                continue
+            if c in '([{':
+                depth += 1
+            elif c in ')]}':
+                depth -= 1
+            elif c == '\n' and depth == 0:
+                k = j + 1
+                while k < n and text[k] in ' \t':
+                    k += 1
+                next_is_boundary = any(text[k:k + len(w)] == w for w in RHS_BOUNDARY_WORDS)
+                next_is_chain = text[k:k + 1] == '.'
+                tail = text[line_start:j].rstrip()
+                tail_opened = bool(tail) and tail[-1] in RHS_TAIL_OPERATORS
+                blank_line = not tail.strip()  # RHS 换行起步（`=` 后直接换行），下一物理行仍是续行
+                if next_is_boundary or not (next_is_chain or tail_opened or blank_line):
+                    return text[start:j]
+                line_start = j + 1
+            j += 1
+            continue
+        if state == 'raw':
+            if three == '"""':
+                state, j = None, j + 3
+                continue
+            j += 1
+            continue
+        if state == 'str':
+            if c == '\\':
+                j += 2
+                continue
+            if c == '"':
+                state = None
+            j += 1
+            continue
+        if state == 'char':
+            if c == '\\':
+                j += 2
+                continue
+            if c == "'":
+                state = None
+            j += 1
+            continue
+    return text[start:]
+
+
+def _assert_arg_body(code: str, start: int) -> str:
+    """取断言实参范围：从 '(' 起做括号 / 字符串感知配平，最多 400 字符，够覆盖单条断言。"""
+    depth = 0
+    state = None
+    j = start
+    n = len(code)
+    while j < n and j - start < 400:
+        c = code[j]
+        three = code[j:j + 3]
+        if state is None:
+            if three == '"""':
+                state, j = 'raw', j + 3
+                continue
+            if c == '"':
+                state, j = 'str', j + 1
+                continue
+            if c == "'":
+                state, j = 'char', j + 1
+                continue
+            if c == '(':
+                depth += 1
+            elif c == ')':
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+            continue
+        if state == 'raw':
+            if three == '"""':
+                state, j = None, j + 3
+                continue
+            j += 1
+            continue
+        if state == 'str':
+            if c == '\\':
+                j += 2
+                continue
+            if c == '"':
+                state = None
+            j += 1
+            continue
+        if state == 'char':
+            if c == '\\':
+                j += 2
+                continue
+            if c == "'":
+                state = None
+            j += 1
+            continue
+    return code[start:j + 1]
+
+
+def extract_readtext_bindings(code: str) -> dict:
+    """收集「读全文且未过滤」的绑定名 → 声明行号。
+
+    两种绑定形态都认：普通赋值 `val src = ...`、lazy 委托 `val src by lazy { ... }`。
+    块体由状态机配平提取，嵌套 lambda 任意深度、字符串内括号都不影响截面；
+    白名单关键词在整个配平块内（含续行与嵌套 lambda）生效。
+    """
+    str_ranges = _scan_string_ranges(code)
+    bindings = {}
+    for m in DECL_HEAD_PAT.finditer(code):
+        if _in_ranges(str_ranges, m.start()):
+            continue  # 关键词落在字符串字面量里，不是真实声明
+        name = m.group('name')
+        j = _skip_ws(code, m.end())
+        expr = None
+
+        # 形态一：by lazy { 块体 }
+        if code[j:j + 2] == 'by' and (j + 2 >= len(code) or code[j + 2] in ' \t\r\n'):
+            k = _skip_ws(code, j + 2)
+            if code[k:k + 4] == 'lazy' and (k + 4 >= len(code) or code[k + 4] in ' \t\r\n({'):
+                k = _skip_ws(code, k + 4)
+                if k < len(code) and code[k] == '{':
+                    expr, _ = _balanced_block(code, k, '{', '}')
+
+        # 形态二：= RHS（含续行链式调用）
+        if expr is None and j < len(code) and code[j] == '=':
+            expr = _rhs_until_boundary(code, j + 1)
+
+        if expr is None:
+            continue
+        if 'readText' not in expr:
+            continue  # 绑定 RHS / lazy 块内没有 readText，不属本闸对象
+        if any(mark in expr for mark in WHITELIST_MARKS):
+            continue  # 已剥注释面 / 已滤行，属合规写法
+        bindings.setdefault(name, line_of(code, m.start()))
+    return bindings
+
+
 def check_file(path: str):
     raw = open(path, encoding='utf-8').read()
     code = strip_comments(raw)
@@ -139,30 +428,10 @@ def check_file(path: str):
         issues.append(('EMPTYASSERT', line_of(code, m.start()),
                        f'空断言（{m.group(0).strip()}）判据恒真，打不假任何实现，等于没测'))
 
-    # 读全文且未过滤的变量名（普通赋值与 lazy 委托两种绑定形态都认）
-    raw_vals = {}
-    for pat in (ASSIGN_READTEXT_PAT, LAZY_READTEXT_PAT):
-        for m in pat.finditer(code):
-            expr = m.group('expr')
-            if 'readText' not in expr:
-                continue  # 绑定 RHS / lazy 块内没有 readText，不属本闸对象
-            if 'filterNot' in expr or 'filter {' in expr or 'strip_comments' in expr:
-                continue  # 已剥注释面 / 已滤行，属合规写法
-            raw_vals.setdefault(m.group('name'), line_of(code, m.start()))
+    raw_vals = extract_readtext_bindings(code)
 
     for m in ASSERT_PAT.finditer(code):
-        # 取本次断言的实参范围：从 '(' 起做括号配平，最多 400 字符，够覆盖单条断言
-        start = m.end() - 1
-        depth, j = 0, start
-        while j < len(code) and j - start < 400:
-            if code[j] == '(':
-                depth += 1
-            elif code[j] == ')':
-                depth -= 1
-                if depth == 0:
-                    break
-            j += 1
-        body = code[start:j + 1]
+        body = _assert_arg_body(code, m.end() - 1)
         for name, decl_line in raw_vals.items():
             if re.search(r'\b' + re.escape(name) + r'\.contains\s*\(', body):
                 issues.append(('RAWSOURCE', line_of(code, m.start()),
@@ -181,7 +450,7 @@ def collect(root: str):
 
 def changed_files() -> list:
     """相对 origin/main 新增/改动的测试文件：门禁只判本轮改动面。
-    全仓存量 306 处是历史件「源码文本断言」，属债务不是本轮回归，按 audit 台账处理，
+    全仓存量是历史件「源码文本断言」，属债务不是本轮回归，按 audit 台账处理，
     否则一上来就红墙、没人会去修它，门禁只剩噪声。"""
     import subprocess
     try:
@@ -250,7 +519,7 @@ def selftest() -> int:
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
-    # 坏样本逐条独立跑红（含本次新增的 lazy 委托整文件 contains）
+    # 坏样本逐条独立跑红（含嵌套 lambda、字符串含 } 的边界夹具）
     bad_cases = [
         ('REFLECT 反射取成员',
          'package a\nclass BadReflectTest { fun t() { Foo::class.members } }\n'),
@@ -260,10 +529,24 @@ def selftest() -> int:
          '        val src = java.io.File("x.kt").readText()\n'
          '        org.junit.Assert.assertFalse("不得预判", src.contains("mastered"))\n'
          '    }\n}\n'),
-        ('RAWSOURCE lazy 委托整文件 contains',
+        ('RAWSOURCE lazy 委托整文件 contains（P1 基线）',
          'package a\nclass BadLazyTest {\n'
          '    fun t() {\n'
          '        val src by lazy { java.io.File("x.kt").readText() }\n'
+         '        org.junit.Assert.assertFalse("不得预判", src.contains("mastered"))\n'
+         '    }\n}\n'),
+        ('RAWSOURCE 嵌套 lambda 内 readText（P2，首 } 之后）',
+         'package a\nclass BadNestedLambdaTest {\n'
+         '    fun t() {\n'
+         '        val src by lazy {\n'
+         '            listOf(1).map { it }.let { _ -> java.io.File("x.kt").readText() }\n'
+         '        }\n'
+         '        org.junit.Assert.assertFalse("不得预判", src.contains("mastered"))\n'
+         '    }\n}\n'),
+        ('RAWSOURCE 字符串含 } 的坏样本（P3）',
+         'package a\nclass BadBraceInStringTest {\n'
+         '    fun t() {\n'
+         '        val src by lazy { java.io.File("x.kt").readText().replace("}", "") }\n'
          '        org.junit.Assert.assertFalse("不得预判", src.contains("mastered"))\n'
          '    }\n}\n'),
         ('EMPTYASSERT 空断言',
@@ -290,6 +573,25 @@ def selftest() -> int:
          '            java.io.File("x.kt").readText().lines()\n'
          '                .filterNot { it.trimStart().startsWith("*") }\n'
          '                .joinToString("\\n")\n'
+         '        }\n'
+         '        org.junit.Assert.assertFalse("k", code.contains("mastered"))\n'
+         '    }\n}\n'),
+        ('剥注释面（P7，filterNot 在内层 lambda 闭括号之后）',
+         'package a\nclass GoodNestedFilterTest {\n'
+         '    fun t() {\n'
+         '        val code by lazy {\n'
+         '            java.io.File("x.kt").readText().lines()\n'
+         '                .map { it.trim() }\n'
+         '                .filterNot { it.trimStart().startsWith("*") }\n'
+         '        }\n'
+         '        org.junit.Assert.assertFalse("k", code.contains("mastered"))\n'
+         '    }\n}\n'),
+        ('剥注释面（P8，字符串内 } 之后接 filterNot）',
+         'package a\nclass GoodBraceInStringFilterTest {\n'
+         '    fun t() {\n'
+         '        val code by lazy {\n'
+         '            java.io.File("x.kt").readText().replace("}", "")\n'
+         '                .filterNot { it.trimStart().startsWith("*") }\n'
          '        }\n'
          '        org.junit.Assert.assertFalse("k", code.contains("mastered"))\n'
          '    }\n}\n'),
