@@ -336,9 +336,12 @@
   // ---------- 手势 ----------
   // pointer / touch 双通路 + 首事件来源锁：同一手势只走一条，防内核同时合成两类事件时一次拖动算两遍。
   // 判定依据：orbitStart 记下 orbitSource，move/end 只认被锁来源；touch 先于 pointer 派发，首事件落 touch。
-  var down = null, last = null, orbitSource = null;
+  // 已激活早退守卫（与 gyro.js bindFollowDrag.start 同构）：第二条通路 start 时若已有另一通路在拖拽，
+  // 直接早退——不翻来源锁、不重置 last 坐标基准；适用条件：重入 / 乱序内核两次 down 之间夹派 move 的边界。
+  var last = null, orbitSource = null;
   function orbitStart(source, x, y) {
-    down = { x: x, y: y }; last = down; orbitSource = source;
+    if (orbitSource !== null) return; // 已有在途手势：本通路早退，防锁归属翻转与基准被覆盖
+    last = { x: x, y: y }; orbitSource = source;
     document.getElementById('hint').style.opacity = 0;
   }
   function orbitMove(source, x, y) {

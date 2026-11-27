@@ -377,6 +377,7 @@ function placeLabels() {
 // pointer / touch 双通路 + 首事件来源锁：同一手势只走一条，防内核同时合成两类事件时一次拖动算两遍。
 // 判定依据：orbitStart 记下 dragSource，move/end 只认被锁来源；touch 先于 pointer 派发，首事件落 touch。
 var dragging = false, dragSource = null, lastX = 0, lastY = 0, tapX = 0, tapY = 0, rotY = 0, rotX = 0, dist = 300;
+var pinchActive = false; // 本次手势含双指捏合：抬手跳过 3px 落点判定，防轻捏后抬手误落旗标/兵标
 var autoRot = false;
 var routeMode = true;
 var raycaster = new THREE.Raycaster();
@@ -385,6 +386,7 @@ var markerGroup = new THREE.Group();
 scene.add(markerGroup);
 
 function orbitStart(source, x, y) {
+  if (dragging) return; // 已被另一通路首事件锁定：早退，不翻来源锁、不重置 lastX/lastY/tapX/tapY（与 gyro.js start 守卫同构）
   dragging = true; dragSource = source; lastX = x; lastY = y; tapX = x; tapY = y;
 }
 function orbitMove(source, x, y) {
@@ -396,9 +398,11 @@ function orbitMove(source, x, y) {
   rotY += dx * 0.006;
   rotX = Math.max(-0.55, Math.min(0.5, rotX + dy * 0.004));
 }
-function orbitEnd(source, x, y) {
+function orbitEnd(source, x, y, wasPinch) {
   if (dragSource !== source) return;
   dragging = false; dragSource = null;
+  // 本次含双指捏合：抬手跳过 3px 落点判定（N1）；wasPinch 由 touchend 快照传入，防标志跨手势残留
+  if (wasPinch) return;
   // 轻点（位移 <3px）落兵；x/y 为 null（如 pointercancel）时不触发落点
   if (x == null) return;
   if (routeMode && Math.abs(x - tapX) + Math.abs(y - tapY) < 3) dropPoint(x, y);
@@ -412,6 +416,8 @@ canvas.addEventListener('pointermove', function (e) { orbitMove('pointer', e.cli
 canvas.addEventListener('pointerup', function (e) { orbitEnd('pointer', e.clientX, e.clientY); });
 canvas.addEventListener('pointercancel', function () { orbitEnd('pointer', null, null); });
 canvas.addEventListener('touchstart', function (e) {
+  if (e.touches.length === 1) pinchActive = false; // 全新单指手势开始：清掉上一轮双指标志，防跨手势残留
+  if (e.touches.length === 2) pinchActive = true;  // 第二指按下即标记本次为双指手势
   var t = e.touches[0]; if (t) orbitStart('touch', t.clientX, t.clientY);
 }, { passive: true });
 canvas.addEventListener('wheel', function (e) {
@@ -422,6 +428,7 @@ canvas.addEventListener('wheel', function (e) {
 var pinchStart = 0;
 canvas.addEventListener('touchmove', function (e) {
   if (e.touches.length === 2) {
+    pinchActive = true; // 捏合进行中：标记本次含双指，结束时跳过落点判定
     var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     if (!pinchStart) pinchStart = d;
     dist = Math.max(90, Math.min(560, dist - (d - pinchStart) * 0.8));
@@ -433,12 +440,15 @@ canvas.addEventListener('touchmove', function (e) {
 }, {passive: false});
 canvas.addEventListener('touchend', function (e) {
   pinchStart = 0;
+  var wasPinch = pinchActive;            // 收尾时快照双指标志，交 orbitEnd 决定是否判落点
+  if (e.touches.length === 0) pinchActive = false; // 双指全部抬起后复位；残留单指收尾同样不判落点
   var t = e.changedTouches[0];
-  orbitEnd('touch', t ? t.clientX : null, t ? t.clientY : null);
+  orbitEnd('touch', t ? t.clientX : null, t ? t.clientY : null, wasPinch);
 }, { passive: true });
 canvas.addEventListener('touchcancel', function () {
   pinchStart = 0;
-  orbitEnd('touch', null, null);
+  pinchActive = false;
+  orbitEnd('touch', null, null, false);
 }, { passive: true });
 
 function dropPoint(cx, cy) {
