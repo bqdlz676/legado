@@ -214,7 +214,7 @@ class ShelfParallaxState internal constructor(
  * 〔生命周期配合〕桥的注册 / 注销归宿主 Fragment onResume/onPause/onHiddenChanged；
  * 本 effect 只在 composition 存活期间取数，离开组合即停轮询，不触碰传感器注册。
  *
- * @param enabled 用户开关（读偏好 [AppConfig.shelfParallaxEnabled]）
+ * @param enabled 用户开关（初值由宿主 Fragment 读偏好后传入，本层不碰 AppConfig）
  */
 @Composable
 fun rememberShelfParallaxState(enabled: Boolean): ShelfParallaxState {
