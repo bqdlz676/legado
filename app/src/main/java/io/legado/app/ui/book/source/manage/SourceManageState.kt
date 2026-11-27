@@ -71,6 +71,7 @@ sealed interface ManageSheet {
  * @param groupByDomain 是否按域名归组（旧 menu_group_sources_by_domain）
  * @param showCheckStatus 是否显示校验状态（偏好持久化）
  * @param showBookshelfCount 是否显示书架引用数（偏好持久化）
+ * @param blockSourceNavigation 是否拦截书源跳转（偏好持久化；默认 false 与 AppConfig 偏好默认值对齐）
  * @param checkStatusFilter 校验状态筛选项下标（[checkStatusFilters]）
  * @param items 当前可见书源（已过滤 + 已排序）
  * @param groups 全部分组（分组菜单 / 分组管理用）
@@ -94,6 +95,8 @@ data class SourceManageUiState(
     val groupByDomain: Boolean = false,
     val showCheckStatus: Boolean = false,
     val showBookshelfCount: Boolean = false,
+    // 偏好开关镜像：VM init 从 AppConfig 读入，Compose 只渲染 state，不在组合期碰 AppConfig。
+    val blockSourceNavigation: Boolean = false,
     val checkStatusFilter: Int = 0,
     val items: List<BookSourcePart> = emptyList(),
     val groups: List<String> = emptyList(),

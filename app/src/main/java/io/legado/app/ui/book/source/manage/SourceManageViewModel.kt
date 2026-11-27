@@ -67,6 +67,7 @@ class SourceManageViewModel(application: Application) : BaseViewModel(applicatio
             it.copy(
                 showCheckStatus = AppConfig.showSourceCheckStatus,
                 showBookshelfCount = AppConfig.showSourceBookshelfCount,
+                blockSourceNavigation = AppConfig.blockSourceNavigation,
             )
         }
         bindGroups()
@@ -232,7 +233,10 @@ class SourceManageViewModel(application: Application) : BaseViewModel(applicatio
     }
 
     fun toggleBlockSourceNavigation() {
-        AppConfig.blockSourceNavigation = !AppConfig.blockSourceNavigation
+        // 以 state 镜像为准取反再落偏好：组合期不回读 AppConfig，口径与另两个开关一致。
+        val next = !_uiState.value.blockSourceNavigation
+        AppConfig.blockSourceNavigation = next
+        _uiState.update { it.copy(blockSourceNavigation = next) }
     }
 
     // ───────────────────────────── 多选 ─────────────────────────────

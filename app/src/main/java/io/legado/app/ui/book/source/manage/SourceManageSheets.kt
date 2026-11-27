@@ -128,7 +128,7 @@ private fun MainOptionsSheet(
                 )
                 SheetToggle(
                     label = stringResource(R.string.block_source_navigation),
-                    checked = io.legado.app.help.config.AppConfig.blockSourceNavigation,
+                    checked = state.blockSourceNavigation,
                     onToggle = { vm.toggleBlockSourceNavigation() },
                 )
                 SheetRow(label = stringResource(R.string.help), onClick = actions::onHelp)
