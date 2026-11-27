@@ -510,6 +510,95 @@ def scan_file(rel: str, root: str, index: dict, external_names: set):
     return issues, skipped, checked
 
 
+
+PKG_RE = re.compile(r'^package\s+([A-Za-z0-9_.]+)', re.MULTILINE)
+TOP_DECL_RE = re.compile(
+    r'^(?:@[A-Za-z0-9_.]+(?:\s*\([^)]*\))?\s*)*'
+    r'(?:(?:public|internal|private|protected|data|sealed|enum|open|abstract|expect|actual|inline|'
+    r'value|annotation|fun|companion|external)\s+)*'
+    r'(class|object|interface|typealias|fun|val|var)\s+([A-Za-z_][A-Za-z0-9_]*)',
+    re.MULTILINE)
+
+
+# 接收者类型段必须非贪婪且以点结尾：首版把字符类写成贪婪的 `[...]*`，会把 `TextChapter.verticalTitle`
+# 整个吃进接收者、只留最后一个字母（实跑抓到 group=('e','t')），于是扩展函数认不出来。
+EXT_DECL_RE = re.compile(
+    r'^\s*fun\s+(?:<[^>]+>\s*)?(?:[A-Za-z_][A-Za-z0-9_.<>?]*?\.)'
+    r'([A-Za-z_][A-Za-z0-9_]*)\s*\(',
+    re.MULTILINE)
+
+
+def package_import_issues(root: str, files: list) -> list:
+    """包级 import 真值（2026-11-27 CI 红根因 c82c585）。
+    InkReadController.kt 写了 `import io.legado.app.ui.book.read.vertical.VerticalPageView`，
+    而该类定义在同包 `io.legado.app.ui.book.read.ink/VerticalPageView.kt`；kotlinc 报
+    Unresolved reference。旧判据只查「这个名字仓内有没有定义」——名字当然有，包不对照样红。
+
+    判法（只认一种错：换了包）：被 import 的 FQN 在仓内找不到同包声明，却在别的包里有同名声明。
+    三重放行，防假红（三条都是实跑踩出来的）：
+    A 嵌套类 / 伴生成员 —— FQN 前缀链逐级回退命中即放行；
+    B 扩展函数接收者带泛型/空格/逗号（`fun <T> HashMap<String, T>.get(...)`）—— 用「同包内声明名宽松搜索」兜住；
+    C 名字仓内根本没有 —— 归 NODEF，这里不重复报。
+    性能：包→文件表只建一次，逐 import 查表，不逐文件 repeated read。"""
+    pkg_of, pkg_src = {}, {}
+    fqn = {}
+    for rel in files:
+        if not rel.endswith('.kt'):
+            continue
+        try:
+            src = open(os.path.join(root, rel), encoding='utf-8', errors='replace').read()
+        except OSError:
+            continue
+        pkg = PKG_RE.search(src)
+        if not pkg:
+            continue
+        package = pkg.group(1)
+        pkg_of[rel] = package
+        pkg_src.setdefault(package, []).append(src)
+        for m in TOP_DECL_RE.finditer(src):
+            fqn[package + '.' + m.group(2)] = rel
+        for m in EXT_DECL_RE.finditer(src):
+            fqn[package + '.' + m.group(1)] = rel
+    by_name = {}
+    for f, rel in fqn.items():
+        by_name.setdefault(f.rsplit('.', 1)[-1], []).append((f, rel))
+
+    issues = []
+    for rel in files:
+        if not rel.endswith('.kt'):
+            continue
+        try:
+            src = open(os.path.join(root, rel), encoding='utf-8', errors='replace').read()
+        except OSError:
+            continue
+        for im in IMPORT_RE.finditer(src):
+            path_ = im.group('path')
+            if not path_.startswith(OWN_PREFIX) or path_ in fqn:
+                continue
+            head = path_
+            while '.' in head:
+                head = head.rsplit('.', 1)[0]
+                if head in fqn:
+                    break
+            else:
+                head = ''
+            if head:
+                continue  # 嵌套类/伴生成员
+            pkg_path = path_.rsplit('.', 1)[0]
+            simple = path_.rsplit('.', 1)[-1]
+            loose = re.compile(
+                r'^\s*(?:[A-Za-z@ ]*\s)?(?:fun\s+.*?\b|(?:class|object|interface|typealias|val|var)\s+)'
+                + re.escape(simple) + r'\b', re.MULTILINE)
+            if any(loose.search(x) for x in pkg_src.get(pkg_path, [])):
+                continue  # 同包内确有该声明（宽松兜底）
+            others = [f for f, _rel in by_name.get(simple, [])]
+            if not others:
+                continue  # 名字仓内没有，归 NODEF
+            line = src.count('\n', 0, im.start()) + 1
+            issues.append((rel, line, path_, ' / '.join(others[:3])))
+    return issues
+
+
 def main(root: str = ROOT) -> int:
     files = collect_files(root)
     index: dict[str, list] = {}
@@ -551,13 +640,17 @@ def main(root: str = ROOT) -> int:
             else:
                 arity += 1
 
+    pkg_bad = package_import_issues(root, files)
+    for rel, line, path_, real in pkg_bad:
+        print('  PACKAGE %s:%d import %s → 仓内同名定义实际在 %s' % (rel, line, path_, real))
+
     for sev, rel, name, line, call_arity, msg in all_issues:
         print('  %s %s:%d %s(%d) → %s' % (sev, rel, line, name, call_arity, msg))
-    print('SYMBOL-EXISTENCE: %s（扫描 %d 文件，调用 %d 处，NODEF %d / ARITY %d，'
+    print('SYMBOL-EXISTENCE: %s（扫描 %d 文件，调用 %d 处，NODEF %d / ARITY %d / PACKAGE %d，'
           '跳过生成 %d / 外部库 %d / 标准库 %d / 未知 %d）'
-          % ('FAIL' if (nodef + arity) else 'PASS', len(files), total_calls,
-             nodef, arity, skip['generated'], skip['external'], skip['stdlib'], skip['unknown']))
-    return 1 if (nodef + arity) else 0
+          % ('FAIL' if (nodef + arity + len(pkg_bad)) else 'PASS', len(files), total_calls,
+             nodef, arity, len(pkg_bad), skip['generated'], skip['external'], skip['stdlib'], skip['unknown']))
+    return 1 if (nodef + arity + len(pkg_bad)) else 0
 
 
 def _kt(root: str, rel: str, src: str) -> None:
@@ -654,6 +747,24 @@ fun String.ext(x: Int): String = this + x
         print('[selftest] 放行样本（?. 安全调用打到同名扩展）PASS 通路 OK')
     finally:
         shutil.rmtree(t5, ignore_errors=True)
+
+    # 坏样本三（2026-11-27 CI 红根因）：import 指到别的包去 —— 名字仓内有，包不对，kotlinc 必红。
+    t6 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t6, 'app/src/main/java/io/legado/app/ui/book/read/ink/Widget.kt',
+            'package io.legado.app.ui.book.read.ink\n\nclass Widget\n')
+        _kt(t6, 'app/src/main/java/io/legado/app/ui/book/read/vertical/Other.kt',
+            'package io.legado.app.ui.book.read.vertical\n\n'
+            'import io.legado.app.ui.book.read.ink.Widget\n')
+        # 把 Widget 的 import 改成从 vertical 包引（该包里没有 Widget）→ 必须判 PACKAGE
+        _kt(t6, 'app/src/main/java/io/legado/app/ui/book/read/vertical/Bad.kt',
+            'package io.legado.app.ui.book.read.vertical\n\n'
+            'import io.legado.app.ui.book.read.vertical.Widget\n')
+        rc = main(t6)
+        assert rc == 1, f"跨包错引应 PACKAGE FAIL，rc={rc}"
+        print('[selftest] 坏样本三（import 换包，类实际在别包）PACKAGE FAIL 通路 OK')
+    finally:
+        shutil.rmtree(t6, ignore_errors=True)
 
     print('[selftest] 夹具已自删，双向自测通过。')
     return 0

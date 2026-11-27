@@ -20,7 +20,6 @@ import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngine
 import io.legado.app.ui.book.read.vertical.VerticalLayoutEngineFactory
 import io.legado.app.ui.book.read.vertical.VerticalPage
-import io.legado.app.ui.book.read.vertical.VerticalPageView
 import io.legado.app.ui.book.read.vertical.verticalBodyText
 import io.legado.app.ui.book.read.vertical.verticalTitle
 import io.legado.app.utils.getPrefBoolean
