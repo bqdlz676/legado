@@ -12,7 +12,11 @@
 #   6) 总门禁 rule-gate.sh（末行 GATE: PASS/FAIL 为准）
 #
 # 用法：bash data_scripts/pre-push-check.sh [--strict]
-# 退出码：0 才允许 push；非 0 就地修，不推。
+# 退出码三态（2026-11-27 EMPTY 分流）：
+#   0 = 全部步骤真绿（无 FAIL、无 EMPTY），允许 push；
+#   1 = 有真红步骤（rc=1 或其他非零硬失败），就地修，不推；
+#   2 = 无真红但有 EMPTY 空集步骤（rc=2：待检集合为空，没有可核验对象），
+#       空集≠核验通过，外层按退出码判必须能把 2 与全绿 0 区分开；EMPTY 不记失败、不挡修。
 #
 # 诊断纪律（2026-11-26 门禁自诊断修复）：
 #   - 每个子检查输出一行明确的 PASS/FAIL；FAIL 行必须带步骤名与原因，不许只翻终态。
@@ -26,17 +30,28 @@ cd "$(dirname "$0")/.." || exit 2
 STRICT="${1:-}"
 FAILED=0
 FAIL_STEPS=()
+EMPTY_COUNT=0
+EMPTY_STEPS=()
 
 # run_step <步骤名> <日志尾行数> <命令...>
 # 为什么先落文件再 tail：判失败只认子进程退出码；tail 只负责把结论尾行回显到控制台，
 # 完整输出留 /tmp 日志供失败后回查。日志名由步骤名派生，空格/斜杠转连字符。
+# 退出码分流（2026-11-27）：rc=0 PASS；rc=2 EMPTY（空集无待检对象，㊾ 口径：不判合规也
+# 不记失败，计入 EMPTY 清单后继续下一步）；rc=1 及其他非零码按真红记 FAIL。
+# 为什么 rc=2 不并入 PASS：空集只是"没东西可验"，不等于"验过且合规"；若折成同一种成功态，
+# 上层按退出码判就无法区分 EMPTY 与全绿，故聚合退出码保留三态（0 全绿 / 1 真红 / 2 仅 EMPTY）。
 run_step() {
   local name="$1" tailn="$2"; shift 2
   local log="/tmp/pre-push-$(printf '%s' "$name" | tr '/ ' '--').log"
   "$@" >"$log" 2>&1
   local rc=$?
   tail -n "$tailn" "$log" 2>/dev/null || true
-  if [ "$rc" -ne 0 ]; then
+  if [ "$rc" -eq 2 ]; then
+    # EMPTY：待检集合为空（漏传参数或本轮无改动报告），不是步骤失败；不置 FAILED、不入 FAIL_STEPS。
+    EMPTY_COUNT=$((EMPTY_COUNT + 1))
+    EMPTY_STEPS+=("$name")
+    echo "EMPTY $name —— 空集无待检对象（不记失败，继续后续步骤；完整输出见 $log）"
+  elif [ "$rc" -ne 0 ]; then
     FAILED=1
     local reason
     reason=$(grep -E 'FAIL|✗|ERROR=[1-9]' "$log" | head -3 | tr '\n' ' / ' | sed 's/[[:space:]]\+/ /g; s/ \/$//')
@@ -138,11 +153,16 @@ fi
 
 echo
 if [ "$FAILED" -ne 0 ]; then
-  echo "PRE-PUSH: FAIL —— 失败步骤清单（${#FAIL_STEPS[@]} 项）："
+  echo "PRE-PUSH: FAIL —— 失败步骤清单（${#FAIL_STEPS[@]} 项；另有 EMPTY 空集 ${EMPTY_COUNT} 步未记失败）："
   for item in "${FAIL_STEPS[@]}"; do
     echo "  ✗ $item"
   done
   echo "各步完整日志：/tmp/pre-push-*.log；逐条补齐后重跑 bash data_scripts/pre-push-check.sh"
   exit 1
+fi
+if [ "$EMPTY_COUNT" -gt 0 ]; then
+  # 无真红但有空集步骤：末行汇总 EMPTY 清单；退出码 2 与全绿 0 区分，空集不表述为核验通过。
+  echo "PRE-PUSH: PASS（无真红；EMPTY 空集 ${EMPTY_COUNT} 步：${EMPTY_STEPS[*]}；空集≠核验通过，待检对象出现后须重跑）"
+  exit 2
 fi
 echo "PRE-PUSH: PASS（可 push）"
