@@ -145,7 +145,17 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
         flowJob?.cancel()
         flowJob = null
         books = emptyList()
+        // N1 补摘牌：视图销毁后不再保留持牌；release 只传身份串、不碰 Context/Activity，
+        // 解挂后仍可安全调用（兜底写法见 releaseShelfBridge / acquireShelfBridge 注释）。
+        syncShelfBridge()
         super.onDestroyView()
+    }
+
+    override fun onDestroy() {
+        // N1 兜底：极端路径未走 onPause 即销毁时这里再裁一次；release 在桥侧按身份集合
+        // 幂等去重，重复交还不会误拆其他宿主的牌（见报告 §3 序列四）。
+        syncShelfBridge()
+        super.onDestroy()
     }
 
     private fun observeBooks() {
@@ -219,17 +229,15 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     override fun onPause() {
         super.onPause()
         searchViewModel.pause()
-        // 切后台交还本宿主持牌；引用计数下不影响仍在用桥的其他宿主（N5）。
-        releaseShelfBridge()
+        // 切后台交还；裁决口径统一走 syncShelfBridge（PAUSED 态 visible 必为 false），不另写 if。
+        syncShelfBridge()
     }
 
     override fun onResume() {
         super.onResume()
         searchViewModel.resume()
-        // 回前台：开关开且未被藏槽才申领；方向基准按当前屏幕方向重映射，平滑值由 Compose 状态保留接上。
-        if (AppConfig.shelfParallaxEnabled && !shelfHidden) {
-            acquireShelfBridge()
-        }
+        // 回前台补申领 / 维持持牌；闸门口径与其他四处一致，走唯一裁决入口。
+        syncShelfBridge()
     }
 
     /**
@@ -239,35 +247,56 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
         shelfHidden = hidden
-        if (hidden) {
-            releaseShelfBridge()
-        } else if (AppConfig.shelfParallaxEnabled) {
-            acquireShelfBridge()
-        }
+        // hidden=true 停桥（Q441 功耗要求，不放宽）；hidden=false 由裁决入口二次判断 RESUMED（N2 收口）。
+        syncShelfBridge()
     }
 
     /**
-     * 视差开关回调（D1）：关→立即交还本宿主持牌；平滑值 / 阴影由 Compose 状态层
-     * `setEnabled(false)` 回中、D2 守卫兜底归零。开→仅在当前可见（resumed 且未 hidden）
-     * 时重新申领；不可见不抢传感器，回到可见由 onResume / onHiddenChanged 补申领。
+     * 视差开关回调（D1）：先落偏好，再交裁决入口统一比对可见性——
+     * 关 → 交还；开 → 仅 resumed 且未 hidden 时申领；不可见不抢传感器，
+     * 回到可见由 onResume / onHiddenChanged 补申领。平滑值 / 阴影由 Compose 状态层
+     * `setEnabled(false)` 回中、D2 守卫兜底归零。
      */
     private fun onPersistParallaxPreference(enabled: Boolean) {
         AppConfig.shelfParallaxEnabled = enabled
+        syncShelfBridge()
+    }
+
+    /**
+     * 桥持牌状态唯一裁决入口（Q-458，N1/N2 收口）：申领 / 交还判定只写这一处，
+     * onResume、onPause、onHiddenChanged（双向）、开关回调、onDestroyView/onDestroy 全部走它。
+     * 为什么收敛：此前判定散在四处各写一份 if——开关回调叠了 RESUMED 闸门、
+     * onHiddenChanged(false) 漏叠，口径必然不齐（这正是 N2 的根因）；单点裁决后不可再造第二份闸门。
+     *
+     * 口径：申领仅当「偏好开启 && 生命周期至少 RESUMED && 未被藏槽」三者同时成立；
+     * 其余一切路径——切后台、切 Tab、关开关、视图 / Fragment 销毁——一律交还。
+     */
+    private fun syncShelfBridge() {
         val visible = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !shelfHidden
-        if (enabled) {
-            if (visible) acquireShelfBridge()
+        if (AppConfig.shelfParallaxEnabled && visible) {
+            acquireShelfBridge()
         } else {
             releaseShelfBridge()
         }
     }
 
+    /**
+     * 申领桥：先按当前屏幕方向写基准，再上牌。
+     * 兜底：销毁路径之后 requireContext / requireActivity 可能已解挂抛 IllegalStateException；
+     * 申领只在裁决入口判 visible=true 时到达（生命周期仍 attached），这里再用可空属性取一次，
+     * 拿不到 context 就放弃本轮申领——不抛异常，也不静默降级成永久失桥：
+     * 回到可见路径会由 onResume / onHiddenChanged 再走裁决补申领。
+     */
     private fun acquireShelfBridge() {
+        val ctx = context ?: return
         runCatching {
-            GyroBridge.setDisplayRotation(requireActivity().windowManager.defaultDisplay.rotation)
-            GyroBridge.acquire(HOST_SHELF, requireContext())
+            val rotation = activity?.windowManager?.defaultDisplay?.rotation ?: 0
+            GyroBridge.setDisplayRotation(rotation)
+            GyroBridge.acquire(HOST_SHELF, ctx)
         }
     }
 
+    /** 摘牌：只交宿主身份串，不触碰 Context / Activity；桥侧未上牌 release 为幂等空操作，可重复调用。 */
     private fun releaseShelfBridge() = GyroBridge.release(HOST_SHELF)
 
     companion object {
