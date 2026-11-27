@@ -33,6 +33,7 @@ import io.legado.app.ui.components.InkDivider
 import io.legado.app.ui.components.InkDividerVariant
 import io.legado.app.ui.components.InkEmptyState
 import io.legado.app.ui.components.contract.ComponentVisualState
+import io.legado.app.ui.main.shell.shellFrostSurface
 import org.junit.Rule
 import org.junit.Test
 
@@ -45,16 +46,19 @@ import org.junit.Test
  * `painterResource(tab.iconOnRes/iconOffRes)` 与 `stringResource(tab.labelRes)`，
  * 真实 `ShellPageSlot` 占位槽直挂 `stringResource(R.string.bookshelf/discovery)`，离线必红。
  * 本夹具不调真实壳件，改在测试源集内按壳编排口径重放离线替身：三槽等宽、选中暖金 /
- * 未选中暗铜、角标落点、金线顶线、占位空态；颜色 / 尺寸全部取 [ComponentTokens] 纯常量，
- * 文案逐字对齐 `values-zh/strings.xml`（书架 / 发现 / 设置）。
+ * 未选中暗铜、角标落点、金线顶线、占位空态；磨砂面与手势盒圆角裁切按真实底栏同口径挂回；
+ * 颜色 / 尺寸全部取 [ComponentTokens] 纯常量，文案逐字对齐 `values-zh/strings.xml`（书架 / 发现 / 设置）。
  *
  * 替身边界（不冒充真实组件帧）：
- *  - 图标为自绘圆角矩形描边占位，不是 `ic_tab_*` 矢量描边；真实图标双态帧待资源表可注入后回补。
- *  - 底栏磨砂面、按压朱砂泛色、导航栏内边距属宿主与手势态，静态替身帧不渲染。
+ *  - 图标为自绘圆角矩形描边占位，不是 `ic_tab_*` 矢量描边；这是唯一仍存的真实渲染要素丢失，
+ *    恢复条件与归属批次见报告「仍存丢失项」。
+ *  - 按压朱砂泛色（`rememberInkGesture` 快照）属手势态，静态帧静止泛色透明度为 0，本帧不渲染；
+ *    导航栏内边距属宿主 WindowInsets，纯 JVM Paparazzi 不可得。
  *  - 设置槽 `B3SettingScreen` 直挂 SharedPreferences / Room / Context 句柄，离线不可渲染，仍不出页帧。
  *
- * 恢复条件：`:app` 资源表可进 `:screenshot` 测试运行类路径（或壳件下沉出无资源重载）后，
- * 本夹具切回调用真实 `ShellBottomBar` / `ShellPageSlot`，替身编排一并删除。
+ * 恢复条件：壳件形参注入落地（图标 painter 与文案由调用方传入，最小改动面），或 `:app` 资源表
+ * 可进 `:screenshot` 测试运行类路径（或壳件下沉出无资源重载）后，本夹具切回调用真实
+ * `ShellBottomBar` / `ShellPageSlot`，替身编排一并删除并重冻基线。
  * 帧文件名由 Paparazzi 按 包名_类名_方法名 生成，落 `screenshot/src/test/snapshots/images/`。
  */
 class MainShellSnapshotTest {
@@ -109,23 +113,37 @@ class MainShellSnapshotTest {
 
     @Composable
     private fun BottomBarFrame(selected: ShellSlot, badgeCount: Int) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // 暖金顶线：槽位区与内容区的视觉分界，线色取 token 金线档（同真实底栏口径）。
-            InkDivider(variant = InkDividerVariant.GOLD_LINE, thickness = 1.dp)
-            Row(
+        // 帧内定位包层：与旧帧 / 真实外壳同口径——满幅 20dp 内边距，底栏贴底居中（BottomCenter）。
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = ComponentTokens.bubbleGap),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
+                    // 磨砂面：同真实 ShellBottomBar 的 shellFrostSurface() 调用口径与默认 shape；
+                    // 该修饰符不触资源 id，lowSpec 判定为纯 JVM 核数 / 堆启发式，Paparazzi 下可渲染。
+                    .shellFrostSurface(),
             ) {
-                ShellSlot.values().forEach { slot ->
-                    SlotItem(
-                        slot = slot,
-                        selected = slot == selected,
-                        badgeCount = if (slot == ShellSlot.BOOKSHELF) badgeCount else 0,
-                        modifier = Modifier.weight(1f),
-                    )
+                // 暖金顶线：槽位区与内容区的视觉分界，线色取 token 金线档（同真实底栏口径）。
+                InkDivider(variant = InkDividerVariant.GOLD_LINE, thickness = 1.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ComponentTokens.bubbleGap),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ShellSlot.values().forEach { slot ->
+                        SlotItem(
+                            slot = slot,
+                            selected = slot == selected,
+                            badgeCount = if (slot == ShellSlot.BOOKSHELF) badgeCount else 0,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }
@@ -140,8 +158,12 @@ class MainShellSnapshotTest {
     ) {
         // 双色令牌口径同真实底栏：选中暖金 brandGold、未选中暗铜 brandCopper。
         val contentColor = if (selected) ComponentTokens.brandGold else ComponentTokens.brandCopper
+        // 手势盒圆角裁切：同真实件 RoundedCornerShape(buttonRadius)；手势泛色层属静态帧不渲染，裁切几何保留。
+        val itemShape = RoundedCornerShape(ComponentTokens.buttonRadius)
         Box(
-            modifier = modifier.padding(vertical = 6.dp),
+            modifier = modifier
+                .clip(itemShape)
+                .padding(vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
             Column(

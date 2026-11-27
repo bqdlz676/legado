@@ -1,9 +1,9 @@
-# 观感基线冻结（P3）：2026-11-27 06:49:26 2026-11-27 修 MainShell 五帧资源依赖红：夹具改离线替身编排；源码层哈希按当前磁盘文件 sha256 回填，PNG golden 帧仍待 CI record 落盘
+# 观感基线冻结（P3）：2026-11-27 07:58:58 2026-11-27 返工收口验收 D2/D3：夹具回补磨砂面、20dp BottomCenter 包层、buttonRadius 圆角裁切；源码层哈希按当前磁盘回填，PNG 仍待 CI record
 6d98c37813c722b5ff643d144d6a9f459443dcd2859448e1a3d555791d20d480  screenshot/frames-baseline.json
 0e9ecc6f39b886452bc00830b125c9f76abe14794e83f141dafb8eec3120bee6  screenshot/src/test/java/io/legado/app/ci/screenshot/BasicComponentsSnapshotTest.kt
 0fb616897ec6509bdec7ccd7331584ffd812b43f501a2433b77541aa45b8e70e  screenshot/src/test/java/io/legado/app/ci/screenshot/BookshelfSnapshotTest.kt
 d0542af178456ca04ab0c2ec42d0004ad004e002c42a10c5da9d99ee92a917ec  screenshot/src/test/java/io/legado/app/ci/screenshot/CardFoundationSnapshotTest.kt
 1564919fd923d7fde3a50928f35e37fc65b64ccfac900abf96d8194dc312ac8a  screenshot/src/test/java/io/legado/app/ci/screenshot/CatalogCardsSnapshotTest.kt
 f33f7ffa9c87c2d3df0fd469bfb10016cc3da04f37f437fda618ae44e7e39001  screenshot/src/test/java/io/legado/app/ci/screenshot/InkComponentsSnapshotTest.kt
-a290039d69acc89a9768bd490dcf3ba4c18b93a34a942ccd07a89c662b010f5c  screenshot/src/test/java/io/legado/app/ci/screenshot/MainShellSnapshotTest.kt
+02647fa5c56d96076165619c64dd3a032ca1eb56f1146cedd75c50c8833cd335  screenshot/src/test/java/io/legado/app/ci/screenshot/MainShellSnapshotTest.kt
 6c658ba4b9afd5d2cd10a50ba792ccb438cd68cb22afec48de2d72a353abe8d7  screenshot/src/test/java/io/legado/app/ci/screenshot/ScreenshotFixtures.kt
