@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import io.legado.app.help.sensor.GyroBridge
 import kotlinx.coroutines.delay
 import kotlin.math.abs
