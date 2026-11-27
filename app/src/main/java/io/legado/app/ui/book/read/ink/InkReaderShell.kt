@@ -121,6 +121,13 @@ fun InkReaderShell(
             modifier = Modifier.fillMaxSize(),
         )
 
+        // 1b) 引擎文字面：ContentTextView AndroidView，吃控制器出页缝 currentTextPage()；
+        // 透明背景只画字，空态文案由本层兜底（R6 图层顺序，B4-07）。
+        InkTextPageSurface(
+            host = shellHost,
+            pageTick = pageTick,
+        )
+
         // 2) 手势遮罩层（仅 ComposeOverlay 模式吃点 / 长按；滑动不消费）
         if (dispatchMode == DispatchMode.ComposeOverlay) {
             Box(

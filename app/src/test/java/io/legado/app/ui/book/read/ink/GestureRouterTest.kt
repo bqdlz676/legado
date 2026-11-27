@@ -1,6 +1,7 @@
 package io.legado.app.ui.book.read.ink
 
 import androidx.compose.ui.geometry.Rect
+import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.vertical.CharHit as VerticalCharHit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -67,6 +68,10 @@ class GestureRouterTest {
             backCalls++
             return backResult
         }
+
+        override fun currentTextPage(): TextPage? = null
+
+        override fun textPageState(): InkTextPageState = InkTextPageState.NoChapter
     }
 
     private fun newHit(): CharHit {

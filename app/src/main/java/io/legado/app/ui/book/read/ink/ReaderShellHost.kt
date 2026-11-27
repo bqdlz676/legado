@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.ink
 
+import io.legado.app.ui.book.read.page.entities.TextPage
+
 /**
  * 阅读壳 ↔ 宿主（ReadBookActivity / ViewModel / core 引擎）桥接协议。
  *
@@ -61,6 +63,19 @@ interface ReaderShellHost {
      * 由调用方走退出链路。
      */
     fun handleBack(): InkBackResult
+
+    /**
+     * 出页缝（B4-07 文字面上屏）：取 ReadBook 当前页 [TextPage] 交文字面
+     * `ContentTextView.setContent` 上屏；章未就绪 / 页序号越界返回 null，壳侧走空态兜底，
+     * 不出空白态。本方法只做回源读取，实现侧不另存第二份页文本（R5）。
+     */
+    fun currentTextPage(): TextPage?
+
+    /**
+     * 文字面就绪 / 空态归类（B4-07）：由 ReadBook 唯一状态源派生页序 / 页数口径，
+     * 供 Compose 文字面判定就绪态或展示明确空态文案；不持有第二份章 / 页文本。
+     */
+    fun textPageState(): InkTextPageState
 }
 
 /**

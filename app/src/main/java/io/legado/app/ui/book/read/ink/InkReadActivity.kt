@@ -7,16 +7,18 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.BookHighlight
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.help.bubble.BubbleResolver
 import io.legado.app.help.bubble.NotebookStore
@@ -24,6 +26,10 @@ import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.ReadBookViewModel
+import io.legado.app.ui.book.read.page.ContentTextView
+import io.legado.app.ui.book.read.page.ReaderDetailRequest
+import io.legado.app.ui.book.read.page.delegate.PageDelegate
+import io.legado.app.ui.book.read.page.provider.TextPageFactory
 import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.utils.eventObservable
 import io.legado.app.utils.getPrefBoolean
@@ -49,7 +55,7 @@ import kotlinx.coroutines.launch
  * 兜底：章节尚未加载完成时正文为空串，壳与引擎按空页兜底，不出空白态、不崩；
  * 正文加载完成后回调刷新，状态自动回填。
  */
-class InkReadActivity : ComponentActivity() {
+class InkReadActivity : AppCompatActivity(), ContentTextView.CallBack {
 
     private val viewModel: ReadBookViewModel by viewModels()
 
@@ -410,6 +416,53 @@ class InkReadActivity : ComponentActivity() {
         if (!::controller.isInitialized) return
         controller.syncChapterFromReadBook()
     }
+
+    // ── ContentTextView.CallBack（B4-07 文字面宿主桥接） ──────────────────────────
+    // 旧壳由 ReadView 承接 pageFactory / pageDelegate；新壳 C 阶段文字面为静态单页上屏，
+    // 工厂经 ReadBookTextDataSource 只读映射 ReadBook 唯一状态源。图片长按 / 点评 / 高亮 /
+    // 选区 / 详情半屏等壳桩回调归后续剥桩批次（B4-08~B4-10），此处给安全空实现：
+    // 不抢手势、不弹旧对话框、不出空气泡。
+
+    /** 旧分页引擎工厂：懒构造，数据源只读映射 ReadBook；不另存章 / 页镜像（R5）。 */
+    private val textPageFactory: TextPageFactory by lazy {
+        TextPageFactory(ReadBookTextDataSource { refreshFromReadBook() })
+    }
+
+    override val headerHeight: Int = 0
+
+    override val imgBgPaddingStart: Int = 0
+
+    override val pageFactory: TextPageFactory get() = textPageFactory
+
+    override val pageDelegate: PageDelegate? = null
+
+    override val isScroll: Boolean = false
+
+    override var isSelectingSearchResult: Boolean = false
+
+    override fun onReadScroll(offset: Int) = Unit
+
+    override fun upSelectedStart(x: Float, y: Float, top: Float) = Unit
+
+    override fun upSelectedEnd(x: Float, y: Float) = Unit
+
+    override fun onImageLongPress(x: Float, y: Float, src: String) = Unit
+
+    override fun onCancelSelect() = Unit
+
+    override fun onLongScreenshotTouchEvent(event: MotionEvent): Boolean = false
+
+    override fun oldClickImg(src: String): Boolean = false
+
+    override fun clickImg(click: String, src: String) = Unit
+
+    override fun onReviewClick(paragraphNum: Int, count: Int, chapterIndex: Int) = Unit
+
+    override fun onHighlightClick(highlight: BookHighlight, x: Float, y: Float) = Unit
+
+    override fun onHighlightRuleClick(ruleId: Long, x: Float, y: Float) = Unit
+
+    override fun openReaderSheet(request: ReaderDetailRequest) = Unit
 
     companion object {
         /** 纯文本模式偏好键，与旧 ContentEditDialog 同键，老用户设置不丢。 */

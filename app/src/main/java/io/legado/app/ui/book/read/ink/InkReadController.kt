@@ -142,6 +142,25 @@ class InkReadController(
         ReadBook.curTextChapter?.getPage(ReadBook.durPageIndex)
 
     /**
+     * 文字面状态归类（B4-07）：书 / 章 / 页就绪度全部从 [ReadBook] 现取，交
+     * [InkTextPageResolver] 归类为就绪态或四类空态之一；不存第二份页文本 / 进度镜像。
+     * 页对象仍走 [currentTextPage] 出页缝，本方法只供 Compose 文字面判定空态文案。
+     */
+    fun textPageState(): InkTextPageState {
+        val book = ReadBook.book
+        val chapter = ReadBook.curTextChapter
+        val page = currentTextPage()
+        return InkTextPageResolver.resolve(
+            bookPresent = book != null,
+            chapterPresent = chapter != null,
+            pageCount = chapter?.pageSize ?: 0,
+            currentIndex = ReadBook.durPageIndex,
+            pageText = page?.text,
+            layoutOk = chapter != null && chapter.hasBodyContent,
+        )
+    }
+
+    /**
      * 状态回源：从 [ReadBook] 取当前书 / 章，锚定时空总线、清气泡热缓存后重排分页引擎·竖排模式。
      * 章标识 / 标题 / 正文 / 进度全部现取现用，不落本类字段；重复调用幂等。
      */

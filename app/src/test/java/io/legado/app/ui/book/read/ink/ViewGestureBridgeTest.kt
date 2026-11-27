@@ -1,5 +1,6 @@
 package io.legado.app.ui.book.read.ink
 
+import io.legado.app.ui.book.read.page.entities.TextPage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -64,6 +65,10 @@ class ViewGestureBridgeTest {
         override fun isPageAnimating(): Boolean = animating
 
         override fun handleBack(): InkBackResult = backResult
+
+        override fun currentTextPage(): TextPage? = null
+
+        override fun textPageState(): InkTextPageState = InkTextPageState.NoChapter
     }
 
     private fun bridge(host: FakeHost) = ViewGestureBridge(host, BOTTOM_BAR_PX)
