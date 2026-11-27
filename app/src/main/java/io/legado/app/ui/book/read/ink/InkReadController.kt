@@ -138,7 +138,7 @@ class InkReadController(
      * 上屏；章未加载 / 页序号越界时返回 null，壳侧空页兜底，不出空白态。本方法只做回源读取，
      * 不在控制器内另存第二份页文本。
      */
-    fun currentTextPage(): TextPage? =
+    override fun currentTextPage(): TextPage? =
         ReadBook.curTextChapter?.getPage(ReadBook.durPageIndex)
 
     /**
@@ -146,7 +146,7 @@ class InkReadController(
      * [InkTextPageResolver] 归类为就绪态或四类空态之一；不存第二份页文本 / 进度镜像。
      * 页对象仍走 [currentTextPage] 出页缝，本方法只供 Compose 文字面判定空态文案。
      */
-    fun textPageState(): InkTextPageState {
+    override fun textPageState(): InkTextPageState {
         val book = ReadBook.book
         val chapter = ReadBook.curTextChapter
         val page = currentTextPage()
