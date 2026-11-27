@@ -7,6 +7,7 @@ import io.legado.app.help.bubble.contract.Action as ContractAction
 import io.legado.app.help.chrono.ChronoPlaces
 import io.legado.app.help.chrono.ContextAnchor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -63,7 +64,7 @@ class InkBubbleRouteResolverTest {
     @Test
     fun `contract OpenTimeline 映射时间轴路由，公元前负数与空标题透传`() {
         val route = InkActionDispatcher.routeContract(
-            ContractAction.OpenTimeline(-722, null), ContextAnchor,
+            ContractAction.OpenTimeline(-722), ContextAnchor,
         ) as InkRoute.Timeline
         assertEquals(-722, route.year)
         assertNull(route.label)
