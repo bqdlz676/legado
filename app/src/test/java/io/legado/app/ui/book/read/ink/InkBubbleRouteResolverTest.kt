@@ -21,8 +21,10 @@ import org.junit.Test
  *  1. 冻结契约五子类（contract.Action：OpenMap / OpenPerson / OpenTimeline /
  *     OpenRelation / OpenArtifact）经 [InkActionDispatcher.routeContract] 穷尽归类；
  *     OpenArtifact 名物详情 Sheet 消费方尚未接线，路由为空、chip 置灰。
- *  2. 解析兜底：Provider 全空 / 未知符号 / 空段落 / 越界字位一律落 Missing 兜底气泡，
- *     结构完整、不抛异常、不留空白态；候选整词未收录返回 null，调用方保留当前气泡。
+ *  2. 解析兜底：Provider 全空 / 未知符号 / 空段落落 Missing 兜底气泡，结构完整、不抛异常、
+ *     不留空白态；越界字位先夹取到末位下标，再按正常优先级链解析（末位所在整词被词槽
+ *     命中时出词气泡，未收录才回落单字 / Missing），夹取本身不抛异常；候选整词未收录
+ *     返回 null，调用方保留当前气泡。
  *
  * 本类不反射取成员、不整份读源文件 contains、不用恒真断言；断言锁定冻结契约字段与
  * 兜底口径，非断言自身实现写法。
@@ -131,12 +133,20 @@ class InkBubbleRouteResolverTest {
 
     @Test
     fun `未知符号落 Missing 兜底，不强行释义`() {
-        val bubble = BubbleResolver.resolve("魑魅魍魉", 0)
+        // 非汉字符号「※」：纪年正则、典故整词、人物 / 地名称谓、名物槽、多字词槽与单字槽
+        // 的入口都先判汉字（BubbleSupport.isHan）或清洗成空串，机制上不可能命中任何种子；
+        // 兜底气泡结构完整：token 回守符号本身，body/detail/source 非空，不进动作与候选。
+        val bubble = BubbleResolver.resolve("※", 0)
         assertNotNull(bubble)
         assertEquals(BubbleKind.MISSING, bubble!!.kind)
-        assertEquals("魑魅魍魉", bubble.token)
+        assertEquals("※", bubble.token)
         assertTrue(bubble.body.isNotBlank())
+        assertTrue(bubble.detail.isNotBlank())
         assertTrue(bubble.source.isNotBlank())
+        assertTrue(bubble.allowWebSearch)
+        assertTrue(bubble.allowNotebook)
+        assertTrue(bubble.actions.isEmpty())
+        assertTrue(bubble.candidates.isEmpty())
     }
 
     @Test
@@ -149,12 +159,22 @@ class InkBubbleRouteResolverTest {
     }
 
     @Test
-    fun `越界字位落 Missing 兜底，夹取末位不崩`() {
-        val bubble = BubbleResolver.resolve("春秋", 99)
-        assertNotNull(bubble)
-        assertEquals(BubbleKind.MISSING, bubble!!.kind)
-        assertEquals("秋", bubble.token)
-        assertTrue(bubble.body.isNotBlank())
+    fun `越界字位夹取末位不崩，结果与末位原位解析一致`() {
+        // 越界 pos（99）由 resolve 内 safePos 夹到末位下标；夹取后走的槽位与直接点末位
+        // 完全一致：kind / token 相同，不抛异常、不留空白态。槽位归属不在此锁定——末位所在
+        // 整词若被多字词槽命中，token 是整词；未收录才回落单字或 Missing，两种形态都允许。
+        val paragraph = "春秋"
+        val clamped = BubbleResolver.resolve(paragraph, 99)
+        val atLast = BubbleResolver.resolve(paragraph, paragraph.lastIndex)
+        assertNotNull(clamped)
+        assertNotNull(atLast)
+        assertEquals(atLast!!.kind, clamped!!.kind)
+        assertEquals(atLast.token, clamped.token)
+        assertTrue(clamped.token.isNotBlank())
+        assertTrue(clamped.token.contains(paragraph.last()))
+        assertTrue(clamped.body.isNotBlank())
+        assertTrue(clamped.detail.isNotBlank())
+        assertTrue(clamped.source.isNotBlank())
     }
 
     @Test
