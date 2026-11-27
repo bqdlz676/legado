@@ -10,7 +10,10 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import io.legado.app.constant.PreferKey
+import io.legado.app.data.dao.AsterismDao
 import io.legado.app.data.dao.BookChapterDao
+import io.legado.app.data.dao.FieldAllocationDao
+import io.legado.app.data.dao.StarDao
 import io.legado.app.data.dao.BookDao
 import io.legado.app.data.dao.BookGroupDao
 import io.legado.app.data.dao.BookHighlightDao
@@ -35,6 +38,8 @@ import io.legado.app.data.dao.SearchBookDao
 import io.legado.app.data.dao.SearchKeywordDao
 import io.legado.app.data.dao.ServerDao
 import io.legado.app.data.dao.TxtTocRuleDao
+import io.legado.app.data.entities.AsterismEntity
+import io.legado.app.data.entities.AsterismMemberEntity
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookGroup
@@ -44,6 +49,10 @@ import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.BookSourceCheckState
 import io.legado.app.data.entities.BookSourcePart
 import io.legado.app.data.entities.Bookmark
+import io.legado.app.data.entities.ConstellationLineEntity
+import io.legado.app.data.entities.FieldAllocationEntity
+import io.legado.app.data.entities.StarEntity
+import io.legado.app.data.entities.StarNameEntity
 import io.legado.app.data.entities.AutoTaskRule
 import io.legado.app.data.entities.Cache
 import io.legado.app.data.entities.Cookie
@@ -77,7 +86,7 @@ val appDb by lazy {
 }
 
 @Database(
-    version = 113,
+    version = 114,
     exportSchema = true,
     entities = [Book::class, BookGroup::class, BookSource::class, BookChapter::class,
         ReplaceRule::class, SearchBook::class, SearchKeyword::class, Cookie::class,
@@ -85,7 +94,11 @@ val appDb by lazy {
         RssStar::class, TxtTocRule::class, ReadRecord::class, HttpTTS::class, Cache::class,
         RuleSub::class, DictRule::class, KeyboardAssist::class, Server::class,
         AutoTaskRule::class, BookHighlight::class, HighlightRule::class, BookSourceCheckState::class,
-        BookMemo::class],
+        BookMemo::class,
+        // 星空天象层（规格 §四 第 10~13 条）：恒星/星名/星官/成员/连线/分野六张新表。
+        StarEntity::class, StarNameEntity::class, AsterismEntity::class,
+        AsterismMemberEntity::class, ConstellationLineEntity::class,
+        FieldAllocationEntity::class],
     views = [BookSourcePart::class],
     autoMigrations = [
         AutoMigration(from = 43, to = 44),
@@ -149,7 +162,8 @@ val appDb by lazy {
         AutoMigration(from = 102, to = 103),
         AutoMigration(from = 103, to = 104),
         AutoMigration(from = 110, to = 111),
-        AutoMigration(from = 111, to = 112)
+        AutoMigration(from = 111, to = 112),
+        AutoMigration(from = 113, to = 114)
     ]
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -179,6 +193,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract val dictRuleDao: DictRuleDao
     abstract val keyboardAssistsDao: KeyboardAssistsDao
     abstract val serverDao: ServerDao
+
+    // 星空天象层 DAO（数据单注册；调用方经 appDb 取用）。
+    abstract val starDao: StarDao
+    abstract val asterismDao: AsterismDao
+    abstract val fieldAllocationDao: FieldAllocationDao
 
     companion object {
 
