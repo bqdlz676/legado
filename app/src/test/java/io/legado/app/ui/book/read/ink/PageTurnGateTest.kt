@@ -67,4 +67,23 @@ class PageTurnGateTest {
         assertEquals(TurnDenied.Animating, gate.evaluate(EdgeDirection.Prev).denied)
         assertEquals(TurnDenied.Animating, gate.evaluate(EdgeDirection.Next).denied)
     }
+
+    @Test
+    fun `裁决计数按放行 动画屏蔽 边界拒绝分别累加 清零后归零`() {
+        val gate = PageTurnGate(animating = false, canPrev = false, canNext = true)
+        gate.evaluate(EdgeDirection.Next)   // 放行
+        gate.evaluate(EdgeDirection.Prev)   // 边界拒绝
+        gate.animating = true
+        gate.evaluate(EdgeDirection.Next)   // 动画屏蔽（优先于边界）
+        assertEquals(3, gate.evaluatedCount)
+        assertEquals(1, gate.allowedCount)
+        assertEquals(1, gate.deniedBoundaryCount)
+        assertEquals(1, gate.deniedAnimatingCount)
+
+        gate.resetCounters()
+        assertEquals(0, gate.evaluatedCount)
+        assertEquals(0, gate.allowedCount)
+        assertEquals(0, gate.deniedBoundaryCount)
+        assertEquals(0, gate.deniedAnimatingCount)
+    }
 }

@@ -88,6 +88,15 @@ class CandidateCycleTest {
     }
 
     @Test
+    fun `构造期复制候选列表 后续改动原列表不影响循环`() {
+        val mutable = candidates.toMutableList()
+        val cycle = CandidateCycle(mutable)
+        mutable.clear()
+        assertEquals(3, cycle.size)
+        assertEquals(candidates[0], cycle.current)
+    }
+
+    @Test
     fun `selectAt 越界收敛并定位候选`() {
         val cycle = CandidateCycle(candidates)
         assertEquals(candidates[2], cycle.selectAt(7))

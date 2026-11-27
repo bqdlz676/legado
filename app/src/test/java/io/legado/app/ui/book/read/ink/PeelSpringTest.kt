@@ -71,4 +71,35 @@ class PeelSpringTest {
         }
         assertTrue(peak <= 1.15f + 1e-5f)
     }
+
+    @Test
+    fun `非法弹簧参数回退默认值并留计数 不产生 NaN`() {
+        val broken = PeelSpring(stiffness = Float.NaN, dampingRatio = -1f)
+        assertTrue(broken.parameterClampedCount > 0)
+        assertFalse(broken.stiffness.isNaN())
+        assertTrue(broken.dampingRatio >= 0f)
+        repeat(30) { broken.update(1f / 60f) }
+        assertFalse(broken.value.isNaN())
+        assertFalse(broken.velocity.isNaN())
+    }
+
+    @Test
+    fun `过阻尼与无穷大阻尼比被夹紧到上限`() {
+        val damped = PeelSpring(stiffness = 220f, dampingRatio = 100f)
+        assertTrue(damped.parameterClampedCount > 0)
+        assertTrue(damped.dampingRatio <= 2f)
+        repeat(30) { damped.update(1f / 60f) }
+        assertFalse(damped.value.isNaN())
+    }
+
+    @Test
+    fun `长时间积分进度夹在零与上界之间`() {
+        val s = spring()
+        repeat(300) {
+            val v = s.update(1f / 120f)
+            assertFalse(v.isNaN())
+            assertTrue(v >= 0f - 1e-5f)
+            assertTrue(v <= 1.15f + 1e-5f)
+        }
+    }
 }

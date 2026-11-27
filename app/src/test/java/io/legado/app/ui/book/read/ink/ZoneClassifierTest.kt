@@ -59,6 +59,18 @@ class ZoneClassifierTest {
     }
 
     @Test
+    fun `坐标 NaN 兜底为 Center 不崩`() {
+        assertEquals(
+            ReaderZone.Center,
+            ZoneClassifier.classify(x = Float.NaN, y = 500f, width = W, height = H, bottomBarPx = BOTTOM_BAR_PX),
+        )
+        assertEquals(
+            ReaderZone.Center,
+            ZoneClassifier.classify(x = 500f, y = Float.NaN, width = W, height = H, bottomBarPx = BOTTOM_BAR_PX),
+        )
+    }
+
+    @Test
     fun `边缘方向映射：左 Prev 右 Next，中间与底栏无方向`() {
         assertEquals(EdgeDirection.Prev, ZoneClassifier.edgeDirection(ReaderZone.LeftEdge))
         assertEquals(EdgeDirection.Next, ZoneClassifier.edgeDirection(ReaderZone.RightEdge))

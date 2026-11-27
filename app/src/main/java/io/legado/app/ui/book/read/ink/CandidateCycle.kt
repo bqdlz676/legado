@@ -9,7 +9,13 @@ import io.legado.app.help.bubble.BubbleCandidate
  * 离线 JVM 单测可直接覆盖边界（空列表、单候选、负下标、越界下标），
  * 气泡 UI 只负责把 [display] 画出来、把 [query] 回传给解析链重查。
  *
- * 双字段口径（C2 冻结契约）：
+ * 不变式：
+ *  - [index] 恒落在 [0, size) 内；空列表恒为 0，[current] / [display] / [query] 恒为 null；
+ *  - [next] 环形回绕，单候选停在 0；[selectAt] 只夹紧不回绕（弹列表点选不做循环切换）；
+ *  - 候选列表在构造期复制为不可变视图，调用方后续改动原列表不影响本循环；
+ *  - 不持有 View / Binding / 上下文，可在独立 module 离线实例化。
+ *
+ * 双字段口径（C2 冻结契约，不改）：
  *  - [BubbleCandidate.query] 是回传解析链重查的裸名 / 主键，不带括号装饰；
  *  - [BubbleCandidate.display] 是气泡上展示的名字，可附朝代 / 辖区 / 年代说明。
  * 点选切换时只回传 [query]，避免展示串里的括号装饰把重查词污染成查不到的整串。
@@ -18,9 +24,12 @@ import io.legado.app.help.bubble.BubbleCandidate
  * @param initial 初始下标；越界 / 负值先收敛到合法区间。
  */
 class CandidateCycle(
-    val candidates: List<BubbleCandidate>,
+    candidates: List<BubbleCandidate>,
     initial: Int = 0,
 ) {
+    /** 候选列表在构造期复制为不可变视图，调用方后续改动原列表不影响本循环。 */
+    val candidates: List<BubbleCandidate> = candidates.toList()
+
     /** 候选总数。 */
     val size: Int get() = candidates.size
 
@@ -63,7 +72,7 @@ class CandidateCycle(
     companion object {
         /**
          * 环形回绕下标：[current] 先收敛到合法区间再 +1，末尾回绕到 0。
-         * 空列表 / 非正 size 兜底回 0，不除零。
+         * 空列表 / 非正 size / 越界 current 兜底回 0，不除零、不抛异常。
          */
         fun nextIndex(size: Int, current: Int): Int {
             if (size <= 0) return 0
@@ -80,6 +89,7 @@ internal fun nextCandidateIndex(size: Int, current: Int): Int =
 /**
  * 候选行文案（切片-02 §4：气泡顶部一行「还有 N 种解释」）。
  * 首项展示总数引导；切到后续候选时标明序号与当前展示名。
+ * 空候选返回空串，不出空气泡行。
  */
 fun candidateLabel(cycle: CandidateCycle): String {
     if (cycle.size == 0) return ""

@@ -166,6 +166,15 @@ class InkPageCommandTest {
         assertTrue(turn.direction == EdgeDirection.Prev)
     }
 
+    @Test
+    fun `负连发计数按首次按下处理 不进连发屏蔽`() {
+        val noLongPress = defaultConfig.copy(keyPageOnLongPress = false)
+        assertEquals(
+            PageCommand.Turn(EdgeDirection.Prev),
+            InkPageKeys.resolveHardwareKey(InkPageKeys.KEYCODE_DPAD_UP, -3, noLongPress),
+        )
+    }
+
     private companion object {
         const val KeyEventUnknown = 0
     }

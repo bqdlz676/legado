@@ -7,7 +7,15 @@ package io.legado.app.ui.book.read.ink
  * 在新壳 InkReadActivity 尚未接入。本文件把「键码 → 翻页命令」的解析规则抽成纯逻辑，
  * Android 绑定（BroadcastReceiver / onKeyDown）只负责取键码与回调，判定全部在此收口。
  *
- * 口径对齐旧 ReadBookActivity：
+ * 不变式：
+ *  - 本文件不 import 任何 `android.view.KeyEvent` 或其它 Android framework 类；
+ *    键码数值按 AOSP `KeyEvent` 常量在此冻结，宿主把 `event.keyCode` / `event.repeatCount`
+ *    原样灌入即可（定界 I-06：纯 JVM 无 KeyEvent import，Android 绑定只取键码）。
+ *  - 解析结果只有三种：[PageCommand.Turn]、[PageCommand.ToggleReadAloud]、`null`；
+ *    `null` 表示未识别 / 被开关 / 连发规则屏蔽，调用方交系统默认处理，不抛异常、不造命令。
+ *  - 命令方向与手势分区共用同一 [EdgeDirection]：Prev 上翻，Next 下翻，不存在第四方向。
+ *
+ * 口径对齐旧 ReadBookActivity（旧实现留待 B4-31 下线，本件只作纯逻辑参照，不复用旧类）：
  *  - 上翻：音量上 / 方向上 / 方向左 / 翻页上 / 自定义上翻键 / 媒体上一曲；
  *  - 下翻：音量下 / 方向下 / 方向右 / 翻页下 / 空格 / 自定义下翻键 / 媒体下一曲；
  *  - 长按连发仅在开启「长按翻页」时生效，否则忽略 repeat；
@@ -29,6 +37,9 @@ sealed interface PageCommand {
 
 /**
  * 按键解析配置（宿主从 AppConfig / 朗读服务状态灌入；纯数据，本层不读 SharedPreferences）。
+ *
+ * 不变式：六个字段均由宿主灌入，本件不持有偏好存储；集合入参按只读视图使用，
+ * 解析器不得向其中写入。
  *
  * @param volumeKeyEnabled 音量键翻页总开关（AppConfig.volumeKeyPage）。
  * @param volumeKeyPageOnPlay 朗读播放中是否仍允许音量键翻页（AppConfig.volumeKeyPageOnPlay）。
@@ -96,6 +107,11 @@ object InkPageKeys {
     /**
      * 解析硬件按键（音量键 / 方向键 / 翻页键 / 空格 / 用户自定义键）。
      *
+     * 边界兜底（不抛异常、不造空命令）：
+     *  - 未识别键码 / 键码 0（KEYCODE_UNKNOWN）→ 返回 null，交系统默认处理；
+     *  - [repeatCount] 为负属异常投递，按 0 处理（视为首次按下），不进连发判定；
+     *  - 自定义键集合为空时，内置键映射不受影响。
+     *
      * @param keyCode    [android.view.KeyEvent.getKeyCode] 原值。
      * @param repeatCount [android.view.KeyEvent.getRepeatCount]；>0 表示长按连发。
      * @param config     按键开关与朗读状态配置。
@@ -111,13 +127,15 @@ object InkPageKeys {
         } ?: return null
 
         // 旧版口径：未开「长按翻页」时，连发（repeatCount>0）不进翻页通道，忽略长按重复。
-        if (command is PageCommand.Turn && repeatCount > 0 && !config.keyPageOnLongPress) return null
+        val repeat = repeatCount.coerceAtLeast(0)
+        if (command is PageCommand.Turn && repeat > 0 && !config.keyPageOnLongPress) return null
         return command
     }
 
     /**
      * 解析媒体键（耳机线控 / 蓝牙遥控）。
      * 上一曲 → 上翻，下一曲 → 下翻；播放暂停 / 线控键 → 朗读切换；其余媒体键返回 null。
+     * 边界兜底：键码 0 / 未收录媒体键一律 null，不消费。
      */
     fun resolveMediaKey(keyCode: Int): PageCommand? = when (keyCode) {
         KEYCODE_MEDIA_PREVIOUS -> PageCommand.Turn(EdgeDirection.Prev)
