@@ -130,10 +130,12 @@ class InkContentEditRulesTest {
 
     @Test
     fun `选区夹取 空文本回落零区间`() {
+        // IntRange 是闭区间：0..0 是折叠到零点的光标，不是 empty 区间（isEmpty 只在 last<first 成立）。
+        // 所以这里只能断言首末都收口到 0，不能断言 isEmpty —— 断言 isEmpty 会必红（CI 实测）。
         val range = InkContentEditRules.clampSelection("", 3, 5)
-        assertTrue(range.isEmpty())
         assertEquals(0, range.first)
         assertEquals(0, range.last)
+        assertTrue(range.first == range.last)
     }
 
     @Test
