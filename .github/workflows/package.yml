@@ -18,8 +18,16 @@ on:
 permissions:
   contents: read
 
-# 打包长作业不许被新推取消（K-20 教训：连推会 cancelled 在飞 run，APK 长杆被打断代价最大）。
-# 因此打包车道 cancel-in-progress: false；并发闸门由 workflow_run 串联 verify 成功来保证顺序。
+# 并发口径（2026-11-27 Q472 定稿，取代旧 K-20 注释）：
+# - group 带 github.ref：同分支串行排队，跨分支互不进同一组、不互斥打断；组键不含事件名，
+#   workflow_run 与 workflow_dispatch 落到同一 ref 时也排在同一队里，避免手动包插队在飞自动包。
+# - cancel-in-progress: false（排队，不取消在飞）：APK 是全链最长杆（实测成功轮 ~10 分钟，
+#   JDK/SDK/Gradle 依赖解析预热占前段），打断在飞构建等于整段预热作废且零产物落地；连推场景下
+#   若取 true（新推取消旧跑），每个新提交都掐掉上一轮在飞包，推送不断则包永远跑不完——
+#   3cf24a5 同批次两次 cancelled 即此形态。排队代价只是最多等一轮出包；Verify 车道已按 ref
+#   排队（verify.yml 同口径 false），package 积压至多一条等待。
+# - 用户视角保证：排队语义下每个码变提交的 package run 都跑到终态，队尾那条对应当前 HEAD 所验证
+#   的提交，最后必有一个完成态 APK；不会出现"跑到一半被取消、没有可用包"。
 concurrency:
   group: package-${{ github.ref }}
   cancel-in-progress: false
@@ -32,10 +40,98 @@ concurrency:
 # - 缓存未命中时 actions/cache 自动跳过 restore，Gradle 正常走网络下载；任何位置都不加 --offline。
 
 jobs:
-  # ---------- 出包（分片路径）：verify 车道全绿后由 workflow_run 闸门放行 ----------
+  # ---------- 路径分流：先判本轮改动落在哪条车道（docs-only / scripts-only / code），纯 git diff，不装 JDK/Gradle ----------
+  # 为什么 package 侧也要判车道：workflow_run 只监听 Verify completed；Verify 在 docs-only 车道
+  # 也会由 lane-summary 给出显式 success 结论。package 若只看 conclusion == success，纯文档推送
+  # 照样拉起 APK 长构建（Q429 报告 §九.1 遗留）。判据与 verify.yml classify-paths 逐字对齐，
+  # 两条车道对同一批文件给出同一结论，避免 verify 判 docs-only、package 判 code 的口径分裂。
+  classify-paths:
+    name: Classify changed paths (lane)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code_changed: ${{ steps.classify.outputs.code_changed }}
+      lane: ${{ steps.classify.outputs.lane }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # workflow_run 事件默认检出源 run 的提交；显式指定 head_sha，手动触发回退 github.sha。
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Classify changed files into lane
+        id: classify
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+
+          def git(*args):
+              # quotepath=false：非 ASCII 路径（中文文件名）不被加引号转义，否则 app/、
+              # data_scripts/ 等前缀匹配会被引号挡掉（同 verify.yml classify 口径）。
+              r = subprocess.run(['git', '-c', 'core.quotepath=false', *args],
+                                 capture_output=True, text=True)
+              return r.returncode, r.stdout.strip()
+
+          event = '${{ github.event_name }}'
+          files = []
+
+          if event == 'workflow_dispatch':
+              # 手动触发保守按码变全量跑：baseline 对照/补跑不享受分流跳过（同 verify.yml 口径）。
+              files = []
+          else:
+              # workflow_run 事件载荷没有 before 字段：取触发提交的父提交 diff；取不到父提交
+              # （首推/浅克隆）时空集保守落 code，不允许跳过出包链。
+              rc, parent = git('rev-parse', 'HEAD~1')
+              base = parent if rc == 0 and parent else ''
+              if base:
+                  rc, out = git('diff', '--name-only', base, 'HEAD')
+                  files = [f for f in out.splitlines() if f]
+
+          # 码变白名单（与 verify.yml classify-paths 逐字对齐）：应用/模块/截图/三方源码、
+          # Gradle 构建面、CI 配置与 composite action、版本号、两个被 workflow 直接调用的数据脚本。
+          CODE_PREFIXES = ('app/', 'modules/', 'screenshot/', 'third_party/',
+                           'gradle/', 'buildSrc/', '.github/')
+          CODE_EXACT = {'build.gradle', 'settings.gradle', 'settings.gradle.kts',
+                        'gradle.properties', 'gradlew', 'gradlew.bat',
+                        '.versioncode', 'package.json'}
+          CI_INVOKED_SCRIPTS = {'data_scripts/emit-shard-lists.py',
+                                'data_scripts/frame-manifest.py'}
+
+          def is_code(p):
+              if p in CODE_EXACT or p in CI_INVOKED_SCRIPTS:
+                  return True
+              if p.endswith('.gradle') or p.endswith('.gradle.kts'):
+                  return True
+              return any(p.startswith(pre) for pre in CODE_PREFIXES)
+
+          # 非码变域（可跳过 APK 构建）：docs/、data_scripts/、任意层级 *.md；
+          # 优先级先判码变白名单——落在 app/ 等目录下的 *.md 仍按码变处理（与 verify.yml 同口径）。
+          code_changed = any(is_code(p) for p in files)
+          if not files:
+              # 空集保守按码变：取不到 diff（首推/异常）时不允许跳过构建链。
+              lane = 'code'
+              code_changed = True
+          elif code_changed:
+              lane = 'code'
+          elif any(p.startswith('data_scripts/') for p in files):
+              lane = 'scripts-only'
+          else:
+              lane = 'docs-only'
+
+          out_path = os.environ['GITHUB_OUTPUT']
+          with open(out_path, 'a') as fh:
+              fh.write('code_changed=%s\n' % ('true' if code_changed else 'false'))
+              fh.write('lane=%s\n' % lane)
+          print('lane=%s code_changed=%s' % (lane, code_changed))
+          print('changed_files=%s' % files)
+          PY
+
+  # ---------- 出包（分片路径）：verify 车道全绿 + 本轮落码变车道后由双闸门放行 ----------
   build-shard:
     name: Build & verify APKs (shard path)
-    if: ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') && (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) }}
+    needs: [classify-paths]
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') && (github.event_name != 'workflow_dispatch' || inputs.baseline_full_test != true) && needs.classify-paths.outputs.code_changed == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -227,3 +323,24 @@ jobs:
 
       - name: Build & verify APKs (shared composite)
         uses: ./.github/actions/build-apks
+
+  # ---------- 非码变车道汇总：docs-only / scripts-only 给出显式"本轮不出包"结论 ----------
+  # 为什么独立成 job：needs 只挂恒存在的 classify-paths，不依赖会被整链跳过的 build-shard；
+  # 与 verify.yml lane-summary 同口径。不用 continue-on-error、不用 if: always()；classify 失败时
+  # 本 job 随 needs 失败传播，不产出放行结论。本结论不替代码变车道的 APK 构建与产物校验。
+  lane-summary:
+    name: Package lane summary (non-code gate)
+    needs: [classify-paths]
+    if: ${{ github.event_name != 'workflow_dispatch' && needs.classify-paths.outputs.code_changed == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record non-code lane conclusion
+        run: |
+          python3 - <<'PY'
+          import sys
+          lane = '${{ needs.classify-paths.outputs.lane }}'
+          if lane not in ('docs-only', 'scripts-only'):
+              sys.exit('::error::lane=%s 不在非码变车道枚举内（docs-only / scripts-only）' % lane)
+          print('lane=%s 非码变车道：本轮改动不触达 APK 构建面，出包链不拉起；APK 产物对应上一条码变车道包。' % lane)
+          PY

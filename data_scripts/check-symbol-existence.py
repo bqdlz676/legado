@@ -28,11 +28,17 @@
 限制：本闸不做类型推断，接收者类型不参与解析；同名单参/多参重载只按参个数与
 vararg/默认参判配平。它是编译期错误的前置筛子，不替代编译。
 退出码：0 = 无 NODEF / ARITY / PACKAGE；1 = 有 FAIL。
-用法：python3 data_scripts/check-symbol-existence.py [--selftest]
+用法：python3 data_scripts/check-symbol-existence.py [--selftest] [--changed]
+
+`--changed` 口径（与 check-member-override.py / check-test-assert-truth.py 同惯例）：
+只判相对 `origin/main` 的改动面 `.kt`（含未跟踪新文件），定义索引仍按全仓构建——
+否则未改动文件里的自有符号会在改动文件里被反查成 NODEF。改动面为空时不判红，
+只打印 EMPTY 中性结论；不带 `--changed` 维持全仓扫描，既有行为不变。
 """
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -421,6 +427,41 @@ def collect_def_files(root: str) -> list:
     return sorted(out)
 
 
+def git_changed_kt(root: str) -> list:
+    """`--changed` 改动面解析：`git diff origin/main` 已跟踪改动 + 未跟踪新文件，
+    只保留落在 SOURCE_ROOTS 下、磁盘上真实存在的 `.kt`。
+
+    为什么与 member-override 同口径：门禁脚本的改动面判定必须全仓一致，不能各猜一个 base；
+    quotepath=false 防中文文件名被加引号后前缀匹配落空。git 不可用 / 取不到 base 时
+    返回空表——改动面闸不允许靠猜把存量文件拉进来判红（空集中性放行，见 main 输出）。
+    """
+    names: list[str] = []
+    try:
+        diff = subprocess.run(
+            ['git', '-c', 'core.quotepath=false', 'diff', '--name-only', 'origin/main'],
+            capture_output=True, text=True, timeout=60, cwd=root)
+        names.extend(n.strip().strip('"') for n in diff.stdout.splitlines())
+        status = subprocess.run(
+            ['git', '-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'],
+            capture_output=True, text=True, timeout=60, cwd=root)
+        for row in status.stdout.splitlines():
+            body = row[3:].strip().strip('"')
+            if row[:2].strip().startswith('??'):
+                names.append(body)
+    except Exception:
+        return []
+    out = []
+    for n in names:
+        n = n.replace(os.sep, '/')
+        if not n.endswith('.kt'):
+            continue
+        if not any(n.startswith(pre) for pre in SOURCE_ROOTS):
+            continue
+        if os.path.isfile(os.path.join(root, n)):
+            out.append(n)
+    return sorted(set(out))
+
+
 def scan_file(rel: str, root: str, index: dict, external_names: set):
     """返回 (issues, skipped, checked)；issues=[(severity, name, line, arity, msg)]。"""
     issues, skipped = [], {'generated': 0, 'external': 0, 'stdlib': 0, 'unknown': 0}
@@ -771,14 +812,21 @@ def package_import_issues(root: str, files: list) -> list:
     return issues
 
 
-def analyze(root: str = ROOT) -> tuple[int, list, list, dict]:
-    """跑全仓判定，返回 (rc, call_issues, pkg_issues, stats)。
+def analyze(root: str = ROOT, changed_files: list | None = None) -> tuple[int, list, list, dict]:
+    """跑判定，返回 (rc, call_issues, pkg_issues, stats)。
 
     call_issues=[(sev, rel, name, line, call_arity, msg)]；pkg_issues=[(rel, line, path_, real)]；
     stats 携带文件数/调用数/三类计数/跳过计数，供 main 打印与 selftest 结构化断言复用。
     拆分目的：selftest 不只比退出码，还能直接断言命中类别标签与被判文件行（N3 加固）。
+
+    changed_files 非空时只扫描改动面内的调用文件（`--changed` 口径）；定义索引仍由
+    collect_def_files 全仓构建——跨文件自有符号反查不随改动面收缩，否则改动文件 import
+    的未改动文件符号会被误判 NODEF。
     """
     files = collect_files(root)
+    if changed_files is not None:
+        changed = set(changed_files)
+        files = [f for f in files if f in changed]
     index: dict[str, list] = {}
     external_names: set[str] = set()
     # 第一遍：建仓内定义索引（.kt 全量解析，.java 仅名字存在性）+ 收集外部 import 归属。
@@ -827,17 +875,26 @@ def analyze(root: str = ROOT) -> tuple[int, list, list, dict]:
     return rc, all_issues, pkg_bad, stats
 
 
-def main(root: str = ROOT) -> int:
-    rc, all_issues, pkg_bad, stats = analyze(root)
+def main(root: str = ROOT, only_changed: bool = False) -> int:
+    # --changed：改动面文件列表交 analyze 做调用扫描过滤；定义索引仍全仓构建（见 analyze 注释）。
+    changed = git_changed_kt(root) if only_changed else None
+    rc, all_issues, pkg_bad, stats = analyze(root, changed_files=changed)
+
+    # 改动面为空：本轮没有待检 .kt，中性放行——不拿空集冒充全仓 PASS，也不判红。
+    if only_changed and stats['files'] == 0:
+        print('SYMBOL-EXISTENCE: EMPTY（--changed 口径下改动面无待检 .kt 文件；空集不判 PASS 也不判红）')
+        return 0
+
     for rel, line, path_, real in pkg_bad:
         print('  PACKAGE %s:%d import %s → 仓内同名定义实际在 %s' % (rel, line, path_, real))
 
     for sev, rel, name, line, call_arity, msg in all_issues:
         print('  %s %s:%d %s(%d) → %s' % (sev, rel, line, name, call_arity, msg))
     skip = stats['skip']
-    print('SYMBOL-EXISTENCE: %s（扫描 %d 文件，调用 %d 处，NODEF %d / ARITY %d / PACKAGE %d，'
+    scope = '改动面' if only_changed else '全仓'
+    print('SYMBOL-EXISTENCE: %s（%s扫描 %d 文件，调用 %d 处，NODEF %d / ARITY %d / PACKAGE %d，'
           '跳过生成 %d / 外部库 %d / 标准库 %d / 未知 %d）'
-          % ('FAIL' if rc else 'PASS', stats['files'], stats['calls'],
+          % ('FAIL' if rc else 'PASS', scope, stats['files'], stats['calls'],
              stats['nodef'], stats['arity'], stats['pkg'],
              skip['generated'], skip['external'], skip['stdlib'], skip['unknown']))
     return rc
@@ -1327,6 +1384,31 @@ fun String.ext(x: Int): String = this + x
     finally:
         shutil.rmtree(t23, ignore_errors=True)
 
+    # 放行样本十五（--changed 改动面过滤回归锁）：坏样本 UseBad.kt 不在改动面 →
+    # analyze(changed_files=...) 不得判红；全仓口径（changed_files=None）仍须抓到 NODEF。
+    t24 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t24, 'app/src/main/java/io/legado/app/lib/Lib.kt', lib)
+        _kt(t24, 'app/src/main/java/io/legado/app/use/UseBad.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.missingSym\n\n'
+            'fun call() = missingSym(1, 2)\n')
+        _kt(t24, 'app/src/main/java/io/legado/app/use/UseGood.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.one\n\n'
+            'fun call() = one(1)\n')
+        good_rel = 'app/src/main/java/io/legado/app/use/UseGood.kt'
+        bad_rel = 'app/src/main/java/io/legado/app/use/UseBad.kt'
+        rc_chg, calls_chg, pkgs_chg, _st = analyze(t24, changed_files=[good_rel])
+        assert rc_chg == 0, f"改动面不含 UseBad 时 --changed 口径应 PASS，rc={rc_chg}"
+        assert not calls_chg and not pkgs_chg, f"改动面外坏样本不得被判红：{calls_chg} {pkgs_chg}"
+        rc_full, calls_full, _pkgs_full, _st2 = analyze(t24)
+        assert rc_full == 1, f"全仓口径仍应抓到 UseBad 的 NODEF，rc={rc_full}"
+        assert any(c[1] == bad_rel for c in calls_full), '全仓口径 UseBad.kt 必须在命中列表内'
+        print('[selftest] 放行样本（--changed 改动面过滤；面外坏样本不判红，全仓口径仍抓到）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t24, ignore_errors=True)
+
     print('[selftest] 夹具已自删，双向自测通过。')
     return 0
 
@@ -1334,4 +1416,7 @@ fun String.ext(x: Int): String = this + x
 if __name__ == '__main__':
     if '--selftest' in sys.argv:
         sys.exit(selftest())
-    sys.exit(main())
+    # 现状改造点：此前 main() 不解析任何命令行参数，--changed 传进来被直接忽略；
+    # 现在显式识别 --changed 并按改动面口径跑 main(only_changed=True)。
+    only_changed = '--changed' in sys.argv
+    sys.exit(main(only_changed=only_changed))
