@@ -396,5 +396,5 @@ private fun skyArgb(token: Long, alphaRatio: Float? = null): Int {
 private fun skyHash(i: Int, salt: Int): Double {
     var h = i * 374761393 + salt * 668265263 + 9173 * 2246822519
     h = h xor (h ushr 13); h *= 1274126177; h = h xor (h ushr 16)
-    return (h and Int.MAX_VALUE).toDouble() / Int.MAX_VALUE
+    return (h and 0x7FFFFFFFL).toDouble() / 0x7FFFFFFFL // 字面量 2246822519 溢出 Int，h 为 Long，掩码必须带 L 后缀
 }
