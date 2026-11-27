@@ -98,6 +98,51 @@ class InkContentEditRulesTest {
         assertEquals(EditExitDecision.DISMISS, InkContentEditRules.exitDecision(dirty = false, saving = false))
     }
 
+    // ── 选区夹取（删除末段后光标越界兜底） ──────────────────────────────
+
+    @Test
+    fun `选区夹取 区间在长度内原样保留`() {
+        val range = InkContentEditRules.clampSelection("一段正文", 1, 3)
+        assertEquals(1, range.first)
+        assertEquals(3, range.last)
+    }
+
+    @Test
+    fun `选区夹取 end 越过末尾被夹到长度`() {
+        val range = InkContentEditRules.clampSelection("短文", 1, 99)
+        assertEquals(1, range.first)
+        assertEquals(2, range.last)
+    }
+
+    @Test
+    fun `选区夹取 start 越过末尾回落至 end`() {
+        val range = InkContentEditRules.clampSelection("短文", 99, 99)
+        assertEquals(2, range.first)
+        assertEquals(2, range.last)
+    }
+
+    @Test
+    fun `选区夹取 start 大于 end 时 start 压到 end`() {
+        val range = InkContentEditRules.clampSelection("一段正文", 4, 2)
+        assertEquals(2, range.first)
+        assertEquals(2, range.last)
+    }
+
+    @Test
+    fun `选区夹取 空文本回落零区间`() {
+        val range = InkContentEditRules.clampSelection("", 3, 5)
+        assertTrue(range.isEmpty())
+        assertEquals(0, range.first)
+        assertEquals(0, range.last)
+    }
+
+    @Test
+    fun `选区夹取 负坐标收口到零`() {
+        val range = InkContentEditRules.clampSelection("正文", -4, -1)
+        assertEquals(0, range.first)
+        assertEquals(0, range.last)
+    }
+
     // ── 纯文本模式映射 ──────────────────────────────────────────────────
 
     @Test

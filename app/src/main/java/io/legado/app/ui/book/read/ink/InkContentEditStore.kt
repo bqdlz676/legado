@@ -5,6 +5,7 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
+import io.legado.app.help.book.ContentSaveToken
 import io.legado.app.help.book.isLocal
 import io.legado.app.model.ReadBook
 import io.legado.app.model.webBook.WebBook
@@ -41,6 +42,11 @@ sealed interface EditSaveResult {
     data class Ok(val displayTitle: String? = null) : EditSaveResult
     data object BookMissing : EditSaveResult
     data object ChapterMissing : EditSaveResult
+    /**
+     * 自上次加载后磁盘缓存已被外部改动（书源重拉、另一路编辑、重置落盘等）；
+     * 本路草稿不覆盖磁盘，回读比对后由宿主裁决保留哪一份，不静默冲掉外部改动。
+     */
+    data object Conflict : EditSaveResult
     data class Failed(val message: String) : EditSaveResult
 }
 
@@ -56,11 +62,22 @@ sealed interface EditSaveResult {
  */
 class InkContentEditStore {
 
+    /**
+     * 加载时点的落盘版本戳（内存态，不是内容真源）：仅用于保存前比对磁盘缓存是否被
+     * 外部改动；正文真源仍在 BookHelp 缓存文件与 DAO，本映射不落盘、不复制章节文本。
+     */
+    private val loadStamps = HashMap<String, ContentSaveToken>()
+
+    private fun stampKey(target: InkEditTarget): String =
+        target.bookUrl + "#" + target.chapterIndex
+
     /** 加载当前章可编辑正文与展示标题；任一环节缺失返回对应结果态，由面板给可读兜底。 */
     suspend fun load(target: InkEditTarget): EditLoadResult = withContext(Dispatchers.IO) {
+        loadStamps.remove(stampKey(target))
         runCatching {
             val book = resolveBook(target) ?: return@withContext EditLoadResult.BookMissing
             val chapter = resolveChapter(target) ?: return@withContext EditLoadResult.ChapterMissing
+            loadStamps[stampKey(target)] = BookHelp.contentSaveToken(book, chapter)
             val raw = BookHelp.getContent(book, chapter)
                 ?: return@withContext EditLoadResult.ContentMissing
             val processed = ContentProcessor.get(book.name, book.origin)
@@ -70,12 +87,20 @@ class InkContentEditStore {
         }.getOrElse { EditLoadResult.Failed(it.localizedMessage ?: it.javaClass.simpleName) }
     }
 
-    /** 保存草稿正文；落盘成功后若命中当前章，回调阅读页重载。空正文由面板校验层拦截，不到这里。 */
+    /**
+     * 保存草稿正文；落盘成功后若命中当前章，回调阅读页重载。空正文由面板校验层拦截，
+     * 不到这里。版本戳已漂移（外部已改磁盘）时返回 [EditSaveResult.Conflict]，不覆盖。
+     */
     suspend fun save(target: InkEditTarget, content: String): EditSaveResult = withContext(Dispatchers.IO) {
         runCatching {
             val book = resolveBook(target) ?: return@withContext EditSaveResult.BookMissing
             val chapter = resolveChapter(target) ?: return@withContext EditSaveResult.ChapterMissing
+            val stamp = loadStamps[stampKey(target)]
+            if (stamp != null && !BookHelp.isContentSaveCurrent(stamp)) {
+                return@withContext EditSaveResult.Conflict
+            }
             BookHelp.saveText(book, chapter, content)
+            loadStamps[stampKey(target)] = BookHelp.contentSaveToken(book, chapter)
             refreshReaderIfCurrent(target)
             EditSaveResult.Ok()
         }.getOrElse { EditSaveResult.Failed(it.localizedMessage ?: it.javaClass.simpleName) }
@@ -98,6 +123,7 @@ class InkContentEditStore {
      * 拉源失败不抛穿：回读缺失时返回 [EditLoadResult.ContentMissing] / [Failed]，面板兜底。
      */
     suspend fun reset(target: InkEditTarget): EditLoadResult = withContext(Dispatchers.IO) {
+        loadStamps.remove(stampKey(target))
         runCatching {
             val book = resolveBook(target) ?: return@withContext EditLoadResult.BookMissing
             val chapter = resolveChapter(target) ?: return@withContext EditLoadResult.ChapterMissing
@@ -113,6 +139,7 @@ class InkContentEditStore {
             val processed = ContentProcessor.get(book.name, book.origin)
                 .getContent(book, chapter, raw, includeTitle = false)
                 .toString()
+            loadStamps[stampKey(target)] = BookHelp.contentSaveToken(book, chapter)
             EditLoadResult.Ok(processed, chapter.getDisplayTitle())
         }.getOrElse { EditLoadResult.Failed(it.localizedMessage ?: it.javaClass.simpleName) }
     }

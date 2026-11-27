@@ -71,6 +71,18 @@ object InkContentEditRules {
     }
 
     /**
+     * 选区夹取（删除末段 / 切纯文本后旧选区越界兜底）：start、end 先各自收口到
+     * 0..text.length，再保证 start ≤ end；返回夹取后的区间，供输入框回填选区。
+     * 越界不抛异常、不归零整篇光标，空串时回落 0..0。
+     */
+    fun clampSelection(text: String, start: Int, end: Int): IntRange {
+        val length = text.length
+        val safeEnd = end.coerceIn(0, length)
+        val safeStart = start.coerceIn(0, length).coerceAtMost(safeEnd)
+        return safeStart..safeEnd
+    }
+
+    /**
      * 纯文本模式下的可见串 → 草稿原文映射。
      *
      * 〔为什么需要映射〕纯文本模式由 [ContentEditProjection] 隐藏图片 / 书评标记；用户在可见
