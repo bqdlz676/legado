@@ -34,6 +34,30 @@ TIER = os.path.join(ROOT, "docs", "并发档位.md")
 STALE_MINUTES = 60  # 一轮调度（一次调度快照）的时间代理阈值
 
 
+ROW_STATUS_PAT = re.compile(r"^(PENDING|RUNNING|DONE|BLOCKED)\b")
+
+
+def structure_issues(text: str):
+    """行结构自检：一行只许有一个状态格。
+    2026-11-27 实测事故：用字符串锚点往表里插新行，锚点恰好落在上一行行内，两行被拼成一行，
+    表格照旧渲染、状态词照旧能解析，slot/ledger/queue 三个计数全绿，只有「一行两个状态格」露馅。
+    注：不能按「一行只许一个 Q 号」判——每行本来就带自有单号 + 依赖单号两个 Q 号，那样会全表假红（当天已踩过）。
+    所以这条按「状态格个数」这个物理特征判，不看语义。"""
+    bad = []
+    for i, line in enumerate(text.splitlines(), 1):
+        if not line.startswith("|"):
+            continue
+        # 只判带 agent id 的现代派单行：Q-202/Q-204 那类历史行天然有两个状态格（状态列 + 回执列），
+        # 拿它们当门禁会一上来就红，与 g62 存量噪声同病。现代行必带 s_000 前缀 agent id。
+        if "s_000" not in line:
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        n = sum(1 for c in cells if ROW_STATUS_PAT.match(c.upper()))
+        if n > 1:
+            bad.append(f"{i}: {line[:80]}（状态格 {n} 个）")
+    return bad
+
+
 def parse_rows(text: str):
     """返回队列数据行 dict 列表；跳过表头/分隔线/空行。"""
     rows = []
@@ -71,6 +95,10 @@ def main() -> int:
         return 1
 
     qtext = open(QUEUE, encoding="utf-8").read()
+    # E0 行结构：一行只许一个 Q 号。插行锚点落进上一行行内会把两行拼成一行，
+    # 计数与状态全绿但表格已经报废，只有这条物理特征能拦住。
+    for bad in structure_issues(qtext):
+        fails.append(f"队列行结构坏：{bad}")
     rows = parse_rows(qtext)
     # O1：按状态列前缀分类（queue_stats 单源），不再精确匹配整串（旧判据在状态带备注时恒为 0）
     pending = [r for r in rows if r["kind"] == "PENDING"]
@@ -171,6 +199,22 @@ def selftest() -> int:
             print('[selftest] 坏样本（PENDING 超 60 分钟存活）E2 FAIL 通路 OK')
         finally:
             shutil.rmtree(bad_stale, ignore_errors=True)
+
+        # 行结构坏样本（2026-11-27 事故）：插行锚点落进上一行行内，两行被拼成一行，
+        # 计数/状态全绿但一行里出现两个状态格；必须 FAIL。
+        bad_merged = tempfile.mkdtemp(prefix='dispatch-queue-selftest-')
+        try:
+            _make_fixture(bad_merged, [
+                f"| Q3 | 被吞并的单 | {fresh} | DONE（s_000aaaaaaaa，已交付） | Q9 | RUNNING（s_000bbbbbbbb，{fresh} 起） | 写码 |"
+            ])
+            globals()['QUEUE'] = os.path.join(bad_merged, 'docs', '派单队列.md')
+            globals()['LEDGER'] = os.path.join(bad_merged, 'docs', '派单台账.md')
+            globals()['TIER'] = os.path.join(bad_merged, 'docs', '并发档位.md')
+            rc_merged = main()
+            assert rc_merged == 1, f"两行被拼成一行（双状态格）应 FAIL，rc={rc_merged}"
+            print('[selftest] 坏样本（插行吞并致一行双状态格）E0 FAIL 通路 OK')
+        finally:
+            shutil.rmtree(bad_merged, ignore_errors=True)
 
         bad_idle = tempfile.mkdtemp(prefix='dispatch-queue-selftest-')
         try:
