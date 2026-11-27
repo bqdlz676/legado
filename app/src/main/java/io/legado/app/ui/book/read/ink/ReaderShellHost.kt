@@ -5,6 +5,13 @@ package io.legado.app.ui.book.read.ink
  *
  * 壳只通过本接口触碰排版引擎与业务解析，不直接引用 ContentTextView / ReadView 内部；
  * 引擎 View 一行不动，命中检测、翻页、选词、气泡解析全部由宿主在实现侧接既有能力。
+ *
+ * 不变式（归位口径，B4-05）：
+ *  - 本契约不携带 Context / Activity / View 引用；Context 注入只发生在实现侧构造槽位，
+ *    接口方法签名不暴露 Android 框架类型，壳层无法经契约持有宿主 Activity；
+ *  - 未 attach / 引擎未排版态下各方法给安全默认：[probeChar] 返回 null、[turnPage] /
+ *    [onCenterTap] / [onCenterLongPress] 为空操作或关气泡、[handleBack] 逐层消化后落到退出分支；
+ *  - 返回裁决只有 [handleBack] 一个出口，手势层 / 硬件键 / Activity 不许另写一套层级判定。
  */
 interface ReaderShellHost {
 

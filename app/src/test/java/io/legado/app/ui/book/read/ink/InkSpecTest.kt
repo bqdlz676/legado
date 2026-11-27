@@ -74,4 +74,35 @@ class InkSpecTest {
         assertEquals(80.0, InkTokens.BUBBLE_HOT_BUDGET_MS, 0.0)
         assertEquals(100, InkTokens.BURST_DURATION_MS)
     }
+
+    @Test
+    fun `启发式读取失败非正核数堆内存按低端兜底`() {
+        assertTrue(InkSpec.heuristicLowSpec(cores = 0, heapGb = 0.0))
+        assertTrue(InkSpec.heuristicLowSpec(cores = -1, heapGb = -2.0))
+    }
+
+    @Test
+    fun `粒子数负输入回落零颗不抛异常`() {
+        assertEquals(0, InkSpec.particleCount(full = -5, low = -3, lowSpec = false))
+        assertEquals(0, InkSpec.particleCount(full = -5, low = -3, lowSpec = true))
+    }
+
+    @Test
+    fun `超支计数负 streak 夹零不累加成负`() {
+        assertEquals(1, InkSpec.recordFrame(streak = -2, elapsedMs = 20.0, budgetMs = 16.0))
+        assertEquals(0, InkSpec.recordFrame(streak = -2, elapsedMs = 12.0, budgetMs = 16.0))
+    }
+
+    @Test
+    fun `降级阈值夹到至少一，零负阈值不恒降级`() {
+        assertFalse(InkSpec.shouldDegrade(streak = 0, threshold = 0))
+        assertFalse(InkSpec.shouldDegrade(streak = 0, threshold = -3))
+    }
+
+    @Test
+    fun `字号非正时不判标题回落正文口径`() {
+        assertFalse(InkSpec.isTitleCellSize(18f, 0f, 20f))
+        assertFalse(InkSpec.isTitleCellSize(18f, 18f, 0f))
+        assertFalse(InkSpec.isTitleCellSize(18f, -1f, 20f))
+    }
 }

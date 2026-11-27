@@ -15,6 +15,13 @@ import io.legado.app.ui.main.RelationActivity
  * 目标页内部的数据加载、消歧、渲染由各页自己负责，本层不复制其逻辑。
  * 未接通的动作 [route] 返回 null，气泡侧 chip 据此置灰不可点，不呈现为可点击。
  *
+ * 不变式（归位口径，B4-05）：
+ *  - 唯一出口：拉起目标页的 `startActivity` 全仓只经 [dispatch] 一处；[route] /
+ *    [canDispatch] 是纯判定，不碰 Context、不做副作用；[buildIntent] 仅为静态走查与
+ *    单测核对 extra 键的内部接缝；
+ *  - Action 动作集合冻结不增删（A5）；未接通 / 拉起失败均回 false，调用方不做兜底跳转；
+ *  - 本对象为无状态路由表，不持有 Context / Activity 缓存，Context 由每次调用入参传入。
+ *
  * 路由口径（冻结协议，四类穷尽分支，不许增删 Action）：
  *  - [Action.OpenMap]      → 古今地图 [PlaceMapActivity]；地名优先取 placeName，缺省回退 placeId；
  *                            年代取共享锚点 [ContextAnchor] 当前年，供地图选朝代图层。

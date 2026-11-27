@@ -20,8 +20,13 @@ import kotlin.random.Random
  *  - API 26-30：无模糊能力，改半透明绢帛底 + 固定种子噪点颗粒叠层模拟磨砂；
  *  - 低端档位：退近纯色绢帛（alpha 0.94），不做模糊与噪点叠层，保帧预算。
  *
- * 边界说明：Android RenderEffect 模糊的是图层自身内容，并非截取背后背景做 backdrop blur；
- * 真正的背景截获模糊需共享 Sheet 层统一实现，此处不伪造 backdrop 采样。
+ * 不变式（归位口径，B4-05）：
+ *  - 零资源 id：本件不引用任何资源表条目（string/drawable/color/raw/mipmap 类均不引），
+ *    纯 JVM 可判定参数来自 [InkTokens]；截图独立 module 在 Paparazzi 下拿不到 app 资源表，
+ *    引入资源 id 必崩快照；
+ *  - 颜色 / 透明度 / 半径全部回 [InkTokens] 冻结 token，不在修饰符内联裸值；
+ *  - 边界说明：Android RenderEffect 模糊的是图层自身内容，并非截取背后背景做 backdrop blur；
+ *    真正的背景截获模糊需共享 Sheet 层统一实现，此处不伪造 backdrop 采样。
  */
 fun Modifier.frostedSurface(
     shape: Shape,

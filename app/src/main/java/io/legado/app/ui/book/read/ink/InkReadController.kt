@@ -35,6 +35,18 @@ import kotlin.math.roundToInt
  *  4. [turnPage]：掀角动画期间屏蔽新翻页；引擎 prev / next 翻页，回填进度并关闭气泡。
  *  5. [switchCandidate]：候选循环切换，按候选裸查询词走 [BubbleResolver.queryToken] 重解析回填。
  *
+ * 不变式（归位口径，B4-05）：
+ *  - 三引擎编排唯一收口在本类：分页引擎·竖排模式 / 气泡 Resolver / 时空锚的接线顺序与翻页闸串联
+ *    只此一份，壳层与手势层不经第二控制器重复编排；
+ *  - 两级缓存口径：[chapterCache] 按章预热正文（前后各 [InkTokens.CHAPTER_CACHE_RADIUS] 章），
+ *    [bubbleCache] 按「章 + 页 + 段 + 字位」缓存解析结果；缓存只作提速，状态真值仍在
+ *    [io.legado.app.model.ReadBook]（R5），本类不自存第二份章文本 / 进度 / 样式；
+ *  - Context 注入槽：构造期传入一次；偏好读取走 applicationContext，本类不把 Activity
+ *    写进任何 object / companion / 全局总线；View 构造所需 themed Context 仅存活于本实例，
+ *    随宿主销毁由 [release] 摘挂；
+ *  - 重复 attach 幂等：View 监听只在 init 挂一次，[bindChapter] 重复调用只刷新章 / 缓存 /
+ *    排版，不重复注册监听、不叠第二份回调。
+ *
  * 性能（切片-08）：
  *  - 章节正文按前后各 [InkTokens.CHAPTER_CACHE_RADIUS] 章缓存在 [chapterCache]，
  *    翻章命中缓存即重排，不等正文二次加载，章节切换 0 白屏；
@@ -45,6 +57,12 @@ import kotlin.math.roundToInt
 class InkReadController(
     private val context: Context,
 ) : ReaderShellHost {
+
+    /**
+     * 偏好读取专用上下文：取 applicationContext，避免偏好链路持有 Activity；
+     * 应用上下文缺失的极端封装下回退构造入参，偏好读取仍有兜底。
+     */
+    private val prefsContext: Context = context.applicationContext ?: context
 
     /** 竖排正文自绘 View，作为壳底层引擎 View 传入 [InkReaderShell]。 */
     val pageView: VerticalPageView = VerticalPageView(context)
@@ -259,7 +277,7 @@ class InkReadController(
         }
         // 层级 3：「禁用返回键」偏好开启 → 消费返回不退出（旧壳 631–633 同口径；
         // 旧分支附带的「菜单不可见」条件在新壳无动作菜单对应物，不移植）。
-        if (context.getPrefBoolean(PREF_DISABLE_RETURN_KEY)) {
+        if (prefsContext.getPrefBoolean(PREF_DISABLE_RETURN_KEY)) {
             return InkBackResult.ReturnKeyLocked
         }
         // 层级 4：无可消化覆盖层 → 交 Activity finish() 回书架。
@@ -356,11 +374,27 @@ class InkReadController(
     )
 
     private fun customKeyCodes(prefKey: String): Set<Int> =
-        context.getPrefString(prefKey)
+        prefsContext.getPrefString(prefKey)
             ?.split(",")
             ?.mapNotNull { it.trim().toIntOrNull() }
             ?.toSet()
             .orEmpty()
+
+    /**
+     * 宿主销毁 / 摘挂接缝：清两级缓存与引擎排版缓存、复位气泡态，断开 View 监听闭包，
+     * 避免控制器闭包持有已销毁宿主。重复 attach 前由宿主调用；未调用时实例随宿主回收，
+     * 本类不进任何全局单例。release 后若再 [bindChapter]，引擎与缓存按新会话重建。
+     */
+    fun release() {
+        chapterCache.clear()
+        bubbleCache.clear()
+        bubbleContent = null
+        onReadAloudToggle = null
+        engine?.invalidateCache()
+        engine = null
+        pageView.onSizeChanged = null
+        pageView.onTurnAnimEnd = null
+    }
 
     private companion object {
         /** 章切换时取正文前段多少字参与年代线索猜测。 */

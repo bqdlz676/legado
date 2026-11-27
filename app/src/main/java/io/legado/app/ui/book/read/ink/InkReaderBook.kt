@@ -22,6 +22,15 @@ import io.legado.app.help.chrono.ContextAnchor
  * 宿主 Activity 把当前书章标题与正文文本流传进来，并接好
  * 目录 / 朗读 / 更多 / 进度跳转 / 气泡动作 / 候选切换回调；引擎细节不在此层外露。
  *
+ * 不变式（归位口径，B4-05）：
+ *  - 本件只做装配，不复制控制器的引擎编排 / 缓存 / 裁决逻辑；控制器经 [controller] 槽位
+ *    注入，缺省由 [rememberInkReadController] 随 Composition 记住单例，宿主可自定义接管；
+ *  - 动作 / 候选回调缺省实现保留：[onBubbleAction] 缺省走 [InkActionDispatcher.dispatch]
+ *    单一出口，[onCandidateSelect] 缺省走控制器整词解析重查；
+ *  - 空正文 / 空章节由引擎与渲染层兜底，本层不造第二份章文本 / 进度 / 样式状态（R5）；
+ *  - Context 只在本 Composable 作用域经 `LocalContext` 读取交分发器，不向控制器外的
+ *    全局对象回传 Activity。
+ *
  * @param onBubbleAction 气泡动作回调；缺省走 [InkActionDispatcher] 分发到地图 / 人物 /
  *                       纪年 / 关系页。宿主需要自定义接管时传入自己的实现。
  * @param onCandidateSelect 候选切换：候选条目回传宿主，由控制器走整词解析重查回填。

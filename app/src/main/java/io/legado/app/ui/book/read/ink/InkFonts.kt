@@ -22,7 +22,13 @@ import io.legado.app.ui.font.InkFontLoader
  *  - 两级兜底：内置子集命中才注入句柄；缺失 / 超体积 / 损坏 / 未初始化一律回落系统字体。
  *    全程 runCatching，不抛异常、不阻塞阅读页、不出空白态。
  *
- * 既有公开属性语义保持不变：句柄为 null 表示未注入，取用侧回落系统对应字体。
+ * 不变式（归位口径，B4-05）：
+ *  - Context 注入槽只有 [ensureSerifLoaded] 一处；入槽后只保留 applicationContext，
+ *    本对象（进程内单例）不持有 Activity / View 引用，杜绝 Activity 泄漏；
+ *  - 句柄槽位语义 = 内置子集已注入；null 时取用侧回落系统对应字体，兜底句柄不入槽；
+ *  - 字体文件缺失 / 损坏 / 超体积 / 资产未初始化，全部在注册表与本层 runCatching 内收口，
+ *    不向外抛、不阻塞首屏；
+ *  - 既有公开属性语义保持不变：句柄为 null 表示未注入，取用侧回落系统对应字体。
  * 禁止引入 Wikipedia / OSM / CC-CEDICT 等非嵌入许可字体资产。
  */
 object InkFonts {
@@ -95,7 +101,9 @@ object InkFonts {
         if (loadAttempted) return
         loadAttempted = true
         runCatching {
-            val ctx = context.applicationContext
+            // 只留 applicationContext：本对象是进程内单例，持有 Activity 会造成泄漏；
+            // 取应用上下文失败（极端测试 / 封装异常）直接回落，不写入空槽。
+            val ctx = context.applicationContext ?: return@runCatching
             appContext = ctx
             InkFontLoader.init(ctx)
             resolve(FontRole.BODY_SERIF)
