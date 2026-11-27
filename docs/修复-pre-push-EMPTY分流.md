@@ -65,6 +65,14 @@ OLD-BEHAVIOR FAILED=1 失败步骤数=2
 - `python3 data_scripts/check-evidence.py --selftest` 末行：`SELFTEST: PASS（真路径文件 PASS，假路径文件 FAIL）`（rc=0）。
 - `python3 data_scripts/check-gate-wiring.py` 末行：`GATE-WIRING: PASS（60 个门禁均接线；历史孤儿基线 0 个）`（rc=0）。
 
+机检四件套（显式传入本单两份文档，提交前后各跑一遍，末行一致）：
+
+- `python3 data_scripts/check-report-fields.py "docs/修复-pre-push-EMPTY分流.md" "docs/锚点/pre-push-EMPTY分流.md"` 末行：`REPORT-FIELDS: PASS（2 份，0 份不合格）`（rc=0；锚点卡由脚本内部按 `docs/锚点/` 跳过，不计报告判据）。
+- `python3 data_scripts/check-anchor-card.py --strict "docs/修复-pre-push-EMPTY分流.md"` 末行：`汇总: PASS=1 FAIL=0（共 1 份）`（rc=0）。
+- `python3 data_scripts/check-problem-finding.py "docs/修复-pre-push-EMPTY分流.md"` 末行：`PROBLEM-FINDING: PASS（现行通过 1 份 / 历史豁免 0 份 / 基线豁免 0 份 / 判红 0 份）`（rc=0）。
+- `python3 data_scripts/check-onboarding.py` 末行：`ONBOARD: PASS（7 份报告）`（rc=0；本单回执块含现行四枚指纹、三条逐字回源引用、适用条款行；份数随本轮在飞报告浮动，以 PASS 结论为准）。
+- `python3 data_scripts/check-evidence.py --strict "docs/修复-pre-push-EMPTY分流.md"` 末行：`汇总: PASS=1 FAIL=0（共 1 份）`（rc=0；命令证据 / 命中定位 / 结果标记三项齐全）。
+
 必失败样本（真红 rc=1，替身先退 1、后接退 0 步骤验证遍历不中断）：
 
 - 命令：`bash /tmp/repro-prepush/sample-red.sh`，退出码 1。
