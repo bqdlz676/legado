@@ -2,6 +2,7 @@ package io.legado.app.ui.map.globe.host
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
@@ -15,18 +16,15 @@ import io.legado.app.ui.map.globe.astro.contract.SkyParams
 import io.legado.app.ui.map.globe.astro.contract.SkySpecColor
 import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
 import io.legado.app.ui.map.globe.astro.data.StarStore
-import io.legado.app.ui.map.globe.astro.layer.AsterismGroup
 import io.legado.app.ui.map.globe.astro.layer.AsterismLayer
 import io.legado.app.ui.map.globe.astro.layer.ConstellationLayer
 import io.legado.app.ui.map.globe.astro.layer.FieldAllocationLayer
 import io.legado.app.ui.map.globe.astro.pick.StarPicker
 import io.legado.app.ui.map.globe.astro.proj.StarProjector
+import io.legado.app.ui.map.globe.offline.AssetStatus
+import io.legado.app.ui.map.globe.offline.DegradationLevel
 import io.legado.app.ui.map.globe.render.FrameSnapshot
-import io.legado.app.ui.map.globe.terrain.FbmNoise
 import kotlin.math.PI
-import kotlin.math.asin
-import kotlin.math.atan2
-import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 /** 星空三 pass（§八）：pass1 [SkyBackdropRenderer] 离屏位图；pass2 [SkyLineRenderer] 线框；pass3 [SkyStarSpriteRenderer] sprite 批绘（4 档 atlas 1/3/5/9px）。跟随相机的 2D 投影背景，不做球壳网格；`SKY_PROJECTION_FAR=900` 只是深度常量。 */
@@ -40,12 +38,15 @@ object SkyCanvasRenderer {
     @JvmField var pressId: Long = -1L // 按下星 id（§七.3：60ms 1.6× → 1200ms 呼吸）
     @JvmField var pressStartMs: Long = 0L; @JvmField var showNames: Boolean = true // 长按空白显隐名称（§九.3），手势接线单绑
     @JvmField var contentMode: String = "mode-asterism" // 星官 / 星座内容层切换（§九.4），热区写回
+    /** 错误态一次性提示的重试动作；null = 无可重试（§七.7）。由宿主粘合层注入。 */
+    @JvmField var retryAction: (() -> Unit)? = null
     var hotZones: List<HotZone> = emptyList() // 热区 ≥48dp（视觉 28dp），禁加 Compose 控件（§九.4）
         private set
     private val zoneBuffer = ArrayList<HotZone>() // 热区缓冲帧间复用，主循环零 new 列表（§十四.16）
     private val constellationLayer = ConstellationLayer()
     private val asterismLayer = AsterismLayer()
     private val fieldLayer = FieldAllocationLayer()
+    private var layersLoaded = false // 分野 / 成员表只从内置 CSV 装一次，帧循环不重复解析
     private val projected = ProjectedStars()
     private var picker: StarPicker? = null
     private var backdrop: Bitmap? = null
@@ -58,30 +59,50 @@ object SkyCanvasRenderer {
     fun draw(canvas: Canvas, snapshot: FrameSnapshot, widthPx: Float, heightPx: Float, labelPaint: Paint, store: StarStore? = null, density: Float = 1f, nowMs: Long = System.currentTimeMillis()) {
         val sky = snapshot.sky ?: return
         if (widthPx <= 0f || heightPx <= 0f) return
+        // 低配档位 / 下载进度由快照派生，宿主壳不逐帧回写（D9 收口）。
+        lowPower = snapshot.degradation == DegradationLevel.PROCEDURAL_ONLY
+        loadingProgress = if (snapshot.fallbackResolutions.any { it.status == AssetStatus.PENDING_DOWNLOAD }) 0.5f else -1f
         var magLimit = sky.magLimit
         if (lowPower) magLimit = min(magLimit, SkyParams.MAG_BRIGHT_ENTITY)
         val placeholder = store == null || store.isPlaceholder
+        // §七.7：导入校验有异常计数时回填一次性 textAccent 提示；无异常清空，不常驻。
+        errorHint = if (store != null && store.catalog.importAnomalies > 0)
+            "星表校验 ${store.catalog.importAnomalies} 处异常，已回落内置兜底；点按重试" else null
         val key = "${sky.mode}|${sky.cameraYawPitch?.yawDeg}|${sky.cameraYawPitch?.pitchDeg}|" +
             "${sky.skyBlend}|$widthPx|$heightPx|$lowPower|$offline"
         backdrop = backdropRenderer.render(backdrop, key, sky, widthPx, heightPx, lowPower, offline)
         canvas.drawBitmap(backdrop!!, 0f, 0f, null)
         projected.clear()
+        if (!layersLoaded && store != null) {
+            fieldLayer.loadEntries(store.fieldEntries)
+            fieldLayer.loadMembers(store.memberIdsByAsterism)
+            layersLoaded = true
+        }
         projectStars(sky, store, placeholder, widthPx, heightPx, magLimit, projected)
         val p = picker ?: StarPicker(density).also { picker = it }
         p.rebuild(projected.x, projected.y, projected.mag, projected.id, projected.count)
         lineRenderer.render(canvas, sky, projected, constellationLayer, asterismLayer, fieldLayer, nowMs, pressStartMs, contentMode)
-        starRenderer.render(canvas, projected, ensureAtlas(), widthPx, heightPx, nowMs, lowPower, hoverId, pressId)
+        starRenderer.render(canvas, projected, ensureAtlas(), widthPx, heightPx, nowMs, lowPower, hoverId, pressId, pressStartMs)
         renderOverlays(canvas, sky, widthPx, heightPx, labelPaint, density, placeholder)
     }
     /** 拾取触点 → 星主键；无命中 -1L。复用本帧 StarPicker 分桶（24dp 网格 / 20dp 半径 / 取最亮，§九.3）。 */
     fun pickStar(x: Float, y: Float): Long = picker?.pickId(x, y) ?: -1L
+
+    /** 地球侧分野脉冲 overlay 取当前选中州域名（§十一.1）；未选中 null。 */
+    fun fieldRegion(): String? = fieldLayer.selectedRegion
+
+    /** 分野脉冲起算时刻 ms；供 overlay 1200ms 呼吸对齐。 */
+    fun fieldPulseStartMs(): Long = fieldLayer.pulseStartMs
+
+    /** 州域 → 关联星官内码（反向点州域 → 天球转向映射入口，§十一.2）。 */
+    fun asterismCodesForRegion(region: String): List<String> = fieldLayer.asterismCodesForRegion(region)
     /** 双指 ≥2× 请求局部星图：金字塔按需下载 TODO；先置可见金线进度反馈，不静默（§九.3）。 */
     fun notifyLocalChartRequested() { loadingProgress = LOCAL_CHART_PROGRESS }
     private fun projectStars(sky: SkyFrame, store: StarStore?, placeholder: Boolean, w: Float, h: Float, magLimit: Float, out: ProjectedStars) {
         if (placeholder || store == null) { // 空态兜底：确定性散点，种子 9173 口径（§七.6）
             repeat(300) { i ->
                 out.add(skyHash(i, 1).toFloat() * w, skyHash(i, 2).toFloat() * h,
-                    2.0f + skyHash(i, 3).toFloat() * 4.5f, -1L - i.toLong())
+                    2.0f + skyHash(i, 3).toFloat() * 4.5f, -1L - i.toLong(), Double.NaN)
             }
             return
         }
@@ -95,7 +116,7 @@ object SkyCanvasRenderer {
             val mag = catalog.magAt(i); if (mag > magLimit) continue // 连续裁剪，无整层突现（§七.1）
             val ok = StarProjector.project(sky.mode, catalog.raAt(i), catalog.decAt(i),
                 yaw, pitch, focal, w / 2.0, h / 2.0, lat, lon, sky.siderealTimeDeg, tmp)
-            if (ok) out.add(tmp[0], tmp[1], mag, catalog.idAt(i))
+            if (ok) out.add(tmp[0], tmp[1], mag, catalog.idAt(i), catalog.bvAt(i))
         }
     }
     private fun renderOverlays(canvas: Canvas, sky: SkyFrame, w: Float, h: Float, labelPaint: Paint, density: Float, placeholder: Boolean) {
@@ -171,112 +192,11 @@ object SkyCanvasRenderer {
     }
 }
 data class HotZone(val id: String, val label: String, val rect: RectF) // 画布热区：id 供接线单命中判定，rect 为 ≥48dp 透明外扩框
-/** 帧间复用的投影星缓冲；扩容 2 倍拷贝，热路径不 new 列表（§十二.2）。 */
-private class ProjectedStars {
-    var count = 0
-    var x = FloatArray(256); var y = FloatArray(256)
-    var mag = FloatArray(256); var id = LongArray(256)
-    fun clear() { count = 0 }
-    fun add(px: Float, py: Float, m: Float, starId: Long) {
-        if (count >= x.size) {
-            val cap = x.size * 2
-            x = x.copyOf(cap); y = y.copyOf(cap); mag = mag.copyOf(cap); id = id.copyOf(cap)
-        }
-        x[count] = px; y[count] = py; mag[count] = m; id[count] = starId; count++
-    }
-}
-private class SkyBackdropRenderer { // pass1：星空底离屏位图，视角/缩放不变则整幅复用（§八.1）
-    private val fbm = FbmNoise(20261128); private var cachedKey: String? = null
-    fun render(cached: Bitmap?, key: String, sky: SkyFrame, w: Float, h: Float, lowPower: Boolean, offline: Boolean): Bitmap {
-        if (cached != null && cached.width == w.toInt() && cached.height == h.toInt() && key == cachedKey) return cached
-        cached?.recycle()
-        val bmp = Bitmap.createBitmap(w.toInt().coerceAtLeast(1), h.toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val base = Paint(Paint.ANTI_ALIAS_FLAG) // 天顶 skyNightBase → 地平叠暖辉 0.10，禁纯黑（§八.6）
-        base.color = skyArgb(GlobeTokens.skyNightBase); c.drawRect(0f, 0f, w, h, base)
-        drawHorizon(c, sky, w, h)
-        if (!lowPower) drawGalaxy(c, w, h)
-        drawDensity(c, w, h, sky.pyramidMix, offline || lowPower)
-        drawGrid(c, sky, w, h)
-        cachedKey = key
-        return bmp
-    }
-    /** 地上观：地平线下压暗、上方 5° 辉光带（§八.11）；天外沿用底部暖辉渐变（§八.6）。 */
-    private fun drawHorizon(c: Canvas, sky: SkyFrame, w: Float, h: Float) {
-        val glow = Paint(Paint.ANTI_ALIAS_FLAG); glow.color = skyArgb(GlobeTokens.skyHorizonGlow)
-        if (sky.mode != SkyViewMode.SKY_EARTH) { c.drawRect(0f, h * 0.55f, w, h, glow); return }
-        val focal = (min(w, h) / 2.0) / Math.tan(SkyParams.GROUND_VIEW_FOV_DEG / 2.0 * PI / 180.0)
-        val pitch = (sky.cameraYawPitch?.pitchDeg ?: 0.0) * PI / 180.0
-        val hy = (h / 2.0 + focal * Math.tan(pitch)).toFloat(); val bandH = (focal * Math.tan(SkyParams.OBSERVER_HORIZON_GLOW_DEG * PI / 180.0)).toFloat()
-        c.drawRect(0f, (hy - bandH).coerceAtLeast(0f), w, hy, glow)
-        val dark = Paint(Paint.ANTI_ALIAS_FLAG); dark.color = skyArgb(GlobeTokens.skyNightBase, GROUND_DARKEN_RATIO)
-        c.drawRect(0f, hy, w, h, dark)
-    }
-    /** 银河：暗带掩膜 + 三层 fbm，opacity 0.25，核心暖白外围暖灰（§八.7）。 */
-    private fun drawGalaxy(c: Canvas, w: Float, h: Float) {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        for (gx in 0..24) for (gy in 0..12) {
-            val n = fbm.fbm(gx / 8.0, gy / 8.0, 3); if (n < 0.42) continue
-            val px = gx / 24f * w; val py = h * 0.5f + (gy / 12f - 0.5f) * h * 0.35f
-            paint.color = ((0.25f * n * 255f).toInt().coerceIn(0, 255) shl 24) or (SkySpecColor.STAR_ANCHOR_MID_RGB and 0xFFFFFF)
-            c.drawRect(px - 2f, py - 2f, px + 2f, py + 2f, paint)
-        }
-    }
-    /** 密度底图：当前层与相邻层 alpha 连续混合；离线 / 低配走低层（§八.1、§七.8）。 */
-    private fun drawDensity(c: Canvas, w: Float, h: Float, pyramidMix: Float, lowerOnly: Boolean) {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG); val step = if (lowerOnly) 14 else 9
-        for (gx in 0 until (w / step).toInt()) for (gy in 0 until (h / step).toInt()) {
-            if (skyHash(gx * 31 + gy, 7) > 0.55) continue
-            paint.color = skyArgb(GlobeTokens.textTertiary, (if (lowerOnly) 0.10f else 0.14f) * (1f - pyramidMix * 0.3f))
-            val px = gx * step + skyHash(gx, gy).toFloat() * step; val py = gy * step + skyHash(gy, gx).toFloat() * step
-            c.drawRect(px - 0.4f, py - 0.4f, px + 0.4f, py + 0.4f, paint)
-        }
-    }
-    /** 参考网格：经纬 0.8px 灰 0.12；天赤道 1.0px 石青 0.30（基准线专用，切片-26 第五节声明）。 */
-    private fun drawGrid(c: Canvas, sky: SkyFrame, w: Float, h: Float) {
-        val focal = (min(w, h) / 2.0) / Math.tan(SkyParams.GROUND_VIEW_FOV_DEG / 2.0 * PI / 180.0); val tmp = FloatArray(3)
-        val grid = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = skyArgb(GlobeTokens.textTertiary, SkyParams.GRID_LINE_ALPHA_RATIO); strokeWidth = SkyParams.GRID_LINE_WIDTH_PX }
-        trace(c, sky, focal, w, h, tmp, grid, fixedDec = null)
-        val eq = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = skyArgb(GlobeTokens.stoneBlue, SkyParams.EQUATOR_LINE_ALPHA_RATIO); strokeWidth = SkyParams.EQUATOR_LINE_WIDTH_PX }
-        trace(c, sky, focal, w, h, tmp, eq, fixedDec = 0.0)
-        val ec = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = skyArgb(GlobeTokens.brandGold, SkyParams.ECLIPTIC_LINE_ALPHA_RATIO); strokeWidth = SkyParams.ECLIPTIC_LINE_WIDTH_PX } // 黄道 1.0px brandGold 0.30（§六.9 基准线专用）
-        traceEcliptic(c, sky, focal, w, h, tmp, ec)
-    }
-    /** 黄道：黄经 λ 按黄赤交角 23.44° 换算 RA/Dec 后采样投影。 */
-    private fun traceEcliptic(c: Canvas, sky: SkyFrame, focal: Double, w: Float, h: Float, tmp: FloatArray, paint: Paint) {
-        val eps = 23.44 * PI / 180.0
-        var px = 0f; var py = 0f; var prev = false
-        for (lam in 0 until 360 step 5) {
-            val l = lam * PI / 180.0; val cl = cos(l); val sl = sin(l)
-            val dec = asin(sl * sin(eps)) * 180.0 / PI; val ra = (atan2(sl * cos(eps), cl) * 180.0 / PI + 360.0) % 360.0
-            val ok = StarProjector.project(sky.mode, ra, dec, 0.0, 0.0, focal,
-                w / 2.0, h / 2.0, 34.34, 108.94, sky.siderealTimeDeg, tmp)
-            if (!ok) { prev = false; continue }
-            if (prev) c.drawLine(px, py, tmp[0], tmp[1], paint)
-            px = tmp[0]; py = tmp[1]; prev = true
-        }
-    }
-    /** 通用网格采样；fixedDec 非空 = 天赤道纬线（遍历 RA），否则遍历 12 条经线。 */
-    private fun trace(c: Canvas, sky: SkyFrame, focal: Double, w: Float, h: Float, tmp: FloatArray, paint: Paint, fixedDec: Double?) {
-        val raStep = if (fixedDec == null) 30 else 5
-        val decStart = if (fixedDec == null) -80 else 0; val decEnd = if (fixedDec == null) 80 else 0
-        val decStep = if (fixedDec == null) 10 else 1
-        for (ra in 0 until 360 step raStep) {
-            var px = 0f; var py = 0f; var prev = false
-            for (dec in decStart..decEnd step decStep) {
-                val ok = StarProjector.project(sky.mode, ra.toDouble(), fixedDec ?: dec.toDouble(),
-                    0.0, 0.0, focal, w / 2.0, h / 2.0, 34.34, 108.94, sky.siderealTimeDeg, tmp)
-                if (!ok) { prev = false; continue }
-                if (prev) c.drawLine(px, py, tmp[0], tmp[1], paint)
-                px = tmp[0]; py = tmp[1]; prev = true
-            }
-        }
-    }
-}
 /** pass2：线框——星座 / 星官 / 分野边 / 选中光环，按样式分组描边（§八.2）。 */
 private class SkyLineRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ring = Path()
+    private val borderPath = Path()
     fun render(canvas: Canvas, sky: SkyFrame, stars: ProjectedStars, constellation: ConstellationLayer, asterism: AsterismLayer, field: FieldAllocationLayer, nowMs: Long, pressStartMs: Long, contentMode: String) {
         // §八.2：按样式收拢进单条 Path，每组一次描边（星座 / 星官各一条 Path）。
         val cPath = Path(); val aPath = Path()
@@ -298,21 +218,66 @@ private class SkyLineRenderer {
         }
         paint.color = skyArgb(GlobeTokens.brandGold, SkyParams.ASTERISM_LINE_ALPHA_RATIO); paint.strokeWidth = SkyParams.ASTERISM_LINE_WIDTH_PX
         canvas.drawPath(aPath, paint)
-        val sel = sky.selectedId ?: return // 选中光环 colorGlow；呼吸 1200ms（§七.3、§十六.10）
-        val pos = findPos(stars, sel) ?: return
-        val breath = (1f + 0.12f * sin((nowMs - pressStartMs) * 2.0 * PI / SkyParams.FIELD_PULSE_MS)).toFloat()
-        paint.color = skyArgb(GlobeTokens.colorGlow)
-        paint.style = Paint.Style.STROKE; paint.strokeWidth = 1.5f
-        ring.reset(); ring.addCircle(pos.first, pos.second, 10f * breath, Path.Direction.CW)
-        canvas.drawPath(ring, paint)
-        field.selectedRegion?.let { // 分野脉冲（§十一.1）；地球侧高亮入口缺口见层类交接说明
-            ring.reset(); ring.addCircle(pos.first, pos.second, 16f * breath, Path.Direction.CW)
+        // 选中星官 → 反查分野州域并起算脉冲（§十一.1 前向闭环）。
+        group?.code?.let { code -> field.regionForAsterism(code)?.let { field.selectRegion(it, nowMs) } }
+
+        // 分野边：成员星凸包闭合折线，dash 6 / gap 4、1.5px brandGold（§五.3、§八.2）。
+        // 无周代州域真实多边形，几何为成员星示意轮廓（§十一.4 tier3 示意标注），不冒充疆域边界。
+        field.selectedRegion?.let { region ->
+            val hull = convexHull(field.memberIdsForRegion(region).mapNotNull { findPos(stars, it) })
+            if (hull.size >= 3) {
+                borderPath.reset()
+                hull.forEachIndexed { i, p ->
+                    if (i == 0) borderPath.moveTo(p.first, p.second) else borderPath.lineTo(p.first, p.second)
+                }
+                borderPath.close()
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = SkyParams.FIELD_BORDER_WIDTH_PX
+                paint.color = skyArgb(GlobeTokens.brandGold, SkyParams.ASTERISM_LINE_ALPHA_RATIO)
+                paint.pathEffect = DashPathEffect(
+                    floatArrayOf(SkyParams.FIELD_BORDER_DASH_PX, SkyParams.FIELD_BORDER_GAP_PX), 0f)
+                canvas.drawPath(borderPath, paint)
+                paint.pathEffect = null
+            }
+        }
+
+        val sel = sky.selectedId // 选中光环 colorGlow；呼吸 1200ms（§七.3、§十六.10）
+        if (sel != null) {
+            val pos = findPos(stars, sel) ?: return
+            val breath = (1f + 0.12f * sin((nowMs - pressStartMs) * 2.0 * PI / SkyParams.FIELD_PULSE_MS)).toFloat()
+            paint.color = skyArgb(GlobeTokens.colorGlow)
+            paint.style = Paint.Style.STROKE; paint.strokeWidth = 1.5f
+            ring.reset(); ring.addCircle(pos.first, pos.second, 10f * breath, Path.Direction.CW)
             canvas.drawPath(ring, paint)
+            field.selectedRegion?.let {
+                ring.reset(); ring.addCircle(pos.first, pos.second, 16f * breath, Path.Direction.CW)
+                canvas.drawPath(ring, paint)
+            }
         }
     }
     private fun findPos(stars: ProjectedStars, id: Long): Pair<Float, Float>? {
         for (i in 0 until stars.count) if (stars.id[i] == id) return stars.x[i] to stars.y[i]
         return null
+    }
+
+    /** 2D 单调链凸包；点数 <3 原样返回，调用方按 <3 跳过描边。 */
+    private fun convexHull(pts: List<Pair<Float, Float>>): List<Pair<Float, Float>> {
+        if (pts.size < 3) return pts
+        val sorted = pts.sortedWith(compareBy({ it.first }, { it.second }))
+        fun cross(o: Pair<Float, Float>, a: Pair<Float, Float>, b: Pair<Float, Float>): Float =
+            (a.first - o.first) * (b.second - o.second) - (a.second - o.second) * (b.first - o.first)
+        val lower = ArrayList<Pair<Float, Float>>()
+        for (p in sorted) {
+            while (lower.size >= 2 && cross(lower[lower.size - 2], lower.last(), p) <= 0f) lower.removeLast()
+            lower.add(p)
+        }
+        val upper = ArrayList<Pair<Float, Float>>()
+        for (p in sorted.asReversed()) {
+            while (upper.size >= 2 && cross(upper[upper.size - 2], upper.last(), p) <= 0f) upper.removeLast()
+            upper.add(p)
+        }
+        lower.removeLast(); upper.removeLast()
+        return lower + upper
     }
 }
 /** pass3：星点 sprite 批绘——4 档 atlas，星点禁逐帧圆斑（§八.3）。 */
@@ -320,12 +285,19 @@ private class SkyStarSpriteRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
     private lateinit var atlas: Array<Bitmap>
-    fun render(canvas: Canvas, stars: ProjectedStars, atlas: Array<Bitmap>, w: Float, h: Float, nowMs: Long, lowPower: Boolean, hoverId: Long, pressId: Long) {
+    fun render(canvas: Canvas, stars: ProjectedStars, atlas: Array<Bitmap>, w: Float, h: Float, nowMs: Long, lowPower: Boolean, hoverId: Long, pressId: Long, pressStartMs: Long) {
         this.atlas = atlas
         for (i in 0 until stars.count) {
             val mag = stars.mag[i]; var d = SkyParams.starDiameterPx(mag)
-            if (stars.id[i] == pressId) d *= 1.6f else if (stars.id[i] == hoverId) d *= 1.3f
-            val rgb = SkySpecColor.starColorFromMag(mag)
+            val held = stars.id[i] == pressId
+            if (held && nowMs - pressStartMs >= PRESS_GATE_MS) { // 按下 60ms 门槛 → 1.6× + 1200ms 呼吸（§七.3）
+                d *= 1.6f
+                d *= (1f + 0.12f * sin(nowMs * 2.0 * PI / SkyParams.FIELD_PULSE_MS)).toFloat()
+            } else if (stars.id[i] == hoverId) {
+                d *= 1.3f // 触屏无 hover：按下前 120ms 预压（§七.2）
+            }
+            val bv = stars.bv[i]
+            val rgb = if (bv.isNaN()) SkySpecColor.starColorFromMag(mag) else SkySpecColor.starColorFromBV(bv)
             var alpha = 1f
             if (mag < SkyParams.TWINKLE_MAG) { // 闪烁只给 mag<2.5：独立相位 0.6–1.4Hz ±8%（§八.8）
                 val phase = skyHash(i, 11) * 2.0 * PI; val freq = 0.6 + skyHash(i, 12) * 0.8
@@ -377,7 +349,7 @@ private class SkyStarSpriteRenderer {
     }
 }
 // 文件级共享工具：token Long ARGB → Int；可选 alpha 比率覆盖（UI 色只走 token，不写裸 hex）。
-private fun skyArgb(token: Long, alphaRatio: Float? = null): Int {
+internal fun skyArgb(token: Long, alphaRatio: Float? = null): Int {
     val base = (token and 0xFFFFFFFFL).toInt()
     if (alphaRatio == null) return base
     val a = (alphaRatio.coerceIn(0f, 1f) * 255f).toInt()
@@ -385,14 +357,15 @@ private fun skyArgb(token: Long, alphaRatio: Float? = null): Int {
 }
 /** 局部星图请求中的占位进度（0..1）；真实金字塔下载进度由后续接线单回填（§七.4、§九.3）。 */
 private const val LOCAL_CHART_PROGRESS: Float = 0.2f
-/** 地上观地平以下压暗覆盖比率（§八.11）；夜空底二次叠压，不写裸黑。 */
-private const val GROUND_DARKEN_RATIO: Float = 0.55f
+
+/** 按下放大门槛 60ms：低于门槛只记预压，不进 1.6× 两阶段（§七.3）。 */
+private const val PRESS_GATE_MS: Long = 60L
 /** 观测金针长度 dp（§八.11）。 */
 private const val NEEDLE_LEN_DP: Float = 12f
 /** 观测金针方点边长 px（§八.11）。 */
 private const val NEEDLE_DOT_PX: Float = 3f
 /** 确定性哈希 → [0,1)；种子 9173 口径，单测可复现。 */
-private fun skyHash(i: Int, salt: Int): Double {
+internal fun skyHash(i: Int, salt: Int): Double {
     var h = i * 374761393 + salt * 668265263 + 9173 * 2246822519
     h = h xor (h ushr 13); h *= 1274126177; h = h xor (h ushr 16)
     return (h and 0x7FFFFFFFL).toDouble() / 0x7FFFFFFFL // 字面量 2246822519 溢出 Int，h 为 Long，掩码必须带 L 后缀

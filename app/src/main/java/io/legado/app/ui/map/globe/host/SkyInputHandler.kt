@@ -2,9 +2,11 @@ package io.legado.app.ui.map.globe.host
 
 import io.legado.app.ui.map.globe.GlobeController
 import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
+import io.legado.app.ui.map.globe.geo.Geo
+import kotlin.math.min
 
 /**
- * 星空指针手势状态机（纯 JVM 逻辑，不引 Compose / Android 控件，§九.3）。
+ * 星空指针手势状态机（纯 JVM 逻辑，不引 Compose 控件，§九.3）。
  *
  * 职责：把 Compose 侧指针事件翻译成门面写回入口——天外旋转 / 地上平移走
  * [GlobeController.setSkyPose]，捏合走 [GlobeController.onZoom]（混合曲线在门面内），
@@ -13,6 +15,9 @@ import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
  *
  * 〔零分配口径〕状态全标量；拾取复用渲染器既有 [io.legado.app.ui.map.globe.astro.pick.StarPicker]
  * 24dp 网格 / 20dp 半径 / 重叠取最亮，本类不另建分桶结构。
+ *
+ * 〔D9 收口〕宿主 Compose 壳只做薄指针转发：双击反投影飞行、错误提示重试判定等细节
+ * 都在本类内，宿主不堆手势细节代码。
  */
 class SkyInputHandler(
     private val controller: GlobeController,
@@ -72,9 +77,14 @@ class SkyInputHandler(
         }
     }
 
-    // ───────────────────── 点按：热区优先 → 星点拾取 ─────────────────────
+    // ───────────────────── 点按：错误重试优先 → 热区 → 星点拾取 ─────────────────────
 
     fun onTap(x: Float, y: Float) {
+        // §七.7：错误态一次性提示可点击重试；点在顶部提示带内直接触发重加载，不走进星拾取。
+        if (renderer.errorHint != null && y < ERROR_HINT_BAND_PX) {
+            renderer.retryAction?.invoke()
+            return
+        }
         if (!isSky()) return
         renderer.hotZones.firstOrNull { it.rect.contains(x, y) }?.let { zone ->
             dispatchZone(zone.id)
@@ -84,12 +94,55 @@ class SkyInputHandler(
         controller.selectStar(if (id >= 0L) id else null)
     }
 
+    // ───────────────────── 按下 / 抬手：悬停预压与按下两阶段（§七.2、§七.3）─────────────────────
+
+    /** 触点落下：触屏无 hover，落下即记 1.3× 预压；命中星同时挂按下态，门槛由渲染器 60ms 把关。 */
+    fun onPressStart(x: Float, y: Float) {
+        if (!isSky()) return
+        val id = renderer.pickStar(x, y)
+        if (id >= 0L) {
+            renderer.hoverId = id
+            renderer.pressId = id
+            renderer.pressStartMs = System.currentTimeMillis()
+        }
+    }
+
+    /** 抬手：悬停 / 按下态全部回弹，无残留（§七.2 抬手回弹无残留）。 */
+    fun onPressEnd() {
+        renderer.hoverId = -1L
+        renderer.pressId = -1L
+    }
+
+    // ───────────────────── 双击飞行（地球仪态；细节从宿主壳下沉到此）─────────────────────
+
+    /** 双击屏幕位置 → 反投影经纬度 → 门面飞行；落在球盘外不凭空造点位。 */
+    fun onDoubleTap(x: Float, y: Float, viewport: Pair<Float, Float>) {
+        val (w, h) = viewport
+        if (w <= 0f || h <= 0f) return
+        val rotator = controller.scene.rotator
+        val proj = GlobeProjection(
+            viewportWidth = w,
+            viewportHeight = h,
+            radiusPx = min(w, h) * 0.32f,
+            yawDeg = rotator.yawDeg,
+            pitchDeg = rotator.pitchDeg,
+        )
+        val dir = proj.unproject(x, y) ?: return
+        val (lat, lng) = Geo.latLng(dir)
+        controller.onFlyTo(lat, lng)
+    }
+
     // ───────────────────── 长按空白：显隐全部名称（§九.3）─────────────────────
 
     fun onLongPress(x: Float, y: Float) {
         if (!isSky()) return
         if (renderer.pickStar(x, y) < 0L) renderer.showNames = !renderer.showNames
     }
+
+    // ───────────────────── 分野反向映射（§十一.2；地球命中路径缺口见交付报告）─────────────────────
+
+    /** 州域 → 关联星官内码；地球侧命中路径目前只产经纬度、产不出州域名，拿到域名后接此映射转向。 */
+    fun asterismCodesForRegion(region: String): List<String> = renderer.asterismCodesForRegion(region)
 
     // ───────────────────── 内部 ─────────────────────
 
@@ -109,6 +162,8 @@ class SkyInputHandler(
         const val PITCH_LIMIT_DEG = 85.0
         /** 双指累计倍率 ≥2× 触发局部星图（§九.3）。 */
         const val CHART_ZOOM_THRESHOLD: Float = 2f
+        /** 错误提示可点重试的顶部提示带高度（px，粗略口径；提示文案落顶部左侧）。 */
+        const val ERROR_HINT_BAND_PX: Float = 60f
         const val ZONE_ASTERISM: String = "mode-asterism"
         const val ZONE_CONSTELLATION: String = "mode-constellation"
         const val ZONE_HEAVEN: String = "view-heaven"

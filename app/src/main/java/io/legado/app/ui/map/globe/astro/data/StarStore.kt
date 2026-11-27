@@ -6,6 +6,7 @@ import io.legado.app.data.dao.StarDao
 import io.legado.app.data.entities.AsterismMemberEntity
 import io.legado.app.data.entities.FieldAllocationEntity
 import io.legado.app.data.entities.StarEntity
+import io.legado.app.ui.map.globe.astro.layer.FieldEntry
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -23,7 +24,11 @@ class StarStore(
     val catalog: StarCatalog,
     private val starDao: StarDao? = null,
     private val asterismDao: AsterismDao? = null,
-    private val fieldDao: FieldAllocationDao? = null
+    private val fieldDao: FieldAllocationDao? = null,
+    /** 分野条目（内置 CSV 解析；DAO 未就位时回落这份内置表）。 */
+    val fieldEntries: List<FieldEntry> = emptyList(),
+    /** 星官内码 → 成员星主键列表（内置锚点成员；示意轮廓几何来源）。 */
+    val memberIdsByAsterism: Map<String, List<Long>> = emptyMap(),
 ) {
 
     /** 内置星数（占位态为 0）。 */

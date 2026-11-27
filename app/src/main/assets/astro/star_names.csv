@@ -1,13 +1,16 @@
 starId,name,lang,source,isPrimary
 300,Hydor,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 676,Alpheratz,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+676,壁宿二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 744,Caph,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 1065,Algenib,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+1065,壁宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 2076,Ankaa,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 2592,Cexing,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 2914,Fulu,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 3172,Schedar,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 3413,Diphda,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+3413,土司空,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 3685,Shimu,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 3759,96 G. Psc,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 3814,Achird,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -18,6 +21,7 @@ starId,name,lang,source,isPrimary
 5361,Tarandus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 5423,Junnanmen,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 5436,Mirach,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+5436,奎宿九,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 5725,Revati,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 5731,Revati B,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 6397,Adhil,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -25,26 +29,33 @@ starId,name,lang,source,isPrimary
 7083,Alpherg,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 7499,Titawin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 7574,Achernar,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+7574,水委一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 7593,Nembus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 8053,Dajiangjunbei,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 8183,Torcular,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 8628,Baten Kaitos,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 8777,Mothallah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 8813,Mesarthim,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+8813,娄宿二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 8867,Segin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 8884,Sheratan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+8884,娄宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 9467,Alrescha,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 9577,Gang,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 9618,Almach,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+9618,天大将军一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 9741,Rangifer,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 9861,Hamal,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+9861,娄宿三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 10041,Alaybasan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 10256,Triminus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 10620,Deltoton,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 10645,Apdu,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 10800,Mira,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+10800,蒭藁增二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 11542,Huagai,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 11734,Polaris,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+11734,勾陈一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 12082,268 G. Cet,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 12673,Kaffaljidhma,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 13028,Lilii Borea,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -54,7 +65,9 @@ starId,name,lang,source,isPrimary
 13667,Azha,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 13813,Acamar,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 14100,Menkar,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+14100,天囷一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 14540,Algol,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+14540,大陵五,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 14632,Misam,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 14802,Botein,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 14826,Shangcheng,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -62,6 +75,7 @@ starId,name,lang,source,isPrimary
 15159,Zibal,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 15471,82 G. Eri,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 15824,Mirfak,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+15824,天船三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 16496,Ran,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 17316,Sarvvis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 17336,Rana,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -73,6 +87,7 @@ starId,name,lang,source,isPrimary
 17537,Asterope,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 17566,Merope,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 17661,Alcyone,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+17661,昴宿六,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 17805,Atlas,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 17809,Pleione,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 17842,Custos,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -92,6 +107,7 @@ starId,name,lang,source,isPrimary
 20842,Chamukuy,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 21340,Theemin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 21368,Aldebaran,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+21368,毕宿五,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 21541,Sceptrum,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 21828,Gaja,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 22396,Tabit,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -105,24 +121,42 @@ starId,name,lang,source,isPrimary
 23949,Mago,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 24249,Bade,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 24378,Rigel,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+24378,参宿七,zh-xingguan,《史记·天官书》卷二十七；《步天歌》参宿,0
+24378,参宿七,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 24549,Capella,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+24549,五车二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 25273,Bellatrix,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+25273,参宿五,zh-xingguan,《史记·天官书》卷二十七；《步天歌》参宿,0
+25273,参宿五,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 25364,Elnath,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+25364,五车五,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 25542,Nihal,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 25865,Mintaka,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+25865,参宿三,zh-xingguan,《史记·天官书》卷二十七；《步天歌》参宿,0
+25865,参宿三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 25920,Arneb,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 26142,Meissa,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+26142,觜宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 26176,Hatysa,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 26246,Alnilam,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+26246,参宿二,zh-xingguan,《史记·天官书》卷二十七；《步天歌》参宿,0
+26246,参宿二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 26386,Tianguan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+26386,天关,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 26569,Phact,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 26662,Alnitak,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+26662,参宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 27220,Darlugal,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 27298,Saiph,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+27298,参宿六,zh-xingguan,《史记·天官书》卷二十七；《步天歌》参宿,0
+27298,参宿六,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 27559,Wazn,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 27919,Betelgeuse,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+27919,参宿四,zh-xingguan,《史记·天官书》卷二十七；《步天歌》参宿,0
+27919,参宿四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 28287,Bagu,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 28288,Menkalinan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+28288,五车三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 28309,Mahasim,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 28962,Elkurud,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 29198,Hoerikwaggo,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -131,27 +165,44 @@ starId,name,lang,source,isPrimary
 30049,Furud,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 30251,Mirzam,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 30270,Tejat,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+30270,井宿一,zh-xingguan,《史记·天官书》卷二十七；《步天歌》井宿,0
+30270,井宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 30365,Canopus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+30365,老人,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 31601,Alhena,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+31601,井宿七,zh-xingguan,《史记·天官书》卷二十七；《步天歌》井宿,0
+31601,井宿七,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 31605,Pipit,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 31857,Kamelos,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 32161,Mebsuta,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+32161,井宿三,zh-xingguan,《史记·天官书》卷二十七；《步天歌》井宿,0
+32161,井宿三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 32263,Sirius,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+32263,天狼,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 32276,Alzirr,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 33492,Adhara,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+33492,弧矢七,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 33607,Tonglingxing,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 33632,Citalá,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 33769,Nganurganity,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 33956,Muliphein,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 34000,Mekbuda,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 34354,Wezen,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+34354,弧矢一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 35453,Wasat,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+35453,井宿四,zh-xingguan,《史记·天官书》卷二十七；《步天歌》井宿,0
+35453,井宿四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 35806,Aludra,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+35806,弧矢二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 36087,Gomeisa,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+36087,南河二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 36744,Castor,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+36744,北河二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 37159,Jishui,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 37173,Procyon,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+37173,南河三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 37718,Pollux,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+37718,北河三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 38062,Azmidi,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 39318,Naos,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 39644,Tureis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -178,26 +229,34 @@ starId,name,lang,source,isPrimary
 45425,Aspidiske,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 45809,Markeb,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 46259,Alphard,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+46259,星宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 46339,Intercrus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 46617,Alterf,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 47297,Ukdah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 47373,Subra,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 47772,Ras Elased Australis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+47772,轩辕九,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 48219,Zhang,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 48318,Rasalas,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+48318,轩辕十,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 48478,Felis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 49496,Yunü,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 49528,Regulus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+49528,轩辕十四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 50193,Adhafera,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+50193,轩辕十一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 50230,Tania Borealis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 50440,Algieba,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+50440,轩辕十二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 50655,Tania Australis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 51475,Shaomin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 53075,Praecipua,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 53565,Chalawan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 53584,Alkes,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 53754,Merak,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+53754,天璇,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 53905,Dubhe,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+53905,天枢,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 54712,Zosma,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 54718,Chertan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 55055,Alula Borealis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -205,51 +264,71 @@ starId,name,lang,source,isPrimary
 56339,Formosa,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 57226,Taiyangshou,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 57459,Denebola,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+57459,五帝座一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 57584,Zavijava,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 57767,Groombridge 1830,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 57828,Phecda,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+57828,天玑,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 58777,Tonatiuh,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 59020,Alchiba,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+59020,轸宿五,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 59565,Imai,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 59592,Megrez,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+59592,天权,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 59621,Gienah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+59621,轸宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 59945,Zaniah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 60075,Ginan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 60530,Acrux,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+60530,十字架二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 60776,Algorab,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+60776,轸宿三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 60893,Gacrux,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+60893,十字架一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 61124,Chara,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 61166,Kraz,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+61166,轸宿四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 61202,Phyllon Kissinou,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 61748,Porrima,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+61748,东上相,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 61773,Lumbung,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 62030,La Superba,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 62228,Tianyi,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 62239,Mimosa,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+62239,十字架三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 62757,Alioth,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+62757,玉衡,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 62876,Taiyi,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 62890,Minelauva,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 62921,Cor Caroli B,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 62925,Cor Caroli,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+62925,常陈一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 63405,Vindemiatrix,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 64037,Diadem,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 64758,Naja,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 64904,Kulou,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 65173,Mizar,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+65173,开阳,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 65269,Spica,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+65269,角宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 65272,Alcor,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+65272,辅,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 65798,Apamvatsa,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 66040,Heze,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 67063,Tepiamenit,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 67088,Alkaid,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+67088,摇光,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 67251,Heng,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 67711,Muphrid,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 67786,Leepwal,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 68483,Hadar,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+68483,马腹一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 68537,Thuban,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+68537,右枢,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 68714,Menkent,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 69205,Kang,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 69451,Arcturus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+69451,大角,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 69479,Syrma,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 69510,Xuange,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 69751,Khambalia,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -259,6 +338,7 @@ starId,name,lang,source,isPrimary
 71058,Genghe,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 71453,Toliman,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 71456,Rigil Kentaurus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+71456,南门二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 71634,Uridim,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 71682,Xami,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 71769,Alrumh,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -281,6 +361,7 @@ starId,name,lang,source,isPrimary
 75466,Nusakan,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 75895,Guansuo,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 76035,Alphecca,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+76035,贯索四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 76100,Zubenelhakrabi,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 76716,Baltesha,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 76812,Stephanos,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -289,10 +370,14 @@ starId,name,lang,source,isPrimary
 77214,Gudja,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 77276,Matrchakre,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 77868,Iklil,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+77868,房宿二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 78029,Fang,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+78029,房宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 78165,Dschubba,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+78165,房宿三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 78256,Aurwandilsta,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 78580,Acrab,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+78580,房宿四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 78581,Acrab B,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 78804,Marsic,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 78805,Marsic B,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -301,9 +386,11 @@ starId,name,lang,source,isPrimary
 79640,Yed Posterior,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 79750,Asuusiha,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 79870,Alniyat,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+79870,房宿五,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 80089,Athebyne,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 80221,Cujam,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 80519,Antares,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+80519,心宿二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 80571,Kornephoros,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 80637,Marfik,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 81020,Paikauhale,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -317,16 +404,22 @@ starId,name,lang,source,isPrimary
 83638,Aldhibah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 83755,Sabik,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 84086,Rasalgethi,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+84086,帝座,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 84121,Sarin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 84122,Nuchuang,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 84147,Guniibuu,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 85410,Rastaban,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+85410,天棓三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 85433,Maasym,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 85436,Lesath,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+85436,尾宿九,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 85560,Yildun,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 85665,Shaula,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+85665,尾宿八,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 85769,Rasalhague,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+85769,侯,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 85965,Sargas,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+85965,尾宿五,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 86347,Dziban,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 86353,Dziban B,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 86475,Cebalrai,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -336,24 +429,34 @@ starId,name,lang,source,isPrimary
 86991,Fuyue,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 87314,Grumium,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 87561,Eltanin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+87561,天棓四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 87994,Bodu,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 88361,Alnasl,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+88361,斗宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 88610,Ramus,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 89064,Polis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 89653,Kaus Media,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+89653,斗宿三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 89860,Tusizuo,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 89906,Kaus Australis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+89906,斗宿六,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 90065,Fafnir,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 90217,Kaus Borealis,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+90217,斗宿二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 90979,Vega,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+90979,织女一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 91566,Xihe,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 92133,Sheliak,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+92133,织女二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 92471,Ainalrami,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 92564,Nunki,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+92564,斗宿四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 92654,Alya,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 92659,Alya B,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 92902,Sulafat,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+92902,织女三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 93213,Ascella,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+93213,斗宿七,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 93452,Okab,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 93819,Meridiana,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 93846,Albaldah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -365,14 +468,19 @@ starId,name,lang,source,isPrimary
 95052,Rukbat,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 95473,Anser,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 95648,Albireo,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+95648,辇道增七,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 95652,Albireo B,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 95799,Alsafi,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 96450,Sham,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 96858,Fawaris,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+96858,天津二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 96970,Tarazed,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+96970,河鼓三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 97338,Altair,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+97338,河鼓二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 97627,Libertas,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 97725,Alshain,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+97725,河鼓一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 97755,Terebellum,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 98508,Tianfu,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 99156,Antinous,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -381,12 +489,15 @@ starId,name,lang,source,isPrimary
 99985,Alshat,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 100020,Dabih,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 100128,Sadr,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+100128,天津一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 100425,Peacock,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 101095,Aldulfin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 101442,Rotanev,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 101629,Sualocin,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 101767,Deneb,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+101767,天津四,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 102157,Aljanah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+102157,天津九,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 102287,Albali,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 103195,Musica,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 103804,Udang,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -400,6 +511,7 @@ starId,name,lang,source,isPrimary
 106795,Azelfafage,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 106916,Garnet Star,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 106972,Enif,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+106972,危宿三,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 107213,Deneb Algedi,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 107742,Aldhanab,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 108573,Kurhah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
@@ -420,10 +532,13 @@ starId,name,lang,source,isPrimary
 112928,Tengshe,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 112997,Helvetios,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 113008,Fomalhaut,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+113008,北落师门,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 113366,Alfarasalkamil,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 113521,Scheat,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+113521,室宿二,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 113529,Fumalsamakah,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 113603,Markab,en-iau,IAU WGSN（经 HYG v44 汇编）,1
+113603,室宿一,zh-modern,《天文学名词》（第二版，全国科学技术名词审定委员会，1998）；与 BSC5/HYG v44 按拜耳字母 + 星座缩写交叉核对,1
 113980,Safina,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 114208,Honores,en-iau,IAU WGSN（经 HYG v44 汇编）,1
 114887,Salm,en-iau,IAU WGSN（经 HYG v44 汇编）,1

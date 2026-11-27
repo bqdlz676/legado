@@ -44,8 +44,8 @@ import io.legado.app.ui.map.globe.GlobeTokens
 import io.legado.app.ui.map.globe.astro.data.StarStore
 import io.legado.app.ui.map.globe.astro.data.StarStoreProvider
 import io.legado.app.ui.map.globe.geo.Geo
-import io.legado.app.ui.map.globe.offline.AssetStatus
 import io.legado.app.ui.map.globe.offline.DegradationLevel
+import io.legado.app.ui.map.globe.render.FieldGlowOverlay
 import io.legado.app.ui.map.globe.render.FrameSnapshot
 import io.legado.app.ui.map.globe.replay.FactionPalette
 import kotlin.math.min
@@ -79,8 +79,9 @@ fun GlobeScreenHost(
     }
     val context = LocalContext.current
     val density = context.resources.displayMetrics.density
-    val starStore = remember { StarStoreProvider.get(context.assets) }
+    var starStore by remember { mutableStateOf(StarStoreProvider.get(context.assets)) }
     val skyHandler = remember { SkyInputHandler(host.controller, SkyCanvasRenderer) }
+    SkyCanvasRenderer.retryAction = { StarStoreProvider.invalidate(); starStore = StarStoreProvider.get(context.assets) }
 
     // 帧节拍：推进门面一帧并取回不可视快照；离开组合时循环随 LaunchedEffect 取消，不白烧 GPU。
     LaunchedEffect(Unit) {
@@ -118,16 +119,9 @@ fun GlobeScreenHost(
                 detectTapGestures(
                     onTap = { offset -> skyHandler.onTap(offset.x, offset.y) },
                     onLongPress = { offset -> skyHandler.onLongPress(offset.x, offset.y) },
-                    onDoubleTap = { offset ->
-                        val (w, h) = viewport
-                        if (w > 0f && h > 0f) {
-                            val proj = projOf(host, w, h)
-                            val dir = proj.unproject(offset.x, offset.y)
-                            if (dir != null) {
-                                val (lat, lng) = Geo.latLng(dir)
-                                host.flyTo(lat, lng)
-                            }
-                        }
+                    onDoubleTap = { offset -> skyHandler.onDoubleTap(offset.x, offset.y, viewport) },
+                    onPress = { offset ->
+                        skyHandler.onPressStart(offset.x, offset.y); awaitRelease(); skyHandler.onPressEnd()
                     },
                 )
             },
@@ -219,10 +213,7 @@ private fun GlobeCanvas(
     val (w, h) = viewport
     Canvas(Modifier.fillMaxSize()) {
         if (w <= 0f || h <= 0f) return@Canvas
-        SkyCanvasRenderer.lowPower = snapshot.degradation == DegradationLevel.PROCEDURAL_ONLY
         SkyCanvasRenderer.offline = !host.controller.scene.fallback.online
-        // 无真实下载进度源：有待就位素材时给可见半幅金线占位（§七.4），真实 0..1 进度待下载器接线单回填。
-        SkyCanvasRenderer.loadingProgress = if (snapshot.fallbackResolutions.any { it.status == AssetStatus.PENDING_DOWNLOAD }) 0.5f else -1f
         SkyCanvasRenderer.draw(drawContext.canvas.nativeCanvas, snapshot, w, h, labelPaint, store = store, density = density)
         val radiusPx = min(w, h) * 0.32f
         val proj = projOf(host, w, h)
@@ -375,6 +366,9 @@ private fun GlobeCanvas(
                 center = Offset(sunP.x, sunP.y),
             )
         }
+
+        // 地球侧分野脉冲 overlay（§十一.1）：一行调用，几何 / 呼吸全在覆盖层内。
+        FieldGlowOverlay.draw(drawContext.canvas.nativeCanvas, SkyCanvasRenderer.fieldRegion(), SkyCanvasRenderer.fieldPulseStartMs(), System.currentTimeMillis(), w, h, density, labelPaint)
     }
 }
 

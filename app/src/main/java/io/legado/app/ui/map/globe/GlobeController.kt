@@ -1,9 +1,11 @@
 package io.legado.app.ui.map.globe
 
 import io.legado.app.ui.map.globe.astro.contract.CameraYawPitch
+import io.legado.app.ui.map.globe.astro.contract.ObserverLatLon
 import io.legado.app.ui.map.globe.astro.contract.SkyFrame
 import io.legado.app.ui.map.globe.astro.contract.SkyParams
 import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
+import io.legado.app.ui.map.globe.astro.data.SiderealTime
 import io.legado.app.ui.map.globe.offline.AssetStatus
 import io.legado.app.ui.map.globe.offline.OfflineFallback
 import io.legado.app.ui.map.globe.offline.TextureKind
@@ -23,6 +25,29 @@ class GlobeController(
     val scene: GlobeScene = GlobeScene(),
 ) {
     private val fallback: OfflineFallback get() = scene.fallback
+
+    // ───────────────────── 观测点与恒星时（§十三.5、§十四.2）─────────────────────
+
+    /** 观测点；无定位权限 / 未注入时默认长安示意，不弹权限墙、不空态。 */
+    private var observer: ObserverLatLon =
+        ObserverLatLon(DEFAULT_OBSERVER_LAT_DEG, DEFAULT_OBSERVER_LON_DEG)
+
+    // ───────────────────── 双视角 spring 过场（§八.12、§十六.4）─────────────────────
+
+    /** 弹簧当前姿态（位置状态）；打断续接时保留当前位置与速度，不跳帧。 */
+    private var poseValue: CameraYawPitch = CameraYawPitch(0.0, 0.0)
+
+    /** 弹簧角速度状态（度 / 秒）；目标切换时速度连续，避免二次弹跳。 */
+    private var poseVel: CameraYawPitch = CameraYawPitch(0.0, 0.0)
+
+    /** 过场目标姿态。 */
+    private var poseTo: CameraYawPitch = CameraYawPitch(0.0, 0.0)
+
+    /** 过场起算时刻（UTC 毫秒，与帧驱动同一时钟）。 */
+    private var transitionStartMs: Long = 0L
+
+    /** 是否处于 800ms spring 过场中；false = 姿态以手势 / 帧现值为准。 */
+    private var transitioning: Boolean = false
 
     // ───────────────────── 手势（切片 20 交互表）─────────────────────
 
@@ -106,7 +131,24 @@ class GlobeController(
     /** 推进一帧并产出不可视快照。 */
     fun nextFrame(dt: Double, utcMillis: Long, turnsPerSec: Double = 1.0): FrameSnapshot {
         scene.update(dt, utcMillis, turnsPerSec)
+        scene.sky?.let { sky ->
+            // 观测点 + 地方恒星时每帧回填；LST 只是两次浮点乘加，不做秒节流也不构成帧负担。
+            val lst = SiderealTime.localSiderealTimeDeg(utcMillis, observer.lonDeg)
+            val pose = springPose(dt, utcMillis, sky.cameraYawPitch)
+            scene.sky = sky.copy(observerLatLon = observer, siderealTimeDeg = lst, cameraYawPitch = pose)
+        }
         return FrameSnapshot.from(scene)
+    }
+
+    /**
+     * 注入真实观测点（定位权限已授予时由 Android 层调用）；越界钳制，无弹窗。
+     * 未调用时保持长安默认示意（§十三.5）。
+     */
+    fun setObserver(latDeg: Double, lonDeg: Double) {
+        observer = ObserverLatLon(
+            latDeg.coerceIn(-90.0, 90.0),
+            lonDeg.coerceIn(-180.0, 180.0),
+        )
     }
 
     // ───────────────────── 星空视角（§十二.3；既有方法签名只增不改）─────────────────────
@@ -116,7 +158,13 @@ class GlobeController(
      * 尚未入星空时先建默认 [SkyFrame]。
      */
     fun enterSky(mode: SkyViewMode) {
-        scene.sky = (scene.sky ?: SkyFrame()).copy(mode = mode)
+        val prev = scene.sky
+        if (prev != null && prev.mode == mode) return
+        // 切换中重复点击：以当前弹簧位置为新起点、速度连续续接，不跳帧、不闪（§八.12 可打断）。
+        val from = if (transitioning) poseValue
+            else prev?.cameraYawPitch ?: CameraYawPitch(0.0, 0.0)
+        beginTransition(from, CameraYawPitch(from.yawDeg, 0.0))
+        scene.sky = (prev ?: SkyFrame()).copy(mode = mode)
     }
 
     /**
@@ -142,9 +190,56 @@ class GlobeController(
         scene.sky = scene.sky?.copy(selectedId = id)
     }
 
-    /** 星空相机姿态写回（天外旋转天球 / 地上平移方位）；未入星空时忽略。 */
+    /** 星空相机姿态写回（天外旋转天球 / 地上平移方位）；未入星空时忽略。手势接管即终止过场。 */
     fun setSkyPose(yawDeg: Double, pitchDeg: Double) {
         val cur = scene.sky ?: return
+        transitioning = false
         scene.sky = cur.copy(cameraYawPitch = CameraYawPitch(yawDeg, pitchDeg))
+    }
+
+    // ───────────────────── 过场 spring 内部 ─────────────────────
+
+    private fun beginTransition(from: CameraYawPitch, to: CameraYawPitch) {
+        poseValue = from
+        poseVel = CameraYawPitch(0.0, 0.0)
+        poseTo = to
+        transitionStartMs = System.currentTimeMillis()
+        transitioning = true
+    }
+
+    /**
+     * 二阶弹簧逐帧积分：a = ωn²·(to−x) − 2ζωn·v；位置 / 速度状态帧间保留。
+     * 阻尼比 ζ、固有角频率 ωn 见伴生常量；过场时长由 [SkyParams.VIEW_SWITCH_MS]（800ms）
+     * 收口，到时强制落目标位，禁 linear 收尾（§八.12、§十六.4）。
+     */
+    private fun springPose(dtSec: Double, nowMs: Long, current: CameraYawPitch?): CameraYawPitch {
+        if (!transitioning) return current ?: poseTo
+        if (nowMs - transitionStartMs >= SkyParams.VIEW_SWITCH_MS) {
+            transitioning = false
+            poseVel = CameraYawPitch(0.0, 0.0)
+            return poseTo
+        }
+        val dt = dtSec.coerceIn(0.0, 0.1)
+        val w = SPRING_NATURAL_FREQ_RAD_PER_S
+        val zeta = SPRING_DAMPING_RATIO
+        val ay = w * w * (poseTo.yawDeg - poseValue.yawDeg) - 2.0 * zeta * w * poseVel.yawDeg
+        val ap = w * w * (poseTo.pitchDeg - poseValue.pitchDeg) - 2.0 * zeta * w * poseVel.pitchDeg
+        val vy = poseVel.yawDeg + ay * dt
+        val vp = poseVel.pitchDeg + ap * dt
+        poseVel = CameraYawPitch(vy, vp)
+        poseValue = CameraYawPitch(poseValue.yawDeg + vy * dt, poseValue.pitchDeg + vp * dt)
+        return poseValue
+    }
+
+    private companion object {
+        /** 无定位时默认观测点：长安（34.34°N / 108.94°E），标「示意」（§十三.5）。 */
+        const val DEFAULT_OBSERVER_LAT_DEG: Double = 34.34
+        const val DEFAULT_OBSERVER_LON_DEG: Double = 108.94
+
+        /** 阻尼比 ζ=1.0（临界阻尼）：视角切换不弹回、不振荡；余量留给姿态衔接而非过冲装饰。 */
+        const val SPRING_DAMPING_RATIO: Double = 1.0
+
+        /** 固有角频率 ωn=6.25 rad/s：ζ·ωn·0.8s≈5，指数衰减项 e⁻⁵≈0.7%，800ms 内收敛进 2% 误差带。 */
+        const val SPRING_NATURAL_FREQ_RAD_PER_S: Double = 6.25
     }
 }

@@ -31,6 +31,9 @@ class FieldAllocationLayer {
 
     private val entries = ArrayList<FieldEntry>()
 
+    /** 星官内码 → 成员星主键（内置锚点成员；示意轮廓几何来源，§十一.4）。 */
+    private val memberIds = HashMap<String, List<Long>>()
+
     /** 当前选中州域名；null = 未选中。 */
     var selectedRegion: String? = null
         private set
@@ -42,6 +45,12 @@ class FieldAllocationLayer {
     fun loadEntries(entries: List<FieldEntry>) {
         this.entries.clear()
         this.entries += entries
+    }
+
+    /** 装载星官成员星索引；重复装载先清旧，不留双份。 */
+    fun loadMembers(members: Map<String, List<Long>>) {
+        memberIds.clear()
+        memberIds += members
     }
 
     /** 点星宿 / 点州域：记选中州域并起算脉冲；null 清除选中。 */
@@ -60,6 +69,10 @@ class FieldAllocationLayer {
     /** 州域 → 关联星官内码列表（反向点州域 → 天球转向用，§十一.2）。 */
     fun asterismCodesForRegion(region: String): List<String> =
         entries.filter { it.regionName == region }.map { it.asterismCode }
+
+    /** 州域 → 成员星主键列表（分野边示意凸包 / 地球侧脉冲锚点用；无成员回落空列表）。 */
+    fun memberIdsForRegion(region: String): List<Long> =
+        asterismCodesForRegion(region).flatMap { memberIds[it].orEmpty() }
 
     fun allEntries(): List<FieldEntry> = entries
 }
