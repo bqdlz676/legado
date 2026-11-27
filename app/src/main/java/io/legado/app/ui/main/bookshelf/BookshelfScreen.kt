@@ -55,7 +55,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.components.rememberInkGesture
 import io.legado.app.ui.components.resolveEventsAllowed
 import io.legado.app.ui.components.compat.toVisualState
@@ -202,6 +201,10 @@ fun BookshelfScreen(
     onLoadMore: () -> Unit,
     onRetryLoadMore: () -> Unit,
     scrollTopSignal: Int = 0,
+    // Q441 陀螺仪视差开关由宿主供给（偏好读写在 InkShelfFragment，本屏零 AppConfig 依赖：
+    // 快照测试无 Application 初始化，本屏直接读偏好会连带整类静态初始化失败）。
+    parallaxEnabled: Boolean = true,
+    onPersistParallax: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyGridState()
@@ -216,8 +219,8 @@ fun BookshelfScreen(
         }
     }
 
-    // Q441 陀螺仪视差：全页共享一对平滑 pitch/roll；开关偏好落 AppConfig，默认开。
-    var parallaxOn by remember { mutableStateOf(AppConfig.shelfParallaxEnabled) }
+    // Q441 陀螺仪视差：全页共享一对平滑 pitch/roll；开关初值来自宿主偏好，热改由回调落盘。
+    var parallaxOn by remember(parallaxEnabled) { mutableStateOf(parallaxEnabled) }
     val parallaxState = rememberShelfParallaxState(enabled = parallaxOn)
     val parallaxScope = rememberCoroutineScope()
     var parallaxResumeJob by remember { mutableStateOf<Job?>(null) }
@@ -235,8 +238,8 @@ fun BookshelfScreen(
     }
     val onToggleParallax: () -> Unit = {
         val next = !parallaxOn
-        AppConfig.shelfParallaxEnabled = next
         parallaxOn = next
+        onPersistParallax(next)
     }
 
     var bannerDismissed by remember { mutableStateOf(false) }

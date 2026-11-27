@@ -87,6 +87,9 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
                 books = uiBooks,
                 newBookCount = uiBooks.count { it.isNew },
                 scrollTopSignal = scrollTopSignal,
+                // Q441：视差开关偏好归宿主（Fragment 侧 appCtx 已初始化；Compose 屏自身不碰 AppConfig）。
+                parallaxEnabled = AppConfig.shelfParallaxEnabled,
+                onPersistParallax = { AppConfig.shelfParallaxEnabled = it },
                 onOpenBook = ::openBook,
                 onImport = ::openImport,
                 onDeleteBook = ::deleteBook,
