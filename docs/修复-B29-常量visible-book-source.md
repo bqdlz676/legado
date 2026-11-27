@@ -113,8 +113,8 @@
 - 阶段枚举三态 `OPEN / EXITING / REMOVED` 定义唯一处：`app/src/main/java/io/legado/app/ui/book/read/ink/SheetExitPhaseGate.kt:12` `enum class ReaderSheetExitPhase {`（成员 `:15 OPEN`、`:16 EXITING`、`:17 REMOVED`）。
 - 派生口径唯一事实源（基类）：`SheetExitPhaseGate.kt:144-145` `visible = phase == ReaderSheetExitPhase.OPEN`；`:148-149` `isComposed = phase != ReaderSheetExitPhase.REMOVED`；`:152-153` `canOpen = phase != ReaderSheetExitPhase.EXITING`。
 - B26 守卫继承该基类：`app/src/main/java/io/legado/app/ui/book/read/NoteDialogExitGate.kt:19` `class NoteDialogExitGate : SheetExitPhaseGate()`，自身只补 `:22` `open() = enterOpen()`，未自写 `visible / isComposed / canOpen` 判断。
-- source 域薄封装 `SRC/SourceSheetExitController.kt`：`:8` `import io.legado.app.ui.book.read.NoteDialogExitGate`；`:39` `visible`、`:43` `isComposed`、`:47` `canOpen` 全部 `get() = gate.xxx` 委托基类派生；`:55` `open()`、`:58` `beginExit()`、`:64` `finishExit()` 转发守卫；`:74` `rememberSourceSheetExitController()` 工厂；`:89` `SourceSheetExitHost` 收束宿主。
-- 控制器内无自写阶段比较、无第二份迁移规则；`isExiting`（`:51`）只是 Compose 离场位镜像，不参与派生判断。
+- source 域薄封装 `app/src/main/java/io/legado/app/ui/book/source/SourceSheetExitController.kt:8` `import io.legado.app.ui.book.read.NoteDialogExitGate`；同文件第 39 行 `visible`、第 43 行 `isComposed`、第 47 行 `canOpen` 全部 `get() = gate.xxx` 委托基类派生；第 55 行 `open()`、第 58 行 `beginExit()`、第 64 行 `finishExit()` 转发守卫；第 74 行 `rememberSourceSheetExitController()` 工厂；第 89 行 `SourceSheetExitHost` 收束宿主。
+- 控制器内无自写阶段比较、无第二份迁移规则；`isExiting`（`app/src/main/java/io/legado/app/ui/book/source/SourceSheetExitController.kt:51`）只是 Compose 离场位镜像，不参与派生判断。
 
 ### 3.2 第二份阶段机排查（grep 回证）
 
@@ -173,7 +173,7 @@ grep -rnE "^\s*true,\s*$" app/src/main/java/io/legado/app/ui/book/source/ --incl
   - `MGT/SourceManageSheets.kt:533`（`exit.visible`，导出结果）
   - `SRC/edit/SourceEditScreen.kt:438`（内层透传形参 `visible`；外层派生 `:160` `overflowExit.visible`）
   - `SRC/debug/SourceDebugScreen.kt:413`（内层透传形参 `visible`；外层派生 `:121` `overflowExit.visible`）
-- 闸位与打开点：控制器实例化 12 处（manage `:88` / `:144` / `:179` / `:218` / `:316` / `:361` / `:402` / `:454` / `:496` / `:530`；edit `:89`；debug `:79`）；打开点 12 个全部先过 `canOpen` 再 `open()`（manage 10 处 `LaunchedEffect(Unit)` 程序化登记；edit `:101-103`、debug `:93-95` 回调入口）；`SourceSheetExitHost` 实例化 12 处；`beginExit()` 业务调用 35 处（12 个 dismiss 入口 + 23 个动作行），另控制器内部转发 1 处。
+- 闸位与打开点：控制器实例化 12 处（manage `app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:88` / 第 144 / 179 / 218 / 316 / 361 / 402 / 454 / 496 / 530 行；edit `app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditScreen.kt:89`；debug `app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:79`）；打开点 12 个全部先过 `canOpen` 再 `open()`（manage 10 处 `LaunchedEffect(Unit)` 程序化登记；edit `app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditScreen.kt:101-103`、debug `app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:93-95` 回调入口）；`SourceSheetExitHost` 实例化 12 处；`beginExit()` 业务调用 35 处（12 个 dismiss 入口 + 23 个动作行），另控制器内部转发 1 处。
 - 全仓 `visible = true` 现役分类（非 source 域，不计本单 12 条口径）：`book/read/ink/InkContentEditState.kt:93`、`:232`（状态持有类内部 `this.visible = true` 赋值，非浮层传参，reader 域外）；`components/HandleFileSheet.kt:47`（components 红线，契约冻结）；`config/b3/B3SettingScreen.kt:151` / `:164` / `:180` / `:193`（B3 批次新增，config 域 F-1 已在 `docs/收尾-B29config域13条.md` §七登记）；`main/bookshelf/InkShelfFragment.kt:286`（注释文字，非代码）。autoTask / dict / replace 三域现役命名参数残留均为 0（沿用各自分域单验收结论）。
 
 ### 4.3 静态预检
@@ -204,27 +204,27 @@ grep -rnE "^\s*true,\s*$" app/src/main/java/io/legado/app/ui/book/source/ --incl
 - 反例 5：未打开 / 已摘除时 visible 是否仍恒显。核查：基类 REMOVED 段 `visible=false`；控制器初始 `exitingState=false`、守卫初始 REMOVED；测试 `SourceSheetExitControllerTest.kt:27-35` 覆盖初始摘除态不可见。排除：无恒显。
 - 反例 6：12 条之外是否漏算 source 域常量 true 调用点。核查：source 域三类写法（命名参数 / 位置参数 / 多行 `true,`）grep 全部 `exit=1` 零命中；`InkHalfSheet(` 调用点全量扫描共 12 处，与清单 12 条一一对应，无第 13 个浮层调用点。排除：无漏算、无多改。
 - 反例 7：报告自述「已落码」是否与现役代码一致。核查：未采信旧报告自述，逐条 `git show 739f073^` 取基线 + 现役源码回读；12 条基线行均为 `visible = true`，现役均已派生；落码提交 `739f073` 已在 HEAD `f896179` 祖先链内。排除：自述与代码一致，无「报告写了、代码没变」。
-- 反例 8：Compose 侧是否新引入了依赖 Application 初始化的配置读取（Paparazzi 截图环境无 Application，曾炸四个书架帧）。核查：控制器与 edit / debug 两屏 Compose 代码零 `AppConfig` / `appCtx` / `SharedPreferences` 引用；manage 屏仅 `:131` 一处既有 `AppConfig.blockSourceNavigation` 读取，属清单前历史代码、非本单两段式改动引入，登记 §九 F-1，不在本单顺手扩改。排除：本单未引入新的 Application 依赖读取。
+- 反例 8：Compose 侧是否新引入了依赖 Application 初始化的配置读取（Paparazzi 截图环境无 Application，曾炸四个书架帧）。核查：控制器与 edit / debug 两屏 Compose 代码零 `AppConfig` / `appCtx` / `SharedPreferences` 引用；manage 屏仅 `app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:131` 一处既有 `AppConfig.blockSourceNavigation` 读取，属清单前历史代码、非本单两段式改动引入，登记 §九 F-1，不在本单顺手扩改。排除：本单未引入新的 Application 依赖读取。
 
 ## 七、新发现问题（每条带处置状态词）
 
-- F-1（待另派单 · 登记跟踪，Paparazzi 风险同类）：`MGT/SourceManageSheets.kt:131` `checked = io.legado.app.help.config.AppConfig.blockSourceNavigation` 在 Compose 组合期直读 `AppConfig` 静态属性；该属性 getter 走 `appCtx.getPrefBoolean(...)`（`app/help/config/AppConfig.kt:47-49`），`appCtx` 为 splitties Application 上下文，截图环境无 Application 时类初始化即炸，与 4738fb4 修复的四个书架帧同形态。同屏另外两个偏好（`showCheckStatus` / `showBookshelfCount`）已由 VM 在 `SourceManageViewModel.kt:68-69` 读入 state 透传，`blockSourceNavigation` 未入 state；VM 翻转在 `SourceManageViewModel.kt:235` 直写 `AppConfig`。处置建议：把 `blockSourceNavigation` 补进 `SourceManageState`（`SourceManageState.kt:94-96` 同型字段），VM 初始化读入、翻转时更新 state，Compose 改读 `state.xxx`；本单按范围红线未改。
-- F-2（留观 · 阶段账不闭环，沿用 B29 验收 F-3）：宿主级离场闸未接——`SourceManageViewModel.openSheet`（`SourceManageViewModel.kt:460`）与 `SourceManageScreen.kt:98` / `:378` / `:460`、`BookSourceActivity.kt:67` 四个程序化打开点未串联 `canOpen`；离场 ~450ms 内宿主触摸由浮层窗口截获兜底。与 reader 域 B30 同类边界，需另派单改 VM / Activity 入口闸。
-- F-3（留观 · 交互缺口，非常量 visible 缺陷本身，沿用 B29 验收 F-2）：以下动作行点击后不调用 `onDismiss` / `beginExit`，弹层不自动关闭，基线 `739f073^` 即如此，本单未改动其交互：
-  - 调试页溢出菜单 `SRC/debug/SourceDebugScreen.kt:415`（扫码）、`:417`（查看搜索响应）、`:420`（查看详情响应）、`:423`（查看目录响应）、`:426`（查看正文响应）、`:428`（刷新发现）、`:429`（帮助）。
-  - 编辑页自动补全开关 `SRC/edit/SourceEditScreen.kt:448` `vm.toggleAutoComplete()`（菜单保持展开，基线同）。
-  - 分组管理 `MGT/SourceManageSheets.kt:257` 删组、`:277` 重命名确认、`:300` 加组确认；导出结果 `:557` 复制路径、`:564` 口令分享。
-  - 上述是否需要动作后补离场动画，属既有交互口径决策，建议随 §五 N1 双槽位时序议题一并另单评估。
-- F-4（待 CI 复核 · 沿用 B29 验收 F-4）：`SRC/test/.../SourceSheetExitControllerTest.kt:3` / `:25` 使用 `mutableStateOf` 构造控制器；`mutableStateOf` 属 compose-runtime 普通工厂函数，JVM 下可实例化本身成立，但 7 例单测能否在单测 classpath 跑绿以云端 CI 为准。
-- F-5（既有边界 · 本单不解决）：控制器由 `remember` 持有，旋转 / 进程重建随 Composable 生命周期；离场中重建则阶段与离场位不跨重建存活（与 B20 / B21 / B26 / config 同一边界）。
-- F-6（架构债 · 登记，沿用 B26 §6.4 与 config 收口 §10.1）：仓内并存 B21 `ReaderSheetExitGate`、B26 `NoteDialogExitGate`、config `SheetExitController`、本域 `SourceSheetExitController` 四份相近包装，另有并发单 `ui/sheet/HalfSheetExitHost.kt` 收束宿主；建议后续合并为泛型纯 JVM 单一守卫 + 复用 Compose 薄封装，消除第三 / 四份包装复制。
+- F-1（已修 · Q-465 已把该偏好的读取上提 VM 镜像，见提交 46a8852 与 验收-复核-Q465-F1-SourceManage.md）：`MGT/SourceManageSheets.kt:131` `checked = io.legado.app.help.config.AppConfig.blockSourceNavigation` 在 Compose 组合期直读 `AppConfig` 静态属性；该属性 getter 走 `appCtx.getPrefBoolean(...)`（`app/help/config/AppConfig.kt:47-49`），`appCtx` 为 splitties Application 上下文，截图环境无 Application 时类初始化即炸，与 4738fb4 修复的四个书架帧同形态。同屏另外两个偏好（`showCheckStatus` / `showBookshelfCount`）已由 VM 在 `SourceManageViewModel.kt:68-69` 读入 state 透传，`blockSourceNavigation` 未入 state；VM 翻转在 `SourceManageViewModel.kt:235` 直写 `AppConfig`。处置建议：把 `blockSourceNavigation` 补进 `SourceManageState`（`SourceManageState.kt:94-96` 同型字段），VM 初始化读入、翻转时更新 state，Compose 改读 `state.xxx`；本单按范围红线未改。
+- F-2（待裁 · 阶段账不闭环，沿用 B29 验收 F-3，需另派单定宿主级闸口径）：宿主级离场闸未接——`SourceManageViewModel.openSheet`（`SourceManageViewModel.kt:460`）与 `SourceManageScreen.kt:98` / `:378` / `:460`、`BookSourceActivity.kt:67` 四个程序化打开点未串联 `canOpen`；离场 ~450ms 内宿主触摸由浮层窗口截获兜底。与 reader 域 B30 同类边界，需另派单改 VM / Activity 入口闸。
+- F-3（待裁 · 交互缺口，非常量 visible 缺陷本身，沿用 B29 验收 F-2）：以下动作行点击后不调用 `onDismiss` / `beginExit`，弹层不自动关闭，基线 `739f073^` 即如此，本单未改动其交互：
+  · 调试页溢出菜单 `SRC/debug/SourceDebugScreen.kt:415`（扫码）、`:417`（查看搜索响应）、`:420`（查看详情响应）、`:423`（查看目录响应）、`:426`（查看正文响应）、`:428`（刷新发现）、`:429`（帮助）。（待裁，随 F-3）；
+  · 编辑页自动补全开关 `SRC/edit/SourceEditScreen.kt:448` `vm.toggleAutoComplete()`（菜单保持展开，基线同）。（待裁，随 F-3）；
+  · 分组管理 `MGT/SourceManageSheets.kt:257` 删组、`:277` 重命名确认、`:300` 加组确认；导出结果 `:557` 复制路径、`:564` 口令分享。（待裁，随 F-3）；
+  · 上述是否需要动作后补离场动画，属既有交互口径决策，建议随 §五 N1 双槽位时序议题一并另单评估。（待裁，随 F-3）；
+- F-4（待裁 · 待云端 CI 复核，沿用 B29 验收 F-4）：`SRC/test/.../SourceSheetExitControllerTest.kt:3` / `:25` 使用 `mutableStateOf` 构造控制器；`mutableStateOf` 属 compose-runtime 普通工厂函数，JVM 下可实例化本身成立，但 7 例单测能否在单测 classpath 跑绿以云端 CI 为准。
+- F-5（判废 · 既有边界，控制器由 remember 持有不跨重建存活，与 B20/B21/B26/config 同一边界）：控制器由 `remember` 持有，旋转 / 进程重建随 Composable 生命周期；离场中重建则阶段与离场位不跨重建存活（与 B20 / B21 / B26 / config 同一边界）。
+- F-6（已入队 · 架构债，沿用 B26 §6.4 与 config 收口 §10.1，待合并为单一守卫）：仓内并存 B21 `ReaderSheetExitGate`、B26 `NoteDialogExitGate`、config `SheetExitController`、本域 `SourceSheetExitController` 四份相近包装，另有并发单 `ui/sheet/HalfSheetExitHost.kt` 收束宿主；建议后续合并为泛型纯 JVM 单一守卫 + 复用 Compose 薄封装，消除第三 / 四份包装复制。
 
 ## 八、未验证项与边界
 
 - 编译与单测：沙箱无 gradle / JDK21 / SDK，未跑 `./gradlew` / `kotlinc`；`SourceSheetExitControllerTest` 7 例是否全绿、两个 `OverflowSheet` 的 `visible` 形参变更是否通过编译，以云端 CI 为准，不假设既有 Verify 已绿。
 - 真机交互：离场下降 / 遮罩回亮实际手感、450ms 延时与组件动画帧对齐、离场段窗口触摸截获范围，未真机走查；观感由既有 `InkHalfSheet` 组件保证，本收尾方仅静态接线口径核实。
 - 动画时序：摘子树时机为代码静态推断（延时依据 = `MASK_DURATION_MS` 200ms + `RISE_DURATION_MS` 250ms），实际收束帧是否干净待 CI 出包后真机确认。
-- 等效延时而非完成回调：`InkHalfSheet` 契约未暴露动画结束回调，沿用 B21 / B26 同一口径；日后组件补完成回调，可把 `SourceSheetExitHost.kt:96` 的 `delay` 替换为回调触发，守卫阶段口径不变。
+- 等效延时而非完成回调：`InkHalfSheet` 契约未暴露动画结束回调，沿用 B21 / B26 同一口径；日后组件补完成回调，可把 `app/src/main/java/io/legado/app/ui/book/source/SourceSheetExitController.kt:96` 的 `delay` 替换为回调触发，守卫阶段口径不变。
 - 域外四域（autoTask 4 / config 13 / dict 2 / replace 3）已由各自分域单验收 / 收口；本单未复核其实机表现。
 - 工作树存在本单范围外并发 WIP：`app/src/main/java/io/legado/app/ui/main/bookshelf/InkShelfFragment.kt` 有未提交改动（bookshelf 域），本收尾方未读其 diff、未触碰。
 

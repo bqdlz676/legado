@@ -187,7 +187,7 @@
 1. `help/storage/BackupOptionsTest.kt:32` — `io.legado.app.ui.config.BackupConfigFragment`（主仓零声明；仅 `sections/BackupSection.kt:48` KDoc 注释提及旧名）。
 2. `ui/association/RuleSelectionShareTest.kt:24` — `io.legado.app.ui.dict.rule.DictRuleAdapter`（零声明；新宿主 `DictRuleActivity` 配 `DictRuleListViewModel` + `DictRuleScreen.kt`）。
 3. `ui/association/RuleSelectionShareTest.kt:26` — `io.legado.app.ui.replace.ReplaceRuleAdapter`（零声明；新宿主 `ReplaceRuleActivity` 配 `ReplaceRuleListViewModel` + `ReplaceRuleScreen.kt`）。
-4. `ui/book/source/BookSourceCheckUiTest.kt:42` — `io.legado.app.ui.book.source.manage.BookSourceAdapter`（零声明；新栈 `SourceManageViewModel` + `SourceManageScreen.kt` + `SourceManageRow.kt`）。
+4. 已删测试件 `BookSourceCheckUiTest.kt` 旧第 42 行 — `io.legado.app.ui.book.source.manage.BookSourceAdapter`（零声明；新栈 `SourceManageViewModel` + `SourceManageScreen.kt` + `SourceManageRow.kt`）。
 5. `ui/book/source/SourceOrderMetadataUpdateTest.kt:16` — `io.legado.app.ui.replace.ReplaceRuleAdapter`（零声明，同 3）。
 6. `ui/book/source/SourceOrderMetadataUpdateTest.kt:17` — `io.legado.app.ui.replace.ReplaceRuleViewModel`（零声明；改名 `ReplaceRuleListViewModel`）。
 7. `ui/code/CodeSelectionUiTest.kt:81` — `io.legado.app.ui.book.source.edit.BookSourceEditAdapter`（零声明；新栈 `SourceEditScreen.kt`）。
@@ -200,8 +200,8 @@
 
 12. `ui/about/ReadRecordHistoryTest.kt:45` — `io.legado.app.databinding.ActivityReadRecordBinding`；`res/layout/activity_read_record.xml` 缺失。
 13. `ui/about/ReadRecordHistoryTest.kt:46` — `io.legado.app.databinding.ItemReadRecordDisplayBinding`；`res/layout/item_read_record_display.xml` 缺失。
-14. `ui/book/source/BookSourceCheckUiTest.kt:33` — `io.legado.app.databinding.ItemBookSourceBinding`；`res/layout/item_book_source.xml` 缺失。
-15. `ui/book/source/SourceDragOrderUiTest.kt:19` — `io.legado.app.databinding.ItemBookSourceBinding`；`res/layout/item_book_source.xml` 缺失。
+14. 已删测试件 `BookSourceCheckUiTest.kt` 旧第 33 行 — `io.legado.app.databinding.ItemBookSourceBinding`；`res/layout/item_book_source.xml` 缺失。
+15. 已删测试件 `SourceDragOrderUiTest.kt` 旧第 19 行 — `io.legado.app.databinding.ItemBookSourceBinding`；`res/layout/item_book_source.xml` 缺失。
 
 ### 3.3 对照：布局存在、binding 可正常生成（4 条，不计错误）
 

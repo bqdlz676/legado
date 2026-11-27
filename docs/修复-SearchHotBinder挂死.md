@@ -223,11 +223,11 @@ YAML OK, jobs: ['discover', 'test-shard', 'rhino-eval-tests', 'slow-bench-tests'
 
 **B 类 · 分片内裸等待（keep 桶，无超时 latch / Deferred / join）—— 5 个文件，观察项**
 
-1. `JsSourceUpsertTest.kt 第182行（app/src/test/java/io/legado/app/model/jsSource/JsSourceUpsertTest.kt）` `releaseFirst.await()`、`:186` `firstEntered.await()`、`:197` `first.await()`、`:198` `second.await()`：`CompletableDeferred` / `async(Default)` 会合等待；worker 不启动或锁不释放时永久挂起。`:194` 有 `withTimeoutOrNull(200)`、`:196` 有 `withTimeout(1_000)`，仅这两条有界。 〔W-451 结构性误判：点号包名写法：雷达按裸基名解析致 DEADFILE〕
+1. `app/src/test/java/io/legado/app/model/jsSource/JsSourceUpsertTest.kt:182` `releaseFirst.await()`、同文件第 188 行 `firstEntered.await()`、第 199 行 `first.await()`、第 200 行 `second.await()`：`CompletableDeferred` / `async(Default)` 会合等待；worker 不启动或锁不释放时永久挂起。第 196 行有 `withTimeoutOrNull(200)`、第 198 行有 `withTimeout(1_000)`，仅这两条有界。 〔W-451 结构性误判：点号包名写法：雷达按裸基名解析致 DEADFILE〕
 2. `DebugCallbackOwnershipTest.kt 第87行（app/src/test/java/io/legado/app/model/DebugCallbackOwnershipTest.kt）` `start.await()`：裸 `CountDownLatch.await()`；同用例 `:96` `done.await(2, TimeUnit.SECONDS)` 有界，主等待 latch 靠主随即 `start.countDown()`（`:94`）放行。 〔W-451 结构性误判：点号包名写法〕
 3. `FontSelectionStyleTest.kt 第140行（app/src/test/java/io/legado/app/ui/font/FontSelectionStyleTest.kt）` `start.await()`：裸 latch；`:147` `futures.map { it.get(5, TimeUnit.SECONDS) }` 有界兜底。 〔W-451 结构性误判：点号包名写法〕
 4. `SourceNavigationPolicyTest.kt 第16行（app/src/test/java/io/legado/app/help/source/SourceNavigationPolicyTest.kt）` `async { … }.await()`、`:18` `normalReader.await()`：被测函数为纯 suspend 即时返回，挂起深度浅，低风险观察项。 〔W-451 结构性误判：点号包名写法〕
-5. `ChapterDownloadStateTest.kt 第48行（app/src/test/java/io/legado/app/model/ChapterDownloadStateTest.kt）`、`:47`、`:110`、`:119`、`:188`、`:189`、`:193` 多处 `result.await()` / `waiter.await()`：Deferred 由下载状态机 `finish` 收口；若状态机漏发完成才会挂，属状态机回归面，非协程泄漏。 〔W-451 结构性误判：点号包名写法〕
+5. `app/src/test/java/io/legado/app/model/ChapterDownloadStateTest.kt:48` `result.await()`、第 49 行 `readerOnly.result.await()`、第 112 行 `ticket.result.await()`、第 121 行 `waiter.await()`、第 190 / 191 行 `owner.result.await()`、第 195 行 `reader.await()` 多处 `result.await()` / `waiter.await()`：Deferred 由下载状态机 `finish` 收口；若状态机漏发完成才会挂，属状态机回归面，非协程泄漏。 〔W-451 结构性误判：点号包名写法〕
 
 **C 类 · 已在隔离集（不在分片挂死嫌疑面）**
 

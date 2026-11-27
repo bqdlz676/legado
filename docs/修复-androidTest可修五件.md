@@ -113,8 +113,8 @@
 ```
 UNRESOLVED app/src/androidTest/java/io/legado/app/ui/association/RuleSelectionShareTest.kt:24 io.legado.app.ui.dict.rule.DictRuleAdapter (本地声明索引零命中)
 UNRESOLVED app/src/androidTest/java/io/legado/app/ui/association/RuleSelectionShareTest.kt:26 io.legado.app.ui.replace.ReplaceRuleAdapter (本地声明索引零命中)
-UNRESOLVED app/src/androidTest/java/io/legado/app/ui/book/source/BookSourceCheckUiTest.kt:33 io.legado.app.databinding.ItemBookSourceBinding (databinding 按布局 XML 判定)
-UNRESOLVED app/src/androidTest/java/io/legado/app/ui/book/source/BookSourceCheckUiTest.kt:42 io.legado.app.ui.book.source.manage.BookSourceAdapter (本地声明索引零命中)
+UNRESOLVED 已删测试件 `BookSourceCheckUiTest.kt` 旧第 33 行 io.legado.app.databinding.ItemBookSourceBinding (databinding 按布局 XML 判定)
+UNRESOLVED 已删测试件 `BookSourceCheckUiTest.kt` 旧第 42 行 io.legado.app.ui.book.source.manage.BookSourceAdapter (本地声明索引零命中)
 UNRESOLVED app/src/androidTest/java/io/legado/app/ui/book/source/SourceOrderMetadataUpdateTest.kt:16 io.legado.app.ui.replace.ReplaceRuleAdapter (本地声明索引零命中)
 UNRESOLVED app/src/androidTest/java/io/legado/app/ui/book/source/SourceOrderMetadataUpdateTest.kt:17 io.legado.app.ui.replace.ReplaceRuleViewModel (本地声明索引零命中)
 UNRESOLVED app/src/androidTest/java/io/legado/app/ui/code/CodeSelectionUiTest.kt:81 io.legado.app.ui.book.source.edit.BookSourceEditAdapter (本地声明索引零命中)
@@ -309,8 +309,8 @@ $ grep -n "DictRuleAdapter\|ReplaceRuleAdapter\|ItemBookSourceBinding\|BookSourc
   app/src/androidTest/java/io/legado/app/ui/widget/image/CoverTitleAdaptiveUiTest.kt | grep import
 app/src/androidTest/java/io/legado/app/ui/association/RuleSelectionShareTest.kt:24:import io.legado.app.ui.dict.rule.DictRuleAdapter
 app/src/androidTest/java/io/legado/app/ui/association/RuleSelectionShareTest.kt:26:import io.legado.app.ui.replace.ReplaceRuleAdapter
-app/src/androidTest/java/io/legado/app/ui/book/source/BookSourceCheckUiTest.kt:33:import io.legado.app.databinding.ItemBookSourceBinding
-app/src/androidTest/java/io/legado/app/ui/book/source/BookSourceCheckUiTest.kt:42:import io.legado.app.ui.book.source.manage.BookSourceAdapter
+`BookSourceCheckUiTest.kt` 旧第 33 行：import io.legado.app.databinding.ItemBookSourceBinding
+`BookSourceCheckUiTest.kt` 旧第 42 行：import io.legado.app.ui.book.source.manage.BookSourceAdapter
 app/src/androidTest/java/io/legado/app/ui/book/source/SourceOrderMetadataUpdateTest.kt:16:import io.legado.app.ui.replace.ReplaceRuleAdapter
 app/src/androidTest/java/io/legado/app/ui/book/source/SourceOrderMetadataUpdateTest.kt:17:import io.legado.app.ui.replace.ReplaceRuleViewModel
 app/src/androidTest/java/io/legado/app/ui/code/CodeSelectionUiTest.kt:81:import io.legado.app.ui.book.source.edit.BookSourceEditAdapter
