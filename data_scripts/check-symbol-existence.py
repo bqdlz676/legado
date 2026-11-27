@@ -581,6 +581,7 @@ def _declares_name(src: str, simple: str) -> bool:
     # 字符状态机：code 代码 / line 行注释 / block_comment 块注释 / dq 双引号串 /
     # tq 三引号串 / char 字符字面量。串与注释内的大括号不参与帧栈配平。
     state = 'code'
+    block_depth = 0  # 块注释嵌套深度：Kotlin 块注释可嵌套，内层 `/*` 必须计数，首个 `*/` 不退出外层。
     cur_code = ''   # 当前行代码态下累积的文本（仅用于开括号头部分类，串/注释不计入）
     prev_nonempty: list[str] = []
     i, n = 0, len(src)
@@ -610,7 +611,13 @@ def _declares_name(src: str, simple: str) -> bool:
         # 换行在任何状态下都推进行号并记行首快照：串/注释跨多行时行号不能错位，
         # 否则后续真实代码行会挂到错误的 eligibility 槽上。
         if c == '\n':
-            if state in ('code', 'line'):
+            if state == 'line':
+                # 行注释随换行结束：旧版调 new_line() 后未把 state 退回 code，探针留在
+                # line 态逐字符吞掉后续真实代码行，`{` `}` 不进帧栈，行注释后顶层 fun
+                # 被误判成函数体局部影子声明。换行后必须显式复位回 code。
+                new_line()
+                state = 'code'
+            elif state == 'code':
                 new_line()
             else:
                 eligible.append(_decl_stack_ok(stack))
@@ -619,7 +626,15 @@ def _declares_name(src: str, simple: str) -> bool:
             i += 1; continue
         if state == 'block_comment':
             if c == '*' and i + 1 < n and src[i + 1] == '/':
-                state = 'code'
+                block_depth -= 1
+                i += 2
+                if block_depth == 0:
+                    state = 'code'
+                continue
+            if c == '/' and i + 1 < n and src[i + 1] == '*':
+                block_depth += 1  # 嵌套块注释：内层开注释计数，不提前退出外层。
+                i += 2
+                continue
             i += 1; continue
         if state == 'dq':
             if c == '\\':
@@ -641,7 +656,7 @@ def _declares_name(src: str, simple: str) -> bool:
         if c == '/' and i + 1 < n and src[i + 1] == '/':
             state = 'line'; i += 2; continue
         if c == '/' and i + 1 < n and src[i + 1] == '*':
-            state = 'block_comment'; i += 2; continue
+            state = 'block_comment'; block_depth = 1; i += 2; continue
         if src[i:i + 3] == '"""':
             state = 'tq'; i += 3; continue
         if c == '"':
@@ -857,9 +872,10 @@ def selftest() -> int:
     """双向自测（tempfile 迷你仓，判定回调生产 analyze()，夹具自删）。
 
     必失败：NODEF / ARITY / 类跨包 PACKAGE / 函数体提及不豁免 PACKAGE / 扩展跨包 PACKAGE /
-    通配符包不存在 PACKAGE / 多行函数体内局部 var 同名 / 局部 fun 同名；必放行：重载配平 /
-    一参匹配 / ?. 安全调用 / 嵌套伴生外层 import / 泛型接收者扩展 / 通配符包存在 / 包级顶层声明 /
-    interface 成员 / object 成员 / 伴生对象成员 / 抽象类成员。每个坏样本断言类别标签与被判文件行（N3）。"""
+    通配符包不存在 PACKAGE / 多行函数体内局部 var 同名 / 局部 fun 同名 / 行注释后局部 fun 同名；
+    必放行：重载配平 / 一参匹配 / ?. 安全调用 / 嵌套伴生外层 import / 泛型接收者扩展 /
+    通配符包存在 / 包级顶层声明 / interface 成员 / object 成员 / 伴生对象成员 / 抽象类成员 /
+    行注释后顶层扩展 fun / 块注释夹括号 / 三引号串内 // 字样。每个坏样本断言类别标签与被判文件行（N3）。"""
 
     # 仓内定义：one 一参无兜底；two 两个重载（一参/两参）；Extension 扩展一参。
     lib = '''package io.legado.app.lib
@@ -1224,6 +1240,92 @@ fun String.ext(x: Int): String = this + x
         print('[selftest] 放行样本（抽象类成员）PASS 通路 OK')
     finally:
         shutil.rmtree(t19, ignore_errors=True)
+
+    # 放行样本十二（g63 行注释栈回归锁一）：函数体内行注释之后的顶层扩展 fun。行注释换行后
+    # 状态机必须退回 code；旧版留在 line 态逐字符吞掉后续代码行，扩展 fun 被误判局部影子声明。
+    t20 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t20, 'app/src/main/java/io/legado/app/lib/Ext.kt',
+            'package io.legado.app.lib\n\n'
+            'fun helper() {\n'
+            '    // 体内行注释：其后代码不得被留在 line 态吞掉\n'
+            '}\n\n'
+            'fun HashMap<String, String>.memberMark(): String? = null\n')
+        _kt(t20, 'app/src/main/java/io/legado/app/use/Use20.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.memberMark\n\n'
+            'fun call(m: HashMap<String, String>) = m.memberMark()\n')
+        rc, calls, pkgs, _st = analyze(t20)
+        assert rc == 0, f"行注释后顶层扩展 fun 应 PASS，rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
+        print('[selftest] 放行样本（行注释后顶层扩展 fun）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t20, ignore_errors=True)
+
+    # 坏样本九（g63 行注释栈回归锁二）：行注释之后的真局部影子 fun 仍落在局部帧内，
+    # 修反不得把局部声明放成包级；真跨包错引必须判 PACKAGE。
+    t21 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t21, 'app/src/main/java/io/legado/app/alpha/Alpha.kt',
+            'package io.legado.app.alpha\n\nclass memberMark(val n: Int)\n')
+        _kt(t21, 'app/src/main/java/io/legado/app/beta/Shadow.kt',
+            'package io.legado.app.beta\n\n'
+            'fun helper() {\n'
+            '    // 体内行注释\n'
+            '    fun memberMark() {}\n'
+            '}\n')
+        _kt(t21, 'app/src/main/java/io/legado/app/use/Use21.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.beta.memberMark\n\n'
+            'fun call() = memberMark()\n')
+        rc, _calls, pkgs, _st = analyze(t21)
+        assert rc == 1, f"行注释后真局部影子 fun 不得豁免跨包错引，rc={rc}"
+        hit = _find_pkg(pkgs, 'use/Use21.kt', 'io.legado.app.beta.memberMark')
+        assert hit[1] == 3, f"PACKAGE 应判在 import 行 3，实际行号 {hit[1]}"
+        print('[selftest] 坏样本九（行注释后局部 fun 同名）PACKAGE FAIL 通路 OK：PACKAGE Use21.kt:3')
+    finally:
+        shutil.rmtree(t21, ignore_errors=True)
+
+    # 放行样本十三（g63 行注释栈回归锁三）：块注释中间夹 `}`，注释内括号不参与帧栈配平。
+    t22 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t22, 'app/src/main/java/io/legado/app/lib/Ext.kt',
+            'package io.legado.app.lib\n\n'
+            'fun helper() {\n'
+            '    /* 块注释里夹一个 } 字符，不应弹栈\n'
+            '       配平只认代码态的括号 */\n'
+            '}\n\n'
+            'fun HashMap<String, String>.memberMark(): String? = null\n')
+        _kt(t22, 'app/src/main/java/io/legado/app/use/Use22.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.memberMark\n\n'
+            'fun call(m: HashMap<String, String>) = m.memberMark()\n')
+        rc, calls, pkgs, _st = analyze(t22)
+        assert rc == 0, f"块注释夹括号应 PASS，rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
+        print('[selftest] 放行样本（块注释中间夹 }）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t22, ignore_errors=True)
+
+    # 放行样本十四（g63 行注释栈回归锁四）：三引号串内的行注释字样 `//` 与花括号不进状态机。
+    t23 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t23, 'app/src/main/java/io/legado/app/lib/Ext.kt',
+            'package io.legado.app.lib\n\n'
+            'fun helper() {\n'
+            '    val s = """这里写着 // 不是行注释，{ 也不是开帧"""\n'
+            '}\n\n'
+            'fun HashMap<String, String>.memberMark(): String? = null\n')
+        _kt(t23, 'app/src/main/java/io/legado/app/use/Use23.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.memberMark\n\n'
+            'fun call(m: HashMap<String, String>) = m.memberMark()\n')
+        rc, calls, pkgs, _st = analyze(t23)
+        assert rc == 0, f"三引号串内 // 字样应 PASS，rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
+        print('[selftest] 放行样本（三引号串内行注释字样 //）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t23, ignore_errors=True)
 
     print('[selftest] 夹具已自删，双向自测通过。')
     return 0
