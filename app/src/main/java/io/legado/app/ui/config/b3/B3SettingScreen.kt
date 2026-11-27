@@ -23,7 +23,9 @@ import io.legado.app.ui.config.settings.GroupHeader
 import io.legado.app.ui.config.settings.InkSearchField
 import io.legado.app.ui.config.settings.ListPickSheet
 import io.legado.app.ui.config.settings.NumberPickerSheet
+import io.legado.app.ui.config.settings.SheetExitHost
 import io.legado.app.ui.config.settings.TextEditSheet
+import io.legado.app.ui.config.settings.rememberSheetExitController
 import io.legado.app.utils.putPrefBoolean
 
 /**
@@ -48,8 +50,19 @@ fun B3SettingScreen(
     // O-14：搜索词 / 测试结果为 String，走 rememberSaveable 跨配置变更存活；弹层目标持有 lambda 不可序列化，
     // 仍 remember 持有，待壳态批次提升到宿主状态机（见返工报告 §O-14）。
     var query by rememberSaveable { mutableStateOf("") }
-    var sheetTarget by remember { mutableStateOf<B3SheetTarget?>(null) }
     var webDavTestSummary by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // B29 收口（Q466 / F-1）：文本 / 数字 / 单选 / 确认四类弹层各持独立槽位与一份两段式离场控制器。
+    // 阶段机链路委托 config 域 SheetExitController → NoteDialogExitGate → B30 SheetExitPhaseGate，
+    // b3 包内不造第二份枚举 / 守卫 / 派生表达式；四槽位互不串阶段（与 OtherSection 同口径）。
+    var textTarget by remember { mutableStateOf<B3SheetTarget.Text?>(null) }
+    var numberTarget by remember { mutableStateOf<B3SheetTarget.Number?>(null) }
+    var listTarget by remember { mutableStateOf<B3SheetTarget.ListPick?>(null) }
+    var confirmTarget by remember { mutableStateOf<B3SheetTarget.Confirm?>(null) }
+    val textExit = rememberSheetExitController()
+    val numberExit = rememberSheetExitController()
+    val listExit = rememberSheetExitController()
+    val confirmExit = rememberSheetExitController()
 
     val groups = b3SettingGroups(
         actions = actions,
@@ -59,7 +72,27 @@ fun B3SettingScreen(
                 webDavTestSummary = b3WebDavTestSummary(ok)
             }
         },
-        openTarget = { sheetTarget = it },
+        openTarget = { target ->
+            // 先过 canOpen 闸：离场动画播放中不叠同类新弹层；放行后再登记槽位、open() 回在场段。
+            when (target) {
+                is B3SheetTarget.Text -> if (textExit.canOpen) {
+                    textTarget = target
+                    textExit.open()
+                }
+                is B3SheetTarget.Number -> if (numberExit.canOpen) {
+                    numberTarget = target
+                    numberExit.open()
+                }
+                is B3SheetTarget.ListPick -> if (listExit.canOpen) {
+                    listTarget = target
+                    listExit.open()
+                }
+                is B3SheetTarget.Confirm -> if (confirmExit.canOpen) {
+                    confirmTarget = target
+                    confirmExit.open()
+                }
+            }
+        },
     )
     val visibleGroups = filterB3Groups(groups, query)
     val searching = query.trim().isNotEmpty()
@@ -102,7 +135,64 @@ fun B3SettingScreen(
         }
     }
 
-    B3SheetHost(target = sheetTarget, onDismiss = { sheetTarget = null })
+    // 两段式离场收束宿主：dismiss 先走 beginExit() 进离场段（派生 visible=false、子树保留播离场动画），
+    // SheetExitHost 按 ComponentPalette.DURATION_MASK 等效延时后 finishExit()，回调清槽位摘子树；
+    // 不再 dismiss 即摘（旧 B3SheetHost 直清槽位路径已删，不留兼容层）。
+    textTarget?.let { target ->
+        SheetExitHost(textExit, onFinished = { textTarget = null }) {
+            TextEditSheet(
+                visible = textExit.visible,
+                title = target.title,
+                initial = target.initial,
+                hint = target.hint,
+                password = target.password,
+                onConfirm = { value -> target.onConfirm(value) },
+                onDismiss = { textExit.beginExit() },
+            )
+        }
+    }
+    numberTarget?.let { target ->
+        SheetExitHost(numberExit, onFinished = { numberTarget = null }) {
+            NumberPickerSheet(
+                visible = numberExit.visible,
+                title = target.title,
+                min = target.min,
+                max = target.max,
+                current = clampB3Int(target.current, target.min, target.max),
+                unit = target.unit,
+                defaultLabel = target.defaultLabel,
+                onDefault = target.onDefault,
+                onConfirm = { value -> target.onConfirm(value) },
+                onDismiss = { numberExit.beginExit() },
+            )
+        }
+    }
+    listTarget?.let { target ->
+        SheetExitHost(listExit, onFinished = { listTarget = null }) {
+            ListPickSheet(
+                visible = listExit.visible,
+                title = target.title,
+                entries = target.entries,
+                values = target.values,
+                current = target.current,
+                onPick = { value -> target.onPick(value) },
+                onDismiss = { listExit.beginExit() },
+            )
+        }
+    }
+    confirmTarget?.let { target ->
+        SheetExitHost(confirmExit, onFinished = { confirmTarget = null }) {
+            ConfirmSheet(
+                visible = confirmExit.visible,
+                title = target.title,
+                message = target.message,
+                confirmLabel = target.confirmLabel,
+                danger = true,
+                onConfirm = { target.onConfirm() },
+                onDismiss = { confirmExit.beginExit() },
+            )
+        }
+    }
 }
 
 /** 行实例卡渲染：开关行读偏好并落盘；取值 / 导航行挂点击；说明行只读。 */
@@ -140,69 +230,6 @@ private fun B3RowCard(
             value = row.summary,
             showDivider = showDivider,
         )
-    }
-}
-
-/** 弹层宿主：按目标类型分派既有弹层；离场段由弹层自身两段式闸口保留（B29 口径）。 */
-@Composable
-private fun B3SheetHost(target: B3SheetTarget?, onDismiss: () -> Unit) {
-    when (target) {
-        is B3SheetTarget.Text -> TextEditSheet(
-            visible = true,
-            title = target.title,
-            initial = target.initial,
-            hint = target.hint,
-            password = target.password,
-            onConfirm = { value ->
-                target.onConfirm(value)
-                onDismiss()
-            },
-            onDismiss = onDismiss,
-        )
-
-        is B3SheetTarget.Number -> NumberPickerSheet(
-            visible = true,
-            title = target.title,
-            min = target.min,
-            max = target.max,
-            current = clampB3Int(target.current, target.min, target.max),
-            unit = target.unit,
-            defaultLabel = target.defaultLabel,
-            onDefault = target.onDefault,
-            onConfirm = { value ->
-                target.onConfirm(value)
-                onDismiss()
-            },
-            onDismiss = onDismiss,
-        )
-
-        is B3SheetTarget.ListPick -> ListPickSheet(
-            visible = true,
-            title = target.title,
-            entries = target.entries,
-            values = target.values,
-            current = target.current,
-            onPick = { value ->
-                target.onPick(value)
-                onDismiss()
-            },
-            onDismiss = onDismiss,
-        )
-
-        is B3SheetTarget.Confirm -> ConfirmSheet(
-            visible = true,
-            title = target.title,
-            message = target.message,
-            confirmLabel = target.confirmLabel,
-            danger = true,
-            onConfirm = {
-                target.onConfirm()
-                onDismiss()
-            },
-            onDismiss = onDismiss,
-        )
-
-        null -> Unit
     }
 }
 
