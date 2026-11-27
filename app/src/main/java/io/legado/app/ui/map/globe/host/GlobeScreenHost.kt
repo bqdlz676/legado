@@ -210,6 +210,7 @@ private fun GlobeCanvas(
     val (w, h) = viewport
     Canvas(Modifier.fillMaxSize()) {
         if (w <= 0f || h <= 0f) return@Canvas
+        SkyCanvasRenderer.draw(drawContext.canvas.nativeCanvas, snapshot, w, h, labelPaint)
         val radiusPx = min(w, h) * 0.32f
         val proj = projOf(host, w, h)
 
