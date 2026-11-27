@@ -52,6 +52,9 @@ class FileManageViewModel(application: Application) : BaseViewModel(application)
         }
     }
 
+    /** 错误态重试：重读当前目录；标签「重试」与动作同义，不接返回上级。 */
+    fun retry() = upFiles(lastDir)
+
     fun navigate(dir: File) {
         _uiState.update { it.copy(subDocs = it.subDocs + dir) }
         upFiles(dir)

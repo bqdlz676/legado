@@ -36,6 +36,7 @@ class FileManageActivity : FragmentActivity() {
                 onOpenDir = viewModel::navigate,
                 onOpenFile = ::openFile,
                 onPop = viewModel::pop,
+                onRetry = viewModel::retry,
                 onJump = viewModel::jumpTo,
                 onRequestDelete = viewModel::requestDelete,
                 onDismissConfirm = viewModel::dismissConfirm,

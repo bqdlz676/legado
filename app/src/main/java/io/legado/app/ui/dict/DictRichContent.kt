@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +44,8 @@ import io.legado.app.constant.AppLog
 import io.legado.app.help.glide.ImageLoader
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.ui.components.ComponentTokens
+import io.legado.app.ui.components.InkButton
+import io.legado.app.ui.components.InkButtonVariant
 import io.legado.app.utils.GSON
 import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.fromJsonObject
@@ -256,8 +259,10 @@ private fun DictRichImage(
     val context = LocalContext.current
     var bitmap by remember(block.src) { mutableStateOf<Bitmap?>(null) }
     var failed by remember(block.src) { mutableStateOf(false) }
+    // 重试计数：点重试后自增，作为加载副作用的第二把钥匙，强制 Glide 重新解码 / 重新取图。
+    var retryTick by remember(block.src) { mutableStateOf(0) }
 
-    DisposableEffect(block.src) {
+    DisposableEffect(block.src, retryTick) {
         val target = object : CustomTarget<Bitmap>() {
             override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                 // 复制为可变位图，避免 Glide 位图池回收后 Compose 绘制到已回收像素。
@@ -330,7 +335,15 @@ private fun DictRichImage(
         contentAlignment = sheetAlign,
     ) {
         when {
-            failed -> DictImageFailure(block.src)
+            failed -> DictImageFailure(
+                src = block.src,
+                onRetry = {
+                    bitmap = null
+                    failed = false
+                    retryTick++
+                },
+                onOpenOriginal = { onTap(block) },
+            )
 
             current == null -> DictImageSkeleton(showWidthPx, showHeightPx)
 
@@ -377,13 +390,25 @@ private fun DictImageSkeleton(widthPx: Int, heightPx: Int) {
     )
 }
 
-/** 失败兜底：墨色小字说明 + 原文 URL；不允许留空白态、不吞异常（异常已由 AppLog 落档）。 */
+/**
+ * 失败兜底：墨色小字说明 + 原文 URL + 重试按钮；占位区可点放大原文。
+ * 重试仍失败时落回本占位（文案 + URL），不吞异常（异常已由 AppLog 落档），不留空白态。
+ *
+ * @param onRetry 重新解码 / 重新取图：由调用方自增重试钥匙并重置位图与失败标记
+ * @param onOpenOriginal 占位区点击打开原图；查看器内调用时传 null（已在大图层）
+ */
 @Composable
-private fun DictImageFailure(src: String) {
+private fun DictImageFailure(
+    src: String,
+    onRetry: () -> Unit,
+    onOpenOriginal: (() -> Unit)? = null,
+) {
     Column(
         Modifier
             .fillMaxWidth()
+            .clickable(enabled = onOpenOriginal != null) { onOpenOriginal?.invoke() }
             .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         BasicText(
@@ -402,6 +427,7 @@ private fun DictImageFailure(src: String) {
                 fontFamily = FontFamily.SansSerif,
             ),
         )
+        InkButton("重试", onRetry, variant = InkButtonVariant.GHOST)
     }
 }
 
@@ -414,8 +440,10 @@ fun DictImageViewer(src: String) {
     val context = LocalContext.current
     var bitmap by remember(src) { mutableStateOf<Bitmap?>(null) }
     var failed by remember(src) { mutableStateOf(false) }
+    // 重试计数：大图查看器内点重试同样强制 Glide 重新取图；钥匙口径与条目内图片一致。
+    var retryTick by remember(src) { mutableStateOf(0) }
 
-    DisposableEffect(src) {
+    DisposableEffect(src, retryTick) {
         val target = object : CustomTarget<Bitmap>() {
             override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                 bitmap = resource.copy(resource.config ?: Bitmap.Config.ARGB_8888, true)
@@ -451,7 +479,14 @@ fun DictImageViewer(src: String) {
         ) {
             val current = bitmap
             when {
-                failed -> DictImageFailure(src)
+                failed -> DictImageFailure(
+                    src = src,
+                    onRetry = {
+                        bitmap = null
+                        failed = false
+                        retryTick++
+                    },
+                )
                 current != null -> Image(
                     bitmap = current.asImageBitmap(),
                     contentDescription = null,

@@ -109,6 +109,7 @@ class FilePickerDialog : DialogFragment() {
                     onCreateFolder = { showCreateFolder = true },
                     onOpenDir = viewModel::navigate,
                     onPop = viewModel::pop,
+                    onRetry = viewModel::retry,
                     onJump = viewModel::jumpTo,
                     onSelectFile = viewModel::select,
                     onCancel = { dismissAllowingStateLoss() },
@@ -149,6 +150,7 @@ class FilePickerDialog : DialogFragment() {
         onCreateFolder: () -> Unit,
         onOpenDir: (File) -> Unit,
         onPop: () -> Unit,
+        onRetry: () -> Unit,
         onJump: (Int) -> Unit,
         onSelectFile: (File) -> Unit,
         onCancel: () -> Unit,
@@ -187,6 +189,8 @@ class FilePickerDialog : DialogFragment() {
                     message = state.error ?: "目录读取失败",
                     offline = true,
                     state = ComponentVisualState.OFFLINE,
+                    actionLabel = "重试",
+                    onAction = onRetry,
                     modifier = Modifier.fillMaxWidth(),
                 )
 

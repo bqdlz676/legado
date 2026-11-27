@@ -68,6 +68,9 @@ class FilePickerViewModel(application: Application) : BaseViewModel(application)
         }
     }
 
+    /** 错误态重试：重读当前所在目录（失败态的真恢复入口，不是返回上级）。 */
+    fun retry() = upFiles(lastDir)
+
     fun navigate(dir: File) {
         _uiState.update { it.copy(subDocs = it.subDocs + dir) }
         upFiles(dir)

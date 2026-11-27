@@ -58,6 +58,7 @@ fun FileManageScreen(
     onOpenDir: (File) -> Unit,
     onOpenFile: (File) -> Unit,
     onPop: () -> Unit,
+    onRetry: () -> Unit,
     onJump: (Int) -> Unit,
     onRequestDelete: (File) -> Unit,
     onDismissConfirm: () -> Unit,
@@ -83,7 +84,7 @@ fun FileManageScreen(
                 offline = true,
                 state = ComponentVisualState.OFFLINE,
                 actionLabel = "重试",
-                onAction = onPop,
+                onAction = onRetry,
                 modifier = Modifier.fillMaxSize(),
             )
 
