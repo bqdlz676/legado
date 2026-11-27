@@ -59,11 +59,13 @@
 - `ui/book/read/ink/InkReaderShell.kt:220:37` Unresolved reference 'x'.
 - `ui/book/read/ink/InkReaderShell.kt:220:63` Unresolved reference 'y'.
 - `ui/book/read/ink/InkTouch.kt:40:23` 'when' expression must be exhaustive. Add an 'else' branch.
+> （已废·W-436：ui/book/read/ink/InkTouch.kt:40）
 
 ### ui/components
 - `ui/components/InkEmptyState.kt:82:27` Function invocation 'width(...)' expected.（候选不适用子消息 1 条）
 - `ui/components/InkEmptyState.kt:83:27` Function invocation 'height(...)' expected.（候选不适用子消息 1 条）
 - `ui/components/InkInteractionState.kt:74:38` Unresolved reference 'Cancel'.
+> （已废·W-436：ui/components/InkInteractionState.kt:74）
 
 ### ui/main/bookshelf
 - `ui/main/bookshelf/BookshelfScreen.kt:24:43` Cannot access 'val RowColumnParentData?.weight: Float': it is internal in file.
@@ -78,8 +80,11 @@
 
 ### ui/main/chrono
 - `ui/main/chrono/ChronoGlassDock.kt:78:21` No parameter with name 'mass' found.
+> （已废·W-436：ui/main/chrono/ChronoGlassDock.kt:78）
 - `ui/main/chrono/ChronoGlassDock.kt:87:25` No parameter with name 'mass' found.
+> （已废·W-436：ui/main/chrono/ChronoGlassDock.kt:87）
 - `ui/main/chrono/ChronoGlassDock.kt:273:33` Argument type mismatch: actual type is '(??? (Unknown type for value parameter velocity)) -> Unit', but '() -> Unit' was expected.
+> （已废·W-436：ui/main/chrono/ChronoGlassDock.kt:273）
 - `ui/main/chrono/ChronoGlassDock.kt:273:35` Cannot infer type for value parameter 'velocity'. Specify it explicitly.
 - `ui/main/chrono/ChronoScreen.kt:30:33` Unresolved reference 'graphicsLayer'.
 - `ui/main/chrono/ChronoScreen.kt:188:33` Unresolved reference 'graphicsLayer'.

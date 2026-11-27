@@ -1,4 +1,5 @@
 锚点卡：docs/锚点/g66实现成员override.md
+> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：B.kt / Iface 为成员 override 判据的仓外 /tmp 夹具，验毕自删、仓内不存在，非源码锚点；判据以 data_scripts/check-member-override.py 现行实现为准。
 
 # 修复-g66 同签名实现成员缺 override 静态判据闸
 

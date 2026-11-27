@@ -1,0 +1,455 @@
+# 重判 · 雷达失联 A 批（W-436）
+
+锚点卡：docs/锚点/Q436-雷达失联A批.md
+
+- 工单：W-436 雷达存量失联重判（A 批）。范围：`/tmp/q436/临时-436切分.json` 的 `A` 数组 77 份报告；`B` 数组归另一代理，本批未碰。
+- 口径：只回源重判 `docs/` 下历史报告行；禁 git 写、禁编译、禁碰 `app/**` 与 `data_scripts/**`；不删证据、不改旧句原意、不删失效锚点。
+- 日期：2026-11-27（CST，UTC+8）；执行环境：云主机 vm；仓库绝对路径 `/home/user/Doubao/chats/38454122521460994/legado`。
+
+## 一、守则回执
+
+- 指纹：`docs/机制-子代理必读.md=c6806030a6d5ac3162f871297069a633c8aceb17554b046346d3a55b33d2a9c3`；`docs/机制-验收代理必读.md=a46af85f0145499f5700a47ddcb0b543cee2bc492a7dbabd16dcdbaa66338e20`。
+- 逐字引用 1：「自己算行数、字节、`sha256`、`mtime`；自己写脚本比对（例：逐块逐字节比对原文与重排产物）。」（`docs/机制-验收代理必读.md:24`）
+- 逐字引用 2：「**禁 git 写操作**：不许 add/commit/push/revert/checkout——提交由总控统一做。」（`docs/机制-子代理必读.md:11`）
+- 逐字引用 3：「数量类结论必须给"命令 + 真实输出"，不许只给结论数字。」（`docs/机制-验收代理必读.md:26`）
+- 适用条款：验收必读 §1 独立性（自算计数、不采信自评）、§2 逐字对照（引文回源到原文）；子代理必读 §0 提交权限；本批为历史报告锚点重判，未改代码、未编译，编译面结论以 CI 为准。
+
+## 二、机检末行（实测）
+
+- `python3 data_scripts/check-report-fields.py` 末行：`REPORT-FIELDS: FAIL（36 份，9 份不合格）`。其中本批涉及 2 份：`docs/修复-㉓豁免语境与锁口径反向扫描.md`、`docs/修复-陈旧口径回写.md`，A 锚点卡行前缀与 C 改坏节为规则上线前存量缺口，列入「新发现问题」，本批未伪造补齐；其余 7 份（`验收-B27-MapWebHolder孤儿`、`验收-B8-侧翼通视收口`、`验收-D2-O2O3下游消费与口径修正`、`验收-Q222-55与56门禁独立验收`、`验收-复核-C2R6`、`验收-层1-气泡链路`、`修复-gyro三缺陷`）属其他批次。
+- `python3 data_scripts/check-anchor-card.py --strict docs/锚点/Q436-雷达失联A批.md` 末行：`汇总: PASS=1 FAIL=0（共 1 份）`。不传文件时默认输出 `EMPTY: 未提供待检报告`（空集不判 PASS）。
+- `python3 data_scripts/check-problem-finding.py` 末行：`PROBLEM-FINDING: FAIL（判红 3 份；现行通过 29 份 / 历史豁免 5 份 / 基线豁免 0 份）`；判红 `docs/修复-gyro三缺陷.md`、`docs/修复-视差遗留四项.md`（均缺新发现问题小节）、`docs/验收-复核-g61组合陷阱.md`（1/6 条缺处置状态）均属其他批次，不在 A 批。
+- `python3 data_scripts/check-onboarding.py` 末行：`ONBOARD: FAIL（7 份报告）`；判红 `docs/实现-书架陀螺仪视差.md`、`docs/实现-陀螺仪接管沙盘.md`、`docs/验收-复核-书架视差.md` 等均属其他批次，不在 A 批。
+- 注：fields / problem / onboard 三闸的不合格份数与名单随其他批次在仓并发编辑波动；本批只认领上述 2 份存量字段缺口，两份交付件自身三闸均 PASS。
+- 漂移雷达 `python3 data_scripts/check-drift.py --ratchet` 末行：`RATCHET: PASS 当前值 423 小于等于基线 496，基线未动`；扫描行 `RADAR: 锚点 14378｜OK 7599｜DRIFT 3870｜VOID 2213｜MISSING 395｜DEADFILE 28｜SKIP-EXTERNAL 47｜AMBIGUOUS 226（失联 423）`。失联计数稳定为 423（MISSING 395 / DEADFILE 28）；OK/DRIFT/锚点总数随其他批次在仓并发编辑波动。本批改动未向雷达新增失效锚点，登记清单中的旧锚以「路径 行号」书写、不参与锚点解析；两份交付件自身 MISSING/DEADFILE 计数为 0。
+- 行锚闸 `python3 data_scripts/check-line-anchors.py` 末行：`LINE-ANCHORS: FAIL（新增 DEADFILE/OUTOFRANGE 1 条 / 基线豁免存量 3780 条 / 白名单缺理由 0 条）`；唯一 NEW `docs/验收-复核-书架视差.md`（OUTOFRANGE，事故清单.md 行100）属其他批次，不在 A 批。A 批新增 0 条，无白名单豁免。
+
+## 三、总量实测（本批）
+
+- 本批开始 **317** 条（A 数组内雷达 MISSING/DEADFILE 实测）→ 结束 **206** 条（同口径复扫：MISSING 178 / DEADFILE 28）；净移出 111 条。其中 2 条为两条重贴锚注记内旧锚去解析化后从雷达移出（旧锚路径与行号仍以「行号」形式留档）。
+- 处置分类（按 317 条逐条回源判定）：已废 111、重贴锚 2、回源有效 13、待裁 191。
+- 说明：2 条重贴锚已回证新锚点存在，但雷达启发式候选词未命中，仍计入结束条数；13 条回源有效为文档切片引用，目标行仍在，属雷达按候选词的误报，锚点不改。
+
+## 四、处置图例
+
+- 已废：锚点所指符号/文件确已删除或被后续提交重写、结论不再现行；行内或报告头追加「已废·W-436」并写明以现行符号/后续报告为准，旧句与旧锚保留留档。
+- 重贴锚：符号改名/搬家到现行存活位置，回证新锚点文件:行真实存在且符号可命中；同行加「（重贴锚 W-436，原 <旧锚>）」。
+- 回源有效：报告行引用的切片/台账目标行仍在，结论成立；雷达候选词启发式误报，锚点不改。
+- 待裁：未定位到现行同类符号，也未定位到明确取代报告；不自行定裁，登记交调度层。
+
+## 五、逐文件处理统计（77 份，逐条陈述）
+
+- `docs/CI-编译错误-4508967.md`：共 29 条；已废 29、重贴锚 0、待裁 0、回源有效 0。
+- `docs/ci-compile-report.md`：共 5 条；已废 5、重贴锚 0、待裁 0、回源有效 0。
+- `docs/任务书-B2-主壳.md`：共 5 条；已废 0、重贴锚 0、待裁 4、回源有效 1。
+- `docs/任务书-B3-设置页.md`：共 6 条；已废 0、重贴锚 0、待裁 2、回源有效 4。
+- `docs/任务书-B4-阅读页.md`：共 17 条；已废 0、重贴锚 0、待裁 14、回源有效 3。
+- `docs/任务书-B5-设置我的全量.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/任务书-B6-发现页.md`：共 9 条；已废 0、重贴锚 0、待裁 5、回源有效 4。
+- `docs/供源方案-B6发现页.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B10-分支对比接线.md`：共 5 条；已废 0、重贴锚 0、待裁 5、回源有效 0。
+- `docs/修复-B10-容差返工.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B14-过渡spring-复审.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B17-离线重试分闸.md`：共 6 条；已废 0、重贴锚 0、待裁 6、回源有效 0。
+- `docs/修复-B18-六态收敛.md`：共 9 条；已废 0、重贴锚 0、待裁 9、回源有效 0。
+- `docs/修复-B19-离线分支空动作.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B29-常量visible-config.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B2收尾.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B4-02-翻页纯逻辑簇.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-B4-03-Sheet闸族状态簇.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-B4-04-编辑面板状态规则簇.md`：共 4 条；已废 0、重贴锚 0、待裁 4、回源有效 0。
+- `docs/修复-B5-01-冻结基线.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B6-01-冻结基线.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B6-02-模型映射层.md`：共 10 条；已废 0、重贴锚 0、待裁 10、回源有效 0。
+- `docs/修复-B6-03-发现页VM编排.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-B6-04-令牌动效吸收.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-B8-侧翼通视.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-C2R6-最近运行时间.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-CI-config二轮.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-CI-config包.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/修复-CI-config搜索匹配.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/修复-CI-其余包.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/修复-CI红-截图基建回归.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-InkContentEditState-平台签名撞名.md`：共 9 条；已废 0、重贴锚 0、待裁 9、回源有效 0。
+- `docs/修复-Ink面板编译红.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-Q244-导入分组与死行摘除.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-SearchHotBinder挂死.md`：共 7 条；已废 2、重贴锚 0、待裁 5、回源有效 0。
+- `docs/修复-U12-crossing编译错.md`：共 4 条；已废 0、重贴锚 0、待裁 4、回源有效 0。
+- `docs/修复-crossing-Color与Int错配.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-g63影子声明.md`：共 2 条；已废 2、重贴锚 0、待裁 0、回源有效 0。
+- `docs/修复-g63行注释栈.md`：共 3 条；已废 3、重贴锚 0、待裁 0、回源有效 0。
+- `docs/修复-g66实现成员override.md`：共 1 条；已废 1、重贴锚 0、待裁 0、回源有效 0。
+- `docs/修复-g66改动面路径.md`：共 3 条；已废 3、重贴锚 0、待裁 0、回源有效 0。
+- `docs/修复-㉓豁免语境与锁口径反向扫描.md`：共 4 条；已废 2、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-主AI空等门禁.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/修复-八向octile度量.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-分组显示名断言口径.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-单测债80条.md`：共 4 条；已废 0、重贴锚 0、待裁 4、回源有效 0。
+- `docs/修复-卡片基座接入.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/修复-吞异常三文件.md`：共 5 条；已废 0、重贴锚 0、待裁 5、回源有效 0。
+- `docs/修复-回放分发返工.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/修复-敌情数据层掩码.md`：共 5 条；已废 0、重贴锚 0、待裁 5、回源有效 0。
+- `docs/修复-暴露回合复位.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-机制种子落地.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-校验脚本可移植化.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-清剿收尾两项.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-清除ReaderProvider.md`：共 44 条；已废 44、重贴锚 0、待裁 0、回源有效 0。
+- `docs/修复-漂移与符号门禁.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-组件七态与缺件补齐.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-设计token漂移.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/修复-锚点存量棘轮基线.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-门禁自测欠账第二批.md`：共 14 条；已废 14、重贴锚 0、待裁 0、回源有效 0。
+- `docs/修复-陈旧口径回写.md`：共 9 条；已废 0、重贴锚 1、待裁 8、回源有效 0。
+- `docs/修复-降级暴露语义分级.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/修复-降级标志消费与视野豁免.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/判定-B28-空态卡调用方.md`：共 1 条；已废 0、重贴锚 0、待裁 0、回源有效 1。
+- `docs/判定-B31-清剿残留物.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/复盘-本夜返工根因聚簇.md`：共 4 条；已废 0、重贴锚 0、待裁 4、回源有效 0。
+- `docs/复盘-编译面三连红-2026-11-27.md`：共 1 条；已废 0、重贴锚 0、待裁 1、回源有效 0。
+- `docs/复盘-跨模块改名漏扫-2026-11-27.md`：共 2 条；已废 2、重贴锚 0、待裁 0、回源有效 0。
+- `docs/复盘-返工根因.md`：共 4 条；已废 0、重贴锚 0、待裁 4、回源有效 0。
+- `docs/审计-exported16处.md`：共 3 条；已废 3、重贴锚 0、待裁 0、回源有效 0。
+- `docs/审计-编译风险穷举.md`：共 1 条；已废 0、重贴锚 1、待裁 0、回源有效 0。
+- `docs/拆分-B4阅读页小单.md`：共 5 条；已废 0、重贴锚 0、待裁 5、回源有效 0。
+- `docs/拆分-B5设置我的全量小单.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+- `docs/拆分-B6发现页小单.md`：共 3 条；已废 0、重贴锚 0、待裁 3、回源有效 0。
+- `docs/拆分-B6数据批次边界卡.md`：共 4 条；已废 0、重贴锚 0、待裁 4、回源有效 0。
+- `docs/挂死嫌疑-静态短名单.md`：共 1 条；已废 1、重贴锚 0、待裁 0、回源有效 0。
+- `docs/收口-Q297报告三门禁.md`：共 2 条；已废 0、重贴锚 0、待裁 2、回源有效 0。
+
+## 六、重贴锚明细（2 条，均已回证）
+
+- `docs/修复-陈旧口径回写.md 行27`：旧锚 `docs/api.md 行261` → 新锚 `api.md:261`。回证：接口文档位于仓库根 api.md，docs/api.md 路径误写；:261 为 Content Provider 已移除 Q-282 注记。
+- `docs/审计-编译风险穷举.md 行160`：旧锚 `RasterResult.kt 行16` → 新锚 `app/src/main/java/io/legado/app/ui/map/globe/render/SoftwareRasterizer.kt:16`。回证：RasterResult 已并入 SoftwareRasterizer.kt:16（data class RasterResult）。
+
+## 七、已废明细（111 条，按报告归集 successor 口径）
+
+- `docs/CI-编译错误-4508967.md`（29 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：本件是旧提交 4508967 的编译报错快照，所列 Unresolved reference / 类型错配行号随后续提交修复，已不对应现行源码；错误处置结论以现行存活源码与 docs/复盘-CI连红到全绿-根因清单.md 为准，失效锚点仅作历史留档。
+- `docs/ci-compile-report.md`（5 条）：本件 §0 最新结论（run 45087598131 / commit 965d75a BUILD SUCCESSFUL）已覆盖历史快照；该报错行号随后续提交修复，不对应现行源码，以现行存活源码为准。
+- `docs/修复-SearchHotBinder挂死.md`（2 条）：kotlinx-coroutines 仓内库内部件，非本仓源码锚点；挂死收口结论以 docs/修复-同类裸等待收口.md 与仓内存活测试件为准。
+- `docs/修复-g63影子声明.md`（2 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：Use13 / Use14 为 check-symbol-existence.py --selftest 仓外 /tmp 迷你仓夹具，验毕自删、仓内不存在，非源码锚点；判据以 data_scripts/check-symbol-existence.py 现行 selftest 通路为准。
+- `docs/修复-g63行注释栈.md`（3 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：app/use/Use.kt 为 g63 行注释栈仓外 /tmp 夹具，验毕自删、仓内不存在，非源码锚点；判据以 data_scripts/check-symbol-existence.py 现行 selftest 通路为准。
+- `docs/修复-g66实现成员override.md`（1 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：B.kt / Iface 为成员 override 判据的仓外 /tmp 夹具，验毕自删、仓内不存在，非源码锚点；判据以 data_scripts/check-member-override.py 现行实现为准。
+- `docs/修复-g66改动面路径.md`（3 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：g66probe/ProbeBad.kt 为改动面路径判据的仓外镜像仓夹具，验毕自删、仓内不存在，非源码锚点；判据以 data_scripts/check-member-override.py 现行实现为准。
+- `docs/修复-㉓豁免语境与锁口径反向扫描.md`（2 条）：仓内临时夹具文档，验毕自删；锁口径判据以 data_scripts/check-lock-rule.py 与 docs/事故-停工事故复盘-2026-11-25.md 为准。
+- `docs/修复-清除ReaderProvider.md`（44 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：Q-282 跨 App ContentProvider 已封死删除，ReaderProvider / ReaderProviderRoutes 及其单测仓内零声明；现行互通路由以 app/src/main/java/io/legado/app/web/HttpServer.kt 与 app/src/main/java/io/legado/app/api/controller/* 为准，正向安全断言以 app/src/test/java/io/legado/app/security/ManifestExportedContractTest.kt 为准，收口记录见 docs/验收-删除单编译风险.md；失效锚点为删除前取证留档。
+- `docs/修复-门禁自测欠账第二批.md`（14 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：/tmp 下 Bad1 / Bad2 / Over / BadSlash / BadDotColon 均为八条 check 脚本 --selftest 临时夹具，验毕自删、仓内不存在，非源码锚点；判据以对应 data_scripts/check-*.py 现行 selftest 通路为准。
+- `docs/复盘-跨模块改名漏扫-2026-11-27.md`（2 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：CardSurface 已按 Q-311 更名为 CardBase，现行基座以 app/src/main/java/io/legado/app/ui/card/CardBase.kt 为准；旧名报错快照行仅作改名经过留档。
+- `docs/审计-exported16处.md`（3 条）：> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：被审计的 ReaderProvider 暴露面随 Q-282 整体删除，仓内零声明；现行 exported 正向断言以 app/src/test/java/io/legado/app/security/ManifestExportedContractTest.kt 为准，收口见 docs/修复-exported两处收口.md。
+- `docs/挂死嫌疑-静态短名单.md`（1 条）：ReaderProviderRoutesTest 随 Q-282 Provider 封死一并删除；现行裸等待收口以 docs/修复-同类裸等待收口.md 与存活测试件为准。
+
+## 八、回源有效清单（13 条，未改锚）
+
+- `docs/任务书-B2-主壳.md 行55` → `docs/落文-规格切片/切片-23-全App音效.md 行23`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B3-设置页.md 行57` → `docs/落文-规格切片/落文-原文-05-缺项清单.md 行39`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B3-设置页.md 行58` → `docs/落文-规格切片/落文-原文-05-缺项清单.md 行49`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B3-设置页.md 行120` → `docs/重写-新架构缺口盘点.md 行171`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B3-设置页.md 行208` → `docs/审计-无规格实现清单.md 行52`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B4-阅读页.md 行58` → `docs/落文-规格切片/切片-11-半屏Sheet.md 行32`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B4-阅读页.md 行63` → `docs/落文-规格切片/切片-09-阅读页竖排.md 行24`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B4-阅读页.md 行63` → `docs/落文-规格切片/落文-原文-04-八项新功能.md 行68`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B6-发现页.md 行107` → `docs/落文-规格切片/切片-25-卡片设计规格.md 行27`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B6-发现页.md 行114` → `docs/落文-规格切片/切片-25-卡片设计规格.md 行66`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B6-发现页.md 行119` → `docs/落文-规格切片/切片-25-卡片设计规格.md 行33`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/任务书-B6-发现页.md 行125` → `docs/落文-规格切片/切片-24-功能图标全集.md 行20`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+- `docs/判定-B28-空态卡调用方.md 行81` → `docs/落文-规格切片/切片-25-卡片设计规格.md 行50`：目标切片/台账行仍在，结论成立；雷达候选词误报。
+
+## 九、待裁清单（191 条，交调度层定裁，本批不自行定裁）
+
+- `docs/任务书-B2-主壳.md`（4 条）：
+  - 行 50 `docs/落文-规格切片/切片-03-设计token与四层框架.md 行307`（MISSING）
+  - 行 56 `docs/落文-规格切片/切片-01-启动动画.md 行89`（MISSING）
+  - 行 62 `docs/验收-复核-新架构缺口盘点.md 行220`（MISSING）
+  - 行 112 `docs/机制-总控必读.md 行157`（MISSING）
+- `docs/任务书-B3-设置页.md`（2 条）：
+  - 行 64 `docs/落文-规格切片/落文-原文-05-缺项清单.md 行52`（MISSING）
+  - 行 132 `docs/机制-总控必读.md 行157`（MISSING）
+- `docs/任务书-B4-阅读页.md`（14 条）：
+  - 行 54 `docs/落文-规格切片/切片-02-气泡协议.md 行21`（MISSING）
+  - 行 55 `docs/落文-规格切片/切片-02-气泡协议.md 行21`（MISSING）
+  - 行 55 `docs/重写-新架构缺口盘点.md 行169`（MISSING）
+  - 行 56 `docs/落文-规格切片/切片-08-性能红线.md 行10`（MISSING）
+  - 行 57 `docs/落文-规格切片/落文-原文-07-四层框架应用.md 行21`（MISSING）
+  - 行 60 `docs/落文-规格切片/落文-原文-07-四层框架应用.md 行18`（MISSING）
+  - 行 61 `docs/落文-规格切片/切片-09-阅读页竖排.md 行7`（MISSING）
+  - 行 61 `docs/落文-规格切片/落文-原文-07-四层框架应用.md 行19`（MISSING）
+  - 行 61 `docs/落文-规矩总纲.md 行29`（MISSING）
+  - 行 62 `docs/落文-规格切片/切片-09-阅读页竖排.md 行7`（MISSING）
+  - 行 64 `docs/落文-规格切片/切片-09-阅读页竖排.md 行29`（MISSING）
+  - 行 65 `docs/落文-规格切片/切片-08-性能红线.md 行9`（MISSING）
+  - 行 66 `docs/落文-规格切片/切片-08-性能红线.md 行12`（MISSING）
+  - 行 67 `docs/落文-规格切片/切片-08-性能红线.md 行62`（MISSING）
+- `docs/任务书-B5-设置我的全量.md`（1 条）：
+  - 行 147 `B3SettingGroups.kt 行142`（MISSING）
+- `docs/任务书-B6-发现页.md`（5 条）：
+  - 行 109 `docs/落文-规格切片/切片-25-卡片设计规格.md 行30`（MISSING）
+  - 行 113 `docs/落文-规格切片/切片-25-卡片设计规格.md 行65`（MISSING）
+  - 行 115 `docs/落文-规格切片/切片-04-组件系统.md 行10`（MISSING）
+  - 行 119 `app/src/main/java/io/legado/app/ui/card/TopicMarxCard.kt 行64`（MISSING）
+  - 行 120 `docs/落文-规格切片/落文-原文-04-八项新功能.md 行29`（MISSING）
+- `docs/供源方案-B6发现页.md`（1 条）：
+  - 行 4 `docs/重写-新架构缺口盘点.md 行80`（MISSING）
+- `docs/修复-B10-分支对比接线.md`（5 条）：
+  - 行 23 `app/src/main/java/io/legado/app/ui/map/crossing/shell/CrossingShell.kt 行256`（MISSING）
+  - 行 36 `CampaignModels.kt 行436`（MISSING）
+  - 行 47 `CrossingShell.kt 行493`（MISSING）
+  - 行 60 `CrossingShell.kt 行125`（MISSING）
+  - 行 113 `CrossingShell.kt 行258`（MISSING）
+- `docs/修复-B10-容差返工.md`（1 条）：
+  - 行 49 `CampaignModels.kt 行320`（MISSING）
+- `docs/修复-B14-过渡spring-复审.md`（1 条）：
+  - 行 44 `CrossingShell.kt 行85`（MISSING）
+- `docs/修复-B17-离线重试分闸.md`（6 条）：
+  - 行 66 `app/src/main/java/io/legado/app/ui/components/InkInteractionState.kt 行28`（MISSING）
+  - 行 67 `app/src/main/java/io/legado/app/ui/components/InkInteractionState.kt 行34`（MISSING）
+  - 行 68 `app/src/main/java/io/legado/app/ui/components/InkInteractionState.kt 行38`（MISSING）
+  - 行 70 `app/src/main/java/io/legado/app/ui/components/InkInteractionState.kt 行45`（MISSING）
+  - 行 74 `app/src/main/java/io/legado/app/ui/components/InkInteractionState.kt 行87`（MISSING）
+  - 行 75 `app/src/main/java/io/legado/app/ui/components/InkInteractionState.kt 行89`（MISSING）
+- `docs/修复-B18-六态收敛.md`（9 条）：
+  - 行 97 `app/src/main/java/io/legado/app/ui/config/settings/SettingControls.kt 行137`（MISSING）
+  - 行 104 `app/src/main/java/io/legado/app/ui/map/crossing/shell/CrossingShell.kt 行531`（MISSING）
+  - 行 105 `app/src/main/java/io/legado/app/ui/map/crossing/shell/CrossingShell.kt 行536`（MISSING）
+  - 行 149 `ComponentSystemContract.kt 行52`（MISSING）
+  - 行 167 `ComponentSystemContract.kt 行52`（MISSING）
+  - 行 195 `ComponentSystemContract.kt 行65`（MISSING）
+  - 行 196 `ComponentSystemContract.kt 行53`（MISSING）
+  - 行 209 `SettingControls.kt 行137`（MISSING）
+  - 行 209 `CrossingShell.kt 行531`（MISSING）
+- `docs/修复-B19-离线分支空动作.md`（1 条）：
+  - 行 287 `SettingSheetHost.kt 行16`（MISSING）
+- `docs/修复-B29-常量visible-config.md`（1 条）：
+  - 行 142 `SettingSheets.kt 行55`（MISSING）
+- `docs/修复-B2收尾.md`（1 条）：
+  - 行 50 `docs/任务书-B2-主壳.md 行169`（MISSING）
+- `docs/修复-B4-02-翻页纯逻辑簇.md`（2 条）：
+  - 行 125 `InkPageCommand.kt 行120`（MISSING）
+  - 行 132 `InkPageCommand.kt 行120`（MISSING）
+- `docs/修复-B4-03-Sheet闸族状态簇.md`（2 条）：
+  - 行 17 `docs/任务书-B4-阅读页-引擎定界.md 行384`（MISSING）
+  - 行 17 `docs/任务书-B4-阅读页-引擎定界.md 行518`（MISSING）
+- `docs/修复-B4-04-编辑面板状态规则簇.md`（4 条）：
+  - 行 22 `docs/拆分-B4阅读页小单.md 行52`（MISSING）
+  - 行 197 `State.kt 行43`（DEADFILE）
+  - 行 197 `Activity.kt 行354`（DEADFILE）
+  - 行 197 `Activity.kt 行376`（DEADFILE）
+- `docs/修复-B5-01-冻结基线.md`（1 条）：
+  - 行 31 `docs/落文-规矩总纲.md 行30`（MISSING）
+- `docs/修复-B6-01-冻结基线.md`（1 条）：
+  - 行 262 `docs/落文-规格切片/切片-04-组件系统.md 行10`（MISSING）
+- `docs/修复-B6-02-模型映射层.md`（10 条）：
+  - 行 30 `TopicMarxCard.kt 行37`（MISSING）
+  - 行 70 `DiscoverModels.kt 行173`（MISSING）
+  - 行 77 `DiscoverModels.kt 行204`（MISSING）
+  - 行 91 `DiscoverModels.kt 行179`（MISSING）
+  - 行 92 `DiscoverModels.kt 行177`（MISSING）
+  - 行 93 `DiscoverModels.kt 行139`（MISSING）
+  - 行 94 `DiscoverModels.kt 行130`（MISSING）
+  - 行 95 `DiscoverModels.kt 行177`（MISSING）
+  - 行 97 `DiscoverModels.kt 行132`（MISSING）
+  - 行 191 `TopicMarxCard.kt 行37`（MISSING）
+- `docs/修复-B6-03-发现页VM编排.md`（2 条）：
+  - 行 145 `DiscoverModels.kt 行129`（MISSING）
+  - 行 149 `DiscoverModels.kt 行174`（MISSING）
+- `docs/修复-B6-04-令牌动效吸收.md`（1 条）：
+  - 行 60 `DiscoverMotion.kt 行77`（MISSING）
+- `docs/修复-B8-侧翼通视.md`（2 条）：
+  - 行 6 `docs/问题清单.md 行47`（MISSING）
+  - 行 244 `CrossingShell.kt 行245`（MISSING）
+- `docs/修复-C2R6-最近运行时间.md`（2 条）：
+  - 行 6 `docs/验收-工具页-重写.md 行158`（MISSING）
+  - 行 29 `ui/autoTask/AutoTaskAdapter.kt 行49`（DEADFILE）
+- `docs/修复-CI-config二轮.md`（2 条）：
+  - 行 118 `SettingSheets.kt 行40`（MISSING）
+  - 行 128 `SettingSheets.kt 行98`（MISSING）
+- `docs/修复-CI-config包.md`（3 条）：
+  - 行 174 `settings/SettingControls.kt 行281`（MISSING）
+  - 行 260 `ui/about/AboutActivity.kt 行239`（DEADFILE）
+  - 行 353 `AboutActivity.kt 行239`（DEADFILE）
+- `docs/修复-CI-config搜索匹配.md`（3 条）：
+  - 行 119 `SettingControls.kt 行100`（MISSING）
+  - 行 121 `SettingControls.kt 行102`（MISSING）
+  - 行 122 `SettingControls.kt 行103`（MISSING）
+- `docs/修复-CI-其余包.md`（3 条）：
+  - 行 106 `AboutActivity.kt 行143`（DEADFILE）
+  - 行 107 `AboutActivity.kt 行239`（DEADFILE）
+  - 行 352 `edit/SourceEditState.kt 行23`（MISSING）
+- `docs/修复-CI红-截图基建回归.md`（2 条）：
+  - 行 58 `PaparazziTestReporter.kt 行118`（DEADFILE）
+  - 行 59 `PaparazziTestReporter.kt 行38`（DEADFILE）
+- `docs/修复-InkContentEditState-平台签名撞名.md`（9 条）：
+  - 行 31 `...InkContentEditState.kt 行44`（DEADFILE）
+  - 行 33 `...InkContentEditState.kt 行55`（DEADFILE）
+  - 行 35 `...InkContentEditState.kt 行112`（DEADFILE）
+  - 行 79 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt 行80`（MISSING）
+  - 行 80 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt 行114`（MISSING）
+  - 行 81 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt 行125`（MISSING）
+  - 行 82 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt 行151`（MISSING）
+  - 行 83 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt 行159`（MISSING）
+  - 行 84 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt 行163`（MISSING）
+- `docs/修复-Ink面板编译红.md`（2 条）：
+  - 行 84 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditEditor.kt 行34`（MISSING）
+  - 行 85 `app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditFooter.kt 行20`（MISSING）
+- `docs/修复-Q244-导入分组与死行摘除.md`（1 条）：
+  - 行 240 `.../ui/main/bookshelf/ImportSourceGroup.kt 行41`（MISSING）
+- `docs/修复-SearchHotBinder挂死.md`（5 条）：
+  - 行 226 `io.legado.app.model.jsSource.JsSourceUpsertTest.kt 行182`（DEADFILE）
+  - 行 227 `io.legado.app.model.DebugCallbackOwnershipTest.kt 行85`（DEADFILE）
+  - 行 228 `io.legado.app.ui.font.FontSelectionStyleTest.kt 行138`（DEADFILE）
+  - 行 229 `io.legado.app.help.source.SourceNavigationPolicyTest.kt 行17`（DEADFILE）
+  - 行 230 `io.legado.app.model.ChapterDownloadStateTest.kt 行46`（DEADFILE）
+- `docs/修复-U12-crossing编译错.md`（4 条）：
+  - 行 13 `///.../ui/map/crossing/model/Enums.kt 行221`（MISSING）
+  - 行 80 `Enums.kt 行7`（MISSING）
+  - 行 80 `CrossingShell.kt 行73`（MISSING）
+  - 行 194 `Enums.kt 行12`（MISSING）
+- `docs/修复-crossing-Color与Int错配.md`（2 条）：
+  - 行 7 `app/src/main/java/io/legado/app/ui/map/crossing/shell/CrossingShell.kt 行327`（MISSING）
+  - 行 134 `shell/CrossingShell.kt 行327`（MISSING）
+- `docs/修复-㉓豁免语境与锁口径反向扫描.md`（2 条）：
+  - 行 107 `docs/事故-停工事故复盘-2026-11-25.md 行31`（MISSING）
+  - 行 108 `docs/事故清单.md 行59`（MISSING）
+- `docs/修复-主AI空等门禁.md`（3 条）：
+  - 行 53 `docs/种子-机制种子.md 行73`（MISSING）
+  - 行 222 `docs/锚点/Q306-主AI空等门禁.md 行1`（MISSING）
+  - 行 237 `docs/派单队列.md 行86`（MISSING）
+- `docs/修复-八向octile度量.md`（1 条）：
+  - 行 125 `CampaignModels.kt 行200`（MISSING）
+- `docs/修复-分组显示名断言口径.md`（2 条）：
+  - 行 7 `app/src/main/java/io/legado/app/ui/main/bookshelf/ImportSourceGroup.kt 行65`（MISSING）
+  - 行 29 `app/src/main/java/io/legado/app/ui/main/bookshelf/ImportSourceGroup.kt 行65`（MISSING）
+- `docs/修复-单测债80条.md`（4 条）：
+  - 行 73 `McpApplication.kt 行26`（MISSING）
+  - 行 99 `CheckAppUpdate.kt 行19`（MISSING）
+  - 行 99 `AboutActivity.kt 行147`（DEADFILE）
+  - 行 188 `SourceManageSheets.kt 行108`（MISSING）
+- `docs/修复-卡片基座接入.md`（3 条）：
+  - 行 90 `TopicMarxCard.kt 行3`（MISSING）
+  - 行 127 `TopicMarxCard.kt 行2`（MISSING）
+  - 行 176 `TopicMarxCard.kt 行1`（MISSING）
+- `docs/修复-吞异常三文件.md`（5 条）：
+  - 行 127 `docs/备份-备案同步-报告.md 行51`（MISSING）
+  - 行 152 `docs/备份-备案同步-报告.md 行51`（MISSING）
+  - 行 202 `docs/机制-观感UX验收-回执.md 行170`（MISSING）
+  - 行 206 `docs/派单队列.md 行233`（MISSING）
+  - 行 206 `docs/派单台账.md 行238`（MISSING）
+- `docs/修复-回放分发返工.md`（3 条）：
+  - 行 48 `BattleModels.kt 行56`（MISSING）
+  - 行 56 `BattleModels.kt 行56`（MISSING）
+  - 行 107 `BattleModels.kt 行131`（MISSING）
+- `docs/修复-敌情数据层掩码.md`（5 条）：
+  - 行 27 `CrossingShell.kt 行674`（MISSING）
+  - 行 33 `CampaignModels.kt 行231`（MISSING）
+  - 行 41 `CrossingShell.kt 行694`（MISSING）
+  - 行 48 `CrossingShell.kt 行491`（MISSING）
+  - 行 54 `CrossingShell.kt 行144`（MISSING）
+- `docs/修复-暴露回合复位.md`（1 条）：
+  - 行 62 `app/src/main/java/io/legado/app/ui/map/crossing/model/CampaignModels.kt 行137`（MISSING）
+- `docs/修复-机制种子落地.md`（1 条）：
+  - 行 15 `docs/方案-门禁分级与降噪.md 行95`（MISSING）
+- `docs/修复-校验脚本可移植化.md`（1 条）：
+  - 行 10 `docs/整理-原文-重排校验.md 行526`（MISSING）
+- `docs/修复-清剿收尾两项.md`（1 条）：
+  - 行 110 `BookshelfViewModel.kt 行20`（MISSING）
+- `docs/修复-漂移与符号门禁.md`（1 条）：
+  - 行 128 `docs/验收-复核-视觉基线帧层.md 行142`（MISSING）
+- `docs/修复-组件七态与缺件补齐.md`（2 条）：
+  - 行 186 `ComponentState.kt 行10`（MISSING）
+  - 行 267 `ComponentState.kt 行14`（MISSING）
+- `docs/修复-设计token漂移.md`（2 条）：
+  - 行 13 `docs/落文-规格切片/切片-21-架构层.md 行27`（MISSING）
+  - 行 142 `app/src/main/java/io/legado/app/ui/map/globe/contract/GlobeSphere.kt 行23`（MISSING）
+- `docs/修复-锚点存量棘轮基线.md`（1 条）：
+  - 行 15 `docs/CI核验-InkBubbleRouteResolverTest修红.md 行60`（MISSING）
+- `docs/修复-陈旧口径回写.md`（8 条）：
+  - 行 17 `ReaderProvider.kt 行38`（DEADFILE）
+  - 行 58 `app/src/main/java/io/legado/app/ui/about/AboutActivity.kt 行204`（DEADFILE）
+  - 行 59 `app/src/main/java/io/legado/app/ui/about/AboutActivity.kt 行204`（DEADFILE）
+  - 行 61 `ui/about/AboutActivity.kt 行193`（DEADFILE）
+  - 行 62 `ui/about/AboutActivity.kt 行193`（DEADFILE）
+  - 行 64 `ui/about/AboutActivity.kt 行82`（DEADFILE）
+  - 行 65 `ui/about/AboutActivity.kt 行82`（DEADFILE）
+  - 行 158 `docs/修复-台账与队列对账.md 行46`（MISSING）
+- `docs/修复-降级暴露语义分级.md`（1 条）：
+  - 行 68 `CrossingShell.kt 行726`（MISSING）
+- `docs/修复-降级标志消费与视野豁免.md`（1 条）：
+  - 行 10 `docs/验收-复核-B8侧翼通视.md 行34`（MISSING）
+- `docs/判定-B31-清剿残留物.md`（3 条）：
+  - 行 65 `BookshelfViewModel.kt 行45`（MISSING）
+  - 行 79 `BookshelfViewModel.kt 行45`（MISSING）
+  - 行 151 `BookshelfViewModel.kt 行20`（MISSING）
+- `docs/复盘-本夜返工根因聚簇.md`（4 条）：
+  - 行 30 `docs/备份-备案同步-报告.md 行51`（MISSING）
+  - 行 41 `docs/规则逻辑链.md 行138`（MISSING）
+  - 行 41 `docs/规则总账.md 行115`（MISSING）
+  - 行 41 `docs/规则全集.md 行148`（MISSING）
+- `docs/复盘-编译面三连红-2026-11-27.md`（1 条）：
+  - 行 127 `app/src/main/java/io/legado/app/ui/config/b3/B3SettingGroups.kt 行68`（MISSING）
+- `docs/复盘-返工根因.md`（4 条）：
+  - 行 58 `CrossingShell.kt 行327`（MISSING）
+  - 行 68 `model/Enums.kt 行7`（MISSING）
+  - 行 160 `app/src/main/java/io/legado/app/ui/main/DetailSheet.kt 行35`（DEADFILE）
+  - 行 343 `docs/机制-总控必读.md 行3`（MISSING）
+- `docs/拆分-B4阅读页小单.md`（5 条）：
+  - 行 47 `docs/任务书-B4-阅读页-引擎定界.md 行384`（MISSING）
+  - 行 54 `docs/任务书-B4-阅读页-引擎定界.md 行426`（MISSING）
+  - 行 110 `docs/任务书-B4-阅读页-引擎定界.md 行135`（MISSING）
+  - 行 117 `docs/任务书-B4-阅读页-引擎定界.md 行160`（MISSING）
+  - 行 173 `docs/任务书-B4-阅读页-引擎定界.md 行268`（MISSING）
+- `docs/拆分-B5设置我的全量小单.md`（2 条）：
+  - 行 438 `CheckAppUpdate.kt 行13`（MISSING）
+  - 行 438 `ContextExtensions.kt 行186`（MISSING）
+- `docs/拆分-B6发现页小单.md`（3 条）：
+  - 行 133 `docs/验收-复核-供源方案-B6.md 行205`（MISSING）
+  - 行 140 `TopicMarxCard.kt 行64`（MISSING）
+  - 行 263 `BookSourceExtensions.kt 行9`（MISSING）
+- `docs/拆分-B6数据批次边界卡.md`（4 条）：
+  - 行 531 `app/src/main/java/io/legado/app/help/source/BookSourceExtensions.kt 行9`（MISSING）
+  - 行 544 `BookSourceExtensions.kt 行9`（MISSING）
+  - 行 593 `BookSourceExtensions.kt 行9`（MISSING）
+  - 行 639 `BookSourceExtensions.kt 行9`（MISSING）
+- `docs/收口-Q297报告三门禁.md`（2 条）：
+  - 行 43 `SourceEditState.kt 行46`（MISSING）
+  - 行 43 `ContextExtensions.kt 行177`（MISSING）
+
+## 十、未验证项
+
+- 待裁 191 条：本轮未定位到现行同类符号或明确取代报告，未做已废判定，留待调度层分派回源。
+- 重贴锚 2 条：新锚点文件:行已 grep 回证存在且符号命中，但漂移雷达按启发式候选词仍判 MISSING，未计入放行；是否调整雷达候选口径归门禁后续单。
+- 老报告字段缺口：`docs/修复-㉓豁免语境与锁口径反向扫描.md`、`docs/修复-陈旧口径回写.md` 的锚点卡行前缀、自查反例/改坏节为规则上线前存量，本轮只做锚点重判，未回填字段。
+- 文档切片类待裁条目：部分任务书/拆分报告引用的切片行号未逐句回源比对原文，已归入待裁，不在「回源有效」内。
+
+## 十一、新发现问题
+
+- 问题 1（雷达误报口径）：候选词把文件名 CamelCase 与 R 编号当符号，存活文件内代码行逐字命中仍被报 MISSING；本批 13 条回源有效即此类。建议雷达补「目标行代码片段逐字命中即 OK」判据。状态：待裁（归门禁规则后续单，本批不改 `data_scripts/**`）。
+- 问题 2（老报告字段债）：规则上线前的修复报告缺锚点卡行/改坏推演节，fields 闸一旦纳入 diff 即红；建议沿用回执补录豁免口径，或另立批量回补单。状态：待裁。
+- 问题 3（仓外/三方件入锚）：`/tmp` 自测夹具与 kotlinx-coroutines 内部件（Builders/AbstractCoroutine）被当仓内源码锚点计入失联；建议扫描根排除仓外路径与三方库内部路径。状态：待裁。
+- 问题 4（其他批次 NEW 锚点）：行锚闸当前唯一 NEW `docs/验收-复核-书架视差.md`（OUTOFRANGE，事故清单.md 行100）非 A 批引入；早前告警样例（AboutInkActivity.kt、DiscoverModels.kt、验收-删除单编译风险.md 行号越界）复扫时已不在新增键集合内。已在二节登记，归对应批次回修。状态：已入队（转调度层）。
+
+## 十二、变更清单（绝对路径，共 15 份报告）
+
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/CI-编译错误-4508967.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/ci-compile-report.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-SearchHotBinder挂死.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-g63影子声明.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-g63行注释栈.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-g66实现成员override.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-g66改动面路径.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-㉓豁免语境与锁口径反向扫描.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-清除ReaderProvider.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-门禁自测欠账第二批.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/修复-陈旧口径回写.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/复盘-跨模块改名漏扫-2026-11-27.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/审计-exported16处.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/审计-编译风险穷举.md`
+- `/home/user/Doubao/chats/38454122521460994/legado/docs/挂死嫌疑-静态短名单.md`
+
+- 另：`docs/复盘-跨模块改名漏扫-2026-11-27.md` 在已废头注之外，补写「新发现问题」小节 1 条（CardSurface→CardBase 改名漏扫，已闭环）。
+
+## 十三、边界与禁项回执
+
+- 未碰 `app/**`、`data_scripts/**`；未执行 git add/commit/push/revert/checkout；未本地编译、未跑 gradle/kotlinc。
+- `B` 批报告一份未改；仓内临时清单 `/tmp/q436/` 未写入仓库。
+- 失效旧锚点未删除，已废条目旧句原文保留，仅追加判定注记；重贴锚保留「原 <旧锚>」留痕。
+- 待裁条目未自行定裁，全部登记在第九节。
+

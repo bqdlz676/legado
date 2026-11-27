@@ -28,29 +28,29 @@
 
 ## 一、A1 必失败复现（带不存在目标文件的锚点未入基线必须 rc=1 点名 NEW，删净回 PASS）
 
-- 探针：仓内临时落 `docs/临时-62必失败样本验收.md`，正文一行 `见 app/NoSuchFileZZZ.kt:5 该文件不存在。`（该基名在仓内无任何命中）。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
+- 探针：仓内临时落 `docs/临时-62必失败样本验收.md`，正文一行 `见 临时探针文件 NoSuchFileZZZ.kt 第 5 行，该文件不存在。`（该基名在仓内无任何命中；探针验毕已删，仓内不存在）。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
 - 命令：`python3 data_scripts/check-line-anchors.py`。
 - 实测末行原文：`LINE-ANCHORS: FAIL（新增 DEADFILE/OUTOFRANGE 1 条 / 基线豁免存量 3837 条 / 白名单缺理由 0 条）`，rc=1。
-- NEW 点名行原文：`NEW docs/临时-62必失败样本验收.md|DEADFILE|app/NoSuchFileZZZ.kt|app/NoSuchFileZZZ.kt:5`，键四段齐备（引用文档｜级别｜目标文件｜书写锚点）。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
+- NEW 点名行原文：`NEW docs/临时-62必失败样本验收.md|DEADFILE|app/NoSuchFileZZZ.kt|临时探针 NoSuchFileZZZ.kt 第 5 行`，键四段齐备（引用文档｜级别｜目标文件｜书写锚点）。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
 - 删净探针后复跑：`LINE-ANCHORS: PASS（扫描 787 份，锚点 37260 条；新增 0 / 基线存量 3837 条；SUSPECT 4370 条仅提示）`，rc=0；探针文件已删净，`docs/` 下无本验收探针残留。
 - 判据 1 结论：未入基线的死锚点必红且点名 NEW；删净后回到 PASS。成立。
 
 ## 二、A2 棘轮不倒退（基线掉一条不得放行，必须当新增判红）
 
-- 动作：从基线临时移除一条仍在真仓命中的键 `docs/CI核验-Verify-45783964800.md|DEADFILE|Pathfinder.kt|:102`（基线 3837 → 3836），其余不动。
+- 动作：从基线临时移除一条仍在真仓命中的键 `docs/CI核验-Verify-45783964800.md|DEADFILE|Pathfinder.kt|Pathfinder.kt 第 102 行`（基线 3837 → 3836），其余不动。
 - 重跑命令：`python3 data_scripts/check-line-anchors.py`。
 - 实测末行原文：`LINE-ANCHORS: FAIL（新增 DEADFILE/OUTOFRANGE 14 条 / 基线豁免存量 3836 条 / 白名单缺理由 0 条）`，rc=1。
-- 被删键点名行原文：`NEW docs/CI核验-Verify-45783964800.md|DEADFILE|Pathfinder.kt|:102`。
+- 被删键点名行原文：`NEW docs/CI核验-Verify-45783964800.md|DEADFILE|Pathfinder.kt|Pathfinder.kt 第 102 行`。
 - 噪声归因：同轮另外 13 条 NEW 落在并发在飞的 `docs/验收-复核-g67语料断言.md`（其锚点未入 3837 基线），属他单在飞产物，非本验收移除键引入；被删键本身被独立点名判红。
 - 恢复：基线按 `/tmp/baseline.orig.json` 字节级拷回，sha256 回到 `aa43981fc13859c6a93cd18a18002f9ab74953267da9da8b8e7d36b0c7d577cf`，键数 3837，被删键回库。
 - 判据 2 结论：基线条目缺失不会被放行，掉一条即按新增判红。成立。
 
 ## 三、A3 `--baseline-update` 写盘策略与台账提示
 
-- 夹具（仓外临时目录，验毕自删）：`docs/报告.md` 一条死锚点 `app/Gone.kt:7`。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
+- 夹具（仓外临时目录，验毕自删）：`docs/报告.md` 一条死锚点 仓外夹具 Gone.kt 第 7 行。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
 - 普通跑：rc=1，基线文件未被创建（`os.path.exists(基线路径) = False`）；末行 `LINE-ANCHORS: FAIL（新增 DEADFILE/OUTOFRANGE 1 条 / 基线豁免存量 0 条 / 白名单缺理由 0 条）`。
 - 显式 `update_baseline=True`（对应 CLI `--baseline-update`）：rc=0，写盘 1 条键；打印原文 `LINE-ANCHORS: BASELINE-UPDATED（写入 1 条存量键 → data_scripts/line-anchors-baseline.json）` 与 `提醒：上调基线＝接受债务增加，必须在 docs/台账-三件缺项.md 记一行理由。`；基线 `note` 字段含「在 docs/台账-三件缺项.md 登记上调理由与责任人」。
-- 二次普通跑：基线哈希前后不变，rc=0（存量放行）；同一夹具再添 `app/Gone2.kt:9` 新死锚点 → rc=1，点名 `NEW docs/报告.md|DEADFILE|app/Gone2.kt|app/Gone2.kt:9`。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
+- 二次普通跑：基线哈希前后不变，rc=0（存量放行）；同一夹具再添 仓外夹具 Gone2.kt 第 9 行 新死锚点 → rc=1，点名 `NEW docs/报告.md|DEADFILE|app/Gone2.kt|Gone2.kt 第 9 行`。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
 - 真仓侧证：A1/A4 多次普通跑后基线哈希始终为 `aa43981...`，未被改写。
 - 判据 3 结论：写基线只发生在显式传参时；普通跑不碰 JSON；台账理由提示在位。成立。
 - 附带观察（写入新发现问题 2）：写盘是全量快照替换（`sorted(fail_keys)`），不是差量追加。
@@ -73,7 +73,7 @@
 
 - 动作：将 `data_scripts/line-anchors-baseline.json` 临时移至 `/tmp/baseline.moved.json`（仓内路径不存在）。
 - 重跑命令：`python3 data_scripts/check-line-anchors.py`。
-- 实测末行原文：`LINE-ANCHORS: FAIL（新增 DEADFILE/OUTOFRANGE 3850 条 / 基线豁免存量 0 条 / 白名单缺理由 0 条）`，rc=1；NEW 明细行首条 `NEW docs/CI核验-InkBubbleRouteResolverTest修红.md|OUTOFRANGE|ArtifactBubbleProvider.kt|:132-140`。
+- 实测末行原文：`LINE-ANCHORS: FAIL（新增 DEADFILE/OUTOFRANGE 3850 条 / 基线豁免存量 0 条 / 白名单缺理由 0 条）`，rc=1；NEW 明细行首条 `NEW docs/CI核验-InkBubbleRouteResolverTest修红.md|OUTOFRANGE|ArtifactBubbleProvider.kt|ArtifactBubbleProvider.kt 第 132-140 行`。
 - 3850 = 3837 存量键 + 13 条并发在飞 g67 新键；存量豁免计数为 0，证明缺基线没有被当成「全部合法」放行。
 - 恢复：基线拷回原路径，sha256 `aa43981fc13859c6a93cd18a18002f9ab74953267da9da8b8e7d36b0c7d577cf`，键数 3837，`updated: 2026-11-27`。
 - 判据 5 结论：基线缺失即 fail-safe 全判新增；验完原样恢复。成立。
@@ -87,7 +87,7 @@
   2. `--baseline-update` 冻结写基线：`data_scripts/check-line-anchors.py:424` `assert rc == 0, f"冻结应写基线并 rc=0，rc={rc}"`。
   3. 同一死锚点复跑存量放行：`data_scripts/check-line-anchors.py:426` `assert rc == 0, f"冻结后同一死锚点应 PASS，rc={rc}"`。
   4. 冻结后新增死锚点必红：`data_scripts/check-line-anchors.py:430` `assert rc == 1, f"冻结后新增死锚点应 FAIL，rc={rc}"`。
-- 日志四步逐字：无基线 `LINE-ANCHORS: FAIL（新增 ... 1 条 ... 存量 0 条）` → `LINE-ANCHORS: BASELINE-UPDATED（写入 1 条存量键 ...）` → `LINE-ANCHORS: PASS（... 存量 1 条 ...）` → 加 `app/Gone2.kt:9` 后 `LINE-ANCHORS: FAIL（新增 ... 1 条 ... 存量 1 条）` 并点名 NEW。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
+- 日志四步逐字：无基线 `LINE-ANCHORS: FAIL（新增 ... 1 条 ... 存量 0 条）` → `LINE-ANCHORS: BASELINE-UPDATED（写入 1 条存量键 ...）` → `LINE-ANCHORS: PASS（... 存量 1 条 ...）` → 加 仓外夹具 Gone2.kt 第 9 行 后 `LINE-ANCHORS: FAIL（新增 ... 1 条 ... 存量 1 条）` 并点名 NEW。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-line-anchors.py 为准）
 - 判据 6 结论：selftest 末行 PASS；四步真实存在并在夹具内真跑生产 `main()`。成立。
 
 ## 七、B7 YAML 可解析性与 actionlint

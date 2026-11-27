@@ -196,23 +196,23 @@ class PlaceMapActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 切回前台重注册；空数据分支 WebView 已 GONE，不启传感器，省功耗
+        // 切回前台重申领；空数据分支 WebView 已 GONE，不申领传感器，省功耗（N5 持牌口径）
         if (web?.visibility == View.VISIBLE) {
             GyroBridge.setDisplayRotation(windowManager.defaultDisplay.rotation)
-            GyroBridge.start(this)
+            GyroBridge.acquire(HOST_MAP, this)
         } else {
-            GyroBridge.stop()
+            GyroBridge.release(HOST_MAP)
         }
     }
 
     override fun onPause() {
-        // 切后台立即注销传感器，避免后台耗电与悬空回调（规格 §七）
-        GyroBridge.stop()
+        // 切后台交还持牌；引用计数下不打断仍在用桥的其他宿主（N5）
+        GyroBridge.release(HOST_MAP)
         super.onPause()
     }
 
     override fun onDestroy() {
-        GyroBridge.stop()
+        GyroBridge.release(HOST_MAP)
         web?.apply {
             loadUrl("about:blank")
             stopLoading()
@@ -241,5 +241,10 @@ class PlaceMapActivity : AppCompatActivity() {
         /** 是否有可用传感器；false 时 JS 端隐藏陀螺仪入口。 */
         @android.webkit.JavascriptInterface
         fun available(): Boolean = GyroBridge.level > 0
+    }
+
+    companion object {
+        /** N5 持牌标识：与书架 / 沙盘宿主区分，release 只摘自己的牌，不连带他人。 */
+        private const val HOST_MAP = "place-map"
     }
 }

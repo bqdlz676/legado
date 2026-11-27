@@ -64,19 +64,19 @@ class BattleActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 切回前台重注册传感器；方向基准按当前屏幕方向重映射
+        // 切回前台重申领传感器；方向基准按当前屏幕方向重映射（N5 持牌口径）
         GyroBridge.setDisplayRotation(windowManager.defaultDisplay.rotation)
-        GyroBridge.start(this)
+        GyroBridge.acquire(HOST_BATTLE, this)
     }
 
     override fun onPause() {
-        // 切后台注销，避免后台耗电（规格 §七）
-        GyroBridge.stop()
+        // 切后台交还持牌；引用计数下不打断仍在用桥的其他宿主（N5）
+        GyroBridge.release(HOST_BATTLE)
         super.onPause()
     }
 
     override fun onDestroy() {
-        GyroBridge.stop()
+        GyroBridge.release(HOST_BATTLE)
         web?.apply {
             loadUrl("about:blank")
             stopLoading()
@@ -102,5 +102,10 @@ class BattleActivity : AppCompatActivity() {
         /** 是否有可用传感器；false 时 JS 端隐藏陀螺仪入口。 */
         @android.webkit.JavascriptInterface
         fun available(): Boolean = GyroBridge.level > 0
+    }
+
+    companion object {
+        /** N5 持牌标识：与书架 / 地图宿主区分，release 只摘自己的牌，不连带他人。 */
+        private const val HOST_BATTLE = "battle"
     }
 }

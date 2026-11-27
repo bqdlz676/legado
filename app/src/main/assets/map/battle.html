@@ -334,26 +334,45 @@
   };
 
   // ---------- 手势 ----------
-  var down = null, last = null;
-  canvas.addEventListener('touchstart', function (e) {
-    var t = e.touches[0]; down = { x: t.clientX, y: t.clientY }; last = down;
+  // pointer / touch 双通路 + 首事件来源锁：同一手势只走一条，防内核同时合成两类事件时一次拖动算两遍。
+  // 判定依据：orbitStart 记下 orbitSource，move/end 只认被锁来源；touch 先于 pointer 派发，首事件落 touch。
+  var down = null, last = null, orbitSource = null;
+  function orbitStart(source, x, y) {
+    down = { x: x, y: y }; last = down; orbitSource = source;
     document.getElementById('hint').style.opacity = 0;
+  }
+  function orbitMove(source, x, y) {
+    if (!last || orbitSource !== source) return;
+    var dx = x - last.x, dy = y - last.y;
+    last = { x: x, y: y };
+    // 跟随模式：轨道偏航/俯仰不跟手，单指只产生陀螺仪临时偏移，双指缩放保留
+    if (!(window.Gyro && Gyro.getMode() === 'follow')) {
+      cam.yaw -= dx * 0.006;
+      cam.pitch = Math.max(0.28, Math.min(1.45, cam.pitch + dy * 0.004));
+      placeCam();
+    }
+  }
+  function orbitEnd(source) {
+    if (orbitSource !== source) return;
+    last = null; orbitSource = null;
+  }
+
+  canvas.addEventListener('pointerdown', function (e) { orbitStart('pointer', e.clientX, e.clientY); });
+  canvas.addEventListener('pointermove', function (e) {
+    orbitMove('pointer', e.clientX, e.clientY);
+    if (e.cancelable) e.preventDefault();
+  });
+  canvas.addEventListener('pointerup', function () { orbitEnd('pointer'); });
+  canvas.addEventListener('pointercancel', function () { orbitEnd('pointer'); });
+  canvas.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; if (t) orbitStart('touch', t.clientX, t.clientY);
   }, { passive: true });
   canvas.addEventListener('touchmove', function (e) {
-    var t = e.touches[0];
-    if (last) {
-      var dx = t.clientX - last.x, dy = t.clientY - last.y;
-      last = { x: t.clientX, y: t.clientY };
-      // 跟随模式：轨道偏航/俯仰不跟手，单指只产生陀螺仪临时偏移，双指缩放保留
-      if (!(window.Gyro && Gyro.getMode() === 'follow')) {
-        cam.yaw -= dx * 0.006;
-        cam.pitch = Math.max(0.28, Math.min(1.45, cam.pitch + dy * 0.004));
-        placeCam();
-      }
-    }
+    var t = e.touches[0]; if (t) orbitMove('touch', t.clientX, t.clientY);
     e.preventDefault();
   }, { passive: false });
-  canvas.addEventListener('touchend', function () { last = null; }, { passive: true });
+  canvas.addEventListener('touchend', function () { orbitEnd('touch'); }, { passive: true });
+  canvas.addEventListener('touchcancel', function () { orbitEnd('touch'); }, { passive: true });
   canvas.addEventListener('wheel', function (e) {
     cam.dist = Math.max(45, Math.min(220, cam.dist + e.deltaY * 0.08));
     placeCam(); e.preventDefault();
@@ -368,6 +387,7 @@
     topTimer = setTimeout(function () { top.classList.add('fade'); }, 3000);
   }
   canvas.addEventListener('touchstart', poke, { passive: true });
+  canvas.addEventListener('pointerdown', poke);
   poke();
 
   // 地形隆起动画

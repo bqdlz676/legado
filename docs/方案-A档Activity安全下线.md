@@ -11,7 +11,7 @@
 
 | Activity | 声明位置 | 基类 | manifest 行 | intent-filter / exported |
 |---|---|---|---|---|
-| `AboutActivity` | `ui/about/AboutActivity.kt:61` | `AppCompatActivity`（Compose 宿主） | `AndroidManifest.xml:297` | 无 intent-filter；未显式 `exported`，默认不导出 |
+| `AboutActivity` | `ui/about/AboutActivity.kt:61` | `AppCompatActivity`（Compose 宿主） | `AndroidManifest.xml:297` | 无 intent-filter；未显式 `exported`，默认不导出 | 已废（现行关于页 app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:50 与后续报告 docs/修复-删除关于页.md 为准（旧 AboutActivity 已于 0b995d9 Q-280 删除））
 | `BookshelfManageActivity` | `ui/book/manage/BookshelfManageActivity.kt:70` | `VMBaseActivity<ActivityArrangeBookBinding, BookshelfManageViewModel>` | `AndroidManifest.xml:344` | 无 intent-filter；默认不导出 |
 | `RemoteBookActivity` | `ui/book/import/remote/RemoteBookActivity.kt:36` | `BaseImportBookActivity<RemoteBookViewModel>` | `AndroidManifest.xml:378` | 无 intent-filter；默认不导出 |
 
@@ -39,7 +39,7 @@
 | `androidTest/.../widget/dialog/BottomWebViewDialogShowTest.kt:31`、:59、:64 | 同上 `ActivityScenario.launch(AboutActivity::class.java)` | UI 测试宿主（自插 WebView 对话框） | 仅测试引用 |
 | `androidTest/.../widget/image/CoverTitleAdaptiveUiTest.kt:33`、:62、:85 | 同上；:90 `activity.setContentView(root)` 自插 Compose 根 | UI 测试宿主 | 仅测试引用 |
 | `test/.../about/UpdateDialogLifecycleTest.kt:17-18` | 源码文本断言：`listOf("ui/about/AboutActivity.kt", "ui/main/my/MyFragment.kt")`，断言含 `"check_update" -> checkAppUpdate()` / `"check_beta_update" -> checkAppUpdate(beta = true)` | 单测源码文本锁定 | 仅测试引用（删类后必须改指或改写） |
-| `ui/about/AboutActivity.kt:68`、:168 | `AboutScreen(activity = this@AboutActivity)` / `private fun AboutScreen(activity: AboutActivity)` | 类内自引 | 类本体，随类删除 |
+| `ui/about/AboutActivity.kt:68`、:168 | `AboutScreen(activity = this@AboutActivity)` / `private fun AboutScreen(activity: AboutActivity)` | 类内自引 | 类本体，随类删除 | 已废（现行关于页 app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:50 与后续报告 docs/修复-删除关于页.md 为准（旧 AboutActivity 已于 0b995d9 Q-280 删除））
 
 ### 2.2 孤儿宿主佐证
 
@@ -48,7 +48,7 @@
 
 ### 2.3 替换表：旧壳行功能 → 新壳现状
 
-| 旧壳行（`AboutActivity.kt:143-157` `onRowClick`） | 功能 | 新壳 `AboutInkActivity` 现状 | 替换判定 |
+| 旧壳行（`AboutActivity.kt:143-157` `onRowClick`） | 功能 | 新壳 `AboutInkActivity` 现状 | 替换判定 | 已废（现行关于页 AboutInkActivity.kt 第 50 行，全路径 app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt；与后续报告 docs/修复-删除关于页.md 为准（旧 AboutActivity 已于 0b995d9 Q-280 删除））
 |---|---|---|---|
 | `check_update`（:147 `checkAppUpdate()`） | 检查正式版更新 | `MyInkFragment.kt:109` 已有独立「检查更新」行 | 功能已迁移到 My 页，旧页此行可裁 |
 | `check_beta_update`（:148 `checkAppUpdate(beta = true)`） | 检查 Beta 更新 | 新壳 / My 页均无 Beta 入口 | **缺口**：需补 Beta 行或明确裁撤 |
@@ -213,7 +213,7 @@
 
 ## 八、新发现问题
 
-1. `AboutInkActivity` 是品牌壳，未接管旧关于页 11 项功能（待裁 / 待补）：见 2.3 缺口表；其中 Beta 更新、崩溃日志、日志包 / 堆转储、四份 MD 文档、邮件 / 公众号 / 分享口令均无新壳承接。证据行 `AboutActivity.kt:143-157`、`AboutInkActivity.kt:50-56`。
+1. `AboutInkActivity` 是品牌壳，未接管旧关于页 11 项功能（待裁 / 待补）：见 2.3 缺口表；其中 Beta 更新、崩溃日志、日志包 / 堆转储、四份 MD 文档、邮件 / 公众号 / 分享口令均无新壳承接。证据行 `AboutActivity.kt:143-157`、`AboutInkActivity.kt:50-56`。 已废（现行关于页 app/src/main/java/io/legado/app/ui/about/AboutInkActivity.kt:50 与后续报告 docs/修复-删除关于页.md 为准（旧 AboutActivity 已于 0b995d9 Q-280 删除））
 2. 新书架无批量多选 / 分组 / 批量换源 / 封面修复链路（待裁 / 待补）：`InkShelfFragment.kt:122` 明示单组平铺；`BookshelfManageActivity` 整屏批量动作无新入口。证据行 3.2 表。
 3. `MainActivity.kt:47` 残留 `CrashLogsDialog` 未使用 import（已入队）：与 `MyInkFragment.kt:19` 同类残留，可随关于页清理单一并摘。
 4. `UpdateDialogLifecycleTest.kt:17-18` 把 `AboutActivity.kt` 源码文本当作更新路由断言对象（已入队）：旧类下线后此断言无源可指，需迁到新壳更新行；注意新壳目前只有正式版检查，Beta 行断言无落点。

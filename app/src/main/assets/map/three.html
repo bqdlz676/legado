@@ -374,7 +374,9 @@ function placeLabels() {
 }
 
 // ---- 交互 ----
-var dragging = false, lastX = 0, lastY = 0, rotY = 0, rotX = 0, dist = 300;
+// pointer / touch 双通路 + 首事件来源锁：同一手势只走一条，防内核同时合成两类事件时一次拖动算两遍。
+// 判定依据：orbitStart 记下 dragSource，move/end 只认被锁来源；touch 先于 pointer 派发，首事件落 touch。
+var dragging = false, dragSource = null, lastX = 0, lastY = 0, tapX = 0, tapY = 0, rotY = 0, rotX = 0, dist = 300;
 var autoRot = false;
 var routeMode = true;
 var raycaster = new THREE.Raycaster();
@@ -382,25 +384,36 @@ var routePts = [], routeLine = null;
 var markerGroup = new THREE.Group();
 scene.add(markerGroup);
 
-canvas.addEventListener('pointerdown', function (e) {
-  dragging = true; lastX = e.clientX; lastY = e.clientY;
-  canvas.setPointerCapture(e.pointerId);
-});
-canvas.addEventListener('pointermove', function (e) {
-  if (!dragging) return;
-  var dx = e.clientX - lastX, dy = e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
+function orbitStart(source, x, y) {
+  dragging = true; dragSource = source; lastX = x; lastY = y; tapX = x; tapY = y;
+}
+function orbitMove(source, x, y) {
+  if (!dragging || dragSource !== source) return;
+  var dx = x - lastX, dy = y - lastY;
+  lastX = x; lastY = y;
   // 跟随模式：轨道方位不跟手，单指只产生陀螺仪临时偏移（见 gyro.js），双指缩放不受影响
   if (window.Gyro && Gyro.getMode() === 'follow') return;
   rotY += dx * 0.006;
   rotX = Math.max(-0.55, Math.min(0.5, rotX + dy * 0.004));
+}
+function orbitEnd(source, x, y) {
+  if (dragSource !== source) return;
+  dragging = false; dragSource = null;
+  // 轻点（位移 <3px）落兵；x/y 为 null（如 pointercancel）时不触发落点
+  if (x == null) return;
+  if (routeMode && Math.abs(x - tapX) + Math.abs(y - tapY) < 3) dropPoint(x, y);
+}
+
+canvas.addEventListener('pointerdown', function (e) {
+  orbitStart('pointer', e.clientX, e.clientY);
+  canvas.setPointerCapture(e.pointerId);
 });
-canvas.addEventListener('pointerup', function (e) {
-  dragging = false;
-  if (routeMode && Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) < 3) {
-    dropPoint(e.clientX, e.clientY);
-  }
-});
+canvas.addEventListener('pointermove', function (e) { orbitMove('pointer', e.clientX, e.clientY); });
+canvas.addEventListener('pointerup', function (e) { orbitEnd('pointer', e.clientX, e.clientY); });
+canvas.addEventListener('pointercancel', function () { orbitEnd('pointer', null, null); });
+canvas.addEventListener('touchstart', function (e) {
+  var t = e.touches[0]; if (t) orbitStart('touch', t.clientX, t.clientY);
+}, { passive: true });
 canvas.addEventListener('wheel', function (e) {
   dist = Math.max(90, Math.min(560, dist + e.deltaY * 0.35));
   e.preventDefault();
@@ -414,9 +427,19 @@ canvas.addEventListener('touchmove', function (e) {
     dist = Math.max(90, Math.min(560, dist - (d - pinchStart) * 0.8));
     pinchStart = d;
     e.preventDefault();
+    return;
   }
+  var t = e.touches[0]; if (t) orbitMove('touch', t.clientX, t.clientY);
 }, {passive: false});
-canvas.addEventListener('touchend', function () { pinchStart = 0; });
+canvas.addEventListener('touchend', function (e) {
+  pinchStart = 0;
+  var t = e.changedTouches[0];
+  orbitEnd('touch', t ? t.clientX : null, t ? t.clientY : null);
+}, { passive: true });
+canvas.addEventListener('touchcancel', function () {
+  pinchStart = 0;
+  orbitEnd('touch', null, null);
+}, { passive: true });
 
 function dropPoint(cx, cy) {
   var nx = (cx / W) * 2 - 1, ny = -(cy / H) * 2 + 1;

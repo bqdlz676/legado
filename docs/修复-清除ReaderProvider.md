@@ -1,6 +1,7 @@
 # 修复 · Q-282 清除 ReaderProvider（跨 App ContentProvider 封死）
 
 锚点卡：docs/锚点/Q282-ReaderProvider.md
+> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：Q-282 跨 App ContentProvider 已封死删除，ReaderProvider / ReaderProviderRoutes 及其单测仓内零声明；现行互通路由以 app/src/main/java/io/legado/app/web/HttpServer.kt 与 app/src/main/java/io/legado/app/api/controller/* 为准，正向安全断言以 app/src/test/java/io/legado/app/security/ManifestExportedContractTest.kt 为准，收口记录见 docs/验收-删除单编译风险.md；失效锚点为删除前取证留档。
 
 > 裁决（最终，不再讨论互通价值）：1) 不做跨 App 互通；2) `ReaderProvider` 直接封死；3) 16 条路由与
 > `api/controller` 三件套中只被 Provider 使用的部分一并清除——死代码留着就是攻击面；4) 书源自动更新走

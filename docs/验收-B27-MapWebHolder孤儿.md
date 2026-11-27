@@ -232,7 +232,7 @@ grep -n "MapWebHolder\|WebView\|attach\|detach\|destroy" app/src/main/java/io/le
 
 ### 8.1 链条核对
 
-1. `docs/清理-B24-旧DetailSheet清剿.md:171`（§6.3 第 3 条）登记：`MapWebHolder.kt` 在 B24 删除旧 DetailSheet 三文件后全仓生产源码已无调用点，原唯一调用点为 `DetailSheet.kt:132` 的 `MapWebHolder.detach()`；并提示后续清剿时须同步摘除 `DesignTokenGuardTest.kt:159` 基线条目。
+1. `docs/清理-B24-旧DetailSheet清剿.md:171`（§6.3 第 3 条）登记：`MapWebHolder.kt` 在 B24 删除旧 DetailSheet 三文件后全仓生产源码已无调用点，原唯一调用点为 `DetailSheet.kt:132` 的 `MapWebHolder.detach()`；并提示后续清剿时须同步摘除 `DesignTokenGuardTest.kt:159` 基线条目。 已废（现行人名门面 app/src/main/java/io/legado/app/help/bubble/PersonProfileWiring.kt 与 app/src/main/java/io/legado/app/ui/main/PersonDetailActivity.kt 为准（旧 DetailSheet 三文件已于 2a6d687 清剿））
 2. B24 清剿 commit `2a6d687`（`清理B24:删旧DetailSheet三文件(701行,四类grep零命中)`）；现磁盘 `find app/src -iname "*DetailSheet*" -o -iname "*MapWeb*"` 无结果，旧 Sheet 与本 Holder 均无残留文件。
 3. 本单只处理锚点卡点名的 `MapWebHolder` 一个孤儿，未顺带清剿其他符号，与 B24「观察项只登记不删、交调度层另立条目」的处置衔接一致。
 

@@ -1,4 +1,5 @@
 # 审计 · AndroidManifest exported=true 16 处逐条判定（Q-239，M1 只读核查）
+> 漂移重判：原锚已失效，本结论标注为已废（2026-11-27 W-436）——原因：被审计的 ReaderProvider 暴露面随 Q-282 整体删除，仓内零声明；现行 exported 正向断言以 app/src/test/java/io/legado/app/security/ManifestExportedContractTest.kt 为准，收口见 docs/修复-exported两处收口.md。
 
 > 边界：本单为只读安全审计，**未改动 `app/src/main/AndroidManifest.xml` 任何一行**；未 git 写、未编译。判定依据为 manifest 声明 + 主源码拉起/路由证据，行号一律 `文件:行` 可回源。
 > 锚点卡：docs/锚点/Q239-exported审计.md。

@@ -54,6 +54,10 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     override val position: Int? get() = arguments?.getInt("position")
 
     private var flowJob: Job? = null
+
+    /** 槽位可见性口径（D1）：onHiddenChanged 回填；申领桥只在 resumed 且未 hidden 时进行。 */
+    private var shelfHidden = false
+
     private var books: List<Book> = emptyList()
     private var state by mutableStateOf(ShelfState.INIT_LOADING)
     private var uiBooks by mutableStateOf(emptyList<ShelfBookUi>())
@@ -89,7 +93,7 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
                 scrollTopSignal = scrollTopSignal,
                 // Q441：视差开关偏好归宿主（Fragment 侧 appCtx 已初始化；Compose 屏自身不碰 AppConfig）。
                 parallaxEnabled = AppConfig.shelfParallaxEnabled,
-                onPersistParallax = { AppConfig.shelfParallaxEnabled = it },
+                onPersistParallax = ::onPersistParallaxPreference,
                 onOpenBook = ::openBook,
                 onImport = ::openImport,
                 onDeleteBook = ::deleteBook,
@@ -215,33 +219,60 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     override fun onPause() {
         super.onPause()
         searchViewModel.pause()
-        // Q441：切后台注销传感器，避免后台耗电；无传感器 / 异常由桥内部兜底，不抛到 UI 层。
-        GyroBridge.stop()
+        // 切后台交还本宿主持牌；引用计数下不影响仍在用桥的其他宿主（N5）。
+        releaseShelfBridge()
     }
 
     override fun onResume() {
         super.onResume()
         searchViewModel.resume()
-        // Q441：回前台重新注册；方向基准按当前屏幕方向重映射，平滑值由 Compose 状态保留接上，不跳变。
-        if (AppConfig.shelfParallaxEnabled) {
-            runCatching {
-                GyroBridge.setDisplayRotation(requireActivity().windowManager.defaultDisplay.rotation)
-                GyroBridge.start(requireContext())
-            }
+        // 回前台：开关开且未被藏槽才申领；方向基准按当前屏幕方向重映射，平滑值由 Compose 状态保留接上。
+        if (AppConfig.shelfParallaxEnabled && !shelfHidden) {
+            acquireShelfBridge()
         }
     }
 
     /**
-     * Q441：切到其他 Tab（Fragment 被 hide）即注销；回到书架槽重新注册。
+     * Q441：切到其他 Tab（Fragment 被 hide）即交还持牌；回到书架槽按开关口径重新申领。
      * 为什么不走 onPause：同屏 Tab 切换不触发 Fragment onPause，hide/show 才是槽位可见性口径。
      */
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
+        shelfHidden = hidden
         if (hidden) {
-            GyroBridge.stop()
+            releaseShelfBridge()
         } else if (AppConfig.shelfParallaxEnabled) {
-            runCatching { GyroBridge.start(requireContext()) }
+            acquireShelfBridge()
         }
+    }
+
+    /**
+     * 视差开关回调（D1）：关→立即交还本宿主持牌；平滑值 / 阴影由 Compose 状态层
+     * `setEnabled(false)` 回中、D2 守卫兜底归零。开→仅在当前可见（resumed 且未 hidden）
+     * 时重新申领；不可见不抢传感器，回到可见由 onResume / onHiddenChanged 补申领。
+     */
+    private fun onPersistParallaxPreference(enabled: Boolean) {
+        AppConfig.shelfParallaxEnabled = enabled
+        val visible = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !shelfHidden
+        if (enabled) {
+            if (visible) acquireShelfBridge()
+        } else {
+            releaseShelfBridge()
+        }
+    }
+
+    private fun acquireShelfBridge() {
+        runCatching {
+            GyroBridge.setDisplayRotation(requireActivity().windowManager.defaultDisplay.rotation)
+            GyroBridge.acquire(HOST_SHELF, requireContext())
+        }
+    }
+
+    private fun releaseShelfBridge() = GyroBridge.release(HOST_SHELF)
+
+    companion object {
+        /** N5 持牌标识：与地图 / 沙盘宿主区分，release 只摘自己的牌，不连带他人。 */
+        private const val HOST_SHELF = "shelf"
     }
 
     private fun openImport() {

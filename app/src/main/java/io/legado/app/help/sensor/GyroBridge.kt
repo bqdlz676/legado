@@ -20,10 +20,14 @@ import kotlin.math.sqrt
  *  2. [Sensor.TYPE_GAME_ROTATION_VECTOR]：无磁力计修正，漂移偏大，次选；
  *  3. [Sensor.TYPE_ACCELEROMETER] + [Sensor.TYPE_MAGNETIC_FIELD] 融合矩阵兜底，
  *     漂移严重、噪声大；此分支 [degraded] 为 true，JS 端强制把合成权重压到 0.04；
- *  4. 全无传感器：[start] 返回 false，JS 端隐藏陀螺仪按钮，模式固定为关闭。
+ *  4. 全无传感器：[acquire] 返回 false，JS 端隐藏陀螺仪按钮，模式固定为关闭。
  *
  * 本类只做纯采集与排队，不持有 WebView；WebView 销毁后再调 [drainLatest] 也不会
  * 触碰任何 JS 上下文，满足「销毁后不得再 evaluateJavascript」的安全边界。
+ *
+ * 〔N5 跨宿主隔离〕书架 / 古今地图 / 战役沙盘三处共用本单例；旧口径任一宿主直接
+ * `stop()` 会把仍在用桥的另一宿主传感器一并注销。现改为宿主持牌引用计数：
+ * [acquire] 上牌、[release] 摘牌，最后一张牌摘掉才真正注销监听。
  */
 object GyroBridge {
 
@@ -40,6 +44,13 @@ object GyroBridge {
 
     private var sensorManager: SensorManager? = null
     private var listener: SensorEventListener? = null
+
+    /**
+     * 持牌宿主集合（N5 引用计数）：key 为宿主标识。
+     * 为什么用集合而非单个计数：三个宿主可交错申领 / 交还，集合能识别「同一宿主重入」
+     * 与「未知宿主重复交还」，release 只摘自己的牌，集合非空即保留共享监听。
+     */
+    private val holders = HashSet<String>()
 
     /** FIFO：新值从队尾进，[drainLatest] 从队首出，超出 [QUEUE_CAP] 挤掉队首。 */
     private val queue = ArrayDeque<FloatArray>(QUEUE_CAP + 2)
@@ -64,12 +75,39 @@ object GyroBridge {
     }
 
     /**
-     * 注册传感器并开始采集。
+     * 宿主申领传感器桥（N5 引用计数入口）。
+     * @param host 宿主标识：`"shelf"` 书架 / `"place-map"` 古今地图 / `"battle"` 战役沙盘
      * @return true=至少一路传感器可用；false=全无传感器，调用方应隐藏入口并退回纯手指操控。
+     *
+     * 时序口径：同一宿主重复申领不重复上牌；已有存活监听时新宿主直接共用一路注册，
+     * 不重复 registerListener（双份事件徒增 50Hz 功耗）。
      */
-    fun start(context: Context): Boolean {
-        stop() // 幂等重入：先清旧监听与旧队列，避免前后台快速切换造成重复注册
-        val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return false
+    fun acquire(host: String, context: Context): Boolean {
+        val fresh: Boolean
+        synchronized(holders) {
+            fresh = holders.add(host)
+        }
+        if (fresh) ensureStarted(context)
+        return level > 0
+    }
+
+    /**
+     * 宿主交还桥：摘掉自己的持牌；仅当最后一张牌摘掉时才真正注销监听、清队复位（N5）。
+     * 未上牌的宿主调用为本轮空操作，保证 onPause / onDestroy 重复交还幂等。
+     */
+    fun release(host: String) {
+        val empty: Boolean
+        synchronized(holders) {
+            empty = holders.remove(host) && holders.isEmpty()
+        }
+        if (empty) teardown()
+    }
+
+    /** 注册传感器并开始采集；已有存活注册时直接复用，避免重复注册。 */
+    private fun ensureStarted(context: Context) {
+        if (listener != null && sensorManager != null) return
+        teardown() // 清掉上一轮残留监听 / 脏队列（旧 start() 幂等重入口径保留）
+        val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return
         sensorManager = sm
 
         val rotationVec = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
@@ -83,7 +121,7 @@ object GyroBridge {
             accel != null && mag != null -> level = 3
             else -> {
                 level = 0
-                return false
+                return // 全无传感器：不注册任何监听，available 由 level=0 上报 JS / 书架
             }
         }
 
@@ -125,14 +163,13 @@ object GyroBridge {
                 sm.registerListener(lister, mag, SensorManager.SENSOR_DELAY_GAME)
             }
         }
-        return true
     }
 
     /** 取队首一条四元数；空队返回 null（JS 端本帧不更新姿态）。 */
     fun drainLatest(): FloatArray? = synchronized(queue) { queue.removeFirstOrNull() }
 
-    /** 注销全部监听并清空缓存；切后台 / onDestroy 时调用，杜绝泄漏。 */
-    fun stop() {
+    /** 注销全部监听并清空缓存；最后持牌者交还 / 桥重建前调用，杜绝泄漏。 */
+    private fun teardown() {
         val sm = sensorManager
         val lister = listener
         if (sm != null && lister != null) {

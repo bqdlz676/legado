@@ -25,9 +25,9 @@
 ## 一、判据 1：真事故复现（缺 override 必红，补上必绿）
 
 - 红样本 A（仓外镜像，照事故原型自构）：`Host.kt` 接口声明 `fun currentTextPage(): TextPage?`、`fun textPageState(): InkState`、`val title: String`；`Controller.kt` `class Controller : Host` 三成员同签名声明全缺 `override`。驱动实跑 rc=1，3 条红行，标签均为 `MEMBER-OVERRIDE`：
-  - `Controller.kt:3` 方法 `currentTextPage`，父类型 `Host`，原文 `fun currentTextPage(): TextPage? = null`。
-  - `Controller.kt:4` 方法 `textPageState`，父类型 `Host`，原文 `fun textPageState(): InkState = InkState.Ok`。
-  - `Controller.kt:5` 属性 `title`，父类型 `Host`，原文 `val title: String = "x"`。
+  - `Controller.kt:3` 方法 `currentTextPage`，父类型 `Host`，原文 `fun currentTextPage(): TextPage? = null`。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-member-override.py 为准）
+  - `Controller.kt:4` 方法 `textPageState`，父类型 `Host`，原文 `fun textPageState(): InkState = InkState.Ok`。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-member-override.py 为准）
+  - `Controller.kt:5` 属性 `title`，父类型 `Host`，原文 `val title: String = "x"`。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-member-override.py 为准）
   - 文件落点、行号、成员名、方法/属性类别四项齐备，不只退出码判红。
 - 绿样本 B：同镜像三成员补齐 `override`（`override fun currentTextPage…`、`override fun textPageState…`、`override val title…`）。驱动实跑 rc=0，fails=0，已配对 override=3。
 - 事故链回源：`git show 0c9fd30:app/src/main/java/io/legado/app/ui/book/read/ink/InkReadController.kt` 复核，`:141` `fun currentTextPage(): TextPage? =`、`:149` `fun textPageState(): InkTextPageState {` 均无 override；`git show 35bbb54` diff 仅两行 `-fun currentTextPage…` / `+override fun currentTextPage…`、`-fun textPageState…` / `+override fun textPageState…`，与镜像红→绿双向形态一致。
@@ -54,7 +54,7 @@
 
 ## 四、判据 4：间接实现沿链判红
 
-- 镜像链：`Foo.kt` `interface Foo { fun bar() }`；`A.kt` `open class A : Foo { override fun bar() {} }`；`B.kt` `class B : A { fun bar() {} }`。驱动 rc=1，1 条红行：`B.kt:2` 方法 `bar`，父类型 `['A']`，原文 `fun bar() {}`。
+- 镜像链：`Foo.kt` `interface Foo { fun bar() }`；`A.kt` `open class A : Foo { override fun bar() {} }`；`B.kt` `class B : A { fun bar() {} }`。驱动 rc=1，1 条红行：`B.kt:2` 方法 `bar`，父类型 `['A']`，原文 `fun bar() {}`。 已废（仓外 scratch 探针 / 临时夹具，验毕自删、非仓内代码；现行判据以 data_scripts/check-member-override.py 为准）
 - 沿链复核：`resolve_inherited`（`check-member-override.py:595`）BFS 从 `B` 的父类型 `A` 追到 `A` 的父类型 `Foo`，把 `Foo` 成员表合并进 `B`；`A` 自身已配对不判红，`B` 重声明同签名缺 override 判红。
 - 边界判断：写码方自登「间接实现沿链追表」与实测一致；只追仓内 Kotlin 声明的链，链上仓内具体类若又继承别的接口/抽象类一并追入。本判据成立。
 

@@ -18,10 +18,10 @@
   var IDENTITY = new THREE.Quaternion();
 
   // —— 规格 §三锁定的状态量 ——
-  var gyro = { q: new THREE.Quaternion(), active: false, weight: 0.08 };
-  var drag = { q: new THREE.Quaternion() };      // 单次拖动的增量四元数（规格符号保留）
+  var gyro = { q: new THREE.Quaternion(), weight: 0.08 };
   var dragOffset = new THREE.Quaternion();       // 累积的手指临时偏移，松手后回弹归零
   var finalQ = new THREE.Quaternion();
+  var orbitQ = new THREE.Quaternion();          // 宿主轨道模型自身算出的相机姿态，→off 过渡的回归目标
 
   var mode = 'off';            // off | follow | parallax
   var lastMode = 'follow';     // 单点 toggle 在「关闭 ↔ 最近用的模式」之间切换
@@ -32,6 +32,7 @@
   var transition = null;       // 800ms 视角过渡 {from, t0, dur, to}
   var lastFrame = 0;
   var draggingFollow = false;
+  var dragSource = null;       // 首事件来源锁：'pointer' | 'touch'；同一手势只走一条通路，防双计数
   var dragLastX = 0, dragLastY = 0;
 
   // 权重档位：规格 §三可调区间 0.04–0.20；默认 0.08。兜底分支强制压到 0.04。
@@ -66,7 +67,6 @@
   window.onQuat = function (w, x, y, z) {
     if (!isFinite(w) || !isFinite(x) || !isFinite(y) || !isFinite(z)) return;
     gyro.q.set(x, y, z, w);
-    gyro.active = true;
   };
 
   function initCapability() {
@@ -96,8 +96,10 @@
     if (next === mode) return;
     if (!available && next !== 'off') next = 'off';
     if (next !== 'off') lastMode = next;
-    // 进入跟随 / 叠加：从当前手指视角 800ms 平滑过渡到陀螺仪姿态，不突然跳向手机方向
-    if (mode === 'off' && next !== 'off' && camRef) {
+    // 四种切换（off→follow / off→parallax / follow↔parallax / →off）统一走 800ms 过渡。
+    // from 取切换瞬间相机实际合成姿态（上一帧 finalQ 已乘过 dragOffset），不是裸 gyro.q，
+    // 避免拖动残留偏移在切换瞬间被丢掉而产生单帧跳变。
+    if (camRef) {
       transition = { from: camRef.quaternion.clone(), t0: now || performance.now(), dur: 800, to: next };
     }
     mode = next;
@@ -116,8 +118,16 @@
 
   /* ---------- 每帧合成（render 之前调用） ---------- */
 
-  function targetQuat() {
-    return mode === 'parallax' ? baseline : gyro.q;
+  // 过渡 / 稳态共用的目标四元数（写入 finalQ 后返回）。
+  // follow = slerp(gyro.q, weight) × dragOffset；off / parallax 无独立陀螺仪目标，回归轨道基线 orbitQ。
+  function composedTarget(targetMode) {
+    if (targetMode === 'follow') {
+      finalQ.identity();
+      finalQ.slerp(gyro.q, gyro.weight);
+      finalQ.multiply(dragOffset);
+      return finalQ;
+    }
+    return orbitQ;
   }
 
   function frame(now, camera) {
@@ -128,14 +138,19 @@
     lastFrame = now;
     if (!camRef) return;
 
-    // 关闭模式：不介入镜头；顺带清掉残留拖动偏移，保证下次进入从零开始
-    if (mode === 'off') { dragOffset.identity(); return; }
+    // 关闭模式：不介入镜头；顺带清掉残留拖动偏移，保证下次进入从零开始。
+    // orbitQ 在此持续记录宿主轨道模型自己算出的姿态，作为 →off 过渡的回归目标。
+    if (mode === 'off') {
+      orbitQ.copy(camRef.quaternion);
+      dragOffset.identity();
+      return;
+    }
 
     // 800ms 过渡中：分量线性插值（lerp，非 slerp）后归一化，规避四元数绕远路（规格 §四）
     // 注：本仓 three.min.js 的 Quaternion 未挂 lerp 方法，故手写四分量插值再 normalize
     if (transition) {
       var k = Math.min(1, (now - transition.t0) / transition.dur);
-      var tq = targetQuat();
+      var tq = composedTarget(transition.to);
       var fq = transition.from;
       finalQ.set(
         fq.x + (tq.x - fq.x) * k,
@@ -160,7 +175,9 @@
       finalQ.multiply(dragOffset);
       camRef.quaternion.copy(finalQ);
     } else if (mode === 'parallax') {
-      // 叠加：以当前镜头姿态为底，叠加一层相对基准的微弱陀螺仪视差（权重 0.12）
+      // 叠加：以当前镜头姿态为底，叠加一层相对基准的微弱陀螺仪视差（权重 0.12）。
+      // premultiply 之前先把去视差前的轨道姿态记入 orbitQ，供 →off 过渡回归。
+      orbitQ.copy(camRef.quaternion);
       var delta = baseline.clone().invert().multiply(gyro.q);
       var off = IDENTITY.clone().slerp(delta, 0.12);
       camRef.quaternion.premultiply(off);
@@ -169,29 +186,52 @@
 
   /* ---------- 跟随模式下的手指临时偏移 ---------- */
 
+  // 跟随模式手指临时偏移：pointer / touch 双通路。
+  // 防重复计数：首事件（pointerdown 或 touchstart）锁定 dragSource，后续 move/up 只认被锁来源；
+  // 同时合成两类事件的内核上，touch 事件先于 pointer 事件派发（W3C 事件顺序），首事件落 touch，
+  // 随后合成的 pointerdown 见 draggingFollow=true 直接早退，一次拖动只累一遍偏移。
   function bindFollowDrag(canvas) {
     if (!canvas) return;
-    canvas.addEventListener('pointerdown', function (e) {
+
+    function start(source, x, y) {
       if (mode !== 'follow') return;
+      if (draggingFollow) return; // 已被另一通路的首事件锁定：本通路早退，防双计数
       draggingFollow = true;
-      dragLastX = e.clientX;
-      dragLastY = e.clientY;
-    });
-    canvas.addEventListener('pointermove', function (e) {
-      if (!draggingFollow) return;
-      var dx = e.clientX - dragLastX;
-      var dy = e.clientY - dragLastY;
-      dragLastX = e.clientX;
-      dragLastY = e.clientY;
+      dragSource = source;
+      dragLastX = x;
+      dragLastY = y;
+    }
+    function move(source, x, y) {
+      if (!draggingFollow || dragSource !== source) return;
+      var dx = x - dragLastX;
+      var dy = y - dragLastY;
+      dragLastX = x;
+      dragLastY = y;
       // 绕相机局部 Y / X 轴的小旋转，累加到临时偏移；灵敏度与页面既有拖动手感一致
       var yawQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx * 0.006);
       var pitchQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), dy * 0.004);
-      drag.q.copy(yawQ);
       dragOffset.multiply(yawQ).multiply(pitchQ);
-    });
-    var release = function () { draggingFollow = false; };
-    canvas.addEventListener('pointerup', release);
-    canvas.addEventListener('pointercancel', release);
+    }
+    function end(source) {
+      if (dragSource !== source) return;
+      draggingFollow = false;
+      dragSource = null;
+    }
+
+    canvas.addEventListener('pointerdown', function (e) { start('pointer', e.clientX, e.clientY); });
+    canvas.addEventListener('pointermove', function (e) { move('pointer', e.clientX, e.clientY); });
+    canvas.addEventListener('pointerup', function () { end('pointer'); });
+    canvas.addEventListener('pointercancel', function () { end('pointer'); });
+
+    // touch 兜底：不合成 pointer 事件的旧 WebView 内核上，单指拖动仍能产生临时偏移
+    canvas.addEventListener('touchstart', function (e) {
+      var t = e.touches[0]; if (t) start('touch', t.clientX, t.clientY);
+    }, { passive: true });
+    canvas.addEventListener('touchmove', function (e) {
+      var t = e.touches[0]; if (t) move('touch', t.clientX, t.clientY);
+    }, { passive: true });
+    canvas.addEventListener('touchend', function () { end('touch'); }, { passive: true });
+    canvas.addEventListener('touchcancel', function () { end('touch'); }, { passive: true });
   }
 
   /* ---------- 屏幕方向 / 前后台恢复 ---------- */
@@ -201,13 +241,16 @@
     dragOffset.identity();
     baseline.copy(gyro.q);
     transition = null;
+    draggingFollow = false;
+    dragSource = null;
   });
 
-  // 切后台：复位跟随拖拽态，避免「拖到一半切后台」回来卡在半按状态；
+  // 切后台：复位跟随拖拽态与来源锁，避免「拖到一半切后台」回来卡在半按状态；
   // 切回前台：原生重注册后，视角走 800ms 平滑恢复，不硬切（规格 §五）
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
       draggingFollow = false;
+      dragSource = null;
       return;
     }
     if (camRef) {

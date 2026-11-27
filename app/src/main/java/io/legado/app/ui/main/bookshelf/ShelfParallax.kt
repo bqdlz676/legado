@@ -63,6 +63,9 @@ object ShelfParallaxTokens {
     /** 轮询桥队列间隔 ms：与屏幕帧率匹配，功耗可控；空队时不做任何计算。 */
     internal const val POLL_INTERVAL_MS: Long = 16L
 
+    /** 关闭态轮询间隔 ms（D3）：只刷新按钮可用态，不 drain、不做平滑换算；2Hz 足够开关回显。 */
+    internal const val IDLE_POLL_INTERVAL_MS: Long = 500L
+
     /** 归一化分母：±90° 倾角映射到 ±1（半 π 弧度）；非 const：Math.PI 非常量表达式。 */
     internal val HALF_PI: Float = (Math.PI / 2).toFloat()
 }
@@ -144,7 +147,7 @@ class ShelfParallaxState internal constructor(
         this.pitch = smoothTilt(this.pitch, rawPitch)
     }
 
-    /** 宿主轮询回调：刷新传感器可用性（桥 start 后 level 才 >0，首帧可能为 0）。 */
+    /** 宿主轮询回调：刷新传感器可用性（桥 acquire 后 level 才 >0，首帧可能为 0）。 */
     internal fun refreshAvailability() {
         available = GyroBridge.level > 0
     }
@@ -176,36 +179,48 @@ class ShelfParallaxState internal constructor(
     private val shiftPx: Float = with(density) { ShelfParallaxTokens.MAX_SHIFT_DP.dp.toPx() }
     private val shadowShiftPx: Float = with(density) { ShelfParallaxTokens.MAX_SHADOW_SHIFT_DP.dp.toPx() }
 
+    // D2 基础态缓存：非 active 时直接回这两个常量派生值，避免每帧新建 Color / 重复 dp 换算
+    // 造成 GC 抖动；关闭 / 无传感器态阴影必须与基础态逐值一致，不留残影。
+    private val baseRadiusPx: Float = with(density) { ShelfParallaxTokens.SHADOW_RADIUS_BASE_DP.dp.toPx() }
+    private val baseShadowColor: Color = Color(
+        red = ShelfParallaxTokens.SHADOW_RGB_R / 255f,
+        green = ShelfParallaxTokens.SHADOW_RGB_G / 255f,
+        blue = ShelfParallaxTokens.SHADOW_RGB_B / 255f,
+        alpha = ShelfParallaxTokens.SHADOW_ALPHA_BASE,
+    )
+
     /** 卡片横向位移 px（dx = roll × maxShift）。 */
     val translationX: Float get() = if (active) roll * shiftPx else 0f
 
     /** 卡片纵向位移 px（dy = pitch × maxShift）。 */
     val translationY: Float get() = if (active) pitch * shiftPx else 0f
 
-    /** 阴影横向偏移 px：倾斜反方向（-shadowDx）。 */
-    val shadowOffsetX: Float get() = -roll * shadowShiftPx
+    /** 阴影横向偏移 px：active 时倾斜反方向；非 active 精确归 0（D2，防关闭 / 无传感器态残影）。 */
+    val shadowOffsetX: Float get() = if (active) -roll * shadowShiftPx else 0f
 
-    /** 阴影纵向偏移 px：倾斜反方向（-shadowDy）。 */
-    val shadowOffsetY: Float get() = -pitch * shadowShiftPx
+    /** 阴影纵向偏移 px：同上，非 active 归 0。 */
+    val shadowOffsetY: Float get() = if (active) -pitch * shadowShiftPx else 0f
 
-    /** 阴影模糊半径 px：12 + |roll|×6 dp。 */
+    /** 阴影模糊半径 px：active 时 12 + |roll|×6 dp；非 active 回基础半径（D2）。 */
     val shadowRadiusPx: Float
-        get() = with(density) {
-            (ShelfParallaxTokens.SHADOW_RADIUS_BASE_DP + abs(roll) * ShelfParallaxTokens.SHADOW_RADIUS_GAIN_DP).dp.toPx()
-        }
+        get() = if (active) {
+            with(density) {
+                (ShelfParallaxTokens.SHADOW_RADIUS_BASE_DP + abs(roll) * ShelfParallaxTokens.SHADOW_RADIUS_GAIN_DP).dp.toPx()
+            }
+        } else baseRadiusPx
 
-    /** 阴影暖金色：RGB 212,165,74，透明度 0.3 + |roll|×0.15（钳到 [0,1]）。 */
+    /** 阴影暖金色：active 时透明度 0.3 + |roll|×0.15；非 active 回缓存基础色，不每帧新建 Color（D2）。 */
     val shadowColor: Color
-        get() {
+        get() = if (active) {
             val alpha = (ShelfParallaxTokens.SHADOW_ALPHA_BASE +
                 abs(roll) * ShelfParallaxTokens.SHADOW_ALPHA_GAIN).coerceIn(0f, 1f)
-            return Color(
+            Color(
                 red = ShelfParallaxTokens.SHADOW_RGB_R / 255f,
                 green = ShelfParallaxTokens.SHADOW_RGB_G / 255f,
                 blue = ShelfParallaxTokens.SHADOW_RGB_B / 255f,
                 alpha = alpha,
             )
-        }
+        } else baseShadowColor
 }
 
 /**
@@ -224,16 +239,23 @@ fun rememberShelfParallaxState(enabled: Boolean): ShelfParallaxState {
 
     LaunchedEffect(enabled) {
         state.setEnabled(enabled)
-        // 单轮询协程：无论卡片多少张，桥队列只被这一条循环消费一次。
-        while (true) {
-            state.refreshAvailability()
-            if (enabled) {
+        if (enabled) {
+            // 开启态：单轮询协程与屏幕帧率匹配，无论卡片多少张，桥队列只被这一条循环消费一次。
+            while (true) {
+                state.refreshAvailability()
                 val q = GyroBridge.drainLatest()
                 if (q != null) {
                     quaternionToTilt(q)?.let { (roll, pitch) -> state.onRawTilt(roll, pitch) }
                 }
+                delay(ShelfParallaxTokens.POLL_INTERVAL_MS)
             }
-            delay(ShelfParallaxTokens.POLL_INTERVAL_MS)
+        } else {
+            // 关闭态（D3）：桥已由宿主释放、无传感器注册；这里降到 2Hz 只刷新按钮可用态，
+            // 不 drain 队列、不做倾角换算与平滑，避免旧口径每 16ms 空转扣电。
+            while (true) {
+                state.refreshAvailability()
+                delay(ShelfParallaxTokens.IDLE_POLL_INTERVAL_MS)
+            }
         }
     }
     return state
