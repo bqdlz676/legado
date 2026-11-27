@@ -4,7 +4,7 @@
 # 修复-crossing `CrossingShell.kt` 中 `Color` 与 `Int` 类型错配（327 行）
 
 - 基线：仓库 `/home/user/Doubao/chats/38454122521460994/legado`。
-- 改动文件域（仅此一个、仅此一行）：`app/src/main/java/io/legado/app/ui/map/crossing/shell/CrossingShell.kt:327`。
+- 改动文件域（仅此一个、仅此一行）：`app/src/main/java/io/legado/app/ui/map/crossing/shell/CrossingShell.kt:327`。 〔W-451 回源有效〕
 - 任务范围：**只修** `Color(...)` 包裹一个已经是 `Color` 的返回值这一处；未改 `pieceColor` 签名与配色值，未改其它调用点，未碰 `engine/`、`model/`、`terrain/`。
 - 红线遵守：未跑本地 gradle / kotlinc 编译；未做任何 git 写操作；他人未提交文件 `shell/CrossingRasterBridge.kt`、`terrain/RasterDecoder.kt` 未删改。
 
@@ -131,7 +131,7 @@ BasicText(
 grep -rn "Color(pieceColor\|Color(charColor\|Color(sideColor" app/src/main/java/io/legado/app/ui/map/crossing/
 ```
 
-- 修复前：仅命中 `shell/CrossingShell.kt:327` 一处（即本单病灶）。
+- 修复前：仅命中 `shell/CrossingShell.kt:327` 一处（即本单病灶）。 〔W-451 回源有效〕
 - 修复后：该模式在整个 `crossing/` 目录下**无任何命中**，未发现别的「包了一层 `Color`」同款。
 - 附带核对：`routeColor(...)` 的调用点（246 行）为直接取值 + `.copy(alpha=)`，不存在同款包装。
 

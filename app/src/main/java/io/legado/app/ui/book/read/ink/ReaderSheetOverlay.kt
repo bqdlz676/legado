@@ -46,6 +46,9 @@ fun ReaderSheetOverlay(
     onDismiss: () -> Unit,
     onLinkSelected: (String) -> Unit = {},
 ) {
+    // 组合判断唯一事实源是离场闸 [ReaderSheetState.isComposed]（OPEN / EXITING 保留子树，
+    // REMOVED 摘除）；exitRequest 只是离场段渲染内容槽，不再承担组合判据。
+    if (!state.isComposed) return
     val request = state.exitRequest ?: return
     val visible = state.exitVisible
 

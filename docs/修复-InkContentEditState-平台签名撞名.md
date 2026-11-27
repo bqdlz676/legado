@@ -28,11 +28,11 @@
 
 ```
 e: ...ink/InkContentEditState.kt:36:5 Platform declaration clash: ...
-e: ...InkContentEditState.kt:44:9 Platform declaration clash: ...
+e: ...InkContentEditState.kt:44:9 Platform declaration clash: ... 〔W-451 已废：Platform declaration clash 旧编译快照〕
     fun setSaving(value: Boolean): Unit defined in io.legado.app.ui.book.read.ink.InkContentEditState
-e: ...InkContentEditState.kt:55:5 Platform declaration clash: ...
+e: ...InkContentEditState.kt:55:5 Platform declaration clash: ... 〔W-451 已废：同上：旧编译错误快照，已修〕
     fun setSearchError(error: String?): Unit defined in io.legado.app.ui.book.read.ink.InkContentEditState
-e: ...InkContentEditState.kt:112:5 / :141:5 / :146:5 同上
+e: ...InkContentEditState.kt:112:5 / :141:5 / :146:5 同上 〔W-451 已废：同上：:112/:141/:146 旧撞名快照，已修〕
 ```
 
 根因：Kotlin 中 `var saving` / `var searchError` / `var titleEditing` 自动合成 JVM setter `setSaving` / `setSearchError` / `setTitleEditing`，文件内又手写了同名同签名函数，平台契名冲突，编译器中断。
@@ -76,12 +76,12 @@ e: ...InkContentEditState.kt:112:5 / :141:5 / :146:5 同上
 输出：
 
 ```
-app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:80:                            state.setTitleEditingState(true)
-app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:114:                        state.setTitleEditingState(false)
-app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:125:                state.setTitleEditingState(false)
-app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:151:            state.updateSearchError(null)
-app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:159:            state.updateSearchError(context.getString(R.string.content_search_invalid_regex))
-app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:163:        state.updateSearchError(null)
+app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:80:                            state.setTitleEditingState(true) 〔W-451 回源有效〕
+app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:114:                        state.setTitleEditingState(false) 〔W-451 回源有效〕
+app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:125:                state.setTitleEditingState(false) 〔W-451 回源有效〕
+app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:151:            state.updateSearchError(null) 〔W-451 回源有效〕
+app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:159:            state.updateSearchError(context.getString(R.string.content_search_invalid_regex)) 〔W-451 回源有效〕
+app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditInputs.kt:163:        state.updateSearchError(null) 〔W-451 回源有效〕
 app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditState.kt:116:    fun markSaving(value: Boolean) {
 app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditState.kt:149:    fun updateSearchError(error: String?) {
 app/src/main/java/io/legado/app/ui/book/read/ink/InkContentEditState.kt:157:    fun setTitleEditingState(editing: Boolean) {

@@ -65,9 +65,10 @@ class HighlightNoteDialog() : DialogFragment() {
     private val exitGate = NoteDialogExitGate()
 
     /**
-     * Compose 可观察离场位：true = 已进入离场段，`visible=false` 播组件内离场动画；
-     * 收束延时回调后再摘 Fragment。放在 Fragment 字段而非 remember：返回键监听挂在
-     * Dialog 窗口层，与 [submitted] 同理需在 Compose 作用域外可写。
+     * Compose 可观察离场镜像：true = 已进入离场段。只承担两件事——[LaunchedEffect]
+     * 收束延时的键，以及写回时触发本 setContent 重组；阶段、可见性与组合口径全部以
+     * [exitGate] 为准，本镜像不另写第二份判断。放在 Fragment 字段而非 remember：返回键
+     * 监听挂在 Dialog 窗口层，与 [submitted] 同理需在 Compose 作用域外可写。
      */
     private val exitingState = mutableStateOf(false)
 
@@ -112,7 +113,7 @@ class HighlightNoteDialog() : DialogFragment() {
                     }
                 }
                 InkHalfSheet(
-                    visible = !exitingState.value,
+                    visible = exitGate.visible,
                     // 下滑关闭与遮罩点击（外部点击）在共享组件内都回调这同一个 onDismiss，
                     // 统一交给单点出口判闸，不在回调里再各自 dismiss。
                     onDismiss = { dismissOnce(false) },
@@ -218,9 +219,9 @@ class HighlightNoteDialog() : DialogFragment() {
         submitted = true
         if (commit) commitAction?.invoke()
         // B26 两段式第一段：子树保留、visible=false；收束摘 Fragment 见 setContent 内
-        // LaunchedEffect(exitingState)。离场段 [exitGate.canOpen] 为 false，不叠新弹窗；
-        // B30 起宿主打开点（ReadBookActivity.openHighlightNoteDialog）另持一道宿主闸
-        // 先过 tryOpen 再 show，弹窗在场 / 离场段内的二次打开在宿主侧即被拒收。
+        // LaunchedEffect(exitingState)。本守卫进入 EXITING 段后 canOpen=false；二次打开
+        // 的拒收由宿主闸在打开点真实消费（ReadBookActivity.openHighlightNoteDialog：
+        // 先过 canOpen 再过 tryOpen），本实例内重复触发仍由 submitted 单点出口兜底。
         exitGate.beginExit()
         exitingState.value = true
     }

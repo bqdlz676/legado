@@ -41,7 +41,7 @@
 
 ```
 $ grep -rn "delay(" app/src/main/java/io/legado/app/ui/map/crossing/shell/
-CrossingShell.kt:85:            delay(beatDelayMs(snapshot.events, snapshot.turn))
+CrossingShell.kt:85:            delay(beatDelayMs(snapshot.events, snapshot.turn)) 〔W-451 重贴锚：delay(beatDelayMs(…)) 现行第102行〕
 
 $ grep -rn "600L\|delay(600" app/src/main/java/io/legado/app/ui/map/crossing/shell/
 （0 命中）

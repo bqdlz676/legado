@@ -97,6 +97,13 @@ class ReaderSheetState(
     val exitVisible: Boolean
         get() = exitGate.visible
 
+    /**
+     * 子树是否仍需组合：委托离场闸基类唯一口径（OPEN / EXITING 保留，REMOVED 摘除），
+     * 本类不另写判断；组合判据不再读保留请求槽位（消除旧 B21 `retainedRequest != null` 第二口径）。
+     */
+    val isComposed: Boolean
+        get() = exitGate.isComposed
+
     /** 供单测断言首份快照基线；生产路径只经 [restoredExactly] 读比对结果。 */
     internal val snapshotBefore: ReaderSnapshot?
         get() = guard.snapshotBefore

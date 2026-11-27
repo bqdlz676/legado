@@ -55,8 +55,8 @@
 
 - `:704`：`> Task :app:testAppDebugUnitTest FAILED`
 - `:762`：`Caused by: org.gradle.api.GradleException: Could not generate test report to '/home/runner/work/legado/legado/app/build/reports/tests/testAppDebugUnitTest'.`
-- `:763`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter#generateFiles`（第三方插件类，非仓内文件；原栈帧括号内 `PaparazziTestReporter.kt:118` 为插件 jar 内源码位置，不作仓内证据锚点）
-- `:764`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter#generateReport`（第三方插件类，非仓内文件；原栈帧括号内 `PaparazziTestReporter.kt:38` 为插件 jar 内源码位置，不作仓内证据锚点）
+- `:763`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter#generateFiles`（第三方插件类，非仓内文件；原栈帧括号内 `PaparazziTestReporter.kt:118` 为插件 jar 内源码位置，不作仓内证据锚点） 〔W-451 已废：PaparazziTestReporter 为第三方插件 jar 内类，非仓内文件〕
+- `:764`：`at app.cash.paparazzi.gradle.reporting.PaparazziTestReporter#generateReport`（第三方插件类，非仓内文件；原栈帧括号内 `PaparazziTestReporter.kt:38` 为插件 jar 内源码位置，不作仓内证据锚点） 〔W-451 已废：同上：三方插件 jar 内位置，仓内零文件，不作锚点〕
 - `:909`：`Caused by: java.lang.NoClassDefFoundError: org/gradle/reporting/CodePanelRenderer$Data`
 - `:946`：`Caused by: java.lang.ClassNotFoundException: org.gradle.reporting.CodePanelRenderer$Data`
 

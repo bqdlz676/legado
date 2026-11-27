@@ -171,7 +171,7 @@ CoverRuleConfigDialog.kt:64:                InkSwitch(checked = enable, enabled 
 DirectLinkUploadConfig.kt:90:                InkSwitch(checked = compress, enabled = true, onCheckedChange = { compress = it })
 sections/BackupSection.kt:261:                onCheckedChange = { enabled = it },
 settings/SettingControls.kt:256:    onCheckedChange: (Boolean) -> Unit,
-settings/SettingControls.kt:281:                detectTapGestures { if (enabled) onCheckedChange(!checked) }
+settings/SettingControls.kt:281:                detectTapGestures { if (enabled) onCheckedChange(!checked) } 〔W-451 重贴锚：detectTapGestures { if (enabled) onCheckedChange(!checked) } 现行第395行〕
 settings/SettingList.kt:75:            onCheckedChange = { next ->
 settings/SettingSheets.kt:208:                    InkSwitch(checked = state[index], enabled = true, onCheckedChange = { state[index] = it })
 ```
@@ -257,7 +257,7 @@ SettingList.kt:96:        ColorSwatchBlock(row.color)
 - 本包 162 条编译错按根因消除：类型解析、作用域成员、具名参数、Context 接收者、缺导入、internal 泄漏六条线全部对齐到 settings 基础层与既有 utils 扩展的真实签名。
 
 ### 4.2 连带影响（点名文件 / 接口）
-- **`SettingRowShell` 内容 lambda 改为 `RowScope.() -> Unit`**：唯一包外调用方是 `ui/about/AboutActivity.kt:239`。lambda 不显式声明接收者时可以忽略接收者，源码兼容；但其槽内若用到 `Modifier.weight`，改后才能解析（该处现状未用 weight，不破坏）。`RowTitleBlock` 新增的是末尾可选 `modifier` 形参，既有位置实参调用不受影响。
+- **`SettingRowShell` 内容 lambda 改为 `RowScope.() -> Unit`**：唯一包外调用方是 `ui/about/AboutActivity.kt:239`。lambda 不显式声明接收者时可以忽略接收者，源码兼容；但其槽内若用到 `Modifier.weight`，改后才能解析（该处现状未用 weight，不破坏）。`RowTitleBlock` 新增的是末尾可选 `modifier` 形参，既有位置实参调用不受影响。 〔W-451 已废：AboutActivity 已随 Q-280 整体删除〕
 - **新增 `ColorSwatchRow` 密封子类型**：`SettingList` 的两处 `when` 已补齐分支；未来若再增行类型，必须同步 key 分支与渲染分支（已在模型类注释点明）。
 - **`ConfigViewModel.lanPrepare` 返回类型由 `Pair<LanBackupSession, Bitmap>` 收窄为 `Bitmap`**：包内唯一调用方是 `BackupSection` 局域网发送回调，已同步改为单值解构；`LanBackupSession` 仍是 `internal`，只在 VM 内部与 `LanBackupTransfer` 之间流转，不再跨 public 边界。
 - **`backup()` 改 `fold` 写法**：对外签名 `suspend fun backup(path: String?, upload: Boolean): String?` 不变，`BackupSection` 两处调用（仅本地 / 本地+WebDAV）不受影响。
@@ -350,7 +350,7 @@ SettingList.kt:96:        ColorSwatchBlock(row.color)
   - `ui/book/read` 1 条。
   - 建议按包各派一单；其中 `ui/components/ToolScaffold.kt`（2 条）被 config 包间接复用，若其 `InkSwitch` 签名变动，需回看本包调用。
 - **跨包耦合提示**：
-  - `AboutActivity.kt:239` 复用 `SettingRowShell/RowTitleBlock`，本轮签名向后兼容；若 about 包修复时改其槽内布局，注意 RowScope 接收者。
+  - `AboutActivity.kt:239` 复用 `SettingRowShell/RowTitleBlock`，本轮签名向后兼容；若 about 包修复时改其槽内布局，注意 RowScope 接收者。 〔W-451 已废：同上：AboutActivity 仓内零声明，以 AboutInkActivity.kt 与删除单收口为准〕
   - `AppConfig.mediaButtonOnExit` / `autoUpdateVariant` 若将来改读取的字面量键，`OtherSection.kt:133/138` 两处需同步。
 - **工作区既有未提交改动**：`ui/about`、`ui/book/source`、`ui/main/DetailSheet.kt`、`app/src/test/**` 等文件在本轮开工前已有他人改动，本轮未读未改未提交。
 - **禁令遵守**：未改测试、未动 `build.gradle`、未做任何 git 写操作（无 commit / push / revert / stash / checkout）；未删功能、未留 `TODO()`、未用 `@Suppress` 掩盖、未把 Compose 换回 XML。

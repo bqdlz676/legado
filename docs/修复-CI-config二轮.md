@@ -115,7 +115,7 @@ fun NumberPickerSheet(
     onDefault: (() -> Unit)? = null,
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit,
-)                                            // SettingSheets.kt:40-51
+)                                            // SettingSheets.kt:40-51 〔W-451 回源有效〕
 
 fun TextEditSheet(
     visible: Boolean,
@@ -125,7 +125,7 @@ fun TextEditSheet(
     password: Boolean = false,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
-)                                            // SettingSheets.kt:98-106
+)                                            // SettingSheets.kt:98-106 〔W-451 回源有效〕
 ```
 
 改后本分区调用行号与实参咬合：

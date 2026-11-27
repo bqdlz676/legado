@@ -10,7 +10,7 @@
 - 门禁基线（改前实测，末行逐字）：`DESIGN-TOKENS: FAIL（3 项）`，退出码 1。
 - 改前三项 FAIL 明细（逐字）：
   - `[FAIL] card-radius-dp 契约值 16 / 源码实际值 14 ← app/src/main/java/io/legado/app/ui/main/bookshelf/ShelfTokens.kt:84`
-  - `[FAIL] 残留口径 stale-180mb-constant 命中 1 处：app/src/main/java/io/legado/app/ui/book/read/ink/InkTokens.kt:251（规格 docs/落文-规格切片/切片-21-架构层.md:27）`
+  - `[FAIL] 残留口径 stale-180mb-constant 命中 1 处：app/src/main/java/io/legado/app/ui/book/read/ink/InkTokens.kt:251（规格 docs/落文-规格切片/切片-21-架构层.md:27）` 〔W-451 回源有效〕
   - `[FAIL] 残留口径 stale-180mb-doc 命中 1 处：app/src/main/assets/ui_tokens.txt:29（规格 docs/落文-规格切片/切片-21-架构层.md:27）`
 - 判定原则：先逐条读原文与规格出处，再定「改源码」还是「改契约」；不看行号就改。本单三项核对结果均为源码/文本漂移，契约值与规格一致，**契约 JSON 一行未动**。
 
@@ -139,7 +139,7 @@
 下列 `180.0` 是角度/经纬度数学常数（π/180 弧度换算、经度 ±180° 边界），与内存口径无关，本单一律不动：
 
 - `app/src/main/java/io/legado/app/help/sim/TerrainAnalyzer.kt:145,227`
-- `app/src/main/java/io/legado/app/ui/map/globe/contract/GlobeSphere.kt:23,31,32`
+- `app/src/main/java/io/legado/app/ui/map/globe/contract/GlobeSphere.kt:23,31,32` 〔W-451 回源有效〕
 - `app/src/main/java/io/legado/app/ui/map/globe/geo/Geo.kt:22,23,28,29`
 - `app/src/main/java/io/legado/app/ui/map/globe/mesh/SphereGrid.kt:61`
 - `app/src/main/java/io/legado/app/ui/map/globe/replay/power/PowerPolygon.kt:107,112,130,136`

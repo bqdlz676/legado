@@ -142,6 +142,8 @@ class ReaderSheetStateTest {
         assertSame(first, state.exitRequest)
         assertFalse(state.exitVisible)
         assertTrue(state.isExiting)
+        // 组合判据委托闸基类口径：离场段 isComposed=true（子树保留）。
+        assertTrue(state.isComposed)
 
         // 离场段新请求被拒收：不替换保留请求、不重采快照。
         state.open(req(ReaderDetailKind.CHAR, "仁"), snap(scroll = 400))
@@ -161,11 +163,14 @@ class ReaderSheetStateTest {
         assertFalse(state.isExiting)
         assertNull(state.exitRequest)
         assertFalse(state.exitVisible)
+        // 收束到 REMOVED：组合判据随闸回落 false（子树可摘除）。
+        assertFalse(state.isComposed)
 
         val second = req(ReaderDetailKind.PLACE, "曲阜")
         state.open(second, snap(scroll = 500))
         assertSame(second, state.request)
         assertSame(second, state.exitRequest)
         assertTrue(state.exitVisible)
+        assertTrue(state.isComposed)
     }
 }

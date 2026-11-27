@@ -1583,12 +1583,17 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     /**
-     * B30 宿主级离场闸接线：批注弹窗的唯一宿主打开点。先过 [noteEntryGate] 的
-     * [NoteDialogExitGate.tryOpen]——节点在场（OPEN）或离场动画段（EXITING）第二次发起
-     * 打开直接拒收，不新建第二个 Fragment 节点；判闸通过才 show。阶段镜像见
-     * [registerNoteEntryGateMirror]。对照 B21 `openReaderSheet` 的 `isOpen || isExiting` 双闸口径。
+     * B30 宿主级离场闸接线：批注弹窗的唯一宿主打开点。第一道过 [noteEntryGate] 的
+     * [NoteDialogExitGate.canOpen]——离场动画段（EXITING）第二次发起打开直接拒收，口径同
+     * B21 `ReaderSheetState.open` 的 `exitGate.canOpen` 兜底闸；第二道经
+     * [NoteDialogExitGate.tryOpen] 挡在场段（OPEN）重复节点；两道都通过才 show。
+     * 阶段镜像见 [registerNoteEntryGateMirror]。对照 B21 `openReaderSheet` 的
+     * `isOpen || isExiting` 双闸口径。
      */
     private fun openHighlightNoteDialog(highlight: BookHighlight) {
+        // 第一道：离场段拒收（动画播放中不叠新弹窗）；在场段判重不归本闸，走第二道。
+        if (!noteEntryGate.canOpen) return
+        // 第二道：在场段不叠第二个 Fragment 节点；tryOpen 仅 REMOVED 放行并登记新会话。
         if (!noteEntryGate.tryOpen()) return
         showDialogFragment(HighlightNoteDialog(highlight))
     }

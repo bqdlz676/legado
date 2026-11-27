@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "note": "同义词表（规格 §二）：语义路暂缺，本表用人工增补的近义词/别名近似替代；只许人工增补，禁止自动学习。key 为查询词命中别名，terms 为同义/相关词族，查询时整族 OR 扩召。",
+  "groups": [
+    {
+      "canonical": "陀螺仪",
+      "terms": ["陀螺仪", "gyro", "gyroscope", "视差"]
+    },
+    {
+      "canonical": "半屏面板",
+      "terms": ["半屏", "Sheet", "sheet", "底部弹层"]
+    },
+    {
+      "canonical": "名物典故",
+      "terms": ["名物", "典故", "人物库"]
+    },
+    {
+      "canonical": "战役回放",
+      "terms": ["回放", "replay", "Replay"]
+    },
+    {
+      "canonical": "地形栅格",
+      "terms": ["栅格", "高度图", "heightMap", "HeightMap", "DEM", "地形"]
+    },
+    {
+      "canonical": "阅读高亮",
+      "terms": ["高亮", "highlight", "Highlight", "批注"]
+    },
+    {
+      "canonical": "书架",
+      "terms": ["书架", "藏书", "书籍列表"]
+    },
+    {
+      "canonical": "搜索热词",
+      "terms": ["热门词", "热搜", "热词", "搜索建议"]
+    },
+    {
+      "canonical": "证据锚点",
+      "terms": ["锚点", "证据锚", "行号锚"]
+    },
+    {
+      "canonical": "事故复盘",
+      "terms": ["复盘", "事故复盘", "返工根因"]
+    },
+    {
+      "canonical": "翻页分页",
+      "terms": ["翻页", "分页", "page flip"]
+    }
+  ]
+}

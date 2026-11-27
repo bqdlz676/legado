@@ -14,7 +14,7 @@
 ## 一、单判据（六字段，逐字回源）
 
 - 白名单目录：仅新建 / 改动 `app/src/main/java/io/legado/app/ui/book/read/ink/` 下五件——`InkShellState.kt`、`ReaderSheetState.kt`、`ReaderSheetGuard.kt`、`ReaderSheetExitGate.kt`、`SheetExitPhaseGate.kt`；单测落 `app/src/test/java/io/legado/app/ui/book/read/**`。
-- 判据锚：docs/拆分-B4阅读页小单.md:45 B4-03 条目；docs/任务书-B4-阅读页-引擎定界.md:384 I-18、:388 I-19、:392 I-20、:396 I-21、:400 I-22；docs/任务书-B4-阅读页.md:48 R14；docs/任务书-B4-阅读页-引擎定界.md:518 §六二阶风险 5。
+- 判据锚：docs/拆分-B4阅读页小单.md:45 B4-03 条目；docs/任务书-B4-阅读页-引擎定界.md:384 I-18、:388 I-19、:392 I-20、:396 I-21、:400 I-22；docs/任务书-B4-阅读页.md:48 R14；docs/任务书-B4-阅读页-引擎定界.md:518 §六二阶风险 5。 〔W-451 回源有效〕
 - 产物：上述五件 `.kt` + 两份纯 JVM 单测 + 本报告 + 锚点卡。
 - 依赖：只引 `ReaderSnapshot` / `isRestoredExactly`（ui/components 只读契约）、`ReaderDetailRequest`（page/api 只读契约）、compose runtime 可观察态薄包装；不引 navigation-compose，不改 `build.gradle`，不新增依赖。
 - 并行度：与 B4-02 翻页纯逻辑七件并行；本单不碰 `InkPageCommand` / `PageTurnGate` / `PeelSpring` / `ViewGestureBridge` / `ZoneClassifier` / `GestureRouter` / `CandidateCycle`。

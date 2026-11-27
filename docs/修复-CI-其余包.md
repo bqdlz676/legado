@@ -103,8 +103,8 @@ BookSourceActivity.kt:222  lifecycleScope.launch {
 回证：
 
 ```
-AboutActivity.kt:143  internal fun onRowClick(key: String) {
-AboutActivity.kt:239  SettingRowShell(onClick = onClick, enabled = true) {
+AboutActivity.kt:143  internal fun onRowClick(key: String) { 〔W-451 已废：同上：AboutActivity 已删，以 AboutInkActivity.kt 为准〕
+AboutActivity.kt:239  SettingRowShell(onClick = onClick, enabled = true) { 〔W-451 已废：同上：AboutActivity 已删，以 AboutInkActivity.kt 为准〕
 CheckAppUpdate.kt:28  fun AppCompatActivity.checkAppUpdate(beta: Boolean = false) {
 ```
 
@@ -349,7 +349,7 @@ HandleFileViewModel.kt:71      _error.update { error.localizedMessage }
 - `edit/BookSourceEditActivity.kt:143:51` `() -> Unit` 传给 `OnBackPressedCallback`；`:207:40` 候选不适用 / 缺 `input`。
 - `edit/JsSourceEditActivity.kt:92:22` `fillMaxSize` 未解析（缺导入）。
 - `edit/SourceEditScreen.kt:427:9` Composable 上下文错位（`InkHalfSheet` 尾随 lambda 同根因）。
-- `edit/SourceEditState.kt:23:23` 递归类型推断，需显式标注声明类型。
+- `edit/SourceEditState.kt:23:23` 递归类型推断，需显式标注声明类型。 〔W-451 回源有效〕
 - `manage/SourceManageViewModel.kt:96/138/148:23` `viewModelScope` 未解析（缺 `androidx.lifecycle.viewModelScope` 导入，与本单 VM 同修法）。
 
 **ui/dict/**

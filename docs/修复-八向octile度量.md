@@ -122,7 +122,7 @@
 6. **启发式可采纳性**：`h = octile · MIN_TERRAIN_FACTOR(1.0)`；任一步实际代价 `base ≥ 1.0`，横纵 ≥ 1.0、对角 ≥ √2，逐步 `g ≥ h`，A* 最优性不被破坏。
 7. **闸门不取整**：所有半径 / 范围比较直接用 Double `octile`；`octileCells` 只出现在 `seenDistCells` 存档写入一处。
 8. **单源**：全 crossing main 源码内，`max(dc,dr) + …·min(dc,dr)` 公式只出现一次（`Pathfinder.kt:312`）；根号二系数只声明一次（`:300`）。
-9. **R1 半径单源不回退**：`6/5/4/3` 字面量仍只在 `CampaignModels.kt:200-203`；engine 无第二张半径表。
+9. **R1 半径单源不回退**：`6/5/4/3` 字面量仍只在 `CampaignModels.kt:200-203`；engine 无第二张半径表。 〔W-451 回源有效〕
 10. **既有断言保留**：`PathfinderTest` 14 条、`CampaignControllerTest` 既有 28 条阈值与夹具未改；新增用例只增不替。
 
 ## 七、回证命令与真实输出

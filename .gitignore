@@ -24,3 +24,6 @@ docs/.last_push_epoch
 /dist/
 # 设计 token 机读草稿（由 check-design-tokens.py --emit 生成、可再生产，入库会与 docs/契约-设计token.json 形成双源打架）
 docs/契约-设计token.emit.json
+
+# RAG 检索层缓存（可删可重建，不得当事实源，不进库）
+data_scripts/_cache/

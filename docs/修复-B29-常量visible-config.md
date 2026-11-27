@@ -139,7 +139,7 @@ grep -nE "rememberSheetExitController|SheetExitController\(|canOpen|\.open\(\)|b
 - 控制器工厂声明：BackupSection.kt:70-78、OtherSection.kt:40-41、ThemeSection.kt:58-61、WelcomeSection.kt:36-37、CoverFontSection.kt:46、BottomBarSkinActivity.kt:181-182、BottomBarSkinAssignActivity.kt:124、ThemeListDialog.kt:59；Activity 字段 `ConfigActivity.kt:50`。
 - 打开闸 `canOpen` + `open()`：各打开点行号见 §4。
 - 收束宿主 `SheetExitHost`：各槽位行号见 §4。
-- 内层 Sheet 透传：SettingSheets.kt:55 / :110 / :155 / :195 / :236；Host 透传：SettingSheetHost.kt:15 / :20。
+- 内层 Sheet 透传：SettingSheets.kt:55 / :110 / :155 / :195 / :236；Host 透传：SettingSheetHost.kt:15 / :20。 〔W-451 回源有效〕
 
 ### 3.6 测试断言条数与测试名禁字符复核
 

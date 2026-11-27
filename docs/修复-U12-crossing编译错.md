@@ -10,7 +10,7 @@
 ## 一、第一现场原文（CI 245 条 `e:` 错误中的唯一根因行）
 
 ```
-e: file:///.../ui/map/crossing/model/Enums.kt:221:1 Syntax error: Unclosed comment.
+e: file:///.../ui/map/crossing/model/Enums.kt:221:1 Syntax error: Unclosed comment. 〔W-451 已废：Unclosed comment 旧编译快照〕
 ```
 
 下游级联（符号缺失导致，非独立错误）：`CampaignModels.kt`、`engine/*`、`terrain/*`、`shell/*` 中
@@ -77,7 +77,7 @@ Kotlin 的块注释**支持嵌套**（与 Java 不同）：注释内再次出现
 
 - 修复前（HEAD `bd0cd36` blob）`Enums.kt`：`/*`=18、`*/`=17、终值深度 1、扫描结束状态仍为 `block`；事件序列第 3 行 `/*`（KDoc 开）、第 7 行 `/*`（通配符误开嵌套）、第 9 行 `*/`（仅闭合嵌套层），此后无闭合符。
 - 修复后：24 文件全部 `depth=0`、括号配平、扫描结束状态 `code`，**全绿**。
-- 同类风险穷举：全包检索非 KDoc 起始的 `/*` 序列，仅两处——`Enums.kt:7`（本次根因，已修）与 `CrossingShell.kt:73` 行内块注释 `/* 预留棋盘点选：点棋子展开意图面板 */`（自身成对闭合，扫描配平，无需改）。
+- 同类风险穷举：全包检索非 KDoc 起始的 `/*` 序列，仅两处——`Enums.kt:7`（本次根因，已修）与 `CrossingShell.kt:73` 行内块注释 `/* 预留棋盘点选：点棋子展开意图面板 */`（自身成对闭合，扫描配平，无需改）。 〔W-451 已废：旧 /* 未配平根因快照〕 〔W-451 重贴锚：/* 预留棋盘点选… */ 行内块注释现行第116行〕
 
 ## 五、`when` 穷尽性判定（含 CI 报错行 `CampaignController.kt:110:51`）
 
@@ -191,7 +191,7 @@ $ git status --short app/src/main/java/io/legado/app/ui/map/crossing app/src/tes
 
 ### 7.4 下游引用符号存在性抽查
 
-测试源集 import 的模型符号在主源集均可回查：`Geo`（CampaignModels.kt:12）、`Cell`（:25）、`TerrainFocus`（:28）、`TriggerDef`（:81）、`EventDef`（:90）、`RiverDef`（:103）、`Corps`（:141）；八个枚举定义于 `Enums.kt:12/47/80/115/139/163/183/200/215`。
+测试源集 import 的模型符号在主源集均可回查：`Geo`（CampaignModels.kt:12）、`Cell`（:25）、`TerrainFocus`（:28）、`TriggerDef`（:81）、`EventDef`（:90）、`RiverDef`（:103）、`Corps`（:141）；八个枚举定义于 `Enums.kt:12/47/80/115/139/163/183/200/215`。 〔W-451 回源有效〕
 
 ## 八、未验证项（如实声明）
 
