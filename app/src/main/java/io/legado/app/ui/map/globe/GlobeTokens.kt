@@ -1,6 +1,8 @@
 package io.legado.app.ui.map.globe
 
 import io.legado.app.ui.components.ComponentPalette
+import io.legado.app.ui.map.globe.astro.contract.SkySpecColor
+import kotlin.math.roundToInt
 
 /**
  * 地球仪模块的颜色出口（切片 03 §12 色 token 铁律）。
@@ -50,6 +52,48 @@ object GlobeTokens {
 
     /** 石青（12 色外唯一增补）：敌方灰青势力色块取此色，与沙盘模块同口径。 */
     val stoneBlue: Long get() = ComponentPalette.STONE_BLUE
+
+    // ───────────────────── 星空派生色（§六.4-6、§六.197）─────────────────────
+
+    /**
+     * 夜空底色：[textPrimary] 压暗 40%（RGB 三通道 ×0.60，alpha 原样保留）。
+     * 结果由位运算函数算出，不写死 hex（§六.4）；墨色偏暖，压暗后仍是暖墨，禁纯黑。
+     */
+    val skyNightBase: Long get() = darken(textPrimary, 0.60f)
+
+    /**
+     * 地平暖辉：[brandCopper] alpha 0.10（§六.5）；alpha 字节由比率换算，
+     * 纯位运算，不引 android.graphics.Color。
+     */
+    val skyHorizonGlow: Long get() = withAlpha(brandCopper, 0.10f)
+
+    /**
+     * 星色暖端：取 [SkySpecColor.STAR_ANCHOR_VERY_LATE_RGB] 极晚型橙暖锚，
+     * 仅供图例 / Sheet 小圆点；星点本体颜色一律走 [SkySpecColor]（§六.2、§六.197），
+     * 本出口不参与星点渲染。
+     */
+    val skyStarWarm: Long get() = opaqueLong(SkySpecColor.STAR_ANCHOR_VERY_LATE_RGB)
+
+    // ───────────────────── 私有派生工具（纯位运算，平台无关）─────────────────────
+
+    /** RGB 三通道各乘 factor，alpha 保留；factor 钳 [0,1]。 */
+    private fun darken(token: Long, factor: Float): Long {
+        val f = factor.coerceIn(0f, 1f)
+        val a = (token shr 24 and 0xFF).toLong()
+        val r = ((token shr 16 and 0xFF) * f).roundToInt().toLong()
+        val g = ((token shr 8 and 0xFF) * f).roundToInt().toLong()
+        val b = ((token and 0xFF) * f).roundToInt().toLong()
+        return (a shl 24) or (r shl 16) or (g shl 8) or b
+    }
+
+    /** 替换 alpha 字节，RGB 原样；alpha 比率钳 [0,1]。 */
+    private fun withAlpha(token: Long, alpha: Float): Long {
+        val alphaByte = (alpha.coerceIn(0f, 1f) * 255f).roundToInt().toLong()
+        return (alphaByte shl 24) or (token and 0xFFFFFF)
+    }
+
+    /** Int RGB（0xRRGGBB）包装成不透明 ARGB Long。 */
+    private fun opaqueLong(rgb: Int): Long = 0xFF000000L or (rgb.toLong() and 0xFFFFFF)
 }
 
 /**

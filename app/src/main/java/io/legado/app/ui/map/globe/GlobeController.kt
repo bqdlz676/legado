@@ -1,5 +1,7 @@
 package io.legado.app.ui.map.globe
 
+import io.legado.app.ui.map.globe.astro.contract.SkyFrame
+import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
 import io.legado.app.ui.map.globe.offline.AssetStatus
 import io.legado.app.ui.map.globe.offline.OfflineFallback
 import io.legado.app.ui.map.globe.offline.TextureKind
@@ -69,5 +71,23 @@ class GlobeController(
     fun nextFrame(dt: Double, utcMillis: Long, turnsPerSec: Double = 1.0): FrameSnapshot {
         scene.update(dt, utcMillis, turnsPerSec)
         return FrameSnapshot.from(scene)
+    }
+
+    // ───────────────────── 星空视角（§十二.3；既有方法签名只增不改）─────────────────────
+
+    /**
+     * 进入天外 / 地上星空视角（§九.1 模式互斥）。保留当前帧其它字段现值，仅切模式；
+     * 尚未入星空时先建默认 [SkyFrame]。
+     */
+    fun enterSky(mode: SkyViewMode) {
+        scene.sky = (scene.sky ?: SkyFrame()).copy(mode = mode)
+    }
+
+    /**
+     * 连续混合标量：0 地球视觉直径 400px，1 缩到 40px 锚（§十.3）；钳 [0,1]，
+     * 保留当前帧其它字段现值。
+     */
+    fun setSkyBlend(v: Float) {
+        scene.sky = (scene.sky ?: SkyFrame()).copy(skyBlend = v.coerceIn(0f, 1f))
     }
 }

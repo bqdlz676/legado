@@ -1,6 +1,7 @@
 package io.legado.app.ui.map.globe.render
 
 import io.legado.app.ui.map.globe.data.SeedAtlas
+import io.legado.app.ui.map.globe.astro.contract.SkyFrame
 import io.legado.app.ui.map.globe.math.Vec3
 import io.legado.app.ui.map.globe.mesh.LodLevel
 import io.legado.app.ui.map.globe.offline.DegradationLevel
@@ -43,6 +44,7 @@ data class FrameSnapshot(
     val visibleLabels: List<Pair<GlobePlace, Float>>,
     val powerLayer: PowerLayer,
     val fallbackResolutions: List<OfflineFallback.Resolution>,
+    val sky: SkyFrame? = null,
 ) {
 
     companion object {
@@ -69,6 +71,7 @@ data class FrameSnapshot(
                 visibleLabels = labels,
                 powerLayer = replay.powers,
                 fallbackResolutions = resolutions,
+                sky = scene.sky,
             )
         }
     }

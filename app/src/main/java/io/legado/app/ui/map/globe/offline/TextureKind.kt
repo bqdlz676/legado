@@ -30,6 +30,12 @@ enum class TextureKind(
     /** 星空纹理（程序化生成或 Stellarium 星图，2K）。 */
     STAR_SKY("Stellarium 星图 / 程序化", FallbackKind.PROCEDURAL_STAR_FIELD),
 
+    /** Tycho-2 密度层 9 等（按需下载，不入库）；未缓存走程序化星场兜底。 */
+    SKY_DENSITY_L9("Tycho-2 密度层 9 等（按需下载，不入库）", FallbackKind.PROCEDURAL_STAR_FIELD),
+
+    /** Tycho-2 密度层 11.5 等（按需下载，不入库）；未缓存走程序化星场兜底。 */
+    SKY_DENSITY_L11("Tycho-2 密度层 11.5 等（按需下载，不入库）", FallbackKind.PROCEDURAL_STAR_FIELD),
+
     /** 地名 atlas 纹理（中国 500 + 世界 500）。 */
     LABEL_ATLAS("CHGIS + Pleiades + Wikidata", FallbackKind.SEED_PLACE_ATLAS),
 

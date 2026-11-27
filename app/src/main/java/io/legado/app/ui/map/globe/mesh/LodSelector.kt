@@ -38,6 +38,23 @@ class LodSelector(initial: LodLevel = LodLevel.LOD0) {
             return (done.toFloat() / total).coerceIn(0f, 1f)
         }
 
+    /** 最近一次 [select] 算出的距离比（相机距离 / 球半径），连续权重由它派生。 */
+    private var lastRatio: Float = GlobeConfig.LOD_NEAR_RATIO
+
+    /**
+     * 连续 LOD 混合权重（§十.6）：**0 = 最近档 LOD2，1 = 最远档 LOD0**，
+     * 中间在 1R–3R 之间线性过渡；渲染层按本权重在两档几何间插值顶点。
+     * 三档枚举仍作资源上限，[select] 返回值不变。
+     * 〔诚实边界 §十.8〕视觉连续 ≠ 几何连续：网格仍是三档常驻，本权重只作插值依据，
+     * 验收不得要求几何连续。
+     */
+    val blendWeight: Float
+        get() {
+            val t = (lastRatio - GlobeConfig.LOD_NEAR_RATIO) /
+                (GlobeConfig.LOD_FAR_RATIO - GlobeConfig.LOD_NEAR_RATIO)
+            return t.toFloat().coerceIn(0f, 1f)
+        }
+
     /**
      * 根据相机距离选层级。
      * @param distance 相机到球心的世界距离
@@ -45,6 +62,7 @@ class LodSelector(initial: LodLevel = LodLevel.LOD0) {
      */
     fun select(distance: Double, radius: Double): LodLevel {
         val ratio = if (radius <= 0) 1.0 else distance / radius
+        lastRatio = ratio.toFloat()
         val next = when {
             ratio > GlobeConfig.LOD_FAR_RATIO -> LodLevel.LOD0
             ratio >= GlobeConfig.LOD_NEAR_RATIO -> LodLevel.LOD1

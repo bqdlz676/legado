@@ -103,7 +103,13 @@ object GlobeConfig {
     const val INERTIA_FALLBACK_FRAME_SEC: Double = 1.0 / 60.0
 
     const val CAMERA_MIN_DISTANCE_RATIO: Float = 0.6f
-    const val CAMERA_MAX_DISTANCE_RATIO: Float = 6.0f
+
+    /**
+     * 相机最远缩放比（球半径倍数）。§十.1：6.0R → 10.0R。
+     * 为什么必须放宽：6R 时地球角径约 18.9°，60° 视场 / 1080px 下约 340px，
+     * 缩不到 40px 的星点锚（§十.2）；10R 之后不再推相机，改由 `skyBlend` 连续标量收尾（§十.3）。
+     */
+    const val CAMERA_MAX_DISTANCE_RATIO: Float = 10.0f
 
     // ───────────────────── LOD 距离阈值（相机距离 / 球半径，切片 20 / 19）─────────────────────
     /** >3R → LOD0。 */

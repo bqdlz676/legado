@@ -3,6 +3,7 @@ package io.legado.app.ui.map.globe.scene
 import io.legado.app.ui.map.globe.GlobeConfig
 import io.legado.app.ui.map.globe.astro.StarField
 import io.legado.app.ui.map.globe.astro.Sun
+import io.legado.app.ui.map.globe.astro.contract.SkyFrame
 import io.legado.app.ui.map.globe.input.InertiaRotator
 import io.legado.app.ui.map.globe.math.Vec3
 import io.legado.app.ui.map.globe.mesh.LodLevel
@@ -27,6 +28,13 @@ class GlobeScene(
     val rotator: InertiaRotator = InertiaRotator()
     val lod: LodSelector = LodSelector()
     val starField: StarField = StarField()
+
+    /**
+     * 星空帧状态（§十二.1）：天外 / 地上视角与连续混合标量；null = 仍处地球仪态，尚未进入天球星空。
+     * 由门面 [GlobeController.enterSky] / [GlobeController.setSkyBlend] 写入，帧快照装配时读取。
+     * [starField] 保留为断网 / 无星表兜底（种子 9173 可复现性依赖它，§七.6），不随本字段删除。
+     */
+    var sky: SkyFrame? = null
 
     val atmosphere: AtmosphereSpec = AtmosphereSpec()
     val clouds: CloudSpec = CloudSpec()
