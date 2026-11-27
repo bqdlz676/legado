@@ -908,6 +908,34 @@
       "level": "blocking",
       "reason": "三类形态（scope 成员扩展顶层 import / 非 Composable 事件 lambda 内调 Composable / 动画工厂裸类型参）都是 kotlinc ERROR，文本层完全合法，kotlin-syntax-lint 与既有扩展 import 闸判不到；沙箱无编译链无法本地复现，只有 CI 才红，与 ⑫/⑬/㉜ 同属代码能否编译的硬判据，必须 push 前拦住。",
       "compensation": null
+    },
+    {
+      "id": "g62",
+      "label": "62",
+      "name": "锚点行号",
+      "script": "check-line-anchors.py",
+      "nature": "bad",
+      "scope": "docs-rule",
+      "level": "audit",
+      "reason": "全量 docs 扫描的历史存量漂移（旧报告引用已删/已移文件与旧行号）累积量大，属文档回源台账新鲜度；本轮新报告的锚点回源已由 ⑭/㊽ 证据闸兜住，存量不挡 push，由收口回修。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 跑锚点行号扫描；收口单回查漂移锚点清单，各单责任人按清单回修文档，白名单豁免须带理由与登记单。"
+      }
+    },
+    {
+      "id": "g63",
+      "label": "63",
+      "name": "符号存在配平",
+      "script": "check-symbol-existence.py",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "仓内无该重载却按多参调用（87c7e0d matchesB3Query 一参扩展被四参调用）是 kotlinc Argument count mismatch ERROR，文本层合法、回执闸只数调用名不核定义配平；沙箱无编译链无法本地复现，与 ⑫/⑬/㉜/61 同属代码能否编译的硬判据，必须 push 前拦住。",
+      "compensation": null
     }
   ],
   "compensation_channels": {

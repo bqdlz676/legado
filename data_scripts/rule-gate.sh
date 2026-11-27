@@ -444,6 +444,23 @@ CP61_RC=$?
 if [ "$CP61_RC" -eq 0 ]; then ok "61Compose陷阱" "$(echo "$CP61" | grep 'COMPOSE-PITFALLS: PASS')"; else bad "61Compose陷阱" "$(echo "$CP61" | grep -E '\[A\]|\[B\]|\[C\]' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "61Compose陷阱"; fi
 
+# 62 锚点行号漂移守卫（2026-11-27 本轮 5 份验收返工同根因）：报告 文件:行 锚点指向死文件/越界行
+#    判 FAIL，落点空白/纯花括号/注释分隔线仅 WARN；白名单豁免须带理由与登记单，缺理由 BADALLOW。
+#    全量 docs 存量漂移走 audit 补偿，不挡 push；本轮新报告回源由 ⑭/㊽ 证据闸兜住。
+if gate_active g62; then
+LA62=$(python3 data_scripts/check-line-anchors.py 2>&1)
+if [ $? -eq 0 ]; then ok "62锚点行号" "$(echo "$LA62" | grep 'LINE-ANCHORS: PASS')"; else bad "62锚点行号" "$(echo "$LA62" | grep -E 'DEADFILE|OUTOFRANGE|BADALLOW' | head -3 | tr '\n' ' ')"; fi
+echo "$LA62" | grep 'SUSPECT' | while read -r w; do say "62锚点行号(提示)" "$w（不影响 GATE 结论）"; done
+else skip_audit "62锚点行号"; fi
+
+# 63 符号存在性与重载配平（2026-11-27 CI 红根因 87c7e0d：matchesB3Query 一参扩展被四参调用）。
+#    NODEF：自有 import 符号仓内反查不到 fun/构造定义；ARITY：可核对重载无一容纳实参个数。
+#    生成符号/外部库/标准库/接收者类型未知者按计数跳过，不硬判；与 ⑫/⑬/㉜/61 同属编译硬判据。
+if gate_active g63; then
+SE63=$(python3 data_scripts/check-symbol-existence.py 2>&1)
+if [ $? -eq 0 ]; then ok "63符号存在配平" "$(echo "$SE63" | grep 'SYMBOL-EXISTENCE: PASS')"; else bad "63符号存在配平" "$(echo "$SE63" | grep -E 'NODEF|ARITY' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "63符号存在配平"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**

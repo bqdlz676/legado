@@ -1,5 +1,5 @@
 {
- "note": "门禁 --selftest 覆盖欠账基线：只减不增；debt 集合必须与 check-selftest-coverage.py 实测 missing 集合严格相等。Q-308 24→18，Q-321 18→10，Q-328 10→2（liveness/trailer 两条待裁转正；drift 待裁、push-window 判废，事实依据见 docs/修复-门禁自测欠账第三批.md）",
+ "note": "门禁 --selftest 覆盖欠账基线：只减不增；debt 集合必须与 check-selftest-coverage.py 实测 missing 集合严格相等。Q-308 24→18，Q-321 18→10，Q-328 10→2（liveness/trailer 两条待裁转正；drift 待裁、push-window 判废，事实依据见 docs/修复-门禁自测欠账第三批.md）。Q-366 装完 62 锚点行号 / 63 符号存在配平两支新门禁后实测 56 门禁 / 54 自带 selftest / debt 2，debt 集合不变。",
  "debt": [
   "check-drift.py",
   "check-push-window.py"
