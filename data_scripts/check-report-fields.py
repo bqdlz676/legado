@@ -12,9 +12,10 @@ L1 是返工的最大来源，却完全没有机检——于是"要有自查反�
 
 用法：python3 data_scripts/check-report-fields.py [报告路径...]
   不给参数则自动取 `git status` 里 docs/(修复|验收)-*.md 的改动/新增文件。
-退出码：任一不符 = 1。
+退出码：任一不符 = 1；空集（无待检报告）= 2（空集不判 PASS，同 ⑲/55 口径）。
 """
 
+import io
 import os
 import re
 import shutil
@@ -53,13 +54,39 @@ def is_fixture(path):
     return "data_scripts/fixtures" in path or path.endswith(".fixture")
 
 
+def is_anchor_card(path):
+    # docs/锚点/ 下是前置设计卡，本身不是报告；聚合前缀正则本就取不到，显式直传时同样跳过，
+    # 不按报告四件套判（口径同 check-anchor-card.classify 的 other 分支）。
+    norm = path.replace("\\", "/")
+    return "/锚点/" in norm or norm.startswith("docs/锚点/")
+
+
+def _porcelain_path(line: str) -> str:
+    """解析 `git status --porcelain` 行的路径。
+
+    为什么：① 重命名行是 `R  old -> new`，按行首切片会取到旧路径，必须取箭头右侧新路径；
+    ② porcelain 对含空格/特殊字符的路径会加成对双引号，非 ASCII 路径在未放开 quotepath 时
+       还会被转成八进制串；引号剥净后再交上层做前缀正则匹配。
+    """
+    body = line[3:].strip() if len(line) > 3 else ""
+    if " -> " in body:
+        body = body.split(" -> ", 1)[1].strip()
+    return body.strip('"').strip("'")
+
+
 def changed_reports():
-    out = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
+    # 必须带 `-c core.quotepath=false`：git 默认把中文路径转义成八进制串（如 `"docs/\344\276..."`），
+    # 前缀正则匹配不到真实路径，聚合会把中文未跟踪/修改报告整批漏掉，误报"本轮无报告改动"假绿。
+    # `-uall`：未跟踪目录默认会被折叠成 `?? docs/`，文件级条目取不到；逐文件列出才能做前缀匹配（同 55/g65 口径）。
+    out = subprocess.run(["git", "-c", "core.quotepath=false", "status", "--porcelain", "-uall"],
+                         cwd=ROOT,
                          capture_output=True, text=True,
                          env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}).stdout
     paths = []
     for line in out.splitlines():
-        p = line[3:].strip().strip('"')
+        p = _porcelain_path(line)
+        # 路径归一：反斜杠转正斜杠、规范化 `.`/`..` 段后再判前缀；归一前后都不改动判据本身。
+        p = os.path.normpath(p.replace("\\", "/")) if p else p
         if is_fixture(p):
             continue
         if re.match(r"docs/(修复|验收|组装|分析)-.*\.md$", p) and not only_backfill(p):
@@ -96,7 +123,9 @@ def check(path):
 
 def selftest() -> int:
     """双向自测：四件套齐全的修复类报告 → check() 返回空列表 PASS；缺锚点卡/结论/反例/锚点 → FAIL。
-    做法：临时目录接管 ROOT 后直接调生产 check(path)，A/B/C/D 判据全走原函数，不另写字段比对。"""
+    另含聚合口径夹具（临时迷你 git 仓）：中文/英文未跟踪报告被 changed_reports() 识别、非报告文件不混入、
+    显式路径直判、空集报 EMPTY 退出码 2。做法：临时目录接管 ROOT 后直接调生产 check()/main()，
+    A/B/C/D 判据全走原函数，不另写字段比对。"""
     saved_root = ROOT
 
     good = tempfile.mkdtemp(prefix='report-fields-selftest-')
@@ -108,7 +137,7 @@ def selftest() -> int:
             'data_scripts/check-no-idle.py:23',
             'data_scripts/check-queue-running.py:15',
             'data_scripts/check-dispatch-queue.py:35',
-            'data_scripts/check-report-fields.py:68',
+            'data_scripts/check-report-fields.py:69',
             'data_scripts/check-onboarding.py:77',
         ])
         body = ("锚点卡：docs/锚点/selftest-good.md\n\n"
@@ -140,6 +169,82 @@ def selftest() -> int:
         globals()['ROOT'] = saved_root
         shutil.rmtree(bad, ignore_errors=True)
 
+    # 解析单元：重命名行取箭头右侧、成对引号剥离、普通状态行原样（不依赖 git 仓，纯函数断言）。
+    assert _porcelain_path('R  docs/old-名字.md -> docs/new-名字.md') == 'docs/new-名字.md'
+    assert _porcelain_path('?? "docs/quoted b.md"') == 'docs/quoted b.md'
+    assert _porcelain_path(' M docs/修复-x.md') == 'docs/修复-x.md'
+    print('[selftest] 路径解析单元：重命名右侧 / 引号剥离 / 普通行 OK')
+
+    # 聚合口径夹具：临时迷你 git 仓。验 quotepath 放开后中文未跟踪报告与英文路径报告都能被
+    # changed_reports() 识别；非报告文件不混入；显式路径绕开聚合直判；空仓聚合为空集并报 EMPTY。
+    repo = tempfile.mkdtemp(prefix='report-fields-selftest-repo-')
+    try:
+        subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True, text=True)
+        subprocess.run(['git', 'config', 'user.email', 'selftest@example.com'], cwd=repo, capture_output=True)
+        subprocess.run(['git', 'config', 'user.name', 'selftest'], cwd=repo, capture_output=True)
+        os.makedirs(os.path.join(repo, 'docs'), exist_ok=True)
+        os.makedirs(os.path.join(repo, 'data_scripts'), exist_ok=True)
+        cn = 'docs/修复-中文闸quotepath夹具.md'
+        en = 'docs/修复-selftest-en.md'
+        other = 'docs/机制-说明.md'
+        code = 'data_scripts/foo.py'
+        for rel in (cn, en, other, code):
+            open(os.path.join(repo, rel), 'w', encoding='utf-8').write('# 夹具\n')
+        globals()['ROOT'] = repo
+        found = changed_reports()
+        assert set(found) == {cn, en}, f"聚合应识别中文+英文两份报告，实得：{found}"
+        print('[selftest] 聚合口径：中文未跟踪报告、英文路径报告均识别 OK；非报告文件未混入')
+
+        # 显式路径调用：绕开聚合直接判传入路径（放行通路，行为不变）。英文路径报告补齐四件套后应 PASS。
+        gdocs = os.path.join(repo, 'docs', '锚点')
+        os.makedirs(gdocs, exist_ok=True)
+        open(os.path.join(gdocs, 'selftest-en.md'), 'w', encoding='utf-8').write('# 锚点卡\n')
+        anchors = '\n'.join([
+            'data_scripts/check-no-idle.py:23',
+            'data_scripts/check-queue-running.py:15',
+            'data_scripts/check-dispatch-queue.py:35',
+            'data_scripts/check-report-fields.py:69',
+            'data_scripts/check-onboarding.py:77',
+        ])
+        en_body = ("锚点卡：docs/锚点/selftest-en.md\n\n"
+                   "总结论：PASS\n\n"
+                   "## 自查反例\n反例推演：若路径不归一，转义串会漏判。\n\n"
+                   "证据锚点：\n" + anchors + "\n")
+        open(os.path.join(repo, en), 'w', encoding='utf-8').write(en_body)
+        saved_argv = sys.argv
+        sys.argv = ['check-report-fields.py', en]
+        try:
+            rc_explicit = main()
+        finally:
+            sys.argv = saved_argv
+        assert rc_explicit == 0, f"显式路径传入合规报告应 PASS，rc={rc_explicit}"
+        print('[selftest] 显式路径调用通路 OK（绕开聚合，直接判传入文件）')
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(repo, ignore_errors=True)
+
+    empty = tempfile.mkdtemp(prefix='report-fields-selftest-empty-')
+    try:
+        subprocess.run(['git', 'init', '-q'], cwd=empty, capture_output=True, text=True)
+        globals()['ROOT'] = empty
+        assert changed_reports() == [], "空仓聚合应返回空集"
+        saved_argv = sys.argv
+        sys.argv = ['check-report-fields.py']
+        buf = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = buf
+        try:
+            rc_empty = main()
+        finally:
+            sys.stdout = old_stdout
+            sys.argv = saved_argv
+        assert rc_empty == 2, f"空集应退出码 2，实得 {rc_empty}"
+        assert 'EMPTY' in buf.getvalue(), f"空集应报 EMPTY 不判 PASS，实得：{buf.getvalue()!r}"
+        print('[selftest] 空集通路 OK：报 EMPTY、退出码 2，不判 PASS')
+    finally:
+        globals()['ROOT'] = saved_root
+        shutil.rmtree(empty, ignore_errors=True)
+
     print('[selftest] 夹具已自删，双向自测通过。')
     return 0
 
@@ -149,11 +254,12 @@ def main():
         return selftest()
     paths = sys.argv[1:] or changed_reports()
     if not paths:
-        print("REPORT-FIELDS: PASS（本轮无报告改动）")
-        return 0
+        # 空集不判 PASS（㊾）：没检出待检报告＝没有可核验对象，不是"合规"；同 ⑲/55 口径报 EMPTY，退出码 2。
+        print("EMPTY: 未提供待检报告（空集不判 PASS；聚合口径走 changed_reports）")
+        return 2
     bad = 0
     for p in paths:
-        if is_fixture(p):
+        if is_fixture(p) or is_anchor_card(p):
             continue
         fails = check(p)
         if fails:

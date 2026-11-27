@@ -27,7 +27,7 @@
 
 限制：本闸不做类型推断，接收者类型不参与解析；同名单参/多参重载只按参个数与
 vararg/默认参判配平。它是编译期错误的前置筛子，不替代编译。
-退出码：0 = 无 NODEF / ARITY；1 = 有 FAIL。
+退出码：0 = 无 NODEF / ARITY / PACKAGE；1 = 有 FAIL。
 用法：python3 data_scripts/check-symbol-existence.py [--selftest]
 """
 import os
@@ -169,8 +169,10 @@ CALL_RE = re.compile(
     r'(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\('
 )
 IMPORT_RE = re.compile(
-    r'^import\s+(?P<path>[A-Za-z0-9_.]+)(?:\s+as\s+(?P<alias>\w+))?',
-    re.MULTILINE)  # 必须多行模式：import 常位于 package 之后的非首行，裸 ^ 只匹首行。
+    r'^import\s+(?P<path>[A-Za-z0-9_.*]+)(?:\s+as\s+(?P<alias>\w+))?',
+    re.MULTILINE)  # 必须多行模式：import 常位于 package 之后的非首行，裸 ^ 只匹首行；
+# 路径字符类含 `*`：通配符 import（`import a.b.*`）必须被解析出来进 PACKAGE 判定，
+# 旧版字符类不含星号，整行正则落空等于整行跳过（N2 加固）。
 
 
 def strip_noise(src: str) -> str:
@@ -527,6 +529,152 @@ EXT_DECL_RE = re.compile(
     r'([A-Za-z_][A-Za-z0-9_]*)\s*\(',
     re.MULTILINE)
 
+# 声明位扫描（宽松兜底专用，N1 加固）：修饰符/注解前缀串，fun 与非 fun 两支共用。
+_DECL_MOD = (
+    r'(?:@[A-Za-z0-9_.]+(?:\s*\([^)]*\))?\s*|'
+    r'(?:public|internal|private|protected|open|abstract|final|sealed|data|value|inner|'
+    r'enum|expect|actual|inline|operator|infix|suspend|tailrec|override|const|companion)\s+)*'
+)
+# fun 声明位：行首/缩进后 → 修饰符 → fun → 可选泛型形参 → 可选接收者段（含泛型/逗号/空格/可空符）
+# → 名字 → 必须紧接左括号。名字与 `(` 之间只允许空白；不许再用 `.*?` 跨入函数体匹配提及。
+FUN_DECL_POS_RE = re.compile(
+    r'^\s*' + _DECL_MOD + r'fun\s+'
+    r'(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>\s*)?'
+    # 接收者字符类含 ?/逗号/空格，覆盖泛型可空接收者（如 HashMap<String, T>?）。
+    r'(?:[A-Za-z_][A-Za-z0-9_.<>?, ]*?\.)?'
+    r'(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\('
+)
+# 非 fun 声明位：class/object/interface/typealias/val/var 后接名字（无左括号要求，构造形参可省略）。
+OTHER_DECL_POS_RE = re.compile(
+    r'^\s*' + _DECL_MOD + r'(?:class|object|interface|typealias|val|var)\s+'
+    r'(?P<name>[A-Za-z_][A-Za-z0-9_]*)'
+)
+# 块开括号归类头：类 / 接口 / object / 伴生对象体是「声明上下文」；其余开括号（fun 体、
+# if/for/while/when/try/catch、lambda、匿名块）是「局部上下文」。为什么按头部分类而不数深度：
+# 顶层函数体与类体都在大括号 depth=1，单看深度分不清成员声明与局部影子声明。
+_DECL_HEADER_RE = re.compile(r'\b(?:companion\s+object|class|interface|object)\b')
+
+
+def _decl_stack_ok(stack: list) -> bool:
+    """栈空（包级顶层）或帧全为声明上下文才算声明位；任一局部/块帧在栈上即排除。"""
+    return all(kind == 'decl' for kind in stack)
+
+
+def _declares_name(src: str, simple: str) -> bool:
+    """逐行判断源码是否在声明位声明了 simple（顶层 / 类·接口·object·伴生对象成员）。
+
+    N1 加固背景：旧版宽松兜底正则 fun 段为 `fun\\s+.*?\\b名\\b`，`.*?` 可越过 fun 名吃到
+    同一行函数体里提及该名的位置（探针 F：beta 包 Helper 函数体提及 AlphaBox::class），
+    真跨包错引被当成「同包声明」放行，rc=0 假阴性。现改为声明位严格匹配：
+    fun 分支必须名字紧接左括号；非 fun 分支必须关键字后接名字；函数体后续行、同行函数体内的
+    同名提及一律不算声明。接收者段仍放宽到含泛型/空格/逗号，兜住 `fun <T> HashMap<String, T>.get`。
+
+    g63 影子声明补丁：N1 只收口了「同行函数体内提及」；多行函数体内局部 `var`/`val`/局部
+    `fun` 独占一行且与目标同名时，旧版无大括号深度感知，仍被当成包级声明放行。现叠一层
+    上下文帧栈：逐字符扫描，括号不计入双引号串 / 三引号串 / 字符字面量 / 注释内的 `{` `}`；
+    类/接口/object/伴生对象体压 `decl` 帧，fun 体/控制流/lambda/匿名块压 `block` 帧；
+    栈空或全 `decl` 的行才参与声明位正则匹配，函数体内局部影子声明一律不算声明位移据。
+    """
+    lines = src.splitlines()
+    eligible: list[bool] = []
+    stack: list[str] = []
+    # 字符状态机：code 代码 / line 行注释 / block_comment 块注释 / dq 双引号串 /
+    # tq 三引号串 / char 字符字面量。串与注释内的大括号不参与帧栈配平。
+    state = 'code'
+    cur_code = ''   # 当前行代码态下累积的文本（仅用于开括号头部分类，串/注释不计入）
+    prev_nonempty: list[str] = []
+    i, n = 0, len(src)
+    if lines:
+        eligible.append(_decl_stack_ok(stack))
+
+    def classify_opener() -> str:
+        # 两步归类：先认本行开括号前文本；本行只有形参闭括号/空白（类头/fun 头跨多行）
+        # 才回看前若干非空行找声明关键字。回看只做兜底，不能把上一行残留的 class/object
+        # 关键字带到本行 fun 体开括号上（否则 fun 体帧被错分成声明帧）。
+        if _DECL_HEADER_RE.search(cur_code):
+            return 'decl'
+        if re.search(r'\b(?:fun|if|for|while|when|try|catch|do|else|init)\b', cur_code):
+            return 'block'
+        header = cur_code + ' ' + ' '.join(reversed(prev_nonempty[-4:]))
+        return 'decl' if _DECL_HEADER_RE.search(header) else 'block'
+
+    def new_line() -> None:
+        nonlocal cur_code
+        if cur_code.strip():
+            prev_nonempty.append(cur_code.strip())
+        eligible.append(_decl_stack_ok(stack))
+        cur_code = ''
+
+    while i < n:
+        c = src[i]
+        # 换行在任何状态下都推进行号并记行首快照：串/注释跨多行时行号不能错位，
+        # 否则后续真实代码行会挂到错误的 eligibility 槽上。
+        if c == '\n':
+            if state in ('code', 'line'):
+                new_line()
+            else:
+                eligible.append(_decl_stack_ok(stack))
+            i += 1; continue
+        if state == 'line':
+            i += 1; continue
+        if state == 'block_comment':
+            if c == '*' and i + 1 < n and src[i + 1] == '/':
+                state = 'code'
+            i += 1; continue
+        if state == 'dq':
+            if c == '\\':
+                i += 2; continue
+            if c == '"':
+                state = 'code'
+            i += 1; continue
+        if state == 'tq':
+            if src[i:i + 3] == '"""':
+                state = 'code'; i += 3; continue
+            i += 1; continue
+        if state == 'char':
+            if c == '\\':
+                i += 2; continue
+            if c == "'":
+                state = 'code'
+            i += 1; continue
+        # code 态
+        if c == '/' and i + 1 < n and src[i + 1] == '/':
+            state = 'line'; i += 2; continue
+        if c == '/' and i + 1 < n and src[i + 1] == '*':
+            state = 'block_comment'; i += 2; continue
+        if src[i:i + 3] == '"""':
+            state = 'tq'; i += 3; continue
+        if c == '"':
+            state = 'dq'; i += 1; continue
+        if c == "'":
+            state = 'char'; i += 1; continue
+        if c == '{':
+            stack.append(classify_opener())
+            cur_code += c
+            i += 1; continue
+        if c == '}':
+            if stack:
+                stack.pop()
+            cur_code += c
+            i += 1; continue
+        cur_code += c
+        i += 1
+
+    # 末尾无换行的最后一行：补记其行首 eligibility，不能因缺换行被整行跳过。
+    while len(eligible) < len(lines):
+        eligible.append(_decl_stack_ok(stack))
+
+    for idx, line in enumerate(lines):
+        if not eligible[idx]:
+            continue
+        m = FUN_DECL_POS_RE.match(line)
+        if m and m.group('name') == simple:
+            return True
+        m = OTHER_DECL_POS_RE.match(line)
+        if m and m.group('name') == simple:
+            return True
+    return False
+
 
 def package_import_issues(root: str, files: list) -> list:
     """包级 import 真值（2026-11-27 CI 红根因 c82c585）。
@@ -537,8 +685,11 @@ def package_import_issues(root: str, files: list) -> list:
     判法（只认一种错：换了包）：被 import 的 FQN 在仓内找不到同包声明，却在别的包里有同名声明。
     三重放行，防假红（三条都是实跑踩出来的）：
     A 嵌套类 / 伴生成员 —— FQN 前缀链逐级回退命中即放行；
-    B 扩展函数接收者带泛型/空格/逗号（`fun <T> HashMap<String, T>.get(...)`）—— 用「同包内声明名宽松搜索」兜住；
+    B 扩展函数接收者带泛型/空格/逗号（`fun <T> HashMap<String, T>.get(...)`）—— 由声明位严格
+      扫描器 `_declares_name` 兜住（fun 名紧接左括号，接收者段允许泛型/逗号/空格）；
     C 名字仓内根本没有 —— 归 NODEF，这里不重复报。
+    N2 加固：通配符 import（`import a.b.*`）参与判定——被通配包在仓内无任何 package 声明即判
+    PACKAGE；包存在则放行（通配符语义为整包导入，不绑定具体符号）。
     性能：包→文件表只建一次，逐 import 查表，不逐文件 repeated read。"""
     pkg_of, pkg_src = {}, {}
     fqn = {}
@@ -559,6 +710,7 @@ def package_import_issues(root: str, files: list) -> list:
             fqn[package + '.' + m.group(2)] = rel
         for m in EXT_DECL_RE.finditer(src):
             fqn[package + '.' + m.group(1)] = rel
+    packages = set(pkg_of.values())
     by_name = {}
     for f, rel in fqn.items():
         by_name.setdefault(f.rsplit('.', 1)[-1], []).append((f, rel))
@@ -573,7 +725,16 @@ def package_import_issues(root: str, files: list) -> list:
             continue
         for im in IMPORT_RE.finditer(src):
             path_ = im.group('path')
-            if not path_.startswith(OWN_PREFIX) or path_ in fqn:
+            if not path_.startswith(OWN_PREFIX):
+                continue
+            line = src.count('\n', 0, im.start()) + 1
+            # N2：通配符路径不整行跳过；包不存在判 PACKAGE，包存在放行。
+            if path_.endswith('.*'):
+                wildcard_pkg = path_[:-2]
+                if wildcard_pkg not in packages:
+                    issues.append((rel, line, path_, '通配符包在仓内无任何 package 声明'))
+                continue
+            if path_ in fqn:
                 continue
             head = path_
             while '.' in head:
@@ -586,20 +747,22 @@ def package_import_issues(root: str, files: list) -> list:
                 continue  # 嵌套类/伴生成员
             pkg_path = path_.rsplit('.', 1)[0]
             simple = path_.rsplit('.', 1)[-1]
-            loose = re.compile(
-                r'^\s*(?:[A-Za-z@ ]*\s)?(?:fun\s+.*?\b|(?:class|object|interface|typealias|val|var)\s+)'
-                + re.escape(simple) + r'\b', re.MULTILINE)
-            if any(loose.search(x) for x in pkg_src.get(pkg_path, [])):
-                continue  # 同包内确有该声明（宽松兜底）
+            if any(_declares_name(x, simple) for x in pkg_src.get(pkg_path, [])):
+                continue  # 同包声明位确有该声明（声明位严格匹配，不跨函数体）
             others = [f for f, _rel in by_name.get(simple, [])]
             if not others:
                 continue  # 名字仓内没有，归 NODEF
-            line = src.count('\n', 0, im.start()) + 1
             issues.append((rel, line, path_, ' / '.join(others[:3])))
     return issues
 
 
-def main(root: str = ROOT) -> int:
+def analyze(root: str = ROOT) -> tuple[int, list, list, dict]:
+    """跑全仓判定，返回 (rc, call_issues, pkg_issues, stats)。
+
+    call_issues=[(sev, rel, name, line, call_arity, msg)]；pkg_issues=[(rel, line, path_, real)]；
+    stats 携带文件数/调用数/三类计数/跳过计数，供 main 打印与 selftest 结构化断言复用。
+    拆分目的：selftest 不只比退出码，还能直接断言命中类别标签与被判文件行（N3 加固）。
+    """
     files = collect_files(root)
     index: dict[str, list] = {}
     external_names: set[str] = set()
@@ -618,6 +781,8 @@ def main(root: str = ROOT) -> int:
             index.setdefault(dname, []).extend(defs)
         for im in IMPORT_RE.finditer(src):
             p = im.group('path')
+            if p.endswith('.*'):
+                continue  # 通配符不提供具体简单名，不进外部名表（N2）。
             last = p.rsplit('.', 1)[-1]
             if p.startswith(OWN_PREFIX):
                 pass  # 自有 import 归属在 scan_file 内按本文件判定，不进全局表。
@@ -641,16 +806,26 @@ def main(root: str = ROOT) -> int:
                 arity += 1
 
     pkg_bad = package_import_issues(root, files)
+    stats = {'files': len(files), 'calls': total_calls, 'nodef': nodef, 'arity': arity,
+             'pkg': len(pkg_bad), 'skip': skip}
+    rc = 1 if (nodef + arity + len(pkg_bad)) else 0
+    return rc, all_issues, pkg_bad, stats
+
+
+def main(root: str = ROOT) -> int:
+    rc, all_issues, pkg_bad, stats = analyze(root)
     for rel, line, path_, real in pkg_bad:
         print('  PACKAGE %s:%d import %s → 仓内同名定义实际在 %s' % (rel, line, path_, real))
 
     for sev, rel, name, line, call_arity, msg in all_issues:
         print('  %s %s:%d %s(%d) → %s' % (sev, rel, line, name, call_arity, msg))
+    skip = stats['skip']
     print('SYMBOL-EXISTENCE: %s（扫描 %d 文件，调用 %d 处，NODEF %d / ARITY %d / PACKAGE %d，'
           '跳过生成 %d / 外部库 %d / 标准库 %d / 未知 %d）'
-          % ('FAIL' if (nodef + arity + len(pkg_bad)) else 'PASS', len(files), total_calls,
-             nodef, arity, len(pkg_bad), skip['generated'], skip['external'], skip['stdlib'], skip['unknown']))
-    return 1 if (nodef + arity + len(pkg_bad)) else 0
+          % ('FAIL' if rc else 'PASS', stats['files'], stats['calls'],
+             stats['nodef'], stats['arity'], stats['pkg'],
+             skip['generated'], skip['external'], skip['stdlib'], skip['unknown']))
+    return rc
 
 
 def _kt(root: str, rel: str, src: str) -> None:
@@ -659,9 +834,32 @@ def _kt(root: str, rel: str, src: str) -> None:
     open(p, 'w', encoding='utf-8').write(src)
 
 
+def _find_call(calls: list, suffix: str, sev: str, name: str | None = None) -> tuple:
+    """从 call issues 里按文件后缀 + 类别标签（+符号名）取命中条目；缺命中即断言失败。
+
+    N3 加固：坏样本不再只比退出码——必须断言命中的 severity 标签（NODEF/ARITY/PACKAGE）
+    与被判文件行，防止别类红蒙混成本样本通过。
+    """
+    hits = [c for c in calls if c[1].endswith(suffix) and c[0] == sev
+            and (name is None or c[2] == name)]
+    assert hits, f"未在调用类 issues 命中 {sev} {suffix}（{name}）；calls={calls}"
+    return hits[0]
+
+
+def _find_pkg(pkgs: list, suffix: str, imp: str) -> tuple:
+    """从 PACKAGE issues 里按文件后缀 + import 路径取命中条目。"""
+    hits = [p for p in pkgs if p[0].endswith(suffix) and imp in p[2]]
+    assert hits, f"未在 PACKAGE issues 命中 {suffix} {imp}；pkgs={pkgs}"
+    return hits[0]
+
+
 def selftest() -> int:
-    """双向自测（tempfile 迷你仓，判定回调生产 main()，夹具自删）：
-    必失败 NODEF 一条、必失败 ARITY 一条；重载放行一条、合法一参一条必通过。"""
+    """双向自测（tempfile 迷你仓，判定回调生产 analyze()，夹具自删）。
+
+    必失败：NODEF / ARITY / 类跨包 PACKAGE / 函数体提及不豁免 PACKAGE / 扩展跨包 PACKAGE /
+    通配符包不存在 PACKAGE / 多行函数体内局部 var 同名 / 局部 fun 同名；必放行：重载配平 /
+    一参匹配 / ?. 安全调用 / 嵌套伴生外层 import / 泛型接收者扩展 / 通配符包存在 / 包级顶层声明 /
+    interface 成员 / object 成员 / 伴生对象成员 / 抽象类成员。每个坏样本断言类别标签与被判文件行（N3）。"""
 
     # 仓内定义：one 一参无兜底；two 两个重载（一参/两参）；Extension 扩展一参。
     lib = '''package io.legado.app.lib
@@ -672,7 +870,7 @@ fun two(a: Int, b: Int): Int = a + b
 fun String.ext(x: Int): String = this + x
 '''
 
-    # 必失败样本一 NODEF：调用自有 import 的 missingSym，索引里无定义。
+    # 必失败样本一 NODEF：调用自有 import 的 missingSym，索引里无定义。调用行在夹具第 5 行。
     t1 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
     try:
         _kt(t1, 'app/src/main/java/io/legado/app/lib/Lib.kt', lib)
@@ -680,13 +878,15 @@ fun String.ext(x: Int): String = this + x
             'package io.legado.app.use\n\n'
             'import io.legado.app.lib.missingSym\n\n'
             'fun call() = missingSym(1, 2)\n')
-        rc = main(t1)
+        rc, calls, _pkgs, _st = analyze(t1)
         assert rc == 1, f"NODEF 应 FAIL，rc={rc}"
-        print('[selftest] 坏样本一（NODEF 自有符号无定义）FAIL 通路 OK')
+        hit = _find_call(calls, 'Use1.kt', 'NODEF', 'missingSym')
+        assert hit[3] == 5, f"NODEF 应判在调用行 5，实际行号 {hit[3]}"
+        print('[selftest] 坏样本一（NODEF 自有符号无定义）FAIL 通路 OK：NODEF Use1.kt:5')
     finally:
         shutil.rmtree(t1, ignore_errors=True)
 
-    # 必失败样本二 ARITY：one 只有一参定义，按三参调用，无 vararg/默认参。
+    # 必失败样本二 ARITY：one 只有一参定义，按三参调用，无 vararg/默认参。调用行在夹具第 5 行。
     t2 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
     try:
         _kt(t2, 'app/src/main/java/io/legado/app/lib/Lib.kt', lib)
@@ -694,9 +894,11 @@ fun String.ext(x: Int): String = this + x
             'package io.legado.app.use\n\n'
             'import io.legado.app.lib.one\n\n'
             'fun call() = one(1, 2, 3)\n')
-        rc = main(t2)
+        rc, calls, _pkgs, _st = analyze(t2)
         assert rc == 1, f"ARITY 应 FAIL，rc={rc}"
-        print('[selftest] 坏样本二（ARITY 重载参个数不配平）FAIL 通路 OK')
+        hit = _find_call(calls, 'Use2.kt', 'ARITY', 'one')
+        assert hit[3] == 5, f"ARITY 应判在调用行 5，实际行号 {hit[3]}"
+        print('[selftest] 坏样本二（ARITY 重载参个数不配平）FAIL 通路 OK：ARITY Use2.kt:5')
     finally:
         shutil.rmtree(t2, ignore_errors=True)
 
@@ -708,8 +910,9 @@ fun String.ext(x: Int): String = this + x
             'package io.legado.app.use\n\n'
             'import io.legado.app.lib.two\n\n'
             'fun call() = two(1, 2)\n')
-        rc = main(t3)
+        rc, calls, pkgs, _st = analyze(t3)
         assert rc == 0, f"重载放行应 PASS，rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
         print('[selftest] 放行样本（两参调用命中两参重载）PASS 通路 OK')
     finally:
         shutil.rmtree(t3, ignore_errors=True)
@@ -722,8 +925,9 @@ fun String.ext(x: Int): String = this + x
             'package io.legado.app.use\n\n'
             'import io.legado.app.lib.one\n\n'
             'fun call() = one(1)\n')
-        rc = main(t4)
+        rc, calls, pkgs, _st = analyze(t4)
         assert rc == 0, f"合法一参应 PASS，rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
         print('[selftest] 放行样本（一参调用匹配一参定义）PASS 通路 OK')
     finally:
         shutil.rmtree(t4, ignore_errors=True)
@@ -742,8 +946,9 @@ fun String.ext(x: Int): String = this + x
             'import io.legado.app.lib.Chapter\n'
             'import io.legado.app.lib.title\n\n'
             'fun call(c: Chapter?) = c?.title()\n')
-        rc = main(t5)
+        rc, calls, pkgs, _st = analyze(t5)
         assert rc == 0, f"安全调用扩展到扩展定义应 PASS（不得与同名顶层 fun 错配），rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
         print('[selftest] 放行样本（?. 安全调用打到同名扩展）PASS 通路 OK')
     finally:
         shutil.rmtree(t5, ignore_errors=True)
@@ -760,11 +965,265 @@ fun String.ext(x: Int): String = this + x
         _kt(t6, 'app/src/main/java/io/legado/app/ui/book/read/vertical/Bad.kt',
             'package io.legado.app.ui.book.read.vertical\n\n'
             'import io.legado.app.ui.book.read.vertical.Widget\n')
-        rc = main(t6)
+        rc, _calls, pkgs, _st = analyze(t6)
         assert rc == 1, f"跨包错引应 PACKAGE FAIL，rc={rc}"
-        print('[selftest] 坏样本三（import 换包，类实际在别包）PACKAGE FAIL 通路 OK')
+        hit = _find_pkg(pkgs, 'vertical/Bad.kt',
+                        'io.legado.app.ui.book.read.vertical.Widget')
+        assert hit[1] == 3, f"PACKAGE 应判在 import 行 3，实际行号 {hit[1]}"
+        print('[selftest] 坏样本三（import 换包，类实际在别包）PACKAGE FAIL 通路 OK：PACKAGE Bad.kt:3')
     finally:
         shutil.rmtree(t6, ignore_errors=True)
+
+    # 坏样本四（N1 加固回归锁）：错包源文件 fun 函数体同行提及同名，不得被宽松兜底当成同包声明。
+    # 探针 F 旧版复现 rc=0 假阴性；加固后必须 PACKAGE 红。
+    t7 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t7, 'app/src/main/java/io/legado/app/alpha/Box.kt',
+            'package io.legado.app.alpha\n\nclass AlphaBox(val n: Int)\n')
+        _kt(t7, 'app/src/main/java/io/legado/app/beta/Helper.kt',
+            'package io.legado.app.beta\n\n'
+            'fun helper() { val ref = AlphaBox::class }\n')
+        _kt(t7, 'app/src/main/java/io/legado/app/use/Use7.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.beta.AlphaBox\n\n'
+            'fun call() = AlphaBox(1)\n')
+        rc, _calls, pkgs, _st = analyze(t7)
+        assert rc == 1, f"函数体提及不得豁免真跨包错引，rc={rc}"
+        hit = _find_pkg(pkgs, 'use/Use7.kt', 'io.legado.app.beta.AlphaBox')
+        assert hit[1] == 3, f"PACKAGE 应判在 import 行 3，实际行号 {hit[1]}"
+        print('[selftest] 坏样本四（函数体同名提及不豁免，跨包错引）PACKAGE FAIL 通路 OK：PACKAGE Use7.kt:3')
+    finally:
+        shutil.rmtree(t7, ignore_errors=True)
+
+    # 坏样本五（N4 通路夹具一）：扩展函数定义在 lib 包，导入方错引 other 包 → 必判 PACKAGE。
+    t8 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t8, 'app/src/main/java/io/legado/app/lib/Ext.kt',
+            'package io.legado.app.lib\n\n'
+            'fun String.libExt(x: Int): String = this + x\n')
+        _kt(t8, 'app/src/main/java/io/legado/app/use/BadExt.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.other.libExt\n\n'
+            'fun call(s: String) = s.libExt(1)\n')
+        rc, _calls, pkgs, _st = analyze(t8)
+        assert rc == 1, f"扩展函数跨包错引应 PACKAGE FAIL，rc={rc}"
+        hit = _find_pkg(pkgs, 'use/BadExt.kt', 'io.legado.app.other.libExt')
+        assert hit[1] == 3, f"PACKAGE 应判在 import 行 3，实际行号 {hit[1]}"
+        print('[selftest] 坏样本五（扩展函数跨包错引）PACKAGE FAIL 通路 OK：PACKAGE BadExt.kt:3')
+    finally:
+        shutil.rmtree(t8, ignore_errors=True)
+
+    # 放行样本四（N4 通路夹具二）：嵌套类 / 伴生成员从外层 import，前缀链回退命中即放行。
+    t9 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t9, 'app/src/main/java/io/legado/app/delta/Outer.kt',
+            'package io.legado.app.delta\n\n'
+            'class Outer {\n'
+            '    class Nested(val x: Int)\n'
+            '    companion object {\n'
+            '        const val TAG = "outer"\n'
+            '        fun companionMember(): String = TAG\n'
+            '    }\n'
+            '}\n')
+        _kt(t9, 'app/src/main/java/io/legado/app/use/UseNested.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.delta.Outer.Nested\n'
+            'import io.legado.app.delta.Outer.companionMember\n\n'
+            'fun call() = Nested(1).let { companionMember() }\n')
+        rc, calls, pkgs, _st = analyze(t9)
+        assert rc == 0, f"嵌套类/伴生成员外层 import 应 PASS，rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
+        print('[selftest] 放行样本（嵌套类/伴生成员外层 import）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t9, ignore_errors=True)
+
+    # 放行样本五（N4 通路夹具三）：泛型接收者扩展 `fun <T> HashMap<String, T>.get(...)`，
+    # EXT_DECL_RE 收不进泛型接收者，由声明位扫描器兜底；同包 import 必须放行，不得误判 PACKAGE。
+    t10 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t10, 'app/src/main/java/io/legado/app/utils/MapExt.kt',
+            'package io.legado.app.utils\n\n'
+            'fun <T> HashMap<String, T>.get(key: String, ignoreCase: Boolean = false): T? = null\n')
+        _kt(t10, 'app/src/main/java/io/legado/app/use/UseMap.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.utils.get\n\n'
+            'fun call(m: HashMap<String, String>) = m.get("k")\n')
+        rc, calls, pkgs, _st = analyze(t10)
+        assert rc == 0, f"泛型接收者扩展同包 import 应 PASS，rc={rc}"
+        assert not pkgs, f"泛型接收者扩展不得判 PACKAGE：{pkgs}"
+        print('[selftest] 放行样本（泛型接收者扩展声明位兜底）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t10, ignore_errors=True)
+
+    # 坏样本六（N2 加固回归锁）：通配符包在仓内无任何 package 声明 → 必须判 PACKAGE，不得整行跳过。
+    t11 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t11, 'app/src/main/java/io/legado/app/lib/Lib.kt', lib)
+        _kt(t11, 'app/src/main/java/io/legado/app/use/BadWild.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.missing.*\n')
+        rc, _calls, pkgs, _st = analyze(t11)
+        assert rc == 1, f"通配符包不存在应 PACKAGE FAIL，rc={rc}"
+        hit = _find_pkg(pkgs, 'use/BadWild.kt', 'io.legado.app.missing.*')
+        assert hit[1] == 3, f"PACKAGE 应判在 import 行 3，实际行号 {hit[1]}"
+        print('[selftest] 坏样本六（通配符包不存在）PACKAGE FAIL 通路 OK：PACKAGE BadWild.kt:3')
+    finally:
+        shutil.rmtree(t11, ignore_errors=True)
+
+    # 放行样本六（N2 正向锁）：通配符包在仓内有 package 声明 → 放行。
+    t12 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t12, 'app/src/main/java/io/legado/app/lib/Lib.kt', lib)
+        _kt(t12, 'app/src/main/java/io/legado/app/use/UseWild.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.*\n\n'
+            'fun call() = two(1, 2)\n')
+        rc, calls, pkgs, _st = analyze(t12)
+        assert rc == 0, f"通配符包存在应 PASS，rc={rc}"
+        assert not pkgs, f"存在的通配符包不得判 PACKAGE：{pkgs}"
+        print('[selftest] 放行样本（通配符包存在）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t12, ignore_errors=True)
+
+    # 坏样本七（g63 影子声明补丁回归锁一）：多行函数体内局部 `var` 独占一行与目标同名，
+    # 不得被上下文帧栈当成包级声明放行；真跨包错引必须判 PACKAGE。
+    t13 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t13, 'app/src/main/java/io/legado/app/alpha/Box.kt',
+            'package io.legado.app.alpha\n\nclass ShadowBox(val n: Int)\n')
+        _kt(t13, 'app/src/main/java/io/legado/app/beta/Helper.kt',
+            'package io.legado.app.beta\n\n'
+            'fun helper() {\n'
+            '    var ShadowBox = "shadow"\n'
+            '}\n')
+        _kt(t13, 'app/src/main/java/io/legado/app/use/Use13.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.beta.ShadowBox\n\n'
+            'fun call() = ShadowBox(1)\n')
+        rc, _calls, pkgs, _st = analyze(t13)
+        assert rc == 1, f"函数体内局部 var 影子声明不得豁免跨包错引，rc={rc}"
+        hit = _find_pkg(pkgs, 'use/Use13.kt', 'io.legado.app.beta.ShadowBox')
+        assert hit[1] == 3, f"PACKAGE 应判在 import 行 3，实际行号 {hit[1]}"
+        print('[selftest] 坏样本七（多行函数体内局部 var 同名）PACKAGE FAIL 通路 OK：PACKAGE Use13.kt:3')
+    finally:
+        shutil.rmtree(t13, ignore_errors=True)
+
+    # 坏样本八（g63 影子声明补丁回归锁二）：多行函数体内局部 `fun` 独占一行与目标同名，
+    # 同样落在局部上下文帧内，不算声明位，必须判 PACKAGE。
+    t14 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t14, 'app/src/main/java/io/legado/app/alpha/Box.kt',
+            'package io.legado.app.alpha\n\nclass ShadowBox(val n: Int)\n')
+        _kt(t14, 'app/src/main/java/io/legado/app/beta/Helper.kt',
+            'package io.legado.app.beta\n\n'
+            'fun helper() {\n'
+            '    fun ShadowBox() {}\n'
+            '}\n')
+        _kt(t14, 'app/src/main/java/io/legado/app/use/Use14.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.beta.ShadowBox\n\n'
+            'fun call() = ShadowBox(1)\n')
+        rc, _calls, pkgs, _st = analyze(t14)
+        assert rc == 1, f"函数体内局部 fun 影子声明不得豁免跨包错引，rc={rc}"
+        hit = _find_pkg(pkgs, 'use/Use14.kt', 'io.legado.app.beta.ShadowBox')
+        assert hit[1] == 3, f"PACKAGE 应判在 import 行 3，实际行号 {hit[1]}"
+        print('[selftest] 坏样本八（多行函数体内局部 fun 同名）PACKAGE FAIL 通路 OK：PACKAGE Use14.kt:3')
+    finally:
+        shutil.rmtree(t14, ignore_errors=True)
+
+    # 放行样本七（g63 正向锁一）：真正的包级顶层 fun 同包 import → 必须放行。
+    t15 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t15, 'app/src/main/java/io/legado/app/lib/Top.kt',
+            'package io.legado.app.lib\n\nfun topMark(): String = "x"\n')
+        _kt(t15, 'app/src/main/java/io/legado/app/use/Use15.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.topMark\n\n'
+            'fun call() = topMark()\n')
+        rc, calls, pkgs, _st = analyze(t15)
+        assert rc == 0, f"包级顶层声明应 PASS，rc={rc}"
+        assert not calls and not pkgs, f"放行仓不应有 issues：{calls} {pkgs}"
+        print('[selftest] 放行样本（真包级顶层声明）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t15, ignore_errors=True)
+
+    # 放行样本八（g63 正向锁二）：interface 内成员 fun，声明上下文帧，不得误伤。
+    t16 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t16, 'app/src/main/java/io/legado/app/lib/Iface.kt',
+            'package io.legado.app.lib\n\n'
+            'interface Iface {\n'
+            '    fun memberMark(): String\n'
+            '}\n')
+        _kt(t16, 'app/src/main/java/io/legado/app/use/Use16.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.memberMark\n\n'
+            'fun call() = memberMark()\n')
+        rc, calls, pkgs, _st = analyze(t16)
+        assert rc == 0, f"interface 成员应 PASS，rc={rc}"
+        assert not pkgs, f"interface 成员不得判 PACKAGE：{pkgs}"
+        print('[selftest] 放行样本（interface 成员）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t16, ignore_errors=True)
+
+    # 放行样本九（g63 正向锁三）：object 内成员 fun，声明上下文帧，不得误伤。
+    t17 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t17, 'app/src/main/java/io/legado/app/lib/Holder.kt',
+            'package io.legado.app.lib\n\n'
+            'object Holder {\n'
+            '    fun memberMark(): String = "x"\n'
+            '}\n')
+        _kt(t17, 'app/src/main/java/io/legado/app/use/Use17.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.memberMark\n\n'
+            'fun call() = memberMark()\n')
+        rc, calls, pkgs, _st = analyze(t17)
+        assert rc == 0, f"object 成员应 PASS，rc={rc}"
+        assert not pkgs, f"object 成员不得判 PACKAGE：{pkgs}"
+        print('[selftest] 放行样本（object 成员）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t17, ignore_errors=True)
+
+    # 放行样本十（g63 正向锁四）：伴生对象内成员 fun，声明上下文帧，不得误伤。
+    t18 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t18, 'app/src/main/java/io/legado/app/lib/Companion.kt',
+            'package io.legado.app.lib\n\n'
+            'class C {\n'
+            '    companion object {\n'
+            '        fun memberMark(): String = "x"\n'
+            '    }\n'
+            '}\n')
+        _kt(t18, 'app/src/main/java/io/legado/app/use/Use18.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.memberMark\n\n'
+            'fun call() = memberMark()\n')
+        rc, calls, pkgs, _st = analyze(t18)
+        assert rc == 0, f"伴生对象成员应 PASS，rc={rc}"
+        assert not pkgs, f"伴生对象成员不得判 PACKAGE：{pkgs}"
+        print('[selftest] 放行样本（伴生对象成员）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t18, ignore_errors=True)
+
+    # 放行样本十一（g63 正向锁五）：抽象类内成员 fun，声明上下文帧，不得误伤。
+    t19 = tempfile.mkdtemp(prefix='symbol-exist-selftest-')
+    try:
+        _kt(t19, 'app/src/main/java/io/legado/app/lib/Base.kt',
+            'package io.legado.app.lib\n\n'
+            'abstract class Base {\n'
+            '    abstract fun memberMark(): String\n'
+            '}\n')
+        _kt(t19, 'app/src/main/java/io/legado/app/use/Use19.kt',
+            'package io.legado.app.use\n\n'
+            'import io.legado.app.lib.memberMark\n\n'
+            'fun call() = memberMark()\n')
+        rc, calls, pkgs, _st = analyze(t19)
+        assert rc == 0, f"抽象类成员应 PASS，rc={rc}"
+        assert not pkgs, f"抽象类成员不得判 PACKAGE：{pkgs}"
+        print('[selftest] 放行样本（抽象类成员）PASS 通路 OK')
+    finally:
+        shutil.rmtree(t19, ignore_errors=True)
 
     print('[selftest] 夹具已自删，双向自测通过。')
     return 0
