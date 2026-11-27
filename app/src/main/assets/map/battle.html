@@ -78,6 +78,7 @@
 </div>
 
 <script src="three.min.js"></script>
+<script src="gyro.js"></script>
 <script src="engine.js"></script>
 <script src="campaigns.js"></script>
 <script>
@@ -341,10 +342,14 @@
   canvas.addEventListener('touchmove', function (e) {
     var t = e.touches[0];
     if (last) {
-      cam.yaw -= (t.clientX - last.x) * 0.006;
-      cam.pitch = Math.max(0.28, Math.min(1.45, cam.pitch + (t.clientY - last.y) * 0.004));
-      placeCam();
+      var dx = t.clientX - last.x, dy = t.clientY - last.y;
       last = { x: t.clientX, y: t.clientY };
+      // 跟随模式：轨道偏航/俯仰不跟手，单指只产生陀螺仪临时偏移，双指缩放保留
+      if (!(window.Gyro && Gyro.getMode() === 'follow')) {
+        cam.yaw -= dx * 0.006;
+        cam.pitch = Math.max(0.28, Math.min(1.45, cam.pitch + dy * 0.004));
+        placeCam();
+      }
     }
     e.preventDefault();
   }, { passive: false });
@@ -378,6 +383,9 @@
 
   (function animate() {
     requestAnimationFrame(animate);
+    // 陀螺仪姿态合成：render 之前挂钩子，不改既有渲染管道
+    Gyro.attach(camera);
+    Gyro.frame(performance.now(), camera);
     renderer.render(scene, camera);
   })();
   window.addEventListener('resize', function () {

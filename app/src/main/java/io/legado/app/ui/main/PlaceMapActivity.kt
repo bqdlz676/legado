@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import io.legado.app.R
 import io.legado.app.help.chrono.ContextAnchor
 import io.legado.app.help.place.PlaceDict
+import io.legado.app.help.sensor.GyroBridge
 import io.legado.app.help.place.PlaceGeo
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,6 +23,9 @@ import org.json.JSONObject
  * D3 是纯 Kotlin / 纯 JVM 目录，无需 Context 预热，查无候选返回空列表，不塞假坐标。
  */
 class PlaceMapActivity : AppCompatActivity() {
+
+    // 持有的 WebView 引用：onDestroy 注销传感器并销毁容器，避免 JS 上下文悬空回调
+    private var web: WebView? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -184,6 +188,58 @@ class PlaceMapActivity : AppCompatActivity() {
         settings.loadsImagesAutomatically = true
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
+        // 仓内此前无任何 JS 桥：这里新建 GyroHost，暴露姿态四元数拉取 / 降级状态查询
+        web.addJavascriptInterface(GyroHost(), "GyroBridge")
+        this.web = web
         return web
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 切回前台重注册；空数据分支 WebView 已 GONE，不启传感器，省功耗
+        if (web?.visibility == View.VISIBLE) {
+            GyroBridge.setDisplayRotation(windowManager.defaultDisplay.rotation)
+            GyroBridge.start(this)
+        } else {
+            GyroBridge.stop()
+        }
+    }
+
+    override fun onPause() {
+        // 切后台立即注销传感器，避免后台耗电与悬空回调（规格 §七）
+        GyroBridge.stop()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        GyroBridge.stop()
+        web?.apply {
+            loadUrl("about:blank")
+            stopLoading()
+            destroy()
+        }
+        web = null
+        super.onDestroy()
+    }
+
+    /**
+     * JS ↔ 原生桥对象。方法在 JS 线程被调起，只做纯数据取出，不碰 WebView 本身；
+     * WebView 销毁后即便残留调用，也不会再 evaluateJavascript。
+     */
+    private inner class GyroHost {
+        /** 每帧拉一条最新四元数，格式 "w,x,y,z"；空队返回空串。 */
+        @android.webkit.JavascriptInterface
+        fun pull(): String {
+            val q = GyroBridge.drainLatest() ?: return ""
+            return "${q[0]},${q[1]},${q[2]},${q[3]}"
+        }
+
+        /** 兜底融合矩阵分支：JS 端强制锁权重 0.04。 */
+        @android.webkit.JavascriptInterface
+        fun degraded(): Boolean = GyroBridge.degraded
+
+        /** 是否有可用传感器；false 时 JS 端隐藏陀螺仪入口。 */
+        @android.webkit.JavascriptInterface
+        fun available(): Boolean = GyroBridge.level > 0
     }
 }

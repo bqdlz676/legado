@@ -60,6 +60,7 @@ fun ShelfBookCard(
     book: ShelfBookUi,
     index: Int,
     parallax: Float,
+    parallaxState: ShelfParallaxState,
     onOpen: (ShelfBookUi) -> Unit,
     onDelete: (ShelfBookUi) -> Unit,
     modifier: Modifier = Modifier,
@@ -154,6 +155,22 @@ fun ShelfBookCard(
                 .fillMaxSize()
                 .drawBehind {
                     val inset = glowPad * 0.4f
+                    // Q441 视差暖金阴影：倾斜反方向偏移，半径 / 透明度随 |roll| 加深；
+                    // 位移与阴影值全页共享一对，卡片只读 getter，不逐卡重算。
+                    val pShadowX = parallaxState.shadowOffsetX
+                    val pShadowY = parallaxState.shadowOffsetY
+                    val pRadius = parallaxState.shadowRadiusPx
+                    drawRoundRect(
+                        color = parallaxState.shadowColor,
+                        topLeft = Offset(-pRadius + pShadowX, -pRadius + pShadowY),
+                        size = androidx.compose.ui.geometry.Size(
+                            size.width + pRadius * 2f,
+                            size.height + pRadius * 2f,
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                            ShelfTokens.CARD_RADIUS_DP.dp.toPx() + pRadius * 0.4f,
+                        ),
+                    )
                     repeat(3) { layer ->
                         val expand = glowPad * (1f + layer * 0.5f)
                         drawRoundRect(
@@ -183,7 +200,9 @@ fun ShelfBookCard(
                         scaleX = scale * (1f + openProgress.value * 0.15f),
                         scaleY = scale * (1f + openProgress.value * 0.15f),
                         alpha = reveal.value * (1f - shatter.value),
-                        translationY = (1f - reveal.value) * revealDy,
+                        // Q441 视差 2D 位移：roll→dx、pitch→dy；与入场浮入位移叠加，不做 3D 旋转。
+                        translationX = parallaxState.translationX,
+                        translationY = (1f - reveal.value) * revealDy + parallaxState.translationY,
                         cameraDistance = density.density * 12f,
                     )
                     .pointerInput(book.id) {

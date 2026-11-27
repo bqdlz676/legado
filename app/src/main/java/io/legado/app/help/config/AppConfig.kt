@@ -292,6 +292,11 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.showBookshelfStats, value)
         }
 
+    /** 书架陀螺仪视差（Q441）：默认开；关闭后卡片静止、宿主不再注册传感器。 */
+    var shelfParallaxEnabled: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.shelfParallaxEnabled, true)
+        set(value) = appCtx.putPrefBoolean(PreferKey.shelfParallaxEnabled, value)
+
     var showWaitUpCount: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.showWaitUpCount, false)
         set(value) {

@@ -40,6 +40,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.components.rememberInkGesture
 import io.legado.app.ui.components.resolveEventsAllowed
 import io.legado.app.ui.components.compat.toVisualState
@@ -68,6 +70,9 @@ import io.legado.app.ui.main.search.SearchResultList
 import io.legado.app.ui.main.search.SearchTokens
 import io.legado.app.ui.main.search.SearchUiState
 import androidx.compose.ui.platform.LocalConfiguration
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -210,6 +215,30 @@ fun BookshelfScreen(
             (listState.firstVisibleItemScrollOffset / 500f).coerceIn(0f, 1f)
         }
     }
+
+    // Q441 陀螺仪视差：全页共享一对平滑 pitch/roll；开关偏好落 AppConfig，默认开。
+    var parallaxOn by remember { mutableStateOf(AppConfig.shelfParallaxEnabled) }
+    val parallaxState = rememberShelfParallaxState(enabled = parallaxOn)
+    val parallaxScope = rememberCoroutineScope()
+    var parallaxResumeJob by remember { mutableStateOf<Job?>(null) }
+    // 手指滑动期间暂停视差，松手 400ms 后恢复：防手势与陀螺仪同时作用产生抖动。
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            parallaxResumeJob?.cancel()
+            parallaxState.setTouchPaused(true)
+        } else {
+            parallaxResumeJob = parallaxScope.launch {
+                delay(ShelfParallaxTokens.RESUME_DELAY_MS)
+                parallaxState.resumeFromTouch()
+            }
+        }
+    }
+    val onToggleParallax: () -> Unit = {
+        val next = !parallaxOn
+        AppConfig.shelfParallaxEnabled = next
+        parallaxOn = next
+    }
+
     var bannerDismissed by remember { mutableStateOf(false) }
     // D25：书架页下拉搜索浮层开合状态（F-13，纯 JVM 状态机）；检索整页态（历史 / 热门 /
     // 联网结果 / 分页）由既有搜索栈 [SearchUiState] 单源供给，浮层不另立第二套检索状态。
@@ -271,6 +300,9 @@ fun BookshelfScreen(
                 listState = listState,
                 books = books,
                 parallax = parallax,
+                parallaxState = parallaxState,
+                parallaxOn = parallaxOn,
+                onToggleParallax = onToggleParallax,
                 onOpenBook = onOpenBook,
                 onDeleteBook = onDeleteBook,
                 onImport = onImport,
@@ -281,6 +313,9 @@ fun BookshelfScreen(
                 listState = listState,
                 books = books,
                 parallax = parallax,
+                parallaxState = parallaxState,
+                parallaxOn = parallaxOn,
+                onToggleParallax = onToggleParallax,
                 bannerDismissed = bannerDismissed,
                 newBookCount = newBookCount,
                 refreshing = state == ShelfState.REFRESHING,
@@ -332,6 +367,9 @@ private fun ShelfGrid(
     listState: LazyGridState,
     books: List<ShelfBookUi>,
     parallax: Float,
+    parallaxState: ShelfParallaxState,
+    parallaxOn: Boolean,
+    onToggleParallax: () -> Unit,
     bannerDismissed: Boolean,
     newBookCount: Int,
     refreshing: Boolean,
@@ -360,6 +398,9 @@ private fun ShelfGrid(
             ShelfHeader(
                 bookCount = books.size,
                 onSearch = onSearch,
+                parallaxOn = parallaxOn,
+                parallaxAvailable = parallaxState.available,
+                onToggleParallax = onToggleParallax,
                 modifier = Modifier.padding(bottom = 4.dp),
             )
         }
@@ -400,6 +441,7 @@ private fun ShelfGrid(
                 book = book,
                 index = index,
                 parallax = parallax,
+                parallaxState = parallaxState,
                 onOpen = onOpenBook,
                 onDelete = onDeleteBook,
             )
@@ -411,6 +453,9 @@ private fun ShelfGrid(
 private fun ShelfHeader(
     bookCount: Int,
     onSearch: () -> Unit,
+    parallaxOn: Boolean,
+    parallaxAvailable: Boolean,
+    onToggleParallax: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -451,6 +496,13 @@ private fun ShelfHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Q441：陀螺仪视差两态开关——暖金=开启随倾斜浮动，灰=关闭卡片静止；
+            // 无传感器设备时置灰不可点（parallaxAvailable=false）。
+            ParallaxToggleButton(
+                active = parallaxOn,
+                enabled = parallaxAvailable,
+                onToggle = onToggleParallax,
+            )
             // D25：搜索入口只开这一处（书架页下拉浮层），不再跳独立搜索页。
             SearchGlyphButton(onSearch)
             BasicText(
@@ -501,6 +553,39 @@ private fun SearchGlyphButton(onSearch: () -> Unit, modifier: Modifier = Modifie
                 strokeWidth = stroke,
             )
         }
+    }
+}
+
+/**
+ * Q441 视差开关按钮：右上角小「📱」两态——暖金=开启，云灰=关闭 / 无传感器置灰。
+ * 为什么用 BasicText 字形：规格指定 📱 图标；配色只取书架 token，不用 Material 蓝紫。
+ * @param enabled false（无传感器）时点击不响应，保持卡片静止，不报错。
+ */
+@Composable
+private fun ParallaxToggleButton(
+    active: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tint = when {
+        active && enabled -> ShelfTokens.brandGold
+        else -> ShelfTokens.textTertiary
+    }
+    Box(
+        modifier = modifier
+            .size(30.dp)
+            .pointerInput(enabled) {
+                if (enabled) {
+                    detectTapGestures(onTap = { onToggle() })
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(
+            text = "📱",
+            style = TextStyle(color = tint, fontSize = 15.sp),
+        )
     }
 }
 
@@ -648,6 +733,9 @@ private fun OfflineShelf(
     listState: LazyGridState,
     books: List<ShelfBookUi>,
     parallax: Float,
+    parallaxState: ShelfParallaxState,
+    parallaxOn: Boolean,
+    onToggleParallax: () -> Unit,
     onOpenBook: (ShelfBookUi) -> Unit,
     onDeleteBook: (ShelfBookUi) -> Unit,
     onImport: () -> Unit,
@@ -687,6 +775,9 @@ private fun OfflineShelf(
                 listState = listState,
                 books = books,
                 parallax = parallax,
+                parallaxState = parallaxState,
+                parallaxOn = parallaxOn,
+                onToggleParallax = onToggleParallax,
                 bannerDismissed = true,
                 newBookCount = 0,
                 refreshing = false,

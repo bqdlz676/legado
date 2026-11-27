@@ -13,7 +13,7 @@
     background:linear-gradient(180deg,rgba(28,26,20,.92),rgba(28,26,20,0));color:#E6DAC0;}
   #top .nm{font-size:16px;letter-spacing:.08em;color:#EFE3C8;}
   #top .sub{font-size:11px;color:#9B9687;margin-top:3px;}
-  #top button{margin-left:auto;border:1px solid rgba(139,105,20,.55);background:rgba(247,241,230,.06);color:#D8CEB4;
+  #top button{margin-left:auto;margin-right:88px;border:1px solid rgba(139,105,20,.55);background:rgba(247,241,230,.06);color:#D8CEB4;
     font-size:12px;padding:6px 12px;border-radius:3px;font-family:inherit;}
   #tips{position:absolute;left:12px;bottom:12px;z-index:10;font-size:11px;color:#8C8570;
     background:rgba(28,26,20,.72);padding:5px 10px;border-radius:3px;}
@@ -45,6 +45,7 @@
   <button id="bRot">自动旋转</button>
 </div>
 <script src="three.min.js"></script>
+<script src="gyro.js"></script>
 <script src="china_height.js"></script>
 <script src="powers_poly.js"></script>
 <script src="cities.js"></script>
@@ -387,9 +388,12 @@ canvas.addEventListener('pointerdown', function (e) {
 });
 canvas.addEventListener('pointermove', function (e) {
   if (!dragging) return;
-  rotY += (e.clientX - lastX) * 0.006;
-  rotX = Math.max(-0.55, Math.min(0.5, rotX + (e.clientY - lastY) * 0.004));
+  var dx = e.clientX - lastX, dy = e.clientY - lastY;
   lastX = e.clientX; lastY = e.clientY;
+  // 跟随模式：轨道方位不跟手，单指只产生陀螺仪临时偏移（见 gyro.js），双指缩放不受影响
+  if (window.Gyro && Gyro.getMode() === 'follow') return;
+  rotY += dx * 0.006;
+  rotX = Math.max(-0.55, Math.min(0.5, rotX + dy * 0.004));
 });
 canvas.addEventListener('pointerup', function (e) {
   dragging = false;
@@ -465,12 +469,14 @@ document.getElementById('bRoute').onclick = function () {
 function animate(now) {
   requestAnimationFrame(animate);
   updateEffects(now || performance.now());
-  if (autoRot && !dragging) rotY += 0.0016;
+  if (autoRot && !dragging && !(window.Gyro && Gyro.getMode() === 'follow')) rotY += 0.0016;
   var cx = TARGET.x + Math.sin(rotY) * dist * Math.cos(rotX + 0.28);
   var cz = TARGET.z + Math.cos(rotY) * dist * Math.cos(rotX + 0.28);
   var cy = TARGET.y + 135 + Math.sin(rotX + 0.28) * dist * 0.5;
   camera.position.set(cx, cy, cz);
   camera.lookAt(TARGET);
+  // 陀螺仪姿态合成：插在既有 lookAt 之后、render 之前，不动 animate 循环骨架
+  Gyro.frame(now || performance.now(), camera);
   renderer.render(scene, camera);
 }
 animate();

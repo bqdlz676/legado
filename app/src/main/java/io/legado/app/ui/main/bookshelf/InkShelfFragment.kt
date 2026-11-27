@@ -17,6 +17,8 @@ import io.legado.app.constant.AppLog
 import io.legado.app.data.AppDatabase
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
+import io.legado.app.help.config.AppConfig
+import io.legado.app.help.sensor.GyroBridge
 import io.legado.app.ui.book.import.local.ImportBookActivity
 import io.legado.app.ui.book.info.BookInfoActivity
 import io.legado.app.ui.main.MainFragmentInterface
@@ -210,11 +212,33 @@ class InkShelfFragment() : BaseFragment(0), MainFragmentInterface {
     override fun onPause() {
         super.onPause()
         searchViewModel.pause()
+        // Q441：切后台注销传感器，避免后台耗电；无传感器 / 异常由桥内部兜底，不抛到 UI 层。
+        GyroBridge.stop()
     }
 
     override fun onResume() {
         super.onResume()
         searchViewModel.resume()
+        // Q441：回前台重新注册；方向基准按当前屏幕方向重映射，平滑值由 Compose 状态保留接上，不跳变。
+        if (AppConfig.shelfParallaxEnabled) {
+            runCatching {
+                GyroBridge.setDisplayRotation(requireActivity().windowManager.defaultDisplay.rotation)
+                GyroBridge.start(requireContext())
+            }
+        }
+    }
+
+    /**
+     * Q441：切到其他 Tab（Fragment 被 hide）即注销；回到书架槽重新注册。
+     * 为什么不走 onPause：同屏 Tab 切换不触发 Fragment onPause，hide/show 才是槽位可见性口径。
+     */
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (hidden) {
+            GyroBridge.stop()
+        } else if (AppConfig.shelfParallaxEnabled) {
+            runCatching { GyroBridge.start(requireContext()) }
+        }
     }
 
     private fun openImport() {

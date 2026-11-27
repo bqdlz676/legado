@@ -25,6 +25,8 @@ object PreferKey {
     const val bookshelfReadProgressMode = "bookshelfReadProgressMode"
     const val showBookshelfRecentReading = "showBookshelfRecentReading"
     const val showBookshelfStats = "showBookshelfStats"
+    // 书架陀螺仪视差开关（Q441）：默认开；false 时卡片静止、传感器不注册
+    const val shelfParallaxEnabled = "shelfParallaxEnabled"
     const val showBooknameLayout = "showBooknameLayout"
     const val bookshelfMargin = "bookshelfMargin"
     const val useDefaultCover = "useDefaultCover"
