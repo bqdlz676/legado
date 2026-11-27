@@ -936,6 +936,16 @@
       "level": "blocking",
       "reason": "仓内无该重载却按多参调用（87c7e0d matchesB3Query 一参扩展被四参调用）是 kotlinc Argument count mismatch ERROR，文本层合法、回执闸只数调用名不核定义配平；沙箱无编译链无法本地复现，与 ⑫/⑬/㉜/61 同属代码能否编译的硬判据，必须 push 前拦住。",
       "compensation": null
+    }    ,{
+      "id": "g64",
+      "label": "64",
+      "name": "单测判据真值",
+      "script": "check-test-assert-truth.py --changed",
+      "nature": "bad",
+      "scope": "test-code",
+      "level": "blocking",
+      "reason": "三类写法文本层全合法、运行期却打不出真值：①X::class.members 反射取成员，单测 classpath 无 kotlin-reflect，运行期必抛 KotlinReflectionNotSupportedError（实测 DiscoverViewModelTest.kt:210）；②拿 readText() 整份源文件直接 contains，源文件 KDoc 里写着同一句话就自证成红（实测 DiscoverModelsTest.kt:200）；③assertTrue(true) 类空断言判据恒真，打不假任何实现。三种都是「单测写了但等于没测」，只有 CI 跑起来才红，必须 push 前拦住。全仓存量 306 处属历史债务、按 audit 台账清，门禁只判相对 origin/main 的改动面，避免红墙变噪声。",
+      "compensation": null
     }
   ],
   "compensation_channels": {

@@ -197,8 +197,13 @@ class DiscoverModelsTest {
             .filter { it.startsWith("val ") }
             .map { it.substringAfter("val ").substringBefore(":").trim() }
         assertEquals(listOf("token", "bookName", "chapterTitle", "timestamp"), fieldNames)
-        assertFalse("映射层不得预判 mastered 新列", modelsSource.contains("mastered"))
-        assertFalse("映射层不得预判 reviewCount 新列", modelsSource.contains("reviewCount"))
+        // 只查代码面、不查注释面：本类 KDoc 正文就要写「不预判 mastered / review_count」，
+        // 整文件 contains 会把这句话自证成红（2026-11-27 CI 实测就栽在这里）。
+        val codeLines = modelsSource.lines()
+            .filterNot { it.trimStart().startsWith("//") || it.trimStart().startsWith("*") || it.trimStart().startsWith("/**") }
+            .joinToString("\n")
+        assertFalse("映射层不得预判 mastered 新列", codeLines.contains("mastered"))
+        assertFalse("映射层不得预判 reviewCount 新列", codeLines.contains("reviewCount"))
     }
 
     @Test

@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.concurrent.thread
 
@@ -16,6 +17,11 @@ import kotlin.concurrent.thread
  * 测试替身只用于注入端口与计数，不顶替生产路径的真实只读入口。
  */
 class DiscoverViewModelTest {
+
+    private val sourceRoot: File by lazy {
+        sequenceOf(File("src/main/java"), File("app/src/main/java"))
+            .first { it.isDirectory }
+    }
 
     // ─────────────────────────── 端口替身（带调用计数） ───────────────────────────
 
@@ -104,7 +110,10 @@ class DiscoverViewModelTest {
         assertEquals(RegionStatus.EMPTY, state.hero.status)
         assertEquals(RegionStatus.EMPTY, state.notebook.status)
         assertTrue(state.battle.items.isEmpty())
-        assertTrue(state.notebook.items.isEmpty())
+        // 生字本区口径：不是「零卡」，而是恒带一张入口卡，空态由 count==0 表达（本区只计数、
+        // 不做掌握态判定）。这是 B6-05 装配时要注意的：EMPTY 状态也有一张卡，壳层不得再叠空态卡。
+        assertEquals(1, state.notebook.items.size)
+        assertEquals(0, state.notebook.items.first().count)
     }
 
     // ─────────────────────────── 坏条目 ───────────────────────────
@@ -207,14 +216,26 @@ class DiscoverViewModelTest {
 
     @Test
     fun `vm does not store mastered or progress state`() {
-        val memberNames = DiscoverViewModel::class.members.map { it.name }.toSet()
-        assertFalse("VM 不得持有 mastered 掌握标记位", memberNames.contains("mastered"))
-        assertFalse("VM 不得自存已看进度计数", memberNames.contains("watchedStage"))
-        assertFalse("VM 不得自存进度比例", memberNames.contains("progress"))
-        val notebookProps = NotebookEntryCard::class.members
-            .filter { it.name == "count" }
-            .map { it.name }
-        assertEquals(listOf("count"), notebookProps)
+        // 反射版（KClass.members）在本仓单测 classpath 上没有 kotlin-reflect，运行期抛
+        // KotlinReflectionNotSupportedError；改为源码文本断言，判据不变、且不引依赖。
+        val vmSource = File(sourceRoot, "io/legado/app/ui/main/discover/DiscoverViewModel.kt").readText()
+        // 先剥注释面：本类 KDoc 正文本来就写「不伪造 mastered=1」，整文件 contains 会自证成红。
+        val vmDeclarations = vmSource.lines()
+            .filterNot { it.trimStart().startsWith("//") || it.trimStart().startsWith("*") || it.trimStart().startsWith("/**") }
+            .filter { it.contains("private var ") || it.contains("val ") && it.contains(": ") }
+            .joinToString("\n")
+        assertFalse("VM 不得持有 mastered 掌握标记位", vmDeclarations.contains("mastered"))
+        assertFalse("VM 不得自存已看进度计数", vmDeclarations.contains("watchedStage"))
+        assertFalse("VM 不得自存进度比例", vmDeclarations.contains("progress"))
+        val modelsSource = File(sourceRoot, "io/legado/app/ui/main/discover/DiscoverModels.kt").readText()
+        val cardBlock = modelsSource
+            .substringAfter("data class NotebookEntryCard(")
+            .substringBefore(")")
+        val cardFields = cardBlock.split(',')
+            .map { it.trim() }
+            .filter { it.startsWith("val ") }
+            .map { it.substringAfter("val ").substringBefore(":").trim() }
+        assertEquals(listOf("count"), cardFields)
     }
 
     // ─────────────────────────── 端口调用计数 ───────────────────────────

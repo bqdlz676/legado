@@ -461,6 +461,14 @@ SE63=$(python3 data_scripts/check-symbol-existence.py 2>&1)
 if [ $? -eq 0 ]; then ok "63符号存在配平" "$(echo "$SE63" | grep 'SYMBOL-EXISTENCE: PASS')"; else bad "63符号存在配平" "$(echo "$SE63" | grep -E 'NODEF|ARITY' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "63符号存在配平"; fi
 
+# 64 单测判据真值（2026-11-27 CI 三红根因：反射取成员抛 KotlinReflectionNotSupportedError /
+#    整份源文件 contains 把 KDoc 自证成红 / assertTrue(true) 空断言）。只判相对 origin/main 的改动面，
+#    全仓历史债务走台账，不拿存量当门禁。
+if gate_active g64; then
+ATT64=$(python3 data_scripts/check-test-assert-truth.py --changed 2>&1)
+if [ $? -eq 0 ]; then ok "64单测判据真值" "$(echo "$ATT64" | grep 'TEST-ASSERT-TRUTH: PASS')"; else bad "64单测判据真值" "$(echo "$ATT64" | grep '^FAIL' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "64单测判据真值"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**
