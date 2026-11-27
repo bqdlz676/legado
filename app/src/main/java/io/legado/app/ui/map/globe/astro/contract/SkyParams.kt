@@ -225,7 +225,8 @@ object SkyParams {
     fun starDiameterPx(mag: Float): Float {
         if (!mag.isFinite()) return STAR_DIAMETER_FLOOR_PX
         if (mag <= MAG_ANCHOR_VERY_BRIGHT) return STAR_DIAMETER_VERY_BRIGHT_PX
-        if (mag >= MAG_ANCHOR_6_5) return STAR_DIAMETER_FLOOR_PX
+        // 严格大于 6.5 才进金字塔层；6.5 锚点本身保留 1px（§五.1）。
+        if (mag > MAG_ANCHOR_6_5) return STAR_DIAMETER_FLOOR_PX
         if (mag <= MAG_ANCHOR_0) {
             val t = (mag - MAG_ANCHOR_VERY_BRIGHT) / (MAG_ANCHOR_0 - MAG_ANCHOR_VERY_BRIGHT)
             return lerp(STAR_DIAMETER_VERY_BRIGHT_PX, STAR_DIAMETER_0_PX, t)
