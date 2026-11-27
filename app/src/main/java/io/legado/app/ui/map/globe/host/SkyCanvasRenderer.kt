@@ -38,7 +38,7 @@ object SkyCanvasRenderer {
     @JvmField var hoverId: Long = -1L // 悬停星 id（§七.2：1.3× 120ms，抬手回弹无残留）
     @JvmField var pressId: Long = -1L // 按下星 id（§七.3：60ms 1.6× → 1200ms 呼吸）
     @JvmField var pressStartMs: Long = 0L; @JvmField var showNames: Boolean = true // 长按空白显隐名称（§九.3），手势接线单绑
-    @JvmField var hotZones: List<HotZone> = emptyList() // 热区 ≥48dp（视觉 28dp），禁加 Compose 控件（§九.4）
+    var hotZones: List<HotZone> = emptyList() // 热区 ≥48dp（视觉 28dp），禁加 Compose 控件（§九.4）
         private set
     private val zoneBuffer = ArrayList<HotZone>() // 热区缓冲帧间复用，主循环零 new 列表（§十四.16）
     private val constellationLayer = ConstellationLayer()
@@ -138,7 +138,7 @@ object SkyCanvasRenderer {
     /** 选中星官名：14sp 竖排；字 brandGold、底 bgOverlay 0.45、边 1px brandCopper（§六.7）。 */
     private fun drawSelectedLabel(canvas: Canvas, density: Float, paint: Paint) {
         if (!showNames) return
-        val group: AsterismGroup? = asterismLayer.selectedGroup() ?: return
+        val group = asterismLayer.selectedGroup() ?: return
         paint.textSize = SkyParams.STAR_LABEL_FONT_SP * density
         val box = RectF(8f * density, 56f * density, 48f * density, (56 + group.name.length * 14).toFloat() * density)
         canvas.drawRect(box, Paint().apply { color = skyArgb(GlobeTokens.bgOverlay, SkyParams.ASTERISM_LABEL_BG_ALPHA_RATIO) })
@@ -206,7 +206,7 @@ private class SkyBackdropRenderer {
         for (gx in 0..24) for (gy in 0..12) {
             val n = fbm.fbm(gx / 8.0, gy / 8.0, 3)
             if (n < 0.42) continue
-            val px = gx / 24f * w; val py = h * 0.5 + (gy / 12f - 0.5f) * h * 0.35f
+            val px = gx / 24f * w; val py = h * 0.5f + (gy / 12f - 0.5f) * h * 0.35f
             paint.color = ((0.25f * n * 255f).toInt().coerceIn(0, 255) shl 24) or (SkySpecColor.STAR_ANCHOR_MID_RGB and 0xFFFFFF)
             c.drawRect(px - 2f, py - 2f, px + 2f, py + 2f, paint)
         }
@@ -218,7 +218,7 @@ private class SkyBackdropRenderer {
         for (gx in 0 until (w / step).toInt()) for (gy in 0 until (h / step).toInt()) {
             if (skyHash(gx * 31 + gy, 7) > 0.55) continue
             paint.color = skyArgb(GlobeTokens.textTertiary, (if (lowerOnly) 0.10f else 0.14f) * (1f - pyramidMix * 0.3f))
-            val px = gx * step + skyHash(gx, gy) * step; val py = gy * step + skyHash(gy, gx) * step
+            val px = gx * step + skyHash(gx, gy).toFloat() * step; val py = gy * step + skyHash(gy, gx).toFloat() * step
             c.drawRect(px - 0.4f, py - 0.4f, px + 0.4f, py + 0.4f, paint)
         }
     }
@@ -304,7 +304,7 @@ private class SkyLineRenderer {
         canvas.drawPath(aPath, paint)
         val sel = sky.selectedId ?: return // 选中光环 colorGlow；呼吸 1200ms（§七.3、§十六.10）
         val pos = findPos(stars, sel) ?: return
-        val breath = 1f + 0.12f * sin((nowMs - pressStartMs) * 2.0 * PI / SkyParams.FIELD_PULSE_MS)
+        val breath = (1f + 0.12f * sin((nowMs - pressStartMs) * 2.0 * PI / SkyParams.FIELD_PULSE_MS)).toFloat()
         paint.color = skyArgb(GlobeTokens.colorGlow)
         paint.style = Paint.Style.STROKE; paint.strokeWidth = 1.5f
         ring.reset(); ring.addCircle(pos.first, pos.second, 10f * breath, Path.Direction.CW)
@@ -334,7 +334,7 @@ private class SkyStarSpriteRenderer {
             if (mag < SkyParams.TWINKLE_MAG) { // 闪烁只给 mag<2.5：独立相位 0.6–1.4Hz ±8%（§八.8）
                 val phase = skyHash(i, 11) * 2.0 * PI
                 val freq = 0.6 + skyHash(i, 12) * 0.8
-                alpha *= 1f + 0.08f * sin(2.0 * PI * freq * nowMs / 1000.0 + phase)
+                alpha *= 1f + 0.08f * sin(2.0 * PI * freq * nowMs / 1000.0 + phase).toFloat()
             }
             paint.colorFilter = PorterDuffColorFilter(0xFF000000.toInt() or rgb, PorterDuff.Mode.SRC_IN)
             paint.alpha = (alpha * 255f).toInt().coerceIn(0, 255)
