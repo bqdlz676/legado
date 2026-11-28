@@ -161,7 +161,16 @@ def scan_report(root: pathlib.Path, rel: str) -> tuple[list[str], list[str]]:
     if not full.is_file():
         return misses, promises
     text = full.read_text(encoding='utf-8', errors='replace')
+    # ② 只判「本单声称产出的文件」：一行必须在讲产物（产物/交付/输出/落盘/生成/写入），
+    #    且不是「未带入 / 不含 / 引用 / 参见 / 来源 / 历史 / 作废」这类旁述——否则会把
+    #    「没带入兄弟代理的文件」「引用别的报告」误判成产物缺失（2026-11-28 实测 6 条误判）。
+    PRODUCE_HINT = ('产物', '交付', '输出', '落盘', '生成', '写入', '报告路径')
+    SKIP_HINT = ('未带入', '不含', '不涉及', '引用', '参见', '来源', '历史留痕', '作废', '同口径')
     for line_no, line in enumerate(text.splitlines(), 1):
+        if not any(h in line for h in PRODUCE_HINT):
+            continue
+        if any(h in line for h in SKIP_HINT):
+            continue
         for m in BACKTICK_PATH_RE.finditer(line):
             token = m.group(1)
             # 只判仓内相对路径；URL / 绝对系统路径不在本闸范围。
@@ -197,8 +206,15 @@ def collect_reports(root: pathlib.Path) -> list[str]:
                 out.add(line.strip())
     for row in git('status', '--porcelain').stdout.splitlines():
         p = row[3:].strip().strip('"')
-        if REPORT_RE.match(p):
-            out.add(p)
+        if not REPORT_RE.match(p):
+            continue
+        # 只收「新增」报告：被别的单顺手改锚点的历史报告（M 状态）不算本轮产物，
+        # 否则它们的存量失效路径会被算成新债（2026-11-28 雷达回贴单踩过）。
+        if row[:2].strip() not in ('', '??', 'A'):
+            first = git('log', '--diff-filter=A', '--format=%cs', '-1', '--', p).stdout.strip()
+            if first and first < __import__('datetime').date.today().isoformat():
+                continue
+        out.add(p)
     return sorted(out)
 
 

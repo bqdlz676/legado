@@ -1,12 +1,19 @@
 package io.legado.app.ui.map.globe.astro.contract
 
+import io.legado.app.ui.map.globe.GlobeController
+import io.legado.app.ui.map.globe.astro.data.SiderealTime
 import io.legado.app.ui.map.globe.astro.proj.StarProjector
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
+import kotlin.math.asin
+import kotlin.math.atan2
+import kotlin.math.sqrt
 
 /**
  * 星空天象层 · 契约单验收（纯 JVM，只用 org.junit + kotlin.math，
@@ -338,5 +345,147 @@ class SkyContractTest {
         assertTrue(out[2] > 0f)
         assertEquals(540f, out[0], 1e-2f)
         assertEquals(860f, out[1], 1e-2f)
+    }
+
+    // ───────────────────── §十四.2 三时刻 alt/az ≤1° 手算对拍 ─────────────────────
+
+    private companion object {
+        const val HORIZON_TOLERANCE_DEG: Double = 1.0
+        const val HORIZON_FOCAL_PX: Double = 1000.0
+        const val HORIZON_CX: Double = 500.0
+        const val HORIZON_CY: Double = 500.0
+    }
+
+    /** 手算对拍用例：时刻名 / 赤经° / 地方恒星时° / 赤纬° / 相机偏航° / 期望高度角° / 期望方位角°。 */
+    private data class HorizonHandCase(
+        val tag: String,
+        val raDeg: Double,
+        val lstDeg: Double,
+        val decDeg: Double,
+        val yawDeg: Double,
+        val expectedAltDeg: Double,
+        val expectedAzDeg: Double,
+    )
+
+    @Test
+    fun `投影-格林尼治上中天三时刻高度方位角手算对拍`() {
+        // 观测点格林尼治：φ=0°N，λ=0°；三颗目标均取 RA=LST，时角 H = LST − RA = 0（上中天）。
+        // 闭式（与 StarProjector.kt:81,86,92-93 同一口径）：
+        //   H = LST − RA = 0
+        //   sin alt = sin dec·sin φ + cos dec·cos φ·cos H，φ=0 → sin alt = cos dec → alt = 90° − |dec|
+        //   sin az  = −cos dec·sin H / cos alt = 0
+        //   cos az  = (sin dec·cos φ − cos dec·sin φ·cos H)/cos alt = sin dec / cos alt
+        // 时刻一：dec=+30° → alt=60°；sin dec=+0.5，cos alt=cos60°=0.5 → cos az=+1 → az=0°（正北）。
+        // 时刻二：dec=−30° → alt=60°；sin dec=−0.5，cos alt=0.5 → cos az=−1 → az=180°（正南）。
+        // 时刻三：dec=+60° → alt=30°；sin dec=+0.8660，cos alt=cos30°=0.8660 → cos az=+1 → az=0°（正北）。
+        // 改坏推演：时角取反、sinAlt/cosAz 符号颠倒或赤纬钳制错位时，反演 alt/az 必偏离
+        // 下列期望值超过 1° 容差，两条 assertEquals 对应星例变红。
+        val cases = listOf(
+            HorizonHandCase("时刻一", raDeg = 0.0, lstDeg = 0.0, decDeg = 30.0,
+                yawDeg = 0.0, expectedAltDeg = 60.0, expectedAzDeg = 0.0),
+            HorizonHandCase("时刻二", raDeg = 120.0, lstDeg = 120.0, decDeg = -30.0,
+                yawDeg = 180.0, expectedAltDeg = 60.0, expectedAzDeg = 180.0),
+            HorizonHandCase("时刻三", raDeg = 250.0, lstDeg = 250.0, decDeg = 60.0,
+                yawDeg = 0.0, expectedAltDeg = 30.0, expectedAzDeg = 0.0),
+        )
+        for (c in cases) {
+            val recovered = recoverHorizonAltAz(c)
+            assertNotNull("${c.tag} 投影被深度剔除，地平坐标不可恢复", recovered)
+            val (alt, az) = recovered!!
+            assertEquals("${c.tag} 高度角偏差", c.expectedAltDeg, alt, HORIZON_TOLERANCE_DEG)
+            assertEquals("${c.tag} 方位角偏差", c.expectedAzDeg, az, HORIZON_TOLERANCE_DEG)
+        }
+    }
+
+    /**
+     * 走 [StarProjector.project]（SKY_EARTH）投影后由透视关系反演东 / 上 / 北分量，
+     * 恢复高度角与方位角（方位角自北向顺时针，东向为正，与投影器同一口径）。
+     * @return (高度角°, 方位角°[0,360))；背面不可见时返回 null。
+     */
+    private fun recoverHorizonAltAz(c: HorizonHandCase): Pair<Double, Double>? {
+        val out = FloatArray(3)
+        val ok = StarProjector.project(
+            SkyViewMode.SKY_EARTH,
+            raDeg = c.raDeg,
+            decDeg = c.decDeg,
+            yawDeg = c.yawDeg,
+            pitchDeg = 0.0,
+            focalPx = HORIZON_FOCAL_PX,
+            cx = HORIZON_CX,
+            cy = HORIZON_CY,
+            latDeg = 0.0,
+            lonDeg = 0.0,
+            lstDeg = c.lstDeg,
+            out = out,
+        )
+        if (!ok) return null
+        val dx = (out[0] - HORIZON_CX) / HORIZON_FOCAL_PX
+        val dy = (HORIZON_CY - out[1]) / HORIZON_FOCAL_PX
+        val z = 1.0 / sqrt(dx * dx + dy * dy + 1.0)
+        val x1 = dx * z
+        val up = dy * z
+        val east: Double
+        val north: Double
+        if (c.yawDeg < 90.0) {
+            east = x1
+            north = z
+        } else {
+            east = -x1
+            north = -z
+        }
+        val alt = Math.toDegrees(asin(up.coerceIn(-1.0, 1.0)))
+        val azRaw = Math.toDegrees(atan2(east, north))
+        val az = ((azRaw % 360.0) + 360.0) % 360.0
+        return alt to az
+    }
+
+    // ───────────────────── §十四.2 观测点注入链路（injectedUtc → effectiveUtc → LST → 投影） ─────────────────────
+
+    @Test
+    fun `观测点注入链路-注入时刻经帧快照喂入投影与纯函数直算一致`() {
+        // 链路：GlobeController.setObservationTime 写 injectedUtcMillis → nextFrame 取
+        // effectiveUtc = 注入值（帧墙钟传 0 兜底，证明不跟墙钟）→ SiderealTime 推 LST →
+        // 帧快照 observerLatLon/siderealTimeDeg → StarProjector 以帧内观测点与 LST 投影。
+        // GlobeController 为纯 JVM 门面（GlobeController.kt:22 注释：不引用 Android/Compose 类型），
+        // JVM 单测可直接实例化，无需 Android 上下文；本条只走既有 API，不改门面结构。
+        val controller = GlobeController()
+        controller.enterSky(SkyViewMode.SKY_EARTH)
+        controller.setObserver(0.0, 0.0) // 格林尼治 φ=0°N, λ=0°
+        val injectedUtc = Instant.parse("2026-11-28T16:00:00Z").toEpochMilli()
+        controller.setObservationTime(injectedUtc)
+
+        val snapshot = controller.nextFrame(0.016, 0L)
+        val frame = assertNotNull(snapshot.sky)
+        val obs = assertNotNull(frame.observerLatLon)
+        assertEquals(0.0, obs.latDeg, 1e-9)
+        assertEquals(0.0, obs.lonDeg, 1e-9)
+
+        // effectiveUtc → LST：帧内 LST 必须等于按注入时刻直算的地方恒星时。
+        val expectedLst = SiderealTime.localSiderealTimeDeg(injectedUtc, obs.lonDeg)
+        assertEquals(expectedLst, frame.siderealTimeDeg, 1e-9)
+
+        // LST → 投影：取 dec=+30° 春分方向星（保证正面可见），分别用帧内观测点/LST 与
+        // 纯函数直算值投影，两次屏幕结果逐位一致；链路任一环节断接，下方数组比对变红。
+        val outFrame = FloatArray(3)
+        val okFrame = StarProjector.project(
+            SkyViewMode.SKY_EARTH,
+            raDeg = 0.0, decDeg = 30.0,
+            yawDeg = 0.0, pitchDeg = 0.0,
+            focalPx = HORIZON_FOCAL_PX, cx = HORIZON_CX, cy = HORIZON_CY,
+            latDeg = obs.latDeg, lonDeg = obs.lonDeg, lstDeg = frame.siderealTimeDeg,
+            out = outFrame,
+        )
+        assertTrue(okFrame)
+        val outDirect = FloatArray(3)
+        val okDirect = StarProjector.project(
+            SkyViewMode.SKY_EARTH,
+            raDeg = 0.0, decDeg = 30.0,
+            yawDeg = 0.0, pitchDeg = 0.0,
+            focalPx = HORIZON_FOCAL_PX, cx = HORIZON_CX, cy = HORIZON_CY,
+            latDeg = 0.0, lonDeg = 0.0, lstDeg = expectedLst,
+            out = outDirect,
+        )
+        assertTrue(okDirect)
+        assertArrayEquals(outDirect, outFrame, 1e-4f)
     }
 }

@@ -176,6 +176,13 @@ jobs:
           ASTRO_PYRAMID_CACHE=data/pyramid python3 data_scripts/astro_check_pyramid.py
           python3 data_scripts/astro_check_pyramid.py --selftest
 
+      - name: Builtin catalog row-level gate
+        run: |
+          # D48 / 判据6：内置 stars.csv 全量逐行断言 mag≤6.5 / 解析 / 有限性 / 主键 / 坐标域，
+          # 摘要 JSON 入 CI 日志可回源；与金字塔闸同路径，非可选步骤（不设 set +e 中性放行）。
+          python3 data_scripts/astro_check_catalog.py
+          python3 data_scripts/astro_check_catalog.py --selftest
+
   # ---------- 分片 0：编译测试源码，枚举测试类并切成 4 份确定性清单 ----------
   discover:
     name: Discover test classes (shard lists)
