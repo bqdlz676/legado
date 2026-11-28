@@ -171,7 +171,8 @@
 
 ### 6.1 CI 两路 run id 与结论（HEAD 树含本单代码）
 
-- Verify（unit tests）run `46111383400`（commit `40bafd9f`）：conclusion **success**；该次变更分类为 docs-only 车道，单测分片（Discover / shard / Rhino / Slow bench）按既有口径 skipped，静态 gate success。
-- Screenshot（Paparazzi）run `46111383371`（commit `40bafd9f`）：conclusion **success**；前序同树截图 run `46110797542`（commit `c260e7e3`）日志见 `:app:compileAppDebugKotlin` 通过、`BUILD SUCCESSFUL in 3m 15s`、Paparazzi 帧落盘。
-- Package Debug APK run `46111393103`（commit `40bafd9f`）：conclusion **success**。
-- 证据缺口（不替 CI 编结论）：本单三个新 JVM 测试类尚未在代码车道的单测分片里被执行过——近两次 Verify 均判 docs-only，分片 skipped；待下一次含 `app/` 代码变更的车道触发单测分片后，复核 `SkyNameIndexTest` / `SkySheetFallbackTest` / `SkySheetDismissStateTest` 全绿。判据 3 · N1 运行时截图与判据 12 真机开合两帧仍属黄标（见 Y-02 / Y-07）。
+- Verify（unit tests）run `46112592379`（commit `5a78b3f8`）：conclusion **success**；该次变更分类为 docs-only 车道，单测分片（Discover / shard / Rhino / Slow bench）按既有口径 skipped，静态 gate success。
+- Screenshot（Paparazzi）run `46112592420`（commit `5a78b3f8`）：conclusion **success**；日志见 `:app:compileAppDebugKotlin` 通过、`BUILD SUCCESSFUL in 2m 43s`、Paparazzi 帧落盘。
+- 前序编译绿证据：Screenshot run `46110797542`（commit `c260e7e3`，本单链式 add 修复后首绿）日志 `:app:compileAppDebugKotlin` 通过、`BUILD SUCCESSFUL in 3m 15s`；Verify run `46111383400`（commit `40bafd9f`）success。
+- 取消记录（不计绿、非红）：报告提交后两轮 Verify/Screenshot（`46111955472`/`46111955461` 于 `e177374`、`46112062457`/`46112062538` 于 `886a1c2`）被并发的 sibling docs 推送取消（conclusion cancelled），按口径取消不算绿，未计入上条成功结论。
+- 证据缺口（不替 CI 编结论）：本单三个新 JVM 测试类尚未在代码车道的单测分片里被执行过——近三次 Verify 均判 docs-only，分片 skipped；待下一次含 `app/` 代码变更的车道触发单测分片后，复核 `SkyNameIndexTest` / `SkySheetFallbackTest` / `SkySheetDismissStateTest` 全绿。判据 3 · N1 运行时截图与判据 12 真机开合两帧仍属黄标（台账 Y-02 / Y-07，见 `docs/台账-黄标清单.md`，本单未重复建行）。
