@@ -37,6 +37,7 @@
 import argparse
 import datetime
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -57,6 +58,40 @@ def _git_head(root: Path) -> str:
     return "unknown"
 
 
+
+YELLOW_REL = "docs/台账-黄标清单.md"
+
+
+def _load_yellow(root: Path) -> set[str]:
+    """读黄标清单，返回判据号前缀集合（如 {'§十四.1','§十四.5'}）。
+
+    为什么：2026-11-28 拍板「记绿但标黄」——CI 全绿而证据只是沙箱最强近似时，
+    结论必须从 PASS 降为 PASS（🟢黄），否则验收汇总会把近似证据当成达标。
+    适用条件：仅降级「本清单命中的 PASS 项」；UNKNOWN/DEFER 不动，FAIL 不动。
+    """
+    path = root / YELLOW_REL
+    if not path.exists():
+        return set()
+    keys: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("| Y-"):
+            continue
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) < 4:
+            continue
+        m = re.match(r"(§[一二三四五六七八九十]+\.[0-9\-]+)", cells[2])
+        if m:
+            keys.add(m.group(1))
+    return keys
+
+
+def _yellow_hit(cid: str, keys: set[str]) -> bool:
+    """判据号必须整段匹配：`§十四.1` 不得误伤 `§十四.10`/`§十四.11`（前缀陷阱）。"""
+    for k in keys:
+        if cid == k or cid.startswith((k + " ", k + "（", k + "/")):
+            return True
+    return False
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="星空天象层 §十四 判据机器化总入口")
     ap.add_argument("--selftest", action="store_true", help="好坏双样本双向自测")
@@ -71,6 +106,9 @@ def main(argv: list[str] | None = None) -> int:
     now = datetime.datetime.now().strftime("%F %T")
     head = _git_head(root)
     items = checks.collect(root)
+    yellow = _load_yellow(root)
+    yellow_ids = {it.cid for it in items if _yellow_hit(it.cid, yellow)}
+    yellow_hits = len(yellow_ids)
     rc, stats = checks.summarize(items)
 
     def status_line() -> str:
@@ -84,7 +122,9 @@ def main(argv: list[str] | None = None) -> int:
         # JSON 独占 stdout 供上游门禁解析；人读摘要走 stderr，避免混在 JSON 流里。
         payload = {"head": head, "time": now, "stats": stats, "exit": rc,
                    "status": status_line(),
+                   "yellow": sorted(yellow_ids),
                    "items": [{"id": i.cid, "level": i.level, "conclusion": i.conclusion,
+                              "yellow": i.cid in yellow_ids,
                               "evidence": i.evidence, "note": i.note} for i in items]}
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         print(status_line(), file=sys.stderr)
@@ -92,9 +132,10 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"== check-sky-spec.py 星空天象层判据机检（{now}，HEAD {head}） ==")
     for it in items:
-        print(it.render())
+        # 黄标：证据只是沙箱最强近似（未真机/未挂真资产），见 docs/台账-黄标清单.md
+        print(("[🟢黄] " if it.cid in yellow_ids else "") + it.render())
     print("")
-    print(f"== 汇总: PASS {stats['PASS']} / FAIL {stats['FAIL']} / "
+    print(f"== 汇总: PASS {stats['PASS']} / 🟢黄 {yellow_hits} / FAIL {stats['FAIL']} / "
           f"UNKNOWN {stats['UNKNOWN']} / DEFER {stats['DEFER']} ==")
     print(status_line())
     return rc

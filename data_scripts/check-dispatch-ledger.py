@@ -139,6 +139,14 @@ def main() -> int:
     if ledger_marked != queue_running:
         fails.append('在飞数不一致：台账标记 %d 条 / 队列 RUNNING %d 行（台账必须如实反映在飞）'
                      % (ledger_marked, queue_running))
+    # G-08 写/查分列（2026-11-28 补齐）：台账「代理」列本身写明单型（写码/测试/截图/证据/
+    # 施工图/机制 vs 验收），据此可机械分列统计 F-82 写查配比，不再只看在飞总数。
+    write_kinds = ("写码", "测试", "截图", "证据", "施工图", "机制", "回贴")
+    write_n = sum(1 for ln in text.splitlines()
+                  if ln.startswith('| Q-') and any(k in ln for k in write_kinds))
+    read_n = sum(1 for ln in text.splitlines() if ln.startswith('| Q-') and "验收" in ln)
+    print(f"ok    写/查分列：写类 {write_n} 条 / 查类 {read_n} 条（比例 {write_n}:{read_n}）")
+
     open_count = queue_running
     if open_count > HARD_CAP:
         fails.append(f"在飞 {open_count} 条，超硬上限 {HARD_CAP}")
