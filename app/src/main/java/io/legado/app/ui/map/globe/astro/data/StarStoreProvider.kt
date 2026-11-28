@@ -2,6 +2,7 @@ package io.legado.app.ui.map.globe.astro.data
 
 import android.content.res.AssetManager
 import io.legado.app.ui.map.globe.astro.layer.FieldEntry
+import java.io.File
 
 /**
  * 星表懒加载门面（接线层，§十二.5）：`assets/astro/stars.csv` → [StarCatalog.fromAssets]
@@ -22,6 +23,14 @@ object StarStoreProvider {
 
     @Volatile
     private var attempted: Boolean = false
+
+    /**
+     * 金字塔缓存根目录（B 件错误态可注入入口）。生产由宿主注入
+     * `File(context.filesDir, "astro/pyramid")`；纯 JVM 单测可把临时坏片目录赋给本字段，
+     * 触发链据此构造 Corrupt 片并出错误帧。null = 未注入，金字塔层回 Missing，不抛。
+     */
+    @Volatile
+    var pyramidCacheDir: File? = null
 
     private val lock = Any()
 

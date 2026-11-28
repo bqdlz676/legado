@@ -124,6 +124,17 @@ class StarCatalog private constructor(
      */
     internal var pyramidRemoteFetcher: ((level: Int, dir: File, base: String) -> Boolean)? = null
 
+    /**
+     * 加载进度回调钩子（可注入便于纯 JVM 单测；null = 不回传）。
+     *
+     * 口径（B 件 · 禁止假进度）：`done` / `total` 必须是真实计算值，两类口径分段使用——
+     *  - 下载段：`done` = 已落盘字节数，`total < 0` 表示服务器未给 Content-Length、总量未知
+     *    （此时只如实回传已读字节，不伪造一个总字节数）；
+     *  - 解析段：`total` = 片内非空行数，`done` = 校验通过并入的有效行数。
+     * 回调只做观测上报，不改写本目录任何数组；上层据此回填渲染金线 0..1。
+     */
+    internal var pyramidProgress: ((level: Int, done: Long, total: Long) -> Unit)? = null
+
     /** 按金字塔增量索引取 J2000 赤经（度，[0,360)）；越界返回 0 不崩。 */
     fun pyramidRaAt(i: Int): Double = if (i in 0 until pyramidSize) pyramidRaDeg[i] else 0.0
 
@@ -204,16 +215,25 @@ class StarCatalog private constructor(
             return PyramidResult.Corrupt
         }
 
+        // 解析段行数口径：总行数 = 片内非空行；先回传 0/total 作为解析起点，并入后回传 valid/total。
+        val totalLines = text.lineSequence().count { it.isNotBlank() }
+        notifyProgress(level, 0L, totalLines.toLong())
+
         val parsed = parsePyramidShard(text, level)
         if (parsed.valid == 0) {
             isolateShard(dir, shard.name)
+            notifyProgress(level, 0L, totalLines.toLong())
             return PyramidResult.Corrupt
         }
 
-        if (!pyramidMemoryGuard(parsed.valid)) return PyramidResult.LowMemory
+        if (!pyramidMemoryGuard(parsed.valid)) {
+            notifyProgress(level, 0L, totalLines.toLong())
+            return PyramidResult.LowMemory
+        }
 
         appendPyramid(parsed)
         loadedLevels.add(level)
+        notifyProgress(level, parsed.valid.toLong(), totalLines.toLong())
         return PyramidResult.Loaded(level, parsed.valid)
     }
 
@@ -239,16 +259,32 @@ class StarCatalog private constructor(
     /** 默认远程下载：流式拉切片与旁证落缓存目录；任一失败返回 false（不残留坏片）。 */
     private fun downloadRemote(level: Int, dir: File, base: String): Boolean = runCatching {
         val name = "level_$level.csv.gz"
-        fetchToFile("$base/$name", File(dir, name)) &&
+        fetchToFile("$base/$name", File(dir, name), level) &&
             fetchToFile("$base/$name.sha256", File(dir, "$name.sha256"))
     }.getOrDefault(false)
 
-    private fun fetchToFile(url: String, dest: File): Boolean = runCatching {
+    /** 流式落盘并按块回传已读字节；level=-1（旁证）不回传进度。总量未知时 total=-1，不伪造。 */
+    private fun fetchToFile(url: String, dest: File, level: Int = -1): Boolean = runCatching {
         URL(url).openStream().use { input ->
-            dest.outputStream().use { output -> input.copyTo(output) }
+            dest.outputStream().use { output ->
+                val buf = ByteArray(8192)
+                var copied = 0L
+                while (true) {
+                    val n = input.read(buf)
+                    if (n <= 0) break
+                    output.write(buf, 0, n)
+                    copied += n
+                    if (level >= 0) notifyProgress(level, copied, -1L)
+                }
+            }
         }
         true
     }.getOrDefault(false)
+
+    /** 进度回调归一出口；钩子为空时静默跳过，查询期零分配。 */
+    private fun notifyProgress(level: Int, done: Long, total: Long) {
+        pyramidProgress?.invoke(level, done, total)
+    }
 
     private fun gunzip(bytes: ByteArray): ByteArray {
         GZIPInputStream(bytes.inputStream()).use { input ->

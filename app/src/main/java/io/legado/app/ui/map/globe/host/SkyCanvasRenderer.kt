@@ -41,6 +41,12 @@ object SkyCanvasRenderer {
     @JvmField var contentMode: String = "mode-asterism" // 星官 / 星座内容层切换（§九.4），热区写回
     /** 错误态一次性提示的重试动作；null = 无可重试（§七.7）。由宿主粘合层注入。 */
     @JvmField var retryAction: (() -> Unit)? = null
+
+    // ── 金字塔触发链外部注入面（B 件；禁改域例外，理由见交付报告「禁改例外」节）──
+    /** 金字塔加载真实比值 0..1；<0 = 非加载。外部注入优先于既有 PENDING 半幅占位。 */
+    @JvmField var externalPyramidProgress: Float = -1f
+    /** 金字塔错误态一次性提示；null = 无。外部注入优先于内置表校验异常提示。 */
+    @JvmField var externalPyramidError: String? = null
     var hotZones: List<HotZone> = emptyList() // 热区 ≥48dp（视觉 28dp），禁加 Compose 控件（§九.4）
         private set
     private val zoneBuffer = ArrayList<HotZone>() // 热区缓冲帧间复用，主循环零 new 列表（§十四.16）
@@ -63,14 +69,20 @@ object SkyCanvasRenderer {
         // 低配档位 / 下载进度由快照派生，宿主壳不逐帧回写（D9 收口）。
         // 低配档由星空域档位驱动：地球离线兜底不再压低星空星等上限 / 银河尘粒流星开关。
         lowPower = snapshot.skyDegradation == DegradationLevel.PROCEDURAL_ONLY
-        loadingProgress = if (snapshot.fallbackResolutions.any {
+        // 外部金字塔真实比值优先；无外部注入时才回落既有 SKY PENDING_DOWNLOAD 半幅占位。
+        loadingProgress = when {
+            externalPyramidProgress >= 0f -> externalPyramidProgress.coerceIn(0f, 1f)
+            snapshot.fallbackResolutions.any {
                 it.status == AssetStatus.PENDING_DOWNLOAD && it.kind.domain == FallbackDomain.SKY
-            }) 0.5f else -1f
+            } -> 0.5f
+            else -> -1f
+        }
         var magLimit = sky.magLimit
         if (lowPower) magLimit = min(magLimit, SkyParams.MAG_BRIGHT_ENTITY)
         val placeholder = store == null || store.isPlaceholder
         // §七.7：导入校验有异常计数时回填一次性 textAccent 提示；无异常清空，不常驻。
-        errorHint = if (store != null && store.catalog.importAnomalies > 0)
+        // 外部金字塔错误提示优先；无外部注入时才回落内置表校验异常口径。
+        errorHint = externalPyramidError ?: if (store != null && store.catalog.importAnomalies > 0)
             "星表校验 ${store.catalog.importAnomalies} 处异常，已回落内置兜底；点按重试" else null
         val key = "${sky.mode}|${sky.cameraYawPitch?.yawDeg}|${sky.cameraYawPitch?.pitchDeg}|" +
             "${sky.skyBlend}|$widthPx|$heightPx|$lowPower|$offline"

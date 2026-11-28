@@ -34,9 +34,11 @@ import io.legado.app.ui.map.globe.GlobeTokens
 import io.legado.app.ui.map.globe.astro.data.StarStore
 import io.legado.app.ui.map.globe.astro.data.StarStoreProvider
 import io.legado.app.ui.map.globe.astro.ui.CsvSkyNameProvider
+import io.legado.app.ui.map.globe.astro.ui.SkyAttribution
 import io.legado.app.ui.map.globe.astro.ui.SkySheet
 import io.legado.app.ui.map.globe.offline.DegradationLevel
 import io.legado.app.ui.map.globe.render.FrameSnapshot
+import java.io.File
 
 /**
  * 3D 地球仪 Compose 自绘壳（ui/map/globe/host 独占，切片 17 / 18 / 19 / 20）。
@@ -71,8 +73,35 @@ fun GlobeScreenHost(
     val context = LocalContext.current
     val density = context.resources.displayMetrics.density
     var starStore by remember { mutableStateOf(StarStoreProvider.get(context.assets)) }
-    val skyHandler = remember { SkyInputHandler(host.controller, SkyCanvasRenderer) }
-    SkyCanvasRenderer.retryAction = { StarStoreProvider.invalidate(); starStore = StarStoreProvider.get(context.assets) }
+    val skyHandler = remember {
+        SkyInputHandler(
+            controller = host.controller,
+            renderer = SkyCanvasRenderer,
+            pyramidLoader = { level -> starStore.ensurePyramid(level, StarStoreProvider.pyramidCacheDir) },
+            onPyramidError = { msg -> SkyCanvasRenderer.externalPyramidError = msg },
+        )
+    }
+    // 金字塔缓存根：未被测试 / 上层注入时，落应用 filesDir 下 astro/pyramid（A 件触发链缓存位）。
+    if (StarStoreProvider.pyramidCacheDir == null) {
+        StarStoreProvider.pyramidCacheDir = File(context.filesDir, "astro/pyramid")
+    }
+    // 金字塔加载真实比值 → 渲染金线外部进度面；总量未知（total<=0）时不回填假比例。
+    // 抽成可重复绑定：重试重建 store 后需挂到新目录钩子，否则进度回调断链（二阶影响）。
+    val bindPyramidProgress: (StarStore) -> Unit = { s ->
+        s.bindPyramidProgress { _, done, total ->
+            SkyCanvasRenderer.externalPyramidProgress =
+                if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else -1f
+        }
+    }
+    bindPyramidProgress(starStore)
+    SkyCanvasRenderer.retryAction = {
+        StarStoreProvider.invalidate()
+        starStore = StarStoreProvider.get(context.assets)
+        bindPyramidProgress(starStore)
+        // 重试后清掉旧外部错误提示与进度面，避免上一轮坏片文案残留。
+        SkyCanvasRenderer.externalPyramidError = null
+        SkyCanvasRenderer.externalPyramidProgress = -1f
+    }
 
     // 帧节拍：推进门面一帧并取回不可视快照；离开组合时循环随 LaunchedEffect 取消，不白烧 GPU。
     LaunchedEffect(Unit) {
@@ -85,6 +114,9 @@ fun GlobeScreenHost(
                 // epoch 取时，纳秒值不得再作为 utcMillis 传入门面（切片 19：太阳位置按真实 UTC 计算）。
                 snapshot = host.frame(dtSec.coerceAtMost(0.1), System.currentTimeMillis())
             }
+            // 每帧按当前 magLimit 评估金字塔层需求（去重冷却在处理器内）；悬停超时节拍回落。
+            skyHandler.refreshPyramidDemand()
+            skyHandler.tickHover()
         }
     }
 
@@ -183,6 +215,13 @@ fun GlobeScreenHost(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(16.dp),
+        )
+
+        // 数据署名（C 件）：右上角可见处展示 HYG v41 · CC BY-SA 4.0 四要素，既有锚色弱化。
+        SkyAttribution(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 56.dp, end = 12.dp),
         )
 
         // 星空 Sheet（§九.3）：仅选中星时出现；关闭只清 selectedId，相机与姿态一字不动（§十四.12）。
