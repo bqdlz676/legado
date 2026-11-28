@@ -2,7 +2,7 @@
 
 锚点卡：docs/锚点/星空-Sheet判据4-12与N1反查索引.md
 
-**结论**：判据 4（三级回退 + 哨兵抑制 + 关闭状态测试）、判据 12（关闭不动相机快照测试）、判据 3 · N1（双向反查索引并接入两层）均已真接线，附对应纯 JVM 单测；本地沙箱禁编译，编译与单测全绿以云端 CI 为唯一判据。两处口径冲突未擅改规格，留待裁定。
+**结论**：判据 4（三级回退 + 哨兵抑制 + 关闭状态测试）、判据 12（关闭不动相机快照测试）、判据 3 · N1（双向反查索引并接入两层）均已真接线，附对应纯 JVM 单测；本地沙箱禁编译，编译与单测全绿以云端 CI 为唯一判据。判据 12 比对口径按 C-14 裁定适用 yaw/pitch/zoom 三元组逐位相等 + `selectedId` 清空（`docs/规则冲突清单.md` C-14 行），规格原文照旧引用不删。
 
 - 日期：2026-11-28
 - 基线：`origin/main` = `64d6a7e`（开工前 `git fetch origin main`，本地 main 与之一致）
@@ -16,25 +16,23 @@
   - `app/src/test/java/io/legado/app/ui/map/globe/astro/contract/SkySheetDismissStateTest.kt`（新建）
 - 禁改清单遵守：未改 `app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarCatalog.kt`、`app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarStore.kt`、`app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarStoreProvider.kt`、`app/src/main/java/io/legado/app/ui/map/globe/astro/input/SkyInputHandler.kt`、`app/src/main/java/io/legado/app/ui/map/globe/host/GlobeScreenHost.kt`、`app/src/main/java/io/legado/app/ui/map/globe/GlobeController.kt`、`app/src/main/java/io/legado/app/ui/map/globe/host/SkyCanvasRenderer.kt`、`screenshot/` 与他人报告；既有测试 `SkyContractTest.kt`、`SkyBenchTest.kt`、`SkyZoomContinuityTest.kt`、`StarCatalogPyramidTest.kt`、`StarCatalogBlendCoverageTest.kt` 未触碰。
 
-## 一、开工守则回执（sha256 前 12 位 + 三条逐字引用）
+## 一、开工守则回执（㊽ 三段：指纹行 / 逐字引用 ≥3 / 适用条款行）
 
-### 1. `docs/机制-总控必读.md` — sha256 前 12 位 `2d7dbc8f14dc`
+- 指纹：`docs/机制-总控必读.md=2d7dbc8f14dc`；`docs/落文-规矩总纲.md=d4468a629b7c`；`docs/机制-子代理必读.md=9f36d8ec0df4`
 
-- `docs/机制-总控必读.md:3`：「**开工第一读就是本文件（2026-11-26 用户口令「把总控必读定为以后第一读」，门禁 ㊻ 机械判）**」
-- `docs/机制-总控必读.md:48`：「`写 → grep 回证 → git add <限定文件域> → commit → push → 云端 CI`」
-- `docs/机制-总控必读.md:168`：「事故七：**写完没人调＝死链路**（2026-11-28 星空天象层：`enterSky`/`setSkyBlend`/`draw(store)` 编译与单测全绿、CI 三绿，全仓零生产调用方，`scene.sky` 恒 null，渲染器首行 return，8920 颗星一颗不显示）」
+### 逐字引用
 
-### 2. `docs/落文-规矩总纲.md` — sha256 前 12 位 `d4468a629b7c`
+1. `docs/机制-总控必读.md:3`：「**开工第一读就是本文件（2026-11-26 用户口令「把总控必读定为以后第一读」，门禁 ㊻ 机械判）**」
+2. `docs/机制-总控必读.md:48`：「`写 → grep 回证 → git add <限定文件域> → commit → push → 云端 CI`」
+3. `docs/机制-总控必读.md:168`：「事故七：**写完没人调＝死链路**（2026-11-28 星空天象层：`enterSky`/`setSkyBlend`/`draw(store)` 编译与单测全绿、CI 三绿，全仓零生产调用方，`scene.sky` 恒 null，渲染器首行 return，8920 颗星一颗不显示）」
+4. `docs/落文-规矩总纲.md:18`：「1. 锚点强制可回源：每条结论必须能回到原文行号/切片/文件。」
+5. `docs/落文-规矩总纲.md:20`：「3. 子 AI 禁止自行摘要——只读小段原文照做，靠索引+完整覆盖核对。」
+6. `docs/落文-规矩总纲.md:134`：「**D2 写码/验收代理一次性用完即弃，禁止唤醒复用（最严口径）。**」
+7. `docs/机制-子代理必读.md:13`：「- **文件域独占**：只碰任务书白名单里的文件；工作区里别人未提交的改动（`git status` 里不是你的）**不许删、不许改、不许提交**。」
+8. `docs/机制-子代理必读.md:18`：「2. **grep 回证**：每一处改动后用 `grep -n` 贴出真实输出（证明代码真的写入、证明旧符号真的清零）。没贴 grep 的改动视为未改。」
+9. `docs/机制-子代理必读.md:71`：「1. **Kotlin 语法预检必跑**：`python3 data_scripts/kotlin-syntax-lint.py <你的文件>` 必须 PASS。」
 
-- `docs/落文-规矩总纲.md:18`：「1. 锚点强制可回源：每条结论必须能回到原文行号/切片/文件。」
-- `docs/落文-规矩总纲.md:20`：「3. 子 AI 禁止自行摘要——只读小段原文照做，靠索引+完整覆盖核对。」
-- `docs/落文-规矩总纲.md:134`：「**D2 写码/验收代理一次性用完即弃，禁止唤醒复用（最严口径）。**」
-
-### 3. `docs/机制-子代理必读.md` — sha256 前 12 位 `9f36d8ec0df4`
-
-- `docs/机制-子代理必读.md:13`：「- **文件域独占**：只碰任务书白名单里的文件；工作区里别人未提交的改动（`git status` 里不是你的）**不许删、不许改、不许提交**。」
-- `docs/机制-子代理必读.md:18`：「2. **grep 回证**：每一处改动后用 `grep -n` 贴出真实输出（证明代码真的写入、证明旧符号真的清零）。没贴 grep 的改动视为未改。」
-- `docs/机制-子代理必读.md:71`：「1. **Kotlin 语法预检必跑**：`python3 data_scripts/kotlin-syntax-lint.py <你的文件>` 必须 PASS。」
+- 适用条款：文件域独占（禁越界改宿主 / 控制器 / 渲染器 / 既有测试）；锚点强制全路径 `文件:行` 可回源；写码 → grep 回证 → 逐路径 `git add` → commit → push → 云端 CI，沙箱禁本地编译；新公开入口必须过孤儿接线机检；测试用例名不含小数点；证据不足写明缺口，不替 CI 编结论。
 
 ## 二、交付事项与行号锚点
 
@@ -98,32 +96,41 @@
   - 重复成员去重：`app/src/test/java/io/legado/app/ui/map/globe/astro/data/SkyNameIndexTest.kt:53`
   - 空映射空索引：`app/src/test/java/io/legado/app/ui/map/globe/astro/data/SkyNameIndexTest.kt:60`；`empty()` 与空构建等价：`app/src/test/java/io/legado/app/ui/map/globe/astro/data/SkyNameIndexTest.kt:69`。
 
-## 三、口径冲突待裁定（未自作主张改口径，两处原文原样列出）
+## 三、C-14 裁定已适用（判据 12 比对口径）
 
-### 冲突 A：关闭后「选中 id 逐位相等」 vs 「关闭即取消选中（置 null）」
+裁定出处：`docs/规则冲突清单.md:22`（C-14 行，2026-11-28 用户「都按你建议来」授权总控定）：「**口径以 yaw/pitch/zoom 三元组为实现与验收口径**——本实现无 roll 自由度，四元数在此约束下与 (yaw,pitch) 一一等价，写四元数比对属表述冗余；验收比对用三元组逐位相等 + `selectedId` 清空。规格原文不改，语义等价登记于此」。
 
-- 规格原文 1：`docs/星空天象层-实施规格-合并定稿.md:217`（§七 跨态约束）：「Sheet 关闭后选中态与视角一字不差；判据：关闭前后相机四元数与选中 id 逐位相等。」
-- 规格原文 2：`docs/星空天象层-实施规格-合并定稿.md:322`（§十四.12）：「Sheet 关闭前后相机四元数与选中 id 逐位相等。」
-- 实现 / 后令口径：`docs/验收-星空天象层.md:147`：「① 选中 id 关闭后置 null，与规格 §七 末段「选中态一字不差 / 选中 id 逐位相等」口径不符——实现选择了关闭即取消选中；」；`docs/方案-剩余缺陷施工图-星空天象层.md:514`：「关闭只清 selectedId，相机与姿态一字不动（§十四.12）」。
-- 本单处置：按任务书后令口径实现——关闭只清 `selectedId`、不动相机；测试证明相机三元组逐位相等、选中态回落 null。两种口径（保留选中 id / 关闭即取消）请调度层裁定后再回改测试断言。
+### 3.1 规格原文（照旧引用不删）
 
-### 冲突 B：相机状态「四元数」 vs 「yaw/pitch 双标量」
+- `docs/星空天象层-实施规格-合并定稿.md:217`（§七 跨态约束）：「Sheet 关闭后选中态与视角一字不差；判据：关闭前后相机四元数与选中 id 逐位相等。」
+- `docs/星空天象层-实施规格-合并定稿.md:322`（§十四.12）：「Sheet 关闭前后相机四元数与选中 id 逐位相等。」
+- `docs/验收-星空天象层.md:147`：「① 选中 id 关闭后置 null，与规格 §七 末段「选中态一字不差 / 选中 id 逐位相等」口径不符——实现选择了关闭即取消选中；」
+- `docs/验收-星空天象层.md:148`：「备注：代码内相机状态是 `CameraYawPitch`（yaw/pitch 双标量），规格文字称「四元数」；当前无四元数结构，快照比对口径需在测试落地时统一。」
+- `docs/方案-剩余缺陷施工图-星空天象层.md:514`：「关闭只清 selectedId，相机与姿态一字不动（§十四.12）」。
 
-- 规格原文：`docs/验收-星空天象层.md:148`：「备注：代码内相机状态是 `CameraYawPitch`（yaw/pitch 双标量），规格文字称「四元数」；当前无四元数结构，快照比对口径需在测试落地时统一。」
-- 实现现状：`app/src/main/java/io/legado/app/ui/map/globe/astro/contract/SkyFrame.kt` 内 `CameraYawPitch(yawDeg, pitchDeg)` 双标量；仓内无四元数结构。
-- 本单处置：测试按既有双标量结构比对 yaw / pitch，zoom 用 `scene.distanceRatio`；未新增四元数类型。是否引入四元数姿态归一化由裁定结论决定。
+### 3.2 本单按裁定落地的口径
+
+- 比对结构：`app/src/main/java/io/legado/app/ui/map/globe/astro/contract/SkyFrame.kt` 内 `CameraYawPitch(yawDeg, pitchDeg)` 双标量 + `scene.distanceRatio`（zoom）；仓内无 roll 自由度、无四元数结构，不新增四元数类型。
+- 关闭链路：仅 `selectStar(null)`，无相机姿态 / 距离写回；测试断言 yaw、pitch、zoom 三元组逐位相等，`selectedId` 回落 null（`app/src/test/java/io/legado/app/ui/map/globe/astro/contract/SkySheetDismissStateTest.kt:21`、`app/src/test/java/io/legado/app/ui/map/globe/astro/contract/SkySheetDismissStateTest.kt:47`）。
+- 选中 id 口径：按裁定与施工图口径，关闭即清空 `selectedId`；不再保留「关闭前后选中 id 逐位相等」的旧表述。
 
 ### 口径说明（非冲突，记录实现选择）
 
-- 任务书回退第②路「按 RA/Dec 命名规则自动生成『星表编号』」：规格定稿未固定编号格式。本单取实体可给的跨表主键（HD / HIP / TYC / 拜耳 / 弗兰斯蒂德）作为可读编号，实体也缺时回落 `星表 #<主键>`；第③路才是 RA/Dec 坐标串。若裁定要求第②路必须由坐标直接派生编号（如坐标位号式命名），需回改 `catalogDesignation` 与回退顺序。
+- 任务书回退第②路「按 RA/Dec 命名规则自动生成『星表编号』」：规格定稿未固定编号格式。本单取实体可给的跨表主键（HD / HIP / TYC / 拜耳 / 弗兰斯蒂德）作为可读编号，实体也缺时回落 `星表 #<主键>`；第③路才是 RA/Dec 坐标串。若后续规格修订要求第②路必须由坐标直接派生编号（如坐标位号式命名），再回改 `catalogDesignation` 与回退顺序。
 
 ## 新发现问题
 
-- 双向索引遇跨宿重复成员（一颗星属多个星官 code）当前按后装载覆盖，未保留多归属列表；是否存在多宿脏行需数据层确认，扩型为 `List<String>` 的方案**待裁**。
+- 双向索引遇跨宿重复成员（一颗星属多个星官 code）当前按后装载覆盖，未保留多归属列表；是否存在多宿脏行需数据层确认，扩型为 `List<String>` 的方案**已入队**（数据层复核后再定）。
 - 金字塔 L1/L2 增量索引位走坐标兜底时，`raAt/decAt` 越界回落 0.00°，可能展示 `RA 0.00° Dec +0.00°` 观感串；增量星名称主路径仍走实体与星名表，全量并入后复核该兜底，**已入队**（见交接项 3）。
 - 点选星 id → 解析所属星官 code → `select(code)` 的第一跳编排属 host / 输入域，本单只提供 `codeOfStar` 反查入口，链路接通**已入队**（见交接项 2）。
-- 关闭后「选中 id 是否保留」与「相机姿态四元数 vs yaw/pitch 双标量」两处口径与规格文字不一致，**待裁**（见第三节冲突 A/B）。
+- 判据 12「选中 id 是否保留 / 四元数 vs 双标量」两处表述差异，已按 C-14 裁定闭环：三元组逐位相等 + `selectedId` 清空，**已闭环**（见第三节）。
 - `SkyCanvasRenderer.kt` 当前未调用 `loadGroups` / `loadLines`，反查索引在装载入口接通前为空转（查询回落 null / 空列表，不崩），**已入队**（见交接项 1）。
+
+## 黄标口径登记（引用既有台账，不重复建行）
+
+- 判据 4（星名回退 / 哨兵抑制）与判据 12（关闭快照）均为真 JVM 测试逐位断言（非近似），按口径记绿、不标黄。
+- 判据 3 · N1 双向闭环的运行时截图仍缺：登记在 `docs/台账-黄标清单.md` Y-02 行（点井宿→雍州脉冲反向链路运行时未全通、无挂 assets 截图工件；待 Q-498 落地后重跑正反向两条截图）。
+- 判据 12 真机开合两帧未抓：登记在 `docs/台账-黄标清单.md` Y-07 行（JVM 关闭快照测试已落地；待真机前后帧补齐，口径按 C-14 统一表述）。
 
 ## 四、自查反例、二阶三阶影响与最强反对者反例
 
@@ -142,6 +149,7 @@
 - 反例 2：`selectedId` 指向金字塔层增量索引位（非 L0 主键）。`store.byId` 返回高位偏移编码，`raAt/decAt` 越界回落 0.0，坐标串会出现 `RA 0.00° Dec +0.00°` 兜底。处置：坐标串仅作末路观感兜底；增量星的名称 / 编号主路径仍走实体与星名表，不把 0 坐标当真值展示给用户。
 - 反例 3：星名字段全为空白串或字面 `null` 文本。`readableOrNull` 已剔除；测试 `app/src/test/java/io/legado/app/ui/map/globe/astro/ui/SkySheetFallbackTest.kt:76`、`app/src/test/java/io/legado/app/ui/map/globe/astro/ui/SkySheetFallbackTest.kt:82` 钉住该分支。
 - 反例 4：距离值为 `Infinity`。既有 `isFinite()` 守卫保留，`isValidDistanceLy` 先判有限再判哨兵，两条守卫串联不互吞。
+- 反例 5：可变集合链式调用误判。`getOrPut {}.add(...).add(...)` 中 `add` 返回 `Boolean`，二次链式 `.add` 无解（截图车道 `compileAppDebugKotlin` 报 `app/src/main/java/io/legado/app/ui/map/globe/astro/layer/ConstellationLayer.kt:91` Unresolved reference 'add'）。处置：改为局部变量持有列表、两次独立 `add`，已修；弱语法预检只查括号配平，此类类型错由云端编译兜底，故改完必须等 CI 编译车道结论。
 
 ## 五、跨模块交接项（交给 host / astro-data 单）
 
@@ -149,12 +157,21 @@
 2. **点选第一跳闭环（N1 正向链）**：拾取命中星 id 后，应经 `AsterismLayer.codeOfStar(starId)` 解析所属星官 code，再 `select(code)` 接通天球高亮 → `FieldAllocationLayer` 州域脉冲链路；调用编排属 host / 输入域，本单只提供反查入口。
 3. **全量星表规模评估**：若金字塔 L1/L2 全量并入后再建双向索引，需复核装箱映射条数与装载耗时；必要时把 `Long → code` 改成原生 long 键结构。
 4. **DAO 就位后复核**：`StarStore.entityById` 由 Room 提供后，回退第②路编号与距离行应拿真实实体值；哨兵抑制常量在导入链路归一化方案（验收 N2 备选：导入时把 `100000.00` 归一为 null）落地后可评估是否下放到数据层。
-5. **口径裁定回灌**：第三节两处冲突裁定后，需同步更新本报告与 `SkySheetDismissStateTest` 断言口径（选中 id 是否保留、姿态比对是否改四元数）。
+5. **署名义务边界（S-04，非本单域）**：宿主署名四要素 + 验收判据归 Q-497 `app/src/main/java/io/legado/app/ui/map/globe/astro/ui/SkyAttribution.kt`，本单未改该组件；Sheet 卡片来源行沿用既有 `names?.source` 渲染，若后续需引署名常量，只引用 `SkyAttributionText` 常量、不改组件本身。
+6. **C-14 口径已闭环**：判据 12 按三元组逐位相等 + `selectedId` 清空落地，测试断言与报告表述已对齐裁定；后续无需回改四元数比对。
 
-## 六、自测机检记录
+## 六、自测机检记录与 CI 证据
 
 - Kotlin 语法预检：`python3 data_scripts/kotlin-syntax-lint.py` 对 7 个改动 / 新增 `.kt` 全部 PASS（`KOTLIN-LINT: PASS（7 个文件）`）。
 - 孤儿公开入口：`python3 data_scripts/check-orphan-entries.py --list` → 扫描声明 19 个；无外部引用 0 个；复跑判定 `ORPHAN-ENTRIES: PASS（扫描声明 19 个，孤儿 0）`。
 - 测试函数名：17 个用例名逐字核查，不含小数点。
-- 锚点规范化：`python3 data_scripts/check-anchor-normalize.py`；本报告内代码 / 文档锚点全部全路径化（`app/src/.../Foo.kt:行号` 形式）。仓内既有他人报告 `docs/修复-D43D45-降级分域与宿主拆分.md` 仍存历史裸基名锚点（非本单文件域，未改）；本单新增文档不引入新的裸锚点。
+- 锚点规范化：`python3 data_scripts/check-anchor-normalize.py`；本报告内代码 / 文档锚点全部全路径化（`app/src/.../Foo.kt:行号` 形式）。仓内既有他人报告历史裸基名锚点非本单文件域，未改；本单新增文档不引入新的裸锚点。
+- 报告字段 / 找问题 /  onboard 门禁：`check-report-fields.py` PASS（1 份合格）；`check-problem-finding.py` PASS（判红 0）；`check-onboarding.py` PASS。
 - 沙箱纪律：未做任何本地编译；编译判据以云端 CI 为准。
+
+### 6.1 CI 两路 run id 与结论（HEAD 树含本单代码）
+
+- Verify（unit tests）run `46111383400`（commit `40bafd9f`）：conclusion **success**；该次变更分类为 docs-only 车道，单测分片（Discover / shard / Rhino / Slow bench）按既有口径 skipped，静态 gate success。
+- Screenshot（Paparazzi）run `46111383371`（commit `40bafd9f`）：conclusion **success**；前序同树截图 run `46110797542`（commit `c260e7e3`）日志见 `:app:compileAppDebugKotlin` 通过、`BUILD SUCCESSFUL in 3m 15s`、Paparazzi 帧落盘。
+- Package Debug APK run `46111393103`（commit `40bafd9f`）：conclusion **success**。
+- 证据缺口（不替 CI 编结论）：本单三个新 JVM 测试类尚未在代码车道的单测分片里被执行过——近两次 Verify 均判 docs-only，分片 skipped；待下一次含 `app/` 代码变更的车道触发单测分片后，复核 `SkyNameIndexTest` / `SkySheetFallbackTest` / `SkySheetDismissStateTest` 全绿。判据 3 · N1 运行时截图与判据 12 真机开合两帧仍属黄标（见 Y-02 / Y-07）。
