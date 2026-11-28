@@ -133,4 +133,10 @@ internal class SkyRenderView(context: Context) : View(context) {
             nowMs,
         )
     }
+
+    /**
+     * bench 计时入口：绕开 View 受保护可见性，直接把 [onDraw] 交给计时用例逐帧调用。
+     * 为什么不另画一份：计时必须走真实 onDraw 路径，不许在辅助方法里复制渲染调用。
+     */
+    fun drawForBench(canvas: Canvas) = onDraw(canvas)
 }

@@ -100,6 +100,17 @@ object SkyCanvasRenderer {
 
     /** 州域 → 关联星官内码（反向点州域 → 天球转向映射入口，§十一.2）。 */
     fun asterismCodesForRegion(region: String): List<String> = fieldLayer.asterismCodesForRegion(region)
+
+    /**
+     * 反向聚焦州域（D39 反向链路桥接）：转发 [FieldAllocationLayer.focusRegion]，
+     * 主表命中才记选中态并起脉冲；命中 codes 非空时同步选中首项关联星官。
+     * 返回反查到的 codes（空 = 未聚焦，不写选中态、不清空旧值）。
+     */
+    fun focusRegion(region: String, nowMs: Long): List<String> {
+        val codes = fieldLayer.focusRegion(region, nowMs)
+        codes.firstOrNull()?.let { asterismLayer.select(it) }
+        return codes
+    }
     /** 双指 ≥2× 请求局部星图：金字塔按需下载 TODO；先置可见金线进度反馈，不静默（§九.3）。 */
     fun notifyLocalChartRequested() { loadingProgress = LOCAL_CHART_PROGRESS }
     private fun projectStars(sky: SkyFrame, store: StarStore?, placeholder: Boolean, w: Float, h: Float, magLimit: Float, out: ProjectedStars) {

@@ -20,6 +20,7 @@ class GlobeHostBaselineTest {
         val hostSource = "io/legado/app/ui/map/globe/host/GlobeScreenHost.kt"
         val replaySource = "io/legado/app/ui/map/globe/host/ReplayConsole.kt"
         val earthPassSource = "io/legado/app/ui/map/globe/host/EarthGlobePass.kt"
+        val rendererSource = "io/legado/app/ui/map/globe/host/SkyCanvasRenderer.kt"
     }
 
     private fun sourceRoot(): File =
@@ -49,6 +50,17 @@ class GlobeHostBaselineTest {
         assertTrue("Sheet 关闭 selectStar(null) 接线丢失", host.contains("selectStar(null)"))
         assertTrue("帧节拍 LaunchedEffect 丢失", host.contains("LaunchedEffect(Unit)"))
         assertTrue("三棵手势 pointerInput 丢失", host.split("pointerInput").size - 1 >= 3)
+    }
+
+    @Test
+    fun `D39 反向链路接线 viewport 注入与分野聚焦桥接不丢`() {
+        val host = read(hostSource)
+        val renderer = read(rendererSource)
+        // 改坏推演：尺寸回调漏调 setViewport，地球首击 viewport=0 反查静默返回空，下面这条 contains 断言红。
+        assertTrue("宿主尺寸回调应注入 skyHandler.setViewport(w, h)", host.contains("skyHandler.setViewport(w, h)"))
+        // 改坏推演：renderer 桥接漏转发 fieldLayer.focusRegion，选中态 / 脉冲运行时无消费方，下两行断言红。
+        assertTrue("renderer 桥接应转发 fieldLayer.focusRegion", renderer.contains("fieldLayer.focusRegion(region, nowMs)"))
+        assertTrue("renderer 桥接应同步选中首项关联星官", renderer.contains("asterismLayer.select(it)"))
     }
 
     @Test

@@ -91,7 +91,11 @@ fun GlobeScreenHost(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .onSizeChangedCompat { w, h -> viewport = w to h }
+            .onSizeChangedCompat { w, h ->
+                viewport = w to h
+                // D39 反向链路：把视图尺寸注入手势处理器，地球首击反投影反查才有 viewport（未双击也不为 0）。
+                skyHandler.setViewport(w, h)
+            }
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
                     skyHandler.onZoom(zoom)
