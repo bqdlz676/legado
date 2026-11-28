@@ -104,6 +104,10 @@ class SkyOnDrawBenchSnapshotTest {
         // 标记行供 CI 日志检索：数值为本机 layoutlib 实测，命令与帧数见证据报告。
         println("SKY-ONDRAW-BENCH n=$FRAME_SAMPLES warmup=$WARM_ROUNDS " +
             "median=$med ms p95=$p95 ms max=$max ms")
+        // 数值同时编码进快照文件名：artifact 清单与 job 日志 ls 列表可直接回读实测值，
+        // 不依赖被截断的测试 stdout（上传产物只收 PNG 与 frames 清单）。
+        paparazzi.snapshot(view, "sky-bench-ondraw-median-%.2f-p95-%.2f-max-%.2f"
+            .format(med, p95, max))
 
         // 断言线贴规格 16ms；余量口径同既有 bench：本批只覆盖 CPU 编排 + layoutlib 绘制，
         // 真机 GPU 栅格未计入，本断言不构成「真机整帧达标」结论。
@@ -159,6 +163,9 @@ class SkyOnDrawBenchSnapshotTest {
         val max = perFrame.maxOrNull() ?: 0.0
         println("SKY-SWITCH-BENCH frames=$SWITCH_FRAMES durationMs=${SkyParams.VIEW_SWITCH_MS} " +
             "p99=$p99 ms max=$max ms")
+        // 数值编码进快照文件名，口径同上：含控制器弹簧积分与 layoutlib onDraw，不含真机 GPU。
+        paparazzi.snapshot(view, "sky-bench-switch-p99-%.2f-max-%.2f-frames-$SWITCH_FRAMES"
+            .format(p99, max))
 
         // 口径：含控制器弹簧积分（nextFrame 内 springPose）与 layoutlib onDraw；
         // 不含真机 GPU 栅格、不含 vsync。断言取 P99 而非 max，避免单轮 GC / 调度毛刺直接翻红；
