@@ -27,7 +27,7 @@ import kotlin.math.min
  * 测试类只声明每态的快照覆盖与渲染器状态注入，不在每个用例里重复搭场景。
  *
  * 口径：帧必须走真实渲染路径 [SkyCanvasRenderer.draw]；本文件只构造测试侧快照实例与
- * 包装 View，不改 `app/src/main/**` 任何生产签名。渲染器跨态状态面在每态出帧前复位，
+ * 包装 View，不改 `app/src/main` 下任何生产签名。渲染器跨态状态面在每态出帧前复位，
  * 避免上一用例的 hoverId / pressId / offline 泄漏到下一帧。
  */
 internal object SkyStateFixtures {
