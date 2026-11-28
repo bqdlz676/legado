@@ -585,6 +585,17 @@ RC75=$?
 if [ "$RC75" -eq 0 ]; then ok "75提交域纯度" "$(echo "$CS75" | grep 'COMMIT-SCOPE: PASS')"; elif [ "$RC75" -eq 3 ]; then skip_audit "75提交域纯度(UNVERIFIED)"; else bad "75提交域纯度" "$(echo "$CS75" | grep -E 'COMMIT-SCOPE|✗' | head -4 | tr '\n' ' ')"; fi
 else skip_audit "75提交域纯度"; fi
 
+# 76 成员级孤儿（2026-11-28 自建，g68 补充口径）：g68 只收顶层 fun/class/object，抓不到类里的
+#    公开成员函数，于是 Q-497 的 evaluatePyramidDemand、Q-498 的 codeOfStar 全仓零生产调用而
+#    g68 报孤儿 0——单测绿、CI 绿、功能不生效。本闸扫 astro/ 与 host/Sky*.kt 的缩进成员 fun，
+#    生产引用数 0 判红；当前 28 条存量在 docs/台账-死链清单.md 登记、待 Q-503 接线，故本闸
+#    先按 audit 起步（compensation=full_gate_round），Q-503 落库后升 blocking。
+if gate_active g76; then
+OM76=$(python3 data_scripts/check-orphan-members.py 2>&1)
+RC76=$?
+if [ "$RC76" -eq 0 ]; then ok "76成员级孤儿" "$(echo "$OM76" | grep 'ORPHAN-MEMBERS: PASS')"; elif [ "$RC76" -eq 3 ]; then skip_audit "76成员级孤儿(UNVERIFIED)"; else bad "76成员级孤儿" "$(echo "$OM76" | grep -E 'ORPHAN-MEMBERS|✗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "76成员级孤儿"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**

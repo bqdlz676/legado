@@ -1109,6 +1109,23 @@
         "note": "全量 gate 收口复跑；派单前调度层实时核对暂存清单只含本单文件（人判与门禁双轨）。"
       },
       "added": "2026-11-28"
+    },
+    {
+      "id": "g76",
+      "label": "76",
+      "name": "成员级孤儿",
+      "script": "check-orphan-members.py",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "audit",
+      "reason": "2026-11-28 自建补充口径：g68 只扫顶层入口，扫不到类里的公开成员函数，Q-497/Q-498 两单交付的函数生产零调用而门禁全绿。本闸判「公开成员在 app/src/main 零调用」，并把「仅测试调用」单独标为假绿。定 audit 理由：存量 28 条已建 docs/台账-死链清单.md、归 Q-503 接线，直接 blocking 会让全队每次 push 都红且与在飞单重复计数；Q-503 落库后升 blocking。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "closing_report_check"
+        ],
+        "note": "全量 gate 收口复跑；派单前的写码单报告须自陈新增公开成员的生产调用方，收口单核对台账只许缩短。"
+      }
     }
   ],
   "compensation_channels": {
