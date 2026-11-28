@@ -1,0 +1,38 @@
+# g77/g78 存量豁免白名单（㊼ 形态：身份绑台账行原文 sha256 前 12，改名/换内容即失效；只许删不许加）。
+# 列：脚本名	行号或缺陷号	内容 sha256 前 12	豁免理由
+# 生成口径：2026-11-28 全量实跑现存违规；audit 起步阶段豁免历史遗留，转 blocking 新单前须逐条补齐并删本单条目。
+g78	行69:Q-36	d4e5188ab097	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行70:Q-37	c90c4391058f	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行71:Q-38	bc957479095a	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行72:Q-39	f6a14947c06a	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行73:Q-40	e4801aa34870	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行74:Q-41	8516f197f795	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行75:Q-42	f5df482f77ef	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行76:Q-43	53b008eb9d10	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行77:Q-44	cc076513e071	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行81:Q-48	260a665b45ab	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行444:Q-440	5127f670e359	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE,UNBALANCED）
+g78	行448:Q-445	063da73f3fd7	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行451:Q-448	3054291ffce0	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE,UNBALANCED）
+g78	行452:Q-449	8f545f97ffdd	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行453:Q-450	caf53999f416	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行455:Q-452	3326590e5fa0	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE,UNBALANCED）
+g78	行457:Q-454	72897f9ecb68	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行459:Q-456	eeb6a3c0471a	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行460:Q-457	845abfee77be	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行461:Q-458	7cec61161e46	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行462:Q-459	e9baaf17fdcb	存量：历史 DONE 行产物列为切片/锚点基名或（预定），未挂仓内报告路径；audit 起步豁免，转 blocking 前补登记产物。（涉及判据：PRODUCT-MISSING）
+g78	行463:Q-460	13004fb45de7	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行464:Q-462	7ea9f4513bea	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行467:Q-465	dce5a9eb5e27	存量：产物路径在仓内解析不到（文件名截断/已挪位）；audit 起步豁免。（涉及判据：PRODUCT-DEAD）
+g78	行469:Q-467	8f499a14c9bb	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行470:Q-468	696374f3fbd1	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行471:Q-469	fdf0758b766f	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行475:Q-473	26cd19866e81	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行477:Q-475	197ff58aa799	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE,UNBALANCED）
+g78	行478:Q-476	11810bc30e1b	存量：锚点指向仓外 skills 模板文件，仓内不存在；audit 起步豁免。（涉及判据：ANCHOR-DEADFILE）
+g78	行480:Q-481	5e7620b8f086	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行482:Q-483	42f89ad454a1	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE）
+g78	行487:Q-461	1d58d76a992e	存量：验收代理列登记为 commit sha/待派，未登记独立 s_ 代理；写码交付与独立验收混行；audit 起步豁免。（涉及判据：REVIEW-MISSING）
+g78	行527:Q-506	fb8548d2533a	存量：验收代理列登记为 commit sha/待派，未登记独立 s_ 代理；写码交付与独立验收混行；audit 起步豁免。（涉及判据：REVIEW-MISSING）
+g78	行530:Q-505	685373e75172	存量：旧报告判据小节未按 文件:行 / run id 格式逐条挂锚（散文式销项）；audit 起步豁免，新单按 g78 口径回源。（涉及判据：CRITERIA-WITHOUT-EVIDENCE,REVIEW-MISSING）

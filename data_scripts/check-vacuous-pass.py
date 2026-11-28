@@ -73,6 +73,9 @@ SCALAR_NAMES = {
     'verdict', 'landing', 'exempt', 'traced', 'has_named', 'first_asst',
     'registered', 'status_cell', 'agent_id', 'position_type', 'missing',
     'bad', 'problems', 'fails', 'warns', 'errors', 'violations', 'issues',
+    # 结论累加器：dead/kept/findings 都是验完攒出的违规清单，空 = 验过且零违规，
+    # 与 files/commits 这类"待检目标"性质相反（同 rule 5 口径，2026-11-28 补登）。
+    'dead', 'kept', 'findings',
 }
 
 # 精确豁免：键 = (文件相对路径, 变量名, 分支块 sha256[:12])，值 = 为什么可接受。

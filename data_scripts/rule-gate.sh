@@ -596,6 +596,24 @@ RC76=$?
 if [ "$RC76" -eq 0 ]; then ok "76成员级孤儿" "$(echo "$OM76" | grep 'ORPHAN-MEMBERS: PASS')"; elif [ "$RC76" -eq 3 ]; then skip_audit "76成员级孤儿(UNVERIFIED)"; else bad "76成员级孤儿" "$(echo "$OM76" | grep -E 'ORPHAN-MEMBERS|✗' | head -4 | tr '\n' ' ')"; fi
 else skip_audit "76成员级孤儿"; fi
 
+# 77 文件域互斥（2026-11-28 从 W/V 卡表抽出的「文件域独占」能力，挂台账 `文件域` 列）：
+#    共享 index 五次污染复盘（d42514c/15f9917/ef687fb/a11b9de/62bf516）——两条在飞单声明域
+#    相同或父子目录重叠即判红；audit 起步，存量白名单 verdict-gate-allow.txt 按内容哈希身份豁免。
+if gate_active g77; then
+FD77=$(python3 data_scripts/check-file-domain-conflict.py 2>&1)
+RC77=$?
+if [ "$RC77" -eq 0 ]; then ok "77文件域互斥" "$(echo "$FD77" | grep 'FILE-DOMAIN-CONFLICT: PASS')"; elif [ "$RC77" -eq 3 ]; then skip_audit "77文件域互斥(UNVERIFIED)"; else bad "77文件域互斥" "$(echo "$FD77" | grep -E 'FILE-DOMAIN-CONFLICT|✗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "77文件域互斥"; fi
+
+# 78 判据证据对齐（2026-11-28 从 W/V 卡表抽出的「配对验收·过必带证据」能力，挂台账
+#    `独立验收代理`/`验收产物` 列）：已验收行分人、产物存在、判据↔证据一一对齐、锚点不越界；
+#    audit 起步，存量白名单 verdict-gate-allow.txt 按内容哈希身份豁免。
+if gate_active g78; then
+VE78=$(python3 data_scripts/check-verdict-evidence.py 2>&1)
+RC78=$?
+if [ "$RC78" -eq 0 ]; then ok "78判据证据对齐" "$(echo "$VE78" | grep 'VERDICT-EVIDENCE: PASS')"; elif [ "$RC78" -eq 3 ]; then skip_audit "78判据证据对齐(UNVERIFIED)"; else bad "78判据证据对齐" "$(echo "$VE78" | grep -E 'VERDICT-EVIDENCE|✗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "78判据证据对齐"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**
