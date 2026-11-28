@@ -115,8 +115,10 @@ class SkyInputHandler(
     fun evaluatePyramidDemand() {
         val magLimit = controller.scene.sky?.magLimit ?: return
         if (magLimit > LEVEL2_TRIGGER_MAG) {
-            triggerPyramid(2)
+            // 先浅后深：先 L1（6.5, 9.0] 增量长出，再叠加 L2（9.0, 11.5]；
+            // 与查询扫描顺序 L0 → L1 → L2 一致（方案 §4.3 :314），避免深层先合并造成索引抖动。
             triggerPyramid(1)
+            triggerPyramid(2)
         } else if (magLimit > MAG_BRIGHT_ENTITY) {
             triggerPyramid(1)
         }
