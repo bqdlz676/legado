@@ -211,9 +211,9 @@ grep -rnE "^\s*true,\s*$" app/src/main/java/io/legado/app/ui/book/source/ --incl
 - F-1（已修 · Q-465 已把该偏好的读取上提 VM 镜像，见提交 46a8852 与 验收-复核-Q465-F1-SourceManage.md）：`MGT/SourceManageSheets.kt:131` `checked = io.legado.app.help.config.AppConfig.blockSourceNavigation` 在 Compose 组合期直读 `AppConfig` 静态属性；该属性 getter 走 `appCtx.getPrefBoolean(...)`（`app/help/config/AppConfig.kt:47-49`），`appCtx` 为 splitties Application 上下文，截图环境无 Application 时类初始化即炸，与 4738fb4 修复的四个书架帧同形态。同屏另外两个偏好（`showCheckStatus` / `showBookshelfCount`）已由 VM 在 `SourceManageViewModel.kt:68-69` 读入 state 透传，`blockSourceNavigation` 未入 state；VM 翻转在 `SourceManageViewModel.kt:235` 直写 `AppConfig`。处置建议：把 `blockSourceNavigation` 补进 `SourceManageState`（`SourceManageState.kt:94-96` 同型字段），VM 初始化读入、翻转时更新 state，Compose 改读 `state.xxx`；本单按范围红线未改。
 - F-2（待裁 · 阶段账不闭环，沿用 B29 验收 F-3，需另派单定宿主级闸口径）：宿主级离场闸未接——`SourceManageViewModel.openSheet`（`SourceManageViewModel.kt:460`）与 `SourceManageScreen.kt:98` / `:378` / `:460`、`BookSourceActivity.kt:67` 四个程序化打开点未串联 `canOpen`；离场 ~450ms 内宿主触摸由浮层窗口截获兜底。与 reader 域 B30 同类边界，需另派单改 VM / Activity 入口闸。
 - F-3（待裁 · 交互缺口，非常量 visible 缺陷本身，沿用 B29 验收 F-2）：以下动作行点击后不调用 `onDismiss` / `beginExit`，弹层不自动关闭，基线 `739f073^` 即如此，本单未改动其交互：
-  · 调试页溢出菜单 `SRC/debug/SourceDebugScreen.kt:415`（扫码）、`:417`（查看搜索响应）、`:420`（查看详情响应）、`:423`（查看目录响应）、`:426`（查看正文响应）、`:428`（刷新发现）、`:429`（帮助）。（待裁，随 F-3）；
-  · 编辑页自动补全开关 `SRC/edit/SourceEditScreen.kt:448` `vm.toggleAutoComplete()`（菜单保持展开，基线同）。（待裁，随 F-3）；
-  · 分组管理 `MGT/SourceManageSheets.kt:257` 删组、`:277` 重命名确认、`:300` 加组确认；导出结果 `:557` 复制路径、`:564` 口令分享。（待裁，随 F-3）；
+  · 调试页溢出菜单 `app/src/main/java/io/legado/app/ui/book/source/debug/SourceDebugScreen.kt:415`（扫码）、`:417`（查看搜索响应）、`:420`（查看详情响应）、`:423`（查看目录响应）、`:426`（查看正文响应）、`:428`（刷新发现）、`:429`（帮助）。（待裁，随 F-3）；
+  · 编辑页自动补全开关 `app/src/main/java/io/legado/app/ui/book/source/edit/SourceEditScreen.kt:448` `vm.toggleAutoComplete()`（菜单保持展开，基线同）。（待裁，随 F-3）；
+  · 分组管理 `app/src/main/java/io/legado/app/ui/book/source/manage/SourceManageSheets.kt:257` 删组、`:277` 重命名确认、`:300` 加组确认；导出结果 `:557` 复制路径、`:564` 口令分享。（待裁，随 F-3）；
   · 上述是否需要动作后补离场动画，属既有交互口径决策，建议随 §五 N1 双槽位时序议题一并另单评估。（待裁，随 F-3）；
 - F-4（待裁 · 待云端 CI 复核，沿用 B29 验收 F-4）：`SRC/test/.../SourceSheetExitControllerTest.kt:3` / `:25` 使用 `mutableStateOf` 构造控制器；`mutableStateOf` 属 compose-runtime 普通工厂函数，JVM 下可实例化本身成立，但 7 例单测能否在单测 classpath 跑绿以云端 CI 为准。
 - F-5（判废 · 既有边界，控制器由 remember 持有不跨重建存活，与 B20/B21/B26/config 同一边界）：控制器由 `remember` 持有，旋转 / 进程重建随 Composable 生命周期；离场中重建则阶段与离场位不跨重建存活（与 B20 / B21 / B26 / config 同一边界）。
