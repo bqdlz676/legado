@@ -29,7 +29,7 @@ class StarCatalogBlendCoverageTest {
         val root = generateSequence(cwd) { it.parentFile }
             .first { File(it, "app/src/main/assets/astro/stars.csv").isFile }
         val lines = File(root, "app/src/main/assets/astro/stars.csv").readLines()
-        val rows = lines.drop(1).filter { it.isNotBlank() }.map { it.split(",") }
+        val rows = lines.drop(1).filter { it.isNotBlank() }.map { it.split(",").toTypedArray() }
         return StarCatalog.parseRows(rows)
     }
 
