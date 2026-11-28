@@ -29,7 +29,10 @@ def wired_text() -> str:
 
 
 def main() -> int:
-    names = {p.name for p in SCRIPTS.glob('check-*.py')}
+    # 门禁宇宙与 52 自测覆盖闸同口径：排除自检闸自身（check-selftest-coverage.py），
+    # 避免接线闸把自己多算一条；两闸报告的门禁总数必须一致（现行 73）。
+    names = {p.name for p in SCRIPTS.glob('check-*.py')
+             if p.name != 'check-selftest-coverage.py'}
     text = wired_text()
     orphans = set()
     for n in names:
