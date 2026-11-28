@@ -3,6 +3,8 @@ package io.legado.app.ui.map.globe.astro.data
 import android.content.res.AssetManager
 import io.legado.app.constant.AppLog
 import io.legado.app.ui.map.globe.astro.contract.SkyParams
+import java.io.File
+import java.security.MessageDigest
 
 /**
  * 内置层星表（数据层，不碰渲染）。
@@ -62,20 +64,234 @@ class StarCatalog private constructor(
     /** 主键 → 目录索引；查不到返回 -1。映射在加载期一次性建好，查询期只读。 */
     fun indexOfId(id: Long): Int = idToIndex[id] ?: -1
 
+    // ───────────────────── 金字塔增量层（L1/L2，按需下载后并入） ─────────────────────
+    // 口径（方案 §4.4）：增量追加为独立扁平原始类型数组，查询期按索引访问、不 new 实体列表；
+    // L0 主键锚点不变，金字塔层只增暗星渲染点，不回写 L0、不覆盖既有索引。
+
+    internal var pyramidRaDeg: DoubleArray = DoubleArray(0)
+        private set
+    internal var pyramidDecDeg: DoubleArray = DoubleArray(0)
+        private set
+    internal var pyramidMagVt: FloatArray = FloatArray(0)
+        private set
+    internal var pyramidIds: LongArray = LongArray(0)
+        private set
+    internal var pyramidConstellations: Array<String> = emptyArray()
+        private set
+    internal var pyramidColorBv: DoubleArray = DoubleArray(0)
+        private set
+
+    private val pyramidIdToIndex = HashMap<Long, Int>()
+    private val loadedLevels = HashSet<Int>()
+    private var pyramidBadCoord = 0
+    private var pyramidNanMag = 0
+    private var pyramidBandMag = 0
+    private var pyramidDupId = 0
+
+    /** 金字塔增量星数（已并入的 L1/L2 合计；L0 内置星不计入，[size] 语义不变）。 */
+    val pyramidSize: Int get() = pyramidIds.size
+
+    /** 金字塔层异常计数合计（越界坐标 + 非有限/越带星等 + 跨层重复 id）。 */
+    val pyramidAnomalies: Int
+        get() = pyramidBadCoord + pyramidNanMag + pyramidBandMag + pyramidDupId
+
+    /** 金字塔导入留痕文本；未加载过任何层时为空串口径。 */
+    val pyramidReport: String
+        get() = "pyramid loaded=[${loadedLevels.sorted().joinToString(",")}] " +
+            "badCoord=$pyramidBadCoord nanMag=$pyramidNanMag bandMag=$pyramidBandMag dupId=$pyramidDupId"
+
     /**
-     * 金字塔层（9 等 / 11.5 等）按需下载后的增量加载入口。
-     *
-     * TODO(接线/网络单)：`level` 对应 `SkyParams.PYRAMID_LEVELS` 两级；下载缓存校验通过后
-     *  把暗星增量合并进索引结构。本轮按规格留空实现：不抛异常、不返回 null、不触发上层
-     *  空指针；离线或未下载时内置亮星层照常工作（§十三 第 2 条：断网线框全内置、亮星全在）。
+     * 合并前内存评估钩子（可注入便于纯 JVM 单测；生产默认按行均扁平字节估算对照空闲内存）。
+     * 返回 false = 评估不足，拒绝合并该层并回 [PyramidResult.LowMemory]，不抛 OOM。
      */
-    fun loadPyramid(level: Int) {
-        //  deliberate no-op：金字塔数据不入库、不进 APK（§四 第 3 条），接入时在此追加合并逻辑。
+    internal var pyramidMemoryGuard: (rows: Int) -> Boolean = { rows ->
+        Runtime.getRuntime().freeMemory() >= rows * PYRAMID_ROW_BYTES
     }
+
+    /** 按金字塔增量索引取 J2000 赤经（度，[0,360)）；越界返回 0 不崩。 */
+    fun pyramidRaAt(i: Int): Double = if (i in 0 until pyramidSize) pyramidRaDeg[i] else 0.0
+
+    /** 按金字塔增量索引取 J2000 赤纬（度，[-90,90]）。 */
+    fun pyramidDecAt(i: Int): Double = if (i in 0 until pyramidSize) pyramidDecDeg[i] else 0.0
+
+    /** 按金字塔增量索引取 VT 星等；越界返回 NaN。 */
+    fun pyramidMagAt(i: Int): Float = if (i in 0 until pyramidSize) pyramidMagVt[i] else Float.NaN
+
+    /** 按金字塔增量索引取稳定主键；越界返回 -1。 */
+    fun pyramidIdAt(i: Int): Long = if (i in 0 until pyramidSize) pyramidIds[i] else -1L
+
+    /** 按金字塔增量索引所属 88 星座三字母缩写；越界返回空串。 */
+    fun pyramidConstellationAt(i: Int): String =
+        if (i in 0 until pyramidSize) pyramidConstellations[i] else ""
+
+    /** 按金字塔增量索引取 B-V 色指数；缺色 / 越界返回 NaN，渲染侧回落星等映射。 */
+    fun pyramidBvAt(i: Int): Double =
+        if (i in 0 until pyramidSize) pyramidColorBv[i] else Double.NaN
+
+    /** 金字塔层主键 → 增量索引；查不到返回 -1。L0 主键仍走 [indexOfId]。 */
+    fun pyramidIndexOfId(id: Long): Int = pyramidIdToIndex[id] ?: -1
+
+    /**
+     * 金字塔层（9 等 / 11.5 等）按需下载后的增量加载入口（方案 §4.1–§4.3）。
+     *
+     * 校验顺序：level 越界 / 目录为 null → [PyramidResult.Missing]；切片或旁证不存在 → Missing；
+     * 旁证 sha256 先于解析，比对不符 → [PyramidResult.Corrupt] 并隔离坏片；解析零有效行 →
+     * Corrupt；合并前内存评估不足 → [PyramidResult.LowMemory]；通过后扁平数组合并，返回
+     * [PyramidResult.Loaded]。任何边界都不抛异常、不清空 L0，缺文件时内置亮星层照常可显示。
+     *
+     * @param level 1 = L1 (6.5, 9.0]，2 = L2 (9.0, 11.5]；0 / 负数 / 大于 [SkyParams.PYRAMID_LEVELS] 一律 Missing。
+     * @param cacheDir 设备缓存根（宿主注入 `File(context.filesDir, "astro/pyramid")`；单测传临时目录）；null = Missing。
+     */
+    fun loadPyramid(level: Int, cacheDir: File?): PyramidResult {
+        if (level < 1 || level > SkyParams.PYRAMID_LEVELS) return PyramidResult.Missing
+        val dir = cacheDir ?: return PyramidResult.Missing
+        // 已加载过该层：幂等返回，不重复追加数组（方案 §6.7 并发连点 / 重复调用）。
+        if (loadedLevels.contains(level)) return PyramidResult.Loaded(level, 0)
+
+        val fileName = "level_$level.csv"
+        val shard = File(dir, fileName)
+        val sidecar = File(dir, "$fileName.sha256")
+        // 切片 / 旁证不存在 = 未下载或被系统清缓存：保留 L0，不弹错误态（§4.3 缺文件）。
+        if (!shard.exists() || !sidecar.exists()) return PyramidResult.Missing
+
+        val bytes = try {
+            shard.readBytes()
+        } catch (_: Exception) {
+            isolateShard(dir, fileName)
+            return PyramidResult.Corrupt
+        }
+        val expected = try {
+            sidecar.readText(Charsets.UTF_8).trim().split(Regex("\\s+"))[0]
+        } catch (_: Exception) {
+            isolateShard(dir, fileName)
+            return PyramidResult.Corrupt
+        }
+        // 旁证先于解析：校验和不符不进入合并，坏片改名隔离、不覆盖好片。
+        if (!sha256Hex(bytes).equals(expected, ignoreCase = true)) {
+            isolateShard(dir, fileName)
+            return PyramidResult.Corrupt
+        }
+
+        val parsed = parsePyramidShard(bytes.decodeToString(), level)
+        if (parsed.valid == 0) {
+            isolateShard(dir, fileName)
+            return PyramidResult.Corrupt
+        }
+
+        if (!pyramidMemoryGuard(parsed.valid)) return PyramidResult.LowMemory
+
+        appendPyramid(parsed)
+        loadedLevels.add(level)
+        return PyramidResult.Loaded(level, parsed.valid)
+    }
+
+    /** 坏片隔离：CSV 与旁证改名 `.corrupt-<epoch>`，不覆盖好片；下次按缺文件走 Missing 重下。 */
+    private fun isolateShard(dir: File, fileName: String) {
+        val epoch = System.currentTimeMillis()
+        runCatching {
+            File(dir, fileName).renameTo(File(dir, "$fileName.corrupt-$epoch"))
+            File(dir, "$fileName.sha256")
+                .renameTo(File(dir, "$fileName.sha256.corrupt-$epoch"))
+        }
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    /** 解析金字塔瘦表（7 列：id, tychoId, raDeg, decDeg, magVt, colorBv, constellation）。 */
+    private fun parsePyramidShard(text: String, level: Int): PyramidParsed {
+        val loExclusive = SkyParams.MAG_BRIGHT_ENTITY
+        val hiInclusive = if (level == 1) LEVEL1_UPPER_MAG else SkyParams.MAG_DEPTH_LIMIT
+        val raw = text.lineSequence().filter { it.isNotBlank() }.toList()
+        val cap = (raw.size - 1).coerceAtLeast(0)
+        val ids = LongArray(cap)
+        val ra = DoubleArray(cap)
+        val dec = DoubleArray(cap)
+        val mag = FloatArray(cap)
+        val bv = DoubleArray(cap)
+        val cons = arrayOfNulls<String>(cap)
+
+        var badCoord = 0
+        var nanMag = 0
+        var bandMag = 0
+        var dupId = 0
+        var k = 0
+        var headerSkipped = false
+        for (line in raw) {
+            if (!headerSkipped) { headerSkipped = true; continue }
+            val f = line.split(',').toTypedArray()
+            if (f.size < 7) { badCoord++; continue }
+            val id = f[0].toLongOrNull() ?: run { badCoord++; continue }
+            val raD = f[2].toDoubleOrNull() ?: run { badCoord++; continue }
+            val decD = f[3].toDoubleOrNull() ?: run { badCoord++; continue }
+            val mV = f[4].toFloatOrNull()
+            if (raD < 0.0 || raD >= 360.0 || decD < -90.0 || decD > 90.0) { badCoord++; continue }
+            if (mV == null || !mV.isFinite()) { nanMag++; continue }
+            if (!(mV > loExclusive && mV <= hiInclusive)) { bandMag++; continue }
+            if (idToIndex.containsKey(id) || pyramidIdToIndex.containsKey(id)) { dupId++; continue }
+
+            ids[k] = id
+            ra[k] = raD
+            dec[k] = decD
+            mag[k] = mV
+            bv[k] = f[5].toDoubleOrNull() ?: Double.NaN
+            cons[k] = f[6]
+            k++
+        }
+
+        pyramidBadCoord += badCoord
+        pyramidNanMag += nanMag
+        pyramidBandMag += bandMag
+        pyramidDupId += dupId
+        return PyramidParsed(
+            ids.copyOf(k), ra.copyOf(k), dec.copyOf(k), mag.copyOf(k),
+            bv.copyOf(k), cons.copyOf(k) as Array<String>, k,
+        )
+    }
+
+    private fun appendPyramid(p: PyramidParsed) {
+        val old = pyramidIds.size
+        val n = p.valid
+        pyramidRaDeg = pyramidRaDeg.copyOf(old + n)
+        pyramidDecDeg = pyramidDecDeg.copyOf(old + n)
+        pyramidMagVt = pyramidMagVt.copyOf(old + n)
+        pyramidIds = pyramidIds.copyOf(old + n)
+        pyramidColorBv = pyramidColorBv.copyOf(old + n)
+        val cons = arrayOfNulls<String>(old + n)
+        System.arraycopy(pyramidConstellations, 0, cons, 0, old)
+        p.ids.copyInto(pyramidIds, old, 0, n)
+        p.ra.copyInto(pyramidRaDeg, old, 0, n)
+        p.dec.copyInto(pyramidDecDeg, old, 0, n)
+        p.mag.copyInto(pyramidMagVt, old, 0, n)
+        p.bv.copyInto(pyramidColorBv, old, 0, n)
+        for (j in 0 until n) {
+            cons[old + j] = p.cons[j]
+            pyramidIdToIndex[p.ids[j]] = old + j
+        }
+        @Suppress("UNCHECKED_CAST")
+        pyramidConstellations = cons as Array<String>
+    }
+
+    /** 金字塔解析中间产物（紧凑到有效行；无效行已分类计数留痕）。 */
+    private class PyramidParsed(
+        val ids: LongArray,
+        val ra: DoubleArray,
+        val dec: DoubleArray,
+        val mag: FloatArray,
+        val bv: DoubleArray,
+        val cons: Array<String>,
+        val valid: Int,
+    )
 
     companion object {
 
         private const val ASSET_PATH = "astro/stars.csv"
+
+        /** L1 星等上界 9.0 等（manifest `level1UpperMag`；提为 SkyParams 契约常量属交接项，本单不改契约层）。 */
+        private const val LEVEL1_UPPER_MAG: Float = 9.0f
+
+        /** 金字塔单行扁平数组估算字节（ra 8 + dec 8 + mag 4 + id 8 + bv 8 + 引用 12），内存评估用。 */
+        private const val PYRAMID_ROW_BYTES: Long = 48L
 
         /**
          * 从 `assets/astro/stars.csv` 加载内置星表。

@@ -170,6 +170,11 @@ jobs:
       - name: Onboarding receipt gate
         run: python3 data_scripts/check-onboarding.py
 
+      - name: Pyramid catalog contract gate
+        run: |
+          python3 data_scripts/astro_check_pyramid.py
+          python3 data_scripts/astro_check_pyramid.py --selftest
+
   # ---------- 分片 0：编译测试源码，枚举测试类并切成 4 份确定性清单 ----------
   discover:
     name: Discover test classes (shard lists)
