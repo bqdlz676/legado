@@ -58,7 +58,7 @@ class SkyEightStatesSnapshotTest {
 
     /** 态 2 · 悬停：压住星点外扩 1.3×；120ms 回弹时序见证据文档缺口说明。 */
     @Test
-    fun `态2 悬停星点外扩1.3倍`() {
+    fun `态2 悬停星点外扩一点三倍`() {
         val store = SkyStateFixtures.loadStore(paparazzi.context.assets)
         val snapshot = SkyStateFixtures.baseSnapshot()
             .copy(
@@ -73,7 +73,7 @@ class SkyEightStatesSnapshotTest {
 
     /** 态 3 · 按下：60ms 门槛后 1.6× 放大并进入 1200ms 呼吸；静态帧取过门后呼吸段。 */
     @Test
-    fun `态3 按下1.6倍呼吸`() {
+    fun `态3 按下一点六倍呼吸`() {
         val store = SkyStateFixtures.loadStore(paparazzi.context.assets)
         val snapshot = SkyStateFixtures.baseSnapshot()
             .copy(
