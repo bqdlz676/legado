@@ -1,6 +1,6 @@
 # 待做 · 主 AI 空等门禁（Q-305，用户 2026-11-27 口令「留给下一轮」）
 
-> 状态：**待派（PENDING）**。本单曾于 2026-11-27 02:04 派出（s_000ifj7YrR7），用户随即口令「那不用了／我留给下一轮」，已遣散，仓内零写入（无 `check-idle-empty.py`，`rule-gate.sh`、`gate-levels.json`、`docs/种子-机制种子.md` 均未改）。
+> 状态：**已接线（2026-11-28）**——`data_scripts/check-idle-empty.py` 已落库并接 `rule-gate.sh` 第 60 号门（`GATE-WIRING` 在册），本轮实跑 `IDLE-EMPTY: PASS（四条判据全过）`。以下「待派」经过仅留作历史：本单曾于 2026-11-27 02:04 派出（s_000ifj7YrR7），用户随即口令「那不用了／我留给下一轮」，已遣散，仓内零写入（无 `check-idle-empty.py`，`rule-gate.sh`、`gate-levels.json`、`docs/种子-机制种子.md` 均未改）。
 > 本文只做规格留档：下一轮重新派单时**按本文原样起单，不许缩范围、不许改判据**。
 
 ## 用户原话（不可改写）
