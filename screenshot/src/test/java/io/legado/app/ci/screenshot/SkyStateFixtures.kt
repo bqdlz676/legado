@@ -17,6 +17,8 @@ import io.legado.app.ui.map.globe.offline.FallbackKind
 import io.legado.app.ui.map.globe.offline.OfflineFallback
 import io.legado.app.ui.map.globe.offline.TextureKind
 import io.legado.app.ui.map.globe.render.FrameSnapshot
+import java.io.File
+import java.security.MessageDigest
 import kotlin.math.PI
 import kotlin.math.min
 
@@ -57,6 +59,9 @@ internal object SkyStateFixtures {
         SkyCanvasRenderer.offline = false
         SkyCanvasRenderer.loadingProgress = -1f
         SkyCanvasRenderer.errorHint = null
+        // 外部金字塔进度 / 错误面一并复位：避免态 4 / 态 7 的注入值泄漏到后续帧。
+        SkyCanvasRenderer.externalPyramidProgress = -1f
+        SkyCanvasRenderer.externalPyramidError = null
         SkyCanvasRenderer.hoverId = -1L
         SkyCanvasRenderer.pressId = -1L
         SkyCanvasRenderer.pressStartMs = 0L
@@ -66,6 +71,67 @@ internal object SkyStateFixtures {
 
     /** 经既有门面加载星表；assets 不可用时门面内部已收敛为占位目录，渲染侧走种子兜底。 */
     fun loadStore(assets: AssetManager?): StarStore = StarStoreProvider.get(assets)
+
+    /** 临时金字塔缓存目录（JVM 单测用；退出即删，不污染宿主 filesDir）。 */
+    fun tmpPyramidDir(prefix: String): File {
+        val dir = File(System.getProperty("java.io.tmpdir"), "$prefix-${System.nanoTime()}")
+        dir.mkdirs()
+        dir.deleteOnExit()
+        return dir
+    }
+
+    /** 仓库根定位：从 user.dir 向上找含 app/src/main/assets/astro/stars.csv 的目录（同 bench 用例范式）。 */
+    fun repoRoot(): File {
+        val cwd = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
+        return generateSequence(cwd) { it.parentFile }
+            .first { File(it, "app/src/main/assets/astro/stars.csv").isFile }
+    }
+
+    /**
+     * 态 7 坏片注入：在临时目录写 `level_<level>.csv.gz` 垃圾字节，旁证哈希故意不符；
+     * 对照生产 [StarCatalog.loadPyramid] 旁证校验分支，ensurePyramid 必须收敛 Corrupt。
+     */
+    fun writeCorruptShard(dir: File, level: Int) {
+        val name = "level_$level.csv.gz"
+        File(dir, name).writeBytes("not-a-gzip-payload".toByteArray(Charsets.UTF_8))
+        File(dir, "$name.sha256").writeText(
+            "${sha256("tampered".toByteArray())}  $name\n", Charsets.UTF_8,
+        )
+    }
+
+    /**
+     * 态 4 真实金字塔片：把仓库 data/pyramid 对应 level 的 gz 片与旁证拷进临时目录，
+     * 走真实解析段计数（进度钩子回传的 done/total 是真实行数，不是塞进去的假常量）。
+     */
+    fun copyRealShard(dir: File, level: Int) {
+        val src = File(repoRoot(), "data/pyramid")
+        val gz = File(src, "level_$level.csv.gz")
+        val side = File(src, "level_$level.csv.gz.sha256")
+        File(dir, gz.name).writeBytes(gz.readBytes())
+        File(dir, side.name).writeText(side.readText(Charsets.UTF_8))
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    /**
+     * 真实进度观测记录：绑定目录进度钩子，留存最后一次回调的 done/total。
+     * 口径同宿主 GlobeScreenHost.bindPyramidProgress：total<=0（总量未知）不回填假比例，ratio=-1。
+     */
+    class ProgressCapture {
+        var done: Long = -1L
+            private set
+        var total: Long = -1L
+            private set
+
+        fun bind(store: StarStore) {
+            store.bindPyramidProgress { _, d, t -> done = d; total = t }
+        }
+
+        /** 解析段真实比值 0..1；总量未知时 -1（不得伪造）。 */
+        val ratio: Float
+            get() = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else -1f
+    }
 
     /**
      * 反推一颗当前姿态落在屏内的星主键，供悬停 / 按下态定点。

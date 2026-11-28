@@ -44,10 +44,31 @@ android {
         unitTests.includeAndroidResources = true
     }
 
+    sourceSets {
+        // Q-504 真星表资产：Paparazzi 资产仓库按 `astro/<file>` 直读磁盘目录（PaparazziAssetRepository.openAsset）。
+        // :app 的 astro 子目录由下方 syncAstroAssets 任务只读同步进 build 资产目录；源数据仍在
+        // app/src/main/assets/astro，本模块不整份复制 app assets 入库，也不改 :app 的构建脚本。
+        main.assets.srcDirs += files("$buildDir/astro-assets")
+    }
+
     lint {
         checkDependencies = true
     }
 }
+
+// Q-504：把 :app assets/astro 子树同步到 :screenshot build 资产目录（产物在 /build，不进 Git）。
+// 为什么用 Copy 而不是直接挂 app/src/main/assets：资产仓库直读源目录，挂整份 app assets 会把
+// 书单 / 字典 / 字体等全部暴露给截图类路径；Copy 只带 astro 这一棵子树。
+tasks.register("syncAstroAssets", Copy) {
+    group = "paparazzi"
+    description = "同步 :app astro 星表子目录到 :screenshot build 资产目录（Q-504，只读引用源）"
+    from(project(":app").file("src/main/assets/astro"))
+    into(layout.buildDirectory.dir("astro-assets/astro"))
+}
+
+// Paparazzi 准备任务写资产目录清单前先完成同步；单测任务已 dependsOn prepare 任务，传递保序。
+tasks.matching { it.name == "preparePaparazziDebugResources" }
+    .configureEach { dependsOn(tasks.named("syncAstroAssets")) }
 
 dependencies {
     // 被截图的展示组件 / 模型目前仍在 :app 源码内；编译期只取其 public 签名，
