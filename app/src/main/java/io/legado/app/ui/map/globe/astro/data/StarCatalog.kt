@@ -200,7 +200,8 @@ class StarCatalog private constructor(
 
     /** 解析金字塔瘦表（7 列：id, tychoId, raDeg, decDeg, magVt, colorBv, constellation）。 */
     private fun parsePyramidShard(text: String, level: Int): PyramidParsed {
-        val loExclusive = SkyParams.MAG_BRIGHT_ENTITY
+        // 星等带：L1 (6.5, 9.0]，L2 (9.0, 11.5]；下界排他、上界包含（方案 §1.3）。
+        val loExclusive = if (level == 1) SkyParams.MAG_BRIGHT_ENTITY else LEVEL1_UPPER_MAG
         val hiInclusive = if (level == 1) LEVEL1_UPPER_MAG else SkyParams.MAG_DEPTH_LIMIT
         val raw = text.lineSequence().filter { it.isNotBlank() }.toList()
         val cap = (raw.size - 1).coerceAtLeast(0)
