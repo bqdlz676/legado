@@ -53,6 +53,23 @@ object SkyCanvasRenderer {
     private var layersLoaded = false // 分野 / 成员表只从内置 CSV 装一次，帧循环不重复解析
     private val projected = ProjectedStars()
     private var picker: StarPicker? = null
+    // 投影帧一致性缓存（Q-507 稳态帧优化）：投影坐标只随 视角/姿态/观测点/恒星时/画幅/星等上限/目录规模 变化；
+    // 输入不变时复用上一帧投影缓冲与拾取分桶，跳过逐颗三角投影与分桶重建。缓存不存像素，只存命中判据。
+    private var projCacheValid = false
+    private var projCacheStore: StarStore? = null
+    private var projCacheMode = -1
+    private var projCacheYaw = Double.NaN
+    private var projCachePitch = Double.NaN
+    private var projCacheLat = Double.NaN
+    private var projCacheLon = Double.NaN
+    private var projCacheLst = Double.NaN
+    private var projCacheW = Float.NaN
+    private var projCacheH = Float.NaN
+    private var projCacheMagLimit = Float.NaN
+    private var projCacheDensity = Float.NaN
+    private var projCacheCatalogSize = -1
+    private var projCachePyramidSize = -1
+    private var projCachePlaceholder = false
     private var backdrop: Bitmap? = null
     private var backdropKey: String? = null
     private val atlas = arrayOfNulls<Bitmap>(4)
@@ -85,15 +102,18 @@ object SkyCanvasRenderer {
             "${sky.skyBlend}|$widthPx|$heightPx|$lowPower|$offline"
         backdrop = backdropRenderer.render(backdrop, key, sky, widthPx, heightPx, lowPower, offline)
         canvas.drawBitmap(backdrop!!, 0f, 0f, null)
-        projected.clear()
-        if (!layersLoaded && store != null) {
-            fieldLayer.loadEntries(store.fieldEntries)
-            fieldLayer.loadMembers(store.memberIdsByAsterism)
-            layersLoaded = true
+        if (!projectionCacheMatches(sky, store, placeholder, widthPx, heightPx, magLimit, density)) {
+            projected.clear()
+            if (!layersLoaded && store != null) {
+                fieldLayer.loadEntries(store.fieldEntries)
+                fieldLayer.loadMembers(store.memberIdsByAsterism)
+                layersLoaded = true
+            }
+            projectStars(sky, store, placeholder, widthPx, heightPx, magLimit, projected)
+            val p = picker ?: StarPicker(density).also { picker = it }
+            p.rebuild(projected.x, projected.y, projected.mag, projected.id, projected.count)
+            saveProjectionCache(sky, store, placeholder, widthPx, heightPx, magLimit, density)
         }
-        projectStars(sky, store, placeholder, widthPx, heightPx, magLimit, projected)
-        val p = picker ?: StarPicker(density).also { picker = it }
-        p.rebuild(projected.x, projected.y, projected.mag, projected.id, projected.count)
         lineRenderer.render(canvas, sky, projected, constellationLayer, asterismLayer, fieldLayer, nowMs, pressStartMs, contentMode)
         starRenderer.render(canvas, projected, ensureAtlas(), widthPx, heightPx, nowMs, lowPower, hoverId, pressId, pressStartMs)
         renderOverlays(canvas, sky, widthPx, heightPx, labelPaint, density, placeholder)
@@ -132,6 +152,44 @@ object SkyCanvasRenderer {
         }
         // L0 ∪ 已加载金字塔 L1/L2 双层合并投影；层级短路 / 连续裁剪 / 前半球判定见投影行星源。
         StarProjectionSource.fromFrame(sky, w, h).project(store, magLimit, out)
+    }
+
+    /** 投影缓存命中判定：输入标量逐项比对；store 按引用 + 目录规模双保险，目录增层即失效。 */
+    private fun projectionCacheMatches(sky: SkyFrame, store: StarStore?, placeholder: Boolean,
+        w: Float, h: Float, magLimit: Float, density: Float
+    ): Boolean {
+        if (!projCacheValid || projCachePlaceholder != placeholder || projCacheStore !== store) return false
+        if (projCacheMode != sky.mode.ordinal) return false
+        if (projCacheW != w || projCacheH != h || projCacheMagLimit != magLimit || projCacheDensity != density) return false
+        val yaw = sky.cameraYawPitch?.yawDeg ?: 0.0
+        val pitch = sky.cameraYawPitch?.pitchDeg ?: 0.0
+        val lat = sky.observerLatLon?.latDeg ?: 34.34
+        val lon = sky.observerLatLon?.lonDeg ?: 108.94
+        if (projCacheYaw != yaw || projCachePitch != pitch || projCacheLat != lat || projCacheLon != lon) return false
+        if (projCacheLst != sky.siderealTimeDeg) return false
+        if (store != null && (projCacheCatalogSize != store.size || projCachePyramidSize != store.pyramidSize)) return false
+        return true
+    }
+
+    /** 回填投影缓存判据；只记标量与引用，不拷贝投影数组（数组由 [projected] 自持）。 */
+    private fun saveProjectionCache(sky: SkyFrame, store: StarStore?, placeholder: Boolean,
+        w: Float, h: Float, magLimit: Float, density: Float
+    ) {
+        projCacheValid = true
+        projCacheStore = store
+        projCachePlaceholder = placeholder
+        projCacheMode = sky.mode.ordinal
+        projCacheYaw = sky.cameraYawPitch?.yawDeg ?: 0.0
+        projCachePitch = sky.cameraYawPitch?.pitchDeg ?: 0.0
+        projCacheLat = sky.observerLatLon?.latDeg ?: 34.34
+        projCacheLon = sky.observerLatLon?.lonDeg ?: 108.94
+        projCacheLst = sky.siderealTimeDeg
+        projCacheW = w
+        projCacheH = h
+        projCacheMagLimit = magLimit
+        projCacheDensity = density
+        projCacheCatalogSize = store?.size ?: -1
+        projCachePyramidSize = store?.pyramidSize ?: -1
     }
     private fun renderOverlays(canvas: Canvas, sky: SkyFrame, w: Float, h: Float, labelPaint: Paint, density: Float, placeholder: Boolean) {
         if (loadingProgress >= 0f) {
