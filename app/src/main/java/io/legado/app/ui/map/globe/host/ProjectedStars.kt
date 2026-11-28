@@ -18,10 +18,11 @@ internal class ProjectedStars : StarProjectionSource.ProjectionSink {
     fun clear() { count = 0 }
 
     override fun add(px: Float, py: Float, mag: Float, id: Long, colorBv: Double) {
+        // 字段名与入参同名：扩容与落槽一律走 this.mag / this.id，避免入参遮蔽字段后 copyOf 解到标量上。
         if (count >= x.size) {
             val cap = x.size * 2
-            x = x.copyOf(cap); y = y.copyOf(cap); mag = mag.copyOf(cap)
-            id = id.copyOf(cap); bv = bv.copyOf(cap)
+            x = x.copyOf(cap); y = y.copyOf(cap); this.mag = this.mag.copyOf(cap)
+            this.id = this.id.copyOf(cap); bv = bv.copyOf(cap)
         }
         x[count] = px; y[count] = py; this.mag[count] = mag; this.id[count] = id; bv[count] = colorBv
         count++
