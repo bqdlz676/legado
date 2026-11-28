@@ -66,9 +66,27 @@ class FieldAllocationLayer {
     fun regionForAsterism(code: String): String? =
         entries.firstOrNull { !it.isVariant && it.asterismCode == code }?.regionName
 
-    /** 州域 → 关联星官内码列表（反向点州域 → 天球转向用，§十一.2）。 */
+    /** 星官内码列表 → 主表州域；空列表 / 全不命中 / 仅异说命中 → null（§十一.5）。 */
+    fun regionForCodes(codes: List<String>): String? =
+        codes.firstNotNullOfOrNull { code ->
+            entries.firstOrNull { !it.isVariant && it.asterismCode == code }?.regionName
+        }
+
+    /** 州域 → 关联星官内码列表（反向点州域 → 天球转向用，§十一.2）；异说不参与。 */
     fun asterismCodesForRegion(region: String): List<String> =
-        entries.filter { it.regionName == region }.map { it.asterismCode }
+        entries.filter { !it.isVariant && it.regionName == region }.map { it.asterismCode }
+
+    /**
+     * 反向聚焦州域：主表命中才记选中并起脉冲；返回反查到的 codes（空 = 未聚焦，不写选中态）。
+     * 异说条目不参与；codes 为空时 [selectedRegion] 保持原值不清空（避免地球侧空脉冲落屏心）。
+     */
+    fun focusRegion(region: String, nowMs: Long): List<String> {
+        val codes = entries.filter { !it.isVariant && it.regionName == region }
+            .map { it.asterismCode }
+        if (codes.isEmpty()) return emptyList()
+        selectRegion(region, nowMs)
+        return codes
+    }
 
     /** 州域 → 成员星主键列表（分野边示意凸包 / 地球侧脉冲锚点用；无成员回落空列表）。 */
     fun memberIdsForRegion(region: String): List<Long> =

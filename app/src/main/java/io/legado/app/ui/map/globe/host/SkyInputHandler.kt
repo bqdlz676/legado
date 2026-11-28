@@ -2,6 +2,7 @@ package io.legado.app.ui.map.globe.host
 
 import io.legado.app.ui.map.globe.GlobeController
 import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
+import io.legado.app.ui.map.globe.astro.data.RegionHitResolver
 import io.legado.app.ui.map.globe.geo.Geo
 import kotlin.math.min
 
@@ -22,6 +23,7 @@ import kotlin.math.min
 class SkyInputHandler(
     private val controller: GlobeController,
     private val renderer: SkyCanvasRenderer,
+    private val resolver: RegionHitResolver = RegionHitResolver(RegionHitResolver.defaultAnchors()),
 ) {
 
     private var dragging = false
@@ -31,6 +33,14 @@ class SkyInputHandler(
     /** 双指捏合倍率累积；≥2× 触发局部星图（§九.3），松手后归零。 */
     private var pinchAccum = 1f
     private var chartAnnounced = false
+
+    /** 最近一次视图尺寸（px）；双击路径回填，宿主亦可经 [setViewport] 注入。 */
+    private var viewport: Pair<Float, Float> = 0f to 0f
+
+    /** 注入视图尺寸（px）；宿主 Composable 尺寸变化时调用，供地球侧点按反投影反查州域。 */
+    fun setViewport(widthPx: Float, heightPx: Float) {
+        viewport = widthPx to heightPx
+    }
 
     // ───────────────────── 单指拖动（天外旋转天球 / 地上平移方位）─────────────────────
 
@@ -85,13 +95,40 @@ class SkyInputHandler(
             renderer.retryAction?.invoke()
             return
         }
-        if (!isSky()) return
+        if (!isSky()) {
+            focusRegionOnEarthTap(x, y)
+            return
+        }
         renderer.hotZones.firstOrNull { it.rect.contains(x, y) }?.let { zone ->
             dispatchZone(zone.id)
             return
         }
         val id = renderer.pickStar(x, y)
         controller.selectStar(if (id >= 0L) id else null)
+    }
+
+    /**
+     * 地球仪态点按 → 反投影经纬度 → 分野州域反查（§十一.2 反向链路）。
+     * 命中：观测点落到触点并聚焦该州域；未命中 / 视图尺寸未注入：地球仪态保持现状，
+     * 不触发飞行、不进星空（施工图 2.3 边界 3）。
+     */
+    private fun focusRegionOnEarthTap(x: Float, y: Float) {
+        val (w, h) = viewport
+        if (w <= 0f || h <= 0f) return
+        val rotator = controller.scene.rotator
+        val proj = GlobeProjection(
+            viewportWidth = w,
+            viewportHeight = h,
+            radiusPx = min(w, h) * 0.32f,
+            yawDeg = rotator.yawDeg,
+            pitchDeg = rotator.pitchDeg,
+        )
+        val dir = proj.unproject(x, y) ?: return
+        val (lat, lng) = Geo.latLng(dir)
+        val region = resolver.resolve(lat, lng) ?: return
+        // 选点即观测点：触点经纬度写回观测点（N3 选点入口接线），再聚焦分野州域。
+        controller.setObserver(lat, lng)
+        controller.focusFieldRegion(region, null)
     }
 
     // ───────────────────── 按下 / 抬手：悬停预压与按下两阶段（§七.2、§七.3）─────────────────────
@@ -117,6 +154,7 @@ class SkyInputHandler(
 
     /** 双击屏幕位置 → 反投影经纬度 → 门面飞行；落在球盘外不凭空造点位。 */
     fun onDoubleTap(x: Float, y: Float, viewport: Pair<Float, Float>) {
+        this.viewport = viewport
         val (w, h) = viewport
         if (w <= 0f || h <= 0f) return
         val rotator = controller.scene.rotator

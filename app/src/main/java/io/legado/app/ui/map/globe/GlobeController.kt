@@ -32,6 +32,9 @@ class GlobeController(
     private var observer: ObserverLatLon =
         ObserverLatLon(DEFAULT_OBSERVER_LAT_DEG, DEFAULT_OBSERVER_LON_DEG)
 
+    /** 注入的固定观测时刻（UTC 毫秒）；null = 跟随帧驱动墙钟（§十四.2 时刻注入入口）。 */
+    private var injectedUtcMillis: Long? = null
+
     // ───────────────────── 双视角 spring 过场（§八.12、§十六.4）─────────────────────
 
     /** 弹簧当前姿态（位置状态）；打断续接时保留当前位置与速度，不跳帧。 */
@@ -133,8 +136,10 @@ class GlobeController(
         scene.update(dt, utcMillis, turnsPerSec)
         scene.sky?.let { sky ->
             // 观测点 + 地方恒星时每帧回填；LST 只是两次浮点乘加，不做秒节流也不构成帧负担。
-            val lst = SiderealTime.localSiderealTimeDeg(utcMillis, observer.lonDeg)
-            val pose = springPose(dt, utcMillis, sky.cameraYawPitch)
+            // 时刻优先取注入的固定观测时刻；未注入时跟随帧驱动 UTC（历史 / 未来时刻回放入口）。
+            val effectiveUtc = injectedUtcMillis ?: utcMillis
+            val lst = SiderealTime.localSiderealTimeDeg(effectiveUtc, observer.lonDeg)
+            val pose = springPose(dt, effectiveUtc, sky.cameraYawPitch)
             scene.sky = sky.copy(observerLatLon = observer, siderealTimeDeg = lst, cameraYawPitch = pose)
         }
         return FrameSnapshot.from(scene)
@@ -149,6 +154,14 @@ class GlobeController(
             latDeg.coerceIn(-90.0, 90.0),
             lonDeg.coerceIn(-180.0, 180.0),
         )
+    }
+
+    /**
+     * 注入固定观测时刻（UTC 毫秒）；传 null 恢复跟随帧驱动墙钟。
+     * 测试 / 历史回放可注入任意历史或未来时刻，星空 LST 按注入时刻推导，不跟墙钟走。
+     */
+    fun setObservationTime(utcMillis: Long?) {
+        injectedUtcMillis = utcMillis
     }
 
     // ───────────────────── 星空视角（§十二.3；既有方法签名只增不改）─────────────────────
@@ -195,6 +208,23 @@ class GlobeController(
         val cur = scene.sky ?: return
         transitioning = false
         scene.sky = cur.copy(cameraYawPitch = CameraYawPitch(yawDeg, pitchDeg))
+    }
+
+    /**
+     * 反向分野聚焦（§十一.2）：未入星空先进天外视角；姿态目标可空——
+     * 一期只切视角 + 高亮星官，精确转向宿方位由投影反算后续补齐（边界见施工图 2.3）。
+     * [regionName] 为反查到的州域名，供后续投影反算与脉冲锚点使用；本期不写进 [SkyFrame]。
+     */
+    fun focusFieldRegion(regionName: String, target: CameraYawPitch?) {
+        if (scene.sky == null) enterSky(SkyViewMode.SKY_HEAVEN)
+        target?.let { aimSkyTo(it) }
+    }
+
+    /** 弹簧飞到目标姿态；以当前弹簧位置为起点，速度连续续接（复用 beginTransition 既有口径）。 */
+    private fun aimSkyTo(target: CameraYawPitch) {
+        val from = if (transitioning) poseValue
+            else scene.sky?.cameraYawPitch ?: CameraYawPitch(0.0, 0.0)
+        beginTransition(from, target)
     }
 
     // ───────────────────── 过场 spring 内部 ─────────────────────
