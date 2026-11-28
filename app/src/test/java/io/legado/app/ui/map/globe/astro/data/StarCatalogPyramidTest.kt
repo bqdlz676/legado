@@ -188,8 +188,9 @@ class StarCatalogPyramidTest {
         assertEquals(1, c.pyramidSize)
     }
 
+    // 星等带边界：L1 (6.5, 9.0]，L2 (9.0, 11.5]；下界排他、上界包含，越带行被拒。
     @Test
-    fun `星等带边界 L1 收 6.5 到 9.0 L2 收 9.0 到 11.5 越带行被拒`() {
+    fun `星等带边界 L1 L2 上下界包含与越带行被拒`() {
         val c1 = catalog()
         val d1 = tmpDir("pyramid-band1-")
         writeShard(
