@@ -44,6 +44,7 @@ class GlobeControllerTest {
     @Test
     fun `setObserver写回帧快照观测点 越界经纬度钳制`() {
         val controller = GlobeController()
+        controller.enterSky(SkyViewMode.SKY_HEAVEN)
         controller.setObserver(30.0, 120.0)
         val snapshot = controller.nextFrame(0.016, FIXED_UTC_B)
 
@@ -61,6 +62,7 @@ class GlobeControllerTest {
     @Test
     fun `setObservationTime注入固定时刻 恒星时按注入时刻推导`() {
         val controller = GlobeController()
+        controller.enterSky(SkyViewMode.SKY_HEAVEN)
         controller.setObservationTime(FIXED_UTC_B)
         // 帧墙钟传 0：LST 若跟墙钟会得到 0 时刻值；正确实现必须取注入时刻。
         val snapshot = controller.nextFrame(0.016, 0L)
