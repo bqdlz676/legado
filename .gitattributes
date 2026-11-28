@@ -1,0 +1,6 @@
+# D38 金字塔发布切片（data/pyramid/）：普通 git blob，明确不走 Git LFS。
+# 运行时经仓库 raw 地址按片下载；若被 LFS 接管，raw 地址会拿到指针文本而非星表字节。
+# gz 是二进制：-text 禁止换行符转换；-filter/-diff/-merge 显式退出 LFS 接管。
+data/pyramid/**/*.csv.gz -text -filter -diff -merge
+data/pyramid/**/*.sha256 text
+data/pyramid/**/*.json text

@@ -30,20 +30,24 @@
       "role": "pyramid",
       "magMinExclusive": 6.5,
       "magMaxInclusive": 9.0,
-      "storage": "device-cache",
-      "cacheFile": "level_1.csv",
-      "sourceLedger": "S-01",
-      "note": "9 等层；按需下载后落设备缓存，不进 APK / CI artifact / git。"
+      "storage": "repo-release-remote-cache",
+      "releaseDir": "data/pyramid",
+      "releaseFile": "level_1.csv.gz",
+      "cacheFile": "level_1.csv.gz",
+      "sourceLedger": "S-04",
+      "note": "9 等层；仓库发布片经 raw URL 按片下载落设备缓存，不进 APK / CI artifact；设备缓存内同构 gz 切片。"
     },
     {
       "level": 2,
       "role": "pyramid",
       "magMinExclusive": 9.0,
       "magMaxInclusive": 11.5,
-      "storage": "device-cache",
-      "cacheFile": "level_2.csv",
-      "sourceLedger": "S-01",
-      "note": "11.5 等深度层；按需下载后落设备缓存，不进 APK / CI artifact / git。"
+      "storage": "repo-release-remote-cache",
+      "releaseDir": "data/pyramid",
+      "releaseFile": "level_2.csv.gz",
+      "cacheFile": "level_2.csv.gz",
+      "sourceLedger": "S-04",
+      "note": "11.5 等深度层；仓库发布片经 raw URL 按片下载落设备缓存，不进 APK / CI artifact。"
     }
   ],
   "fields": ["id", "tychoId", "raDeg", "decDeg", "magVt", "colorBv", "constellation"],
@@ -60,6 +64,15 @@
     "S-03": {
       "name": "Yale Bright Star Catalogue 5th Revised (BSC5) 经 HYG v44 汇编",
       "ledgerEntry": "docs/台账-数据源许可.md 条目 S-03"
+    },
+    "S-04": {
+      "name": "HYG v41 汇编镜像（BSC5 / Hipparcos / Tycho-2 / Gaia 汇编）",
+      "repository": "https://github.com/astronexus/HYG-Database",
+      "commit": "c7f7f883fe678cc7680169a50ccd7dcc49b060ce",
+      "sourceFile": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/LICENSE",
+      "note": "新引入源；台账条目由总控登记，本单不碰 docs/台账-数据源许可.md。"
     }
   },
   "fallback": {

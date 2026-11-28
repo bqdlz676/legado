@@ -172,7 +172,8 @@ jobs:
 
       - name: Pyramid catalog contract gate
         run: |
-          python3 data_scripts/astro_check_pyramid.py
+          # 仓库内真实发布片（L1 6.5–9.0 / L2 9.0–11.5 等全量）逐片过契约校验。
+          ASTRO_PYRAMID_CACHE=data/pyramid python3 data_scripts/astro_check_pyramid.py
           python3 data_scripts/astro_check_pyramid.py --selftest
 
   # ---------- 分片 0：编译测试源码，枚举测试类并切成 4 份确定性清单 ----------

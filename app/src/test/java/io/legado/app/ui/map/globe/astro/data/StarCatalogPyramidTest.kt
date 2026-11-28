@@ -3,8 +3,10 @@ package io.legado.app.ui.map.globe.astro.data
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
+import java.util.zip.GZIPOutputStream
 
 /**
  * 金字塔按需加载四态单验收（D38 / 方案 §4.5）。
@@ -67,6 +69,20 @@ class StarCatalogPyramidTest {
             b[b.size - 1] = (b[b.size - 1] + 1).toByte()
             f.writeBytes(b)
         }
+    }
+
+    private fun writeGzShard(dir: File, level: Int, rows: List<Array<String>>) {
+        // 与仓库发布片同形态：gzip 压缩 CSV，旁证按 gz 落盘字节算 sha256。
+        val header = "id,tychoId,raDeg,decDeg,magVt,colorBv,constellation"
+        val body = rows.joinToString("\n") { it.joinToString(",") }
+        val plain = "$header\n$body\n".toByteArray(Charsets.UTF_8)
+        val gz = ByteArrayOutputStream().use { out ->
+            GZIPOutputStream(out).use { it.write(plain) }
+            out.toByteArray()
+        }
+        val name = "level_$level.csv.gz"
+        File(dir, name).writeBytes(gz)
+        File(dir, "$name.sha256").writeText("${sha256(gz)}  $name\n", Charsets.UTF_8)
     }
 
     @Test
@@ -242,5 +258,50 @@ class StarCatalogPyramidTest {
         c.pyramidMemoryGuard = { false }
         assertEquals(PyramidResult.LowMemory, c.loadPyramid(1, lowmem))
         assertEquals(2, c.size)
+    }
+
+    @Test
+    fun `gz 发布片解压合并 校验和按 gz 落盘字节比对`() {
+        val c = catalog()
+        val dir = tmpDir("pyramid-gz-")
+        writeGzShard(
+            dir, 1, listOf(
+                pyrRow(5001, "12.5", "30.0", "8.0", "0.5"),
+                pyrRow(5002, "13.5", "-10.0", "8.5", ""),
+            ),
+        )
+        // 改坏：若按解压后字节比对旁证，gz 校验和必不符而误判 Corrupt；
+        // 若不解压直接解析，首行表头 gzip 字节解析零有效行，Loaded 变红。
+        assertEquals(PyramidResult.Loaded(1, 2), c.loadPyramid(1, dir))
+        assertEquals(2, c.pyramidSize)
+        val idx = c.pyramidIndexOfId(5001)
+        assertTrue(idx >= 0)
+        assertEquals(12.5, c.pyramidRaAt(idx), 1e-9)
+    }
+
+    @Test
+    fun `远程钩子补片成功合并 下载失败回 Missing 不清 L0`() {
+        val ok = catalog()
+        val dir = tmpDir("pyramid-remote-")
+        var fetched = 0
+        ok.pyramidRemoteBase = "https://raw.example.invalid/legado/main/data/pyramid"
+        ok.pyramidRemoteFetcher = { lv, d, _ ->
+            fetched += 1
+            writeGzShard(d, lv, listOf(pyrRow(5003, "12.5", "30.0", "8.0", "0.5")))
+            true
+        }
+        // 本地无片 → 钩子拉片落缓存 → 走既有校验合并。
+        assertEquals(PyramidResult.Loaded(1, 1), ok.loadPyramid(1, dir))
+        assertEquals(1, fetched)
+        assertEquals(1, ok.pyramidSize)
+
+        val fail = catalog()
+        val dirFail = tmpDir("pyramid-remote-fail-")
+        fail.pyramidRemoteBase = "https://raw.example.invalid/legado/main/data/pyramid"
+        fail.pyramidRemoteFetcher = { _, _, _ -> false }
+        // 下载失败属瞬时网络态：回 Missing，不判 Corrupt、不清内置层。
+        assertEquals(PyramidResult.Missing, fail.loadPyramid(1, dirFail))
+        assertEquals(0, fail.pyramidSize)
+        assertEquals(2, fail.size)
     }
 }

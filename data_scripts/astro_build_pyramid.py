@@ -173,6 +173,39 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
             w.writerow({k: r.get(k, "") for k in OUT_FIELDS})
 
 
+def _csv_bytes(rows: list[dict]) -> bytes:
+    """瘦表 CSV 字节（供 gzip 打包复用同一份行数据）。"""
+    import io as _io
+    buf = _io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=OUT_FIELDS, lineterminator="\n")
+    w.writeheader()
+    for r in rows:
+        w.writerow({k: r.get(k, "") for k in OUT_FIELDS})
+    return buf.getvalue().encode("utf-8")
+
+
+def _write_release_gz(out: Path, l1: list[dict], l2: list[dict], source: str) -> dict:
+    """发布打包：CSV 行数据压 gzip + 逐片 sha256 旁证 + 包内清单（非 APK、非 _cache）。
+
+    落仓库 `data/pyramid/` 供运行时经仓库 raw URL 按片下载；片内 schema 与设备缓存一致。
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    meta: dict[str, dict] = {}
+    for level, rows in ((1, l1), (2, l2)):
+        plain = _csv_bytes(rows)
+        gz_name = f"level_{level}.csv.gz"
+        gz_bytes = gzip.compress(plain, compresslevel=9)
+        (out / gz_name).write_bytes(gz_bytes)
+        side = out / f"{gz_name}.sha256"
+        side.write_text(_sha256_file(out / gz_name) + f"  {gz_name}\n", encoding="utf-8")
+        meta[f"level_{level}"] = {
+            "rows": len(rows),
+            "csvBytes": len(plain),
+            "gzBytes": len(gz_bytes),
+        }
+    return meta
+
+
 def build(manifest: dict) -> int:
     src, label = _select_source()
     if src is None:
@@ -202,16 +235,42 @@ def build(manifest: dict) -> int:
     (out / "level_2.csv.sha256").write_text(
         _sha256_file(out / "level_2.csv") + "  level_2.csv\n", encoding="utf-8")
 
+    # 源表出处与许可回源（新引入源在此单列；台账登记由总控完成，本脚本不碰 docs 台账）。
+    provenance = {
+        "hyg": {
+            "catalog": "HYG v41 汇编镜像（BSC5 / Hipparcos / Tycho-2 / Gaia 汇编）",
+            "repository": "https://github.com/astronexus/HYG-Database",
+            "commit": "c7f7f883fe678cc7680169a50ccd7dcc49b060ce",
+            "sourceFile": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/LICENSE",
+            "attribution": "HYG Database (astronexus), CC BY-SA 4.0; incorporates BSC5, Hipparcos and Tycho-2 components.",
+        },
+        "tycho": {
+            "attribution": manifest["sources"]["S-01"]["attribution"],
+            "license": manifest["sources"]["S-01"]["license"],
+        },
+    }
     bundle = {
         "source": label,
         "sourcePath": str(src),
         "bands": bands,
         "counts": {"level1": len(l1), "level2": len(l2)},
         "stats": stats,
-        "attribution": manifest["sources"]["S-01"]["attribution"],
+        "provenance": provenance.get(label, {}),
     }
     (out / "bundle_manifest.json").write_text(
         json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # 发布打包（可选）：ASTRO_PYRAMID_RELEASE 指向仓库内非 APK 目录，出 gz 切片供 raw 下载。
+    release_dir = os.environ.get("ASTRO_PYRAMID_RELEASE")
+    if release_dir:
+        rel = Path(release_dir)
+        meta = _write_release_gz(rel, l1, l2, label)
+        bundle["release"] = {"dir": str(rel), "format": "csv.gz", "shards": meta}
+        (rel / "bundle_manifest.json").write_text(
+            json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"发布切片目录：{rel}（gz 体积 {meta}）")
 
     print(f"构建完成（源={label}）：L1={len(l1)} 行，L2={len(l2)} 行；异常 {stats}")
     print(f"产物目录：{out}（gitignored，不进 APK / CI artifact）")

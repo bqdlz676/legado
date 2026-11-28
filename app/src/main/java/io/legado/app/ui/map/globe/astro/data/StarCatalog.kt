@@ -3,8 +3,11 @@ package io.legado.app.ui.map.globe.astro.data
 import android.content.res.AssetManager
 import io.legado.app.constant.AppLog
 import io.legado.app.ui.map.globe.astro.contract.SkyParams
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.net.URL
 import java.security.MessageDigest
+import java.util.zip.GZIPInputStream
 
 /**
  * 内置层星表（数据层，不碰渲染）。
@@ -108,6 +111,19 @@ class StarCatalog private constructor(
         Runtime.getRuntime().freeMemory() >= rows * PYRAMID_ROW_BYTES
     }
 
+    /**
+     * 远程片源基址（宿主注入仓库 raw URL，如
+     * `https://raw.githubusercontent.com/<org>/<repo>/main/data/pyramid`）；null = 纯本地缓存，
+     * 本地缺片直接回 Missing。片文件名为 `level_<N>.csv.gz` 与同名单 `.sha256` 旁证。
+     */
+    internal var pyramidRemoteBase: String? = null
+
+    /**
+     * 远程下载钩子（可注入便于纯 JVM 单测；默认实现走 [URL] 流式落盘）。返回 true = 片与旁证都写入。
+     * 下载失败属瞬时网络态，回 [PyramidResult.Missing]，不判 Corrupt、不清 L0。
+     */
+    internal var pyramidRemoteFetcher: ((level: Int, dir: File, base: String) -> Boolean)? = null
+
     /** 按金字塔增量索引取 J2000 赤经（度，[0,360)）；越界返回 0 不崩。 */
     fun pyramidRaAt(i: Int): Double = if (i in 0 until pyramidSize) pyramidRaDeg[i] else 0.0
 
@@ -148,33 +164,49 @@ class StarCatalog private constructor(
         // 已加载过该层：幂等返回，不重复追加数组（方案 §6.7 并发连点 / 重复调用）。
         if (loadedLevels.contains(level)) return PyramidResult.Loaded(level, 0)
 
-        val fileName = "level_$level.csv"
-        val shard = File(dir, fileName)
-        val sidecar = File(dir, "$fileName.sha256")
-        // 切片 / 旁证不存在 = 未下载或被系统清缓存：保留 L0，不弹错误态（§4.3 缺文件）。
-        if (!shard.exists() || !sidecar.exists()) return PyramidResult.Missing
+        var shard = resolveShard(dir, level)
+        // 本地缺片：若注入远程基址，先按片下载切片与旁证；下载失败 / 无源仍回 Missing，不判损坏。
+        if (shard == null) {
+            val base = pyramidRemoteBase
+            if (base != null) {
+                val ok = pyramidRemoteFetcher?.invoke(level, dir, base) ?: downloadRemote(level, dir, base)
+                if (ok) shard = resolveShard(dir, level)
+            }
+        }
+        if (shard == null) return PyramidResult.Missing
 
-        val bytes = try {
+        val raw = try {
             shard.readBytes()
         } catch (_: Exception) {
-            isolateShard(dir, fileName)
+            isolateShard(dir, shard.name)
             return PyramidResult.Corrupt
         }
+        val sidecar = File(dir, shard.name + ".sha256")
+        // 旁证缺失 = 片未下全 / 被清缓存：回 Missing，不判损坏、不隔离。
+        if (!sidecar.exists()) return PyramidResult.Missing
         val expected = try {
             sidecar.readText(Charsets.UTF_8).trim().split(Regex("\\s+"))[0]
         } catch (_: Exception) {
-            isolateShard(dir, fileName)
+            isolateShard(dir, shard.name)
             return PyramidResult.Corrupt
         }
-        // 旁证先于解析：校验和不符不进入合并，坏片改名隔离、不覆盖好片。
-        if (!sha256Hex(bytes).equals(expected, ignoreCase = true)) {
-            isolateShard(dir, fileName)
+        // 旁证先于解析：校验和按落盘原始字节比对（gz 打包后的文件字节），不符不进入合并，坏片改名隔离。
+        if (!sha256Hex(raw).equals(expected, ignoreCase = true)) {
+            isolateShard(dir, shard.name)
             return PyramidResult.Corrupt
         }
 
-        val parsed = parsePyramidShard(bytes.decodeToString(), level)
+        val text = try {
+            if (shard.name.endsWith(".gz")) gunzip(raw).decodeToString()
+            else raw.decodeToString()
+        } catch (_: Exception) {
+            isolateShard(dir, shard.name)
+            return PyramidResult.Corrupt
+        }
+
+        val parsed = parsePyramidShard(text, level)
         if (parsed.valid == 0) {
-            isolateShard(dir, fileName)
+            isolateShard(dir, shard.name)
             return PyramidResult.Corrupt
         }
 
@@ -192,6 +224,43 @@ class StarCatalog private constructor(
             File(dir, fileName).renameTo(File(dir, "$fileName.corrupt-$epoch"))
             File(dir, "$fileName.sha256")
                 .renameTo(File(dir, "$fileName.sha256.corrupt-$epoch"))
+        }
+    }
+
+    /** 解析本地片：优先 gz 发布片，回退纯 CSV 缓存片；都不在返回 null。 */
+    private fun resolveShard(dir: File, level: Int): File? {
+        val gz = File(dir, "level_$level.csv.gz")
+        if (gz.exists()) return gz
+        val csv = File(dir, "level_$level.csv")
+        if (csv.exists()) return csv
+        return null
+    }
+
+    /** 默认远程下载：流式拉切片与旁证落缓存目录；任一失败返回 false（不残留坏片）。 */
+    private fun downloadRemote(level: Int, dir: File, base: String): Boolean = runCatching {
+        val name = "level_$level.csv.gz"
+        fetchToFile("$base/$name", File(dir, name)) &&
+            fetchToFile("$base/$name.sha256", File(dir, "$name.sha256"))
+    }.getOrDefault(false)
+
+    private fun fetchToFile(url: String, dest: File): Boolean = runCatching {
+        URL(url).openStream().use { input ->
+            dest.outputStream().use { output -> input.copyTo(output) }
+        }
+        true
+    }.getOrDefault(false)
+
+    private fun gunzip(bytes: ByteArray): ByteArray {
+        GZIPInputStream(bytes.inputStream()).use { input ->
+            ByteArrayOutputStream().use { out ->
+                val buf = ByteArray(8192)
+                while (true) {
+                    val n = input.read(buf)
+                    if (n <= 0) break
+                    out.write(buf, 0, n)
+                }
+                return out.toByteArray()
+            }
         }
     }
 

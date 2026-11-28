@@ -1,0 +1,48 @@
+{
+  "source": "hyg",
+  "sourcePath": "data_scripts/_cache/src/hygdata_v41.csv",
+  "bands": {
+    "l1MinExclusive": 6.5,
+    "l1MaxInclusive": 9.0,
+    "l2MinExclusive": 9.0,
+    "l2MaxInclusive": 11.5
+  },
+  "counts": {
+    "level1": 74559,
+    "level2": 33508
+  },
+  "stats": {
+    "total": 119626,
+    "bad_coord": 0,
+    "nan_mag": 0,
+    "dup_id": 0,
+    "missing_column": 0,
+    "l1": 74559,
+    "l2": 33508
+  },
+  "provenance": {
+    "catalog": "HYG v41 汇编镜像（BSC5 / Hipparcos / Tycho-2 / Gaia 汇编）",
+    "repository": "https://github.com/astronexus/HYG-Database",
+    "commit": "c7f7f883fe678cc7680169a50ccd7dcc49b060ce",
+    "sourceFile": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/LICENSE",
+    "attribution": "HYG Database (astronexus), CC BY-SA 4.0; incorporates BSC5, Hipparcos and Tycho-2 components."
+  },
+  "release": {
+    "dir": "data/pyramid",
+    "format": "csv.gz",
+    "shards": {
+      "level_1": {
+        "rows": 74559,
+        "csvBytes": 3587713,
+        "gzBytes": 1452879
+      },
+      "level_2": {
+        "rows": 33508,
+        "csvBytes": 1618235,
+        "gzBytes": 652239
+      }
+    }
+  }
+}

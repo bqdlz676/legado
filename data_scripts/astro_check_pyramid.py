@@ -23,7 +23,9 @@
 """
 
 import csv
+import gzip
 import hashlib
+import io
 import json
 import math
 import os
@@ -64,8 +66,10 @@ def _sha256_file(p: Path) -> str:
 
 
 def _read_csv(p: Path) -> list[dict]:
-    with p.open(encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+    raw = p.read_bytes()
+    if p.suffix == ".gz":
+        raw = gzip.decompress(raw)
+    return list(csv.DictReader(io.StringIO(raw.decode("utf-8"))))
 
 
 def _valid_coord(ra: str, dec: str) -> tuple[bool, float | None, float | None]:
@@ -149,8 +153,10 @@ def check_l0(failures: list[str]) -> tuple[list[str], int]:
 
 def check_shard(dir_: Path, fname: str, lo_exclusive: float, hi_inclusive: float,
                 known_ids: set[str], failures: list[str], stats: dict) -> list[str]:
-    p = dir_ / fname
-    if not p.exists():
+    # 设备缓存与仓库发布片都认：plain CSV 优先，其次同名单 .csv.gz。
+    candidates = [fname, fname + ".gz"]
+    p = next((dir_ / c for c in candidates if (dir_ / c).exists()), None)
+    if p is None:
         print(f"[缓存] {fname} 不存在（离线预期态，INFO）")
         return []
 
@@ -158,13 +164,13 @@ def check_shard(dir_: Path, fname: str, lo_exclusive: float, hi_inclusive: float
     header = rows[0].keys() if rows else []
     missing_cols = [c for c in PYRAMID_FIELDS if c not in header]
     if missing_cols:
-        failures.append(f"{fname} 缺字段 {missing_cols}")
+        failures.append(f"{p.name} 缺字段 {missing_cols}")
 
-    side = dir_ / (fname + ".sha256")
+    side = dir_ / (p.name + ".sha256")
     if side.exists():
         expected = side.read_text(encoding="utf-8").split()[0]
         if _sha256_file(p) != expected:
-            failures.append(f"{fname} sha256 与旁证不符（疑似损坏/被裁剪）")
+            failures.append(f"{p.name} sha256 与旁证不符（疑似损坏/被裁剪）")
 
     seen: set[str] = set()
     bad_coord, bad_mag, dup, cross = 0, 0, 0, 0
@@ -192,15 +198,15 @@ def check_shard(dir_: Path, fname: str, lo_exclusive: float, hi_inclusive: float
             continue
 
     stats[fname] = len(rows)
-    print(f"[缓存] {fname} rows={len(rows)} 带=({lo_exclusive}, {hi_inclusive}]")
+    print(f"[缓存] {p.name} rows={len(rows)} 带=({lo_exclusive}, {hi_inclusive}]")
     if bad_coord:
-        failures.append(f"{fname} 越界坐标 {bad_coord} 行")
+        failures.append(f"{p.name} 越界坐标 {bad_coord} 行")
     if bad_mag:
-        failures.append(f"{fname} 星等越带/非有限 {bad_mag} 行")
+        failures.append(f"{p.name} 星等越带/非有限 {bad_mag} 行")
     if dup:
-        failures.append(f"{fname} 片内重复 id {dup} 个")
+        failures.append(f"{p.name} 片内重复 id {dup} 个")
     if cross:
-        failures.append(f"{fname} 与已有层跨层重复 id {cross} 个")
+        failures.append(f"{p.name} 与已有层跨层重复 id {cross} 个")
     return ids
 
 
