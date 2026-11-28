@@ -12,7 +12,8 @@
 - 网络不可达时判 UNVERIFIED（退出码 3），**不是** PASS：未验证不得写进转绿登记。
 - 只覆盖"结论 + 日志关键字"，判不到"测试被 skip 了但没打印失败"这种口径问题；
   那种仍需人看 job 步骤表。
-- cancelled 一律不算绿（连推互相顶替导致的取消不能当通过）。
+- cancelled 一律不算绿（连推互相顶替导致的取消不能当通过）；同 sha 存在成功兄弟时，
+  被 concurrency 取消的重复副本只作 INFO 留痕、不盖过成功车道；全兄弟皆取消仍 FAIL。
 
 退出码：0=PASS（三同时成立）| 1=FAIL（有红项）| 2=参数错 | 3=UNVERIFIED（网络/凭据不可用）
 
@@ -141,28 +142,56 @@ def scan_log(log: str) -> tuple[int, int, bool]:
     return errors, failed, bool(re.search(r"BUILD SUCCESSFUL", log))
 
 
+def _pick_rep(lane_runs: list[dict]) -> tuple[dict, list[dict]]:
+    """同车道多次触发选代表 run。
+
+    为什么：双事件触发 / 连推会给同一 sha 留下重复 run，后触发的被 concurrency 取消；
+    旧口径按"最新一条"取，取消副本会盖过先跑成功的兄弟，把整车道误判红。
+    优先级 success > failure/timed_out > cancelled/None；取消仍是取消——
+    全兄弟皆取消时代表结论仍是 cancelled，judge 照常 FAIL，不把取消当通过。
+    返回 (代表 run, 其余兄弟 run)。
+    """
+    def rank(r: dict) -> int:
+        c = r.get("conclusion")
+        if c == "success":
+            return 0
+        if c in ("failure", "timed_out", "action_required", "startup_failure"):
+            return 1
+        return 2
+    ordered = sorted(lane_runs, key=rank)
+    return ordered[0], ordered[1:]
+
+
 def judge(runs: list[dict]) -> tuple[int, list[str], dict]:
     """对一组 run 判三同时：lane 结论全绿 + 编译零错 + 测试零失败。"""
     notes: list[str] = []
     stats = {"lanes": {}, "compile_errors": 0, "test_failed": 0, "build_successful": False}
-    seen_lane: set[str] = set()
+    by_lane: dict[str, list[dict]] = {}
     ok = True
     for run in runs:
         name = run["name"]
         lane = next((l for l in REQUIRED_LANES if l.lower() in name.lower()), None)
         if lane is None:
             continue
-        # 同一车道多次触发时取最新一条（列表按时间倒序，第一次见到即最新）
-        if lane in seen_lane:
+        by_lane.setdefault(lane, []).append(run)
+    for lane in REQUIRED_LANES:
+        lane_runs = by_lane.get(lane, [])
+        if not lane_runs:
+            ok = False
+            notes.append("FAIL 缺车道：%s（可能是连推被取消，取消不算绿）" % lane)
             continue
-        seen_lane.add(lane)
-        concl = run.get("conclusion")
+        rep, skipped = _pick_rep(lane_runs)
+        concl = rep.get("conclusion")
         stats["lanes"][lane] = concl
+        for sib in skipped:
+            if sib.get("conclusion") == "cancelled":
+                notes.append("INFO %s 车道重复 run %s 被 concurrency 取消，由兄弟 run %s 代表"
+                             % (lane, sib["id"], rep["id"]))
         if concl != "success":
             ok = False
-            notes.append("FAIL %s 车道结论=%s（run %s）" % (lane, concl, run["id"]))
+            notes.append("FAIL %s 车道结论=%s（run %s）" % (lane, concl, rep["id"]))
             continue
-        for job in jobs_of(run["id"]):
+        for job in jobs_of(rep["id"]):
             if job.get("conclusion") not in ("success", "skipped"):
                 ok = False
                 notes.append("FAIL %s 车道 job 未绿：%s / %s"
@@ -181,10 +210,6 @@ def judge(runs: list[dict]) -> tuple[int, list[str], dict]:
             if failed:
                 ok = False
                 notes.append("FAIL %s / %s 测试失败行 %d 条" % (lane, job.get("name"), failed))
-    missing = [l for l in REQUIRED_LANES if l not in seen_lane]
-    if missing:
-        ok = False
-        notes.append("FAIL 缺车道：%s（可能是连推被取消，取消不算绿）" % "、".join(missing))
     return (0 if ok else 1), notes, stats
 
 
@@ -199,7 +224,14 @@ def selftest() -> int:
     assert fails2 >= 1, "坏样本(任务 FAILED)未判红"
     errs3, fails3, build3 = scan_log(good)
     assert errs3 == 0 and fails3 == 0 and build3, "好样本被误判"
-    print("SELFTEST: PASS（编译错判红、任务 FAILED 判红、干净 BUILD SUCCESSFUL 放行）")
+    # 重复 run 选代表夹具：成功兄弟不得被后触发的 cancelled 副本盖过；全取消仍取 cancelled。
+    rep, skipped = _pick_rep([{"id": 2, "conclusion": "cancelled"},
+                              {"id": 1, "conclusion": "success"}])
+    assert rep["id"] == 1 and skipped[0]["id"] == 2, "成功兄弟应选为代表"
+    rep2, _ = _pick_rep([{"id": 3, "conclusion": "cancelled"},
+                         {"id": 4, "conclusion": "cancelled"}])
+    assert rep2["conclusion"] == "cancelled", "全取消时代表仍为 cancelled，不得当通过"
+    print("SELFTEST: PASS（编译错判红、任务 FAILED 判红、干净 BUILD SUCCESSFUL 放行；重复 run 选代表夹具 OK）")
     return 0
 
 
