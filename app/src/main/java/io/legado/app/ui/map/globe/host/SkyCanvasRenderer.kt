@@ -20,7 +20,7 @@ import io.legado.app.ui.map.globe.astro.layer.AsterismLayer
 import io.legado.app.ui.map.globe.astro.layer.ConstellationLayer
 import io.legado.app.ui.map.globe.astro.layer.FieldAllocationLayer
 import io.legado.app.ui.map.globe.astro.pick.StarPicker
-import io.legado.app.ui.map.globe.astro.proj.StarProjector
+import io.legado.app.ui.map.globe.astro.proj.StarProjectionSource
 import io.legado.app.ui.map.globe.offline.AssetStatus
 import io.legado.app.ui.map.globe.offline.DegradationLevel
 import io.legado.app.ui.map.globe.offline.FallbackDomain
@@ -133,18 +133,8 @@ object SkyCanvasRenderer {
             }
             return
         }
-        val catalog = store.catalog
-        val fov = if (sky.mode == SkyViewMode.SKY_EARTH) SkyParams.GROUND_VIEW_FOV_DEG else 90.0
-        val focal = (min(w, h) / 2.0) / Math.tan(fov / 2.0 * PI / 180.0)
-        val yaw = sky.cameraYawPitch?.yawDeg ?: 0.0; val pitch = sky.cameraYawPitch?.pitchDeg ?: 0.0
-        val lat = sky.observerLatLon?.latDeg ?: 34.34; val lon = sky.observerLatLon?.lonDeg ?: 108.94
-        val tmp = FloatArray(3) // 无定位默认长安示意，不弹权限墙（§十三.5）
-        for (i in 0 until catalog.size) {
-            val mag = catalog.magAt(i); if (mag > magLimit) continue // 连续裁剪，无整层突现（§七.1）
-            val ok = StarProjector.project(sky.mode, catalog.raAt(i), catalog.decAt(i),
-                yaw, pitch, focal, w / 2.0, h / 2.0, lat, lon, sky.siderealTimeDeg, tmp)
-            if (ok) out.add(tmp[0], tmp[1], mag, catalog.idAt(i), catalog.bvAt(i))
-        }
+        // L0 ∪ 已加载金字塔 L1/L2 双层合并投影；层级短路 / 连续裁剪 / 前半球判定见投影行星源。
+        StarProjectionSource.fromFrame(sky, w, h).project(store, magLimit, out)
     }
     private fun renderOverlays(canvas: Canvas, sky: SkyFrame, w: Float, h: Float, labelPaint: Paint, density: Float, placeholder: Boolean) {
         if (loadingProgress >= 0f) {

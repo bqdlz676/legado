@@ -170,6 +170,12 @@ class StarStore(
     /** 按金字塔增量索引取主键；越界回 -1。 */
     fun pyramidIdAt(i: Int): Long = catalog.pyramidIdAt(i)
 
+    /** 按金字塔增量索引取 B-V 色指数；越界回 NaN，渲染侧回落星等映射（只读访问器，不改加载逻辑）。 */
+    fun pyramidBvAt(i: Int): Double = catalog.pyramidBvAt(i)
+
+    /** 是否已并入任一金字塔层（L1/L2 合计 > 0）；未加载时投影 / 拾取只走 L0，行为与既有口径一致。 */
+    val hasPyramid: Boolean get() = catalog.pyramidSize > 0
+
     /** 按星官取成员列表（关系路径，点选时调用）；无 DAO 回落空列表。 */
     fun byAsterism(asterismId: Long): List<AsterismMemberEntity> =
         asterismDao?.membersOf(asterismId) ?: emptyList()

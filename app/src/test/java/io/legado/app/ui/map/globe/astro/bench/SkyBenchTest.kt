@@ -3,6 +3,9 @@ package io.legado.app.ui.map.globe.astro.bench
 import io.legado.app.data.entities.ConstellationLineEntity
 import io.legado.app.ui.map.globe.astro.contract.SkyParams
 import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
+import io.legado.app.ui.map.globe.astro.data.StarCatalog
+import io.legado.app.ui.map.globe.astro.data.StarStore
+import io.legado.app.ui.map.globe.astro.proj.StarProjectionSource
 import io.legado.app.ui.map.globe.astro.layer.AsterismGroup
 import io.legado.app.ui.map.globe.astro.layer.AsterismLayer
 import io.legado.app.ui.map.globe.astro.layer.AsterismMember
@@ -60,6 +63,12 @@ class SkyBenchTest {
         const val SWITCH_PEAK_BUDGET_MS = 24.0
         /** §十四.16 点击命中 < 5ms。 */
         const val PICK_BUDGET_MS = 5.0
+
+        /** Q-502 最坏金字塔星数：116,987 − 8,920 = 108,067（方案 §1.3 口径）。 */
+        const val WORST_PYRAMID_COUNT = 108_067
+
+        /** 最坏全扫采样轮数：116k 颗一轮成本高，取 10 轮中位，预热 2 轮。 */
+        const val WORST_MEASURE_ROUNDS = 10
     }
 
     /** 内置星表扁平数组（零对象装箱，与 StarCatalog 同口径）。 */
@@ -310,6 +319,75 @@ class SkyBenchTest {
             "全表 $n 星单次命中中位数应 < ${PICK_BUDGET_MS}ms，实际 ${med} ms",
             med < PICK_BUDGET_MS,
         )
+    }
+
+    // ───────────── Q-502 最坏全扫 116,987 颗投影耗时（沙箱参考打印，不硬断言）─────────────
+
+    @Test
+    fun `最坏全表扫描耗时打印参考值`() {
+        // 最坏口径：内置 8,920 + 金字塔 108,067 = 116,987 颗全扫；合成 L2 切片走真实
+        // loadPyramid 四态入口并入，不绕数据层。沙箱无真机 CPU，本用例只打印中位耗时供
+        // CI bench 日志比对，不墙钟硬断言；4ms 预算结论以 CI / 真机复测为准。
+        val store = StarStore(loadBuiltinCatalog())
+        val dir = File(System.getProperty("java.io.tmpdir"), "bench-worst-${System.nanoTime()}")
+        dir.mkdirs(); dir.deleteOnExit()
+        writeWorstPyramidShard(dir, 2, WORST_PYRAMID_COUNT)
+        val loaded = store.ensurePyramid(2, dir)
+        assertTrue("最坏用例金字塔层应并入，实际 $loaded", store.pyramidSize == WORST_PYRAMID_COUNT)
+
+        val sink = object : StarProjectionSource.ProjectionSink {
+            override fun add(px: Float, py: Float, mag: Float, id: Long, colorBv: Double) = Unit
+        }
+        val source = StarProjectionSource(
+            mode = SkyViewMode.SKY_HEAVEN,
+            yawDeg = 0.0, pitchDeg = 0.0,
+            focalPx = FOCAL_PX, cx = CX, cy = CY,
+            latDeg = OBSERVER_LAT, lonDeg = OBSERVER_LON, lstDeg = LST_DEG,
+        )
+
+        var visible = 0
+        repeat(2) { source.project(store, SkyParams.MAG_DEPTH_LIMIT, sink) }
+        val samples = ArrayList<Double>(WORST_MEASURE_ROUNDS)
+        repeat(WORST_MEASURE_ROUNDS) {
+            val start = System.nanoTime()
+            visible = source.project(store, SkyParams.MAG_DEPTH_LIMIT, sink)
+            samples += (System.nanoTime() - start) / 1_000_000.0
+        }
+        val med = median(samples)
+        println("[Q-502] 最坏全扫 ${store.size + store.pyramidSize} 颗投影中位耗时 $med ms（沙箱参考值，真实结论取 CI bench 日志）")
+        assertTrue("最坏全扫须完成且前半球有可见星，实际 $visible", visible > 0)
+    }
+
+    /** 合成最坏 L2 切片：星等落在 (9.0, 11.5] 带内，赤经赤纬散布全天；写旁证 sha256。 */
+    private fun writeWorstPyramidShard(dir: File, level: Int, rows: Int) {
+        val header = "id,tychoId,raDeg,decDeg,magVt,colorBv,constellation"
+        val body = buildString {
+            for (i in 0 until rows) {
+                val ra = (i * 137.508) % 360.0
+                val dec = ((i * 31) % 120) - 60.0
+                val mag = 9.5 + (i % 200) / 100.0
+                appendLine("${1_000_000L + i},TYC,${"%.6f".format(ra)},${"%.6f".format(dec)},${"%.2f".format(mag)},0.80,Ori")
+            }
+        }
+        val f = File(dir, "level_$level.csv")
+        f.writeText("$header\n$body", Charsets.UTF_8)
+        val hex = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(f.readBytes()).joinToString("") { "%02x".format(it) }
+        File(dir, "level_$level.csv.sha256").writeText("$hex  level_$level.csv\n", Charsets.UTF_8)
+    }
+
+    /** 读仓库真实内置 stars.csv 构造 [StarCatalog]（与投影源测试同范式）。 */
+    private fun loadBuiltinCatalog(): StarCatalog {
+        val root = generateSequence(File(requireNotNull(System.getProperty("user.dir"))).absoluteFile) { it.parentFile }
+            .first { File(it, "app/src/main/assets/astro/stars.csv").isFile }
+        val rows = ArrayList<Array<String>>()
+        File(root, "app/src/main/assets/astro/stars.csv").readLines().drop(1).forEach { line ->
+            if (line.isBlank()) return@forEach
+            val f = line.split(",")
+            if (f.size < 13) return@forEach
+            rows += f.toTypedArray()
+        }
+        return StarCatalog.parseRows(rows)
     }
 
     // ───────────────────── 内置 CSV 装载（bench 夹具，纯 JVM）─────────────────────
