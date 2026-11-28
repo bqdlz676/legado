@@ -156,7 +156,7 @@
 
 ## 九、自查反例、改坏推演与边界
 
-1. **会不会 bench / Rhino 仍是挂死源，只是隔离 job 碰巧跑得快？** 反证：两个隔离 job 0 失败收编，且其 9 + 18 个类在分片 XML 中零出现（§6.2）；分片命令 `:292` 带 `-PexcludeRhino -PexcludeSlowBench`，阻塞类不在隔离集合内。
+1. **会不会 bench / Rhino 仍是挂死源，只是隔离 job 碰巧跑得快？** 反证：两个隔离 job 0 失败收编，且其 9 + 18 个类在分片 XML 中零出现（§6.2）；分片命令第 292 行带 `-PexcludeRhino -PexcludeSlowBench`，阻塞类不在隔离集合内。
 2. **会不会 shard 2 是被那条 `ComparisonFailure` 断言红拖死？** 反例保留：断言失败行 13:16:32.567，末条 STARTED 13:16:32.664，静默窗在其后；JUnit 单断言失败不中断 worker，阻塞点另在后续用例。
 3. **会不会 2816 条已足以说明基线达标？** 不能：shard 2 整份 XML 缺失，570 条已 STARTED 用例的通过 / 失败 / 条数均未知；Aggregate 未运行，dup 与清单外类判定也是本单复算而非 CI 结论。
 4. **e8ce4a8 被取消会不会是测试编译红或断言红？** 反证：run 0 job、runner_id 为空、无编译日志；形态是排队 / 调度阶段取消，不是测试失败。取消诱因与同 ref 后续连推有关（`concurrency.group: verify-${{ github.ref }}`，`.github/workflows/verify.yml:22-27`，`cancel-in-progress: false`），具体取消触发事件云端未给明细，记为证据缺口。

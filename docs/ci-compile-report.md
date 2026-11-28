@@ -54,10 +54,10 @@
 - `ui/book/read/ink/BubblePlacement.kt:52:22` Unresolved reference 'clamp'.
 - `ui/book/read/ink/BubblePlacement.kt:75:17` Unresolved reference 'clamp'.
 - `ui/book/read/ink/InkBubble.kt:33:33` Unresolved reference 'roundToPx'.
-- `ui/book/read/ink/InkReaderShell.kt:201:21` Cannot infer type for type parameter 'T'. Specify it explicitly.
-- `ui/book/read/ink/InkReaderShell.kt:202:25` Unresolved reference 'place'.
-- `ui/book/read/ink/InkReaderShell.kt:220:37` Unresolved reference 'x'.
-- `ui/book/read/ink/InkReaderShell.kt:220:63` Unresolved reference 'y'.
+- 原 `ui/book/read/ink/InkReaderShell.kt` 第 201 行：Cannot infer type for type parameter 'T'. Specify it explicitly.
+- 原 `ui/book/read/ink/InkReaderShell.kt` 第 202 行：Unresolved reference 'place'.
+- 原 `ui/book/read/ink/InkReaderShell.kt` 第 220 行：Unresolved reference 'x'.
+- 原 `ui/book/read/ink/InkReaderShell.kt` 第 220 行：Unresolved reference 'y'.
 - `ui/book/read/ink/InkTouch.kt:40:23` 'when' expression must be exhaustive. Add an 'else' branch.
 > （已废·W-436：ui/book/read/ink/InkTouch.kt:40）
 

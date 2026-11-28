@@ -6,6 +6,13 @@
 
 本版相对上一稿（`候选A-星空天象层-Tycho2深度档.md`）改了什么，逐条列在末节，供 F-74 追溯。
 
+守则回执：
+- 指纹：docs/机制-总控必读.md=ed9ce6b76a04；docs/机制-子代理必读.md=ab354b280391；docs/机制-文档子代理必读.md=6dd8114a6a74
+- 逐字引用 1：「改动必须真出现在文件里」（docs/机制-总控必读.md:50）
+- 逐字引用 2：「编译只在云端 CI 发生。」（docs/机制-子代理必读.md:12）
+- 逐字引用 3：「不采信写码方的自评」（docs/机制-验收代理必读.md:6）
+- 适用条款：文档子代理必读 原文切片/禁自行摘要；总控必读 §5 grep 回证；验收必读 §2 逐字对照
+
 ---
 
 ## F-77 八项索引（选型代理按此逐项点到）
@@ -335,7 +342,7 @@ field_allocation 表（分野）：
 
 1. **帧快照**：`FrameSnapshot` 增 `sky: SkyFrame? = null`。`SkyFrame` 字段：`mode`（GOD/GROUND）、`skyBlend`、`cameraYawPitch`、`observerLatLon`（地上观）、`siderealTimeDeg`、`magLimit`、`pyramidMix`、`selectedId`、`horizonDipDeg`。
 2. 为什么用标量与 id、不用星对象列表：一帧 700 颗若每帧 new 列表，软渲染 GC 抖动吃满 16ms；标量 + 索引零分配。
-3. **控制器**：`GlobeController` 只新增两个方法 `enterSky(mode)`、`setSkyBlend(v)`，既有签名不改（`GlobeScreenHost.kt:603` 已消费其公开面）。
+3. **控制器**：`GlobeController` 只新增两个方法 `enterSky(mode)`、`setSkyBlend(v)`，既有签名不改（`app/src/main/java/io/legado/app/ui/map/globe/GlobeController.kt:173,188` 定义；宿主经 `host.controller` 门面消费，旧 `GlobeScreenHost.kt` 第 603 行口径）。
 4. **人文条目**：星官/星座/分野走 D16 通用 `EntityProvider` 的 `astronomy` 类别（`docs/落文-模块契约索引.md:155`"其余类别走通用 EntityProvider，不加新 Provider"）。**禁止新建 StarProvider**，否则 P-05 双轨。
 5. **科学数据**：星表自建 `StarStore`，与 D16 astronomy 条目按 `starId` 关联，不混表。理由同"山川坐标归 LandscapeStore、城邑归 PlaceStore"（`索引:167`）。
 6. **视图归属**：星空是 D17 壳体第四种视图（2D / 3D 沙盘 / 3D 地球 / 天球星空），走同一 `PlaceMapActivity` 单壳，不新立模块、不加第五顶层入口。
