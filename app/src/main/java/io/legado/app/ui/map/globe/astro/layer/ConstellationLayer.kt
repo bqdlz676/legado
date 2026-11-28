@@ -86,9 +86,9 @@ class ConstellationLayer {
     private fun rebuildNameIndex() {
         val byCode = HashMap<String, MutableList<Long>>()
         segments.forEach { seg ->
-            byCode.getOrPut(seg.constellationId) { ArrayList() }
-                .add(seg.fromStarId)
-                .add(seg.toStarId)
+            val members = byCode.getOrPut(seg.constellationId) { ArrayList() }
+            members.add(seg.fromStarId)
+            members.add(seg.toStarId)
         }
         nameIndex = SkyNameIndex.build(byCode.mapValues { it.value.distinct() })
     }
