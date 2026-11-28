@@ -455,8 +455,10 @@ class SkyContractTest {
         controller.setObservationTime(injectedUtc)
 
         val snapshot = controller.nextFrame(0.016, 0L)
-        val frame = assertNotNull(snapshot.sky)
-        val obs = assertNotNull(frame.observerLatLon)
+        assertNotNull(snapshot.sky)
+        val frame = snapshot.sky!!
+        assertNotNull(frame.observerLatLon)
+        val obs = frame.observerLatLon!!
         assertEquals(0.0, obs.latDeg, 1e-9)
         assertEquals(0.0, obs.lonDeg, 1e-9)
 
