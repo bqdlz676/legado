@@ -504,6 +504,20 @@ elif [ "$RC67" -eq 2 ]; then say "67语料断言诚实性" "EMPTY：本轮改动
 else bad "67语料断言诚实性" "$(echo "$CH67" | grep -E 'FAIL|LITERAL|API-EXPECTED|CORPUS-WORDING' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "67语料断言诚实性"; fi
 
+# 68 孤儿公开入口（2026-11-28 §14 事故七：星空天象层 enterSky/setSkyBlend/draw(store) 编译与单测全绿、
+#    CI 三绿，但全仓零生产调用方，scene.sky 恒 null、渲染器首行 return，8920 颗星一颗不显示）。
+#    为什么立这条：编译/单测/CI 只证明"代码能跑"，证明不了"有人调它"；这种死链路只有静态引用计数能抓，
+#    沙箱无编译链、真机后置，故 push 前用文本引用计数拦。
+#    边界：只扫指定根（globe/astro/、host/Sky*、render/Field*），不扫全仓 UI——反射/序列化/Compose
+#    预览入口不在这些根内，避免被误判红；val/var 默认不查（噪声大）；本闸只证"存在外部引用"，
+#    不证"调用链路可达"，可达性仍归验收单（真机/CI）；白名单键 相对路径::符号名，必须写理由
+#    （谁在用/为什么静态扫不到），自报无条目仍判 FAIL。
+if gate_active g68; then
+OE68=$(python3 data_scripts/check-orphan-entries.py 2>&1)
+RC68=$?
+if [ "$RC68" -eq 0 ]; then ok "68孤儿公开入口" "$(echo "$OE68" | grep 'ORPHAN-ENTRIES: PASS')"; else bad "68孤儿公开入口" "$(echo "$OE68" | grep -E 'FAIL|ORPHAN-ENTRIES' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "68孤儿公开入口"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**

@@ -979,6 +979,17 @@
       "level": "blocking",
       "reason": "CI run 45946032048（HEAD 259482c2，shard 3/4）红根因：单测断言把「字典语料恰好收录/未收录某词」当成代码层固定事实——resolve(\"春秋\",99) 期望 MISSING/token 秋、resolve(\"魑魅魍魉\",0) 期望整词 token，期望值随 WORD_TSV/CHAR_TSV 种子漂移（修法见 docs/CI核验-InkBubbleRouteResolverTest修红.md，修红提交 558273f 换成 ※ 非汉字符号与夹取一致性对比）。g64 只管空断言/整文件 contains/反射取成员，管不到「断言期望值来自语料数据」这一类。静态闸扫 app/src/test 与 screenshot/src/test 的 Kotlin 测试，拦四类：LITERAL-ENTRY 断言字面量精确命中种子词目/字头/专名；LITERAL-TSV 断言字面量是制表符分隔语料行形态；API-EXPECTED 语料查询 API（wordAt/getChar/getShuowen/getUsage/counts/queryToken 等）返回值进比较型断言当 expected；CORPUS-WORDING 必须命中/未收录类数据依赖字样且同文件引用语料常量。五类放行各有夹具：NONHAN 非汉字符号（※ U+203B）、ECHO 输入回显透传、SELF 两次调用输出自洽对比、STRUCT 非空/非崩/不空白结构完整性、INVARIANT 纯函数不变量。默认只判改动面（--changed），全仓存量走 --audit 清单登记不判红；空集 EMPTY rc=2 不判 PASS。",
       "compensation": null
+    },
+    {
+      "id": "g68",
+      "label": "68",
+      "name": "孤儿公开入口",
+      "script": "check-orphan-entries.py",
+      "nature": "bad",
+      "scope": "product-code",
+      "level": "blocking",
+      "reason": "2026-11-28 §14 事故七：星空天象层 enterSky/setSkyBlend/draw(store) 编译与单测全绿、CI 三绿，但全仓零生产调用方，scene.sky 恒 null、渲染器首行 return，8920 颗星一颗不显示；编译/单测/CI 都只证明代码能跑、证明不了有人调它，死链路只有静态引用计数能在 push 前抓住（沙箱无编译链、真机后置）。判据：扫指定根 globe/astro/、host/Sky*、render/Field* 下的 .kt 顶层 fun/class/object/interface 声明（不收集 private/internal），在 app/src/main 全量文本数外部引用，引用数 0 且不在白名单即 FAIL。边界：只扫新层指定根、不扫全仓 UI（反射/序列化/Compose 预览入口会误判红）；val/var 默认不查（噪声大）；只证存在外部引用、不证链路可达，可达性归验收单；白名单键 相对路径::符号名 必须写清谁在用/为什么静态扫不到，自报无条目仍判 FAIL。定 blocking 理由：死链路是运行期静默失效——功能在编译面与 CI 全绿下完全不生效，与 g63/g65/g66 同属 push 前必须拦的代码硬判据；扫描根窄、白名单身份化，误判面可控。",
+      "compensation": null
     }
   ],
   "compensation_channels": {
