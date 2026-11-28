@@ -1091,6 +1091,24 @@
         ],
         "note": "全量 gate 收口复跑；存量锚点补全由收口轮按 M-32 口径分批回写。"
       }
+    },
+    {
+      "id": "g75",
+      "label": "75",
+      "name": "提交域纯度",
+      "script": "check-commit-scope.py",
+      "nature": "bad",
+      "scope": "docs",
+      "level": "audit",
+      "reason": "2026-11-28 G-13 补齐：所有代理共用同一个 .git/index，A 暂存自有文件后 B 提交会把索引全部内容带走（d42514c 即一例：自称纯文档，实带 11 个兄弟代理生产/测试件）。本闸只判「提交信息声明的域」与「实际改动集合」是否一致：docs( 前缀或 Docs-only 尾注的提交不得出现非文档/非工具路径，test( 前缀或 Test-only 尾注的提交不得改 app/src/main；历史基线写在 commit-scope-baseline.json，基线前不追改。边界：判不出两条单产物被同一提交带走这件事本身（信息层面与合法混合提交不可区分），那仍靠提交前 git diff --cached --name-only 人判；不判文件归属权限、不判信息写得好坏。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "dispatch_realtime"
+        ],
+        "note": "全量 gate 收口复跑；派单前调度层实时核对暂存清单只含本单文件（人判与门禁双轨）。"
+      },
+      "added": "2026-11-28"
     }
   ],
   "compensation_channels": {

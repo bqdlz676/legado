@@ -253,12 +253,18 @@ else skip_audit "④索引版本"; fi
 if gate_active g06; then
 if [ -f "$LEDGER" ]; then
   # 判据：单行内出现 ≥2 个**不同**缺陷号即打包违规（同一号重复出现（如"B3 ... B3 交付后")不算）
+  # 判据收窄（2026-11-28）：只看「标题列」（第 2 单元格）。旧口径扫整行，把状态列里
+  #   「旧债 D30/D31」「续号 D37–D48」这类旁述也当成打包，产生 3 条误判；打包违规的
+  #   实质是「一条派单同时背两个缺陷」，那只出现在标题列。范围写法 D37–D48 视为一个。
   MULTI=$(python3 - "$LEDGER" <<'PY2'
 import re,sys
 n=0
 for line in open(sys.argv[1],encoding='utf-8'):
     if not line.startswith('|'): continue
-    ids=set(re.findall(r'(?<![A-Za-z0-9])(B|C|D|E|F|N)(\d+R?\d*)(?![0-9])', line))
+    cells=line.split('|')
+    if len(cells)<3: continue
+    title=re.sub(r'[A-Za-z]\d[0-9A-Za-z]*–[A-Za-z]\d[0-9A-Za-z]*','RANGE',cells[2])
+    ids=set(re.findall(r'(?<![A-Za-z0-9])(B|C|D|E|F|N)(\d+R?\d*)(?![0-9])', title))
     if len({a+b for a,b in ids})>=2: n+=1
 print(n)
 PY2
@@ -569,6 +575,15 @@ AN74=$(python3 data_scripts/check-anchor-normalize.py 2>&1)
 RC74=$?
 if [ "$RC74" -eq 0 ]; then ok "74锚点规范化" "$(echo "$AN74" | grep 'ANCHOR-NORM: PASS')"; elif [ "$RC74" -eq 3 ]; then skip_audit "74锚点规范化(UNVERIFIED)"; else bad "74锚点规范化" "$(echo "$AN74" | grep -E 'ANCHOR-NORM|✗' | head -4 | tr '\n' ' ')"; fi
 else skip_audit "74锚点规范化"; fi
+
+# 75 提交域纯度（2026-11-28 G-13 补齐）：所有代理共用同一个 .git/index，一条提交会把别单
+#    已暂存内容一起带走（d42514c 即一例）。本闸只判「提交信息声明的域」与「实际改动集合」
+#    是否一致；历史基线 see data_scripts/commit-scope-baseline.json，基线前不追改。
+if gate_active g75; then
+CS75=$(python3 data_scripts/check-commit-scope.py 2>&1)
+RC75=$?
+if [ "$RC75" -eq 0 ]; then ok "75提交域纯度" "$(echo "$CS75" | grep 'COMMIT-SCOPE: PASS')"; elif [ "$RC75" -eq 3 ]; then skip_audit "75提交域纯度(UNVERIFIED)"; else bad "75提交域纯度" "$(echo "$CS75" | grep -E 'COMMIT-SCOPE|✗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "75提交域纯度"; fi
 
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
