@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "purpose": "星空天象层金字塔分层契约（构建脚本与校验脚本共同读取的唯一事实源）。本文件只登记层级 / 星等带 / 字段 / 缓存布局 / 降级策略，不含任何星表行数据；mag > 6.5 的派生素材按 docs/构建说明-派生素材不入库.md 规则一、二不进 APK、不入 git。",
+  "contract": {
+    "paramsFile": "app/src/main/java/io/legado/app/ui/map/globe/astro/contract/SkyParams.kt",
+    "pyramidLevels": 2,
+    "magBrightEntity": 6.5,
+    "magDepthLimit": 11.5,
+    "level1UpperMag": 9.0,
+    "level1UpperMagNote": "9 等 / 11.5 等两级见规格 §十六.7；9.0 同时是 §十三.4 低帧率降层的 magLimit 兜底值。",
+    "constantsAnchor": {
+      "MAG_BRIGHT_ENTITY": "SkyParams.kt:53",
+      "MAG_DEPTH_LIMIT": "SkyParams.kt:50",
+      "PYRAMID_LEVELS": "SkyParams.kt:56"
+    }
+  },
+  "levels": [
+    {
+      "level": 0,
+      "role": "builtin",
+      "magMinInclusive": null,
+      "magMaxInclusive": 6.5,
+      "storage": "apk-assets",
+      "assetPath": "astro/stars.csv",
+      "sourceLedger": "S-03",
+      "note": "内置亮星层，公版 BSC5/HYG v44 汇编，随包分发。"
+    },
+    {
+      "level": 1,
+      "role": "pyramid",
+      "magMinExclusive": 6.5,
+      "magMaxInclusive": 9.0,
+      "storage": "device-cache",
+      "cacheFile": "level_1.csv",
+      "sourceLedger": "S-01",
+      "note": "9 等层；按需下载后落设备缓存，不进 APK / CI artifact / git。"
+    },
+    {
+      "level": 2,
+      "role": "pyramid",
+      "magMinExclusive": 9.0,
+      "magMaxInclusive": 11.5,
+      "storage": "device-cache",
+      "cacheFile": "level_2.csv",
+      "sourceLedger": "S-01",
+      "note": "11.5 等深度层；按需下载后落设备缓存，不进 APK / CI artifact / git。"
+    }
+  ],
+  "fields": ["id", "tychoId", "raDeg", "decDeg", "magVt", "colorBv", "constellation"],
+  "cacheDir": "astro/pyramid",
+  "sources": {
+    "S-01": {
+      "name": "Tycho-2 Catalogue / Hipparcos Catalogue",
+      "distributor": "CDS Strasbourg Astronomical Data Center, I/259",
+      "attribution": "Source: ESA Hipparcos mission; Tycho-2 Catalogue (Høg et al. 2000), CDS I/259",
+      "license": "CC-BY-NC-3.0 IGO；仅限非商业用途；商业化即星表整体更换，金字塔层与实体层同源同换",
+      "rawRowCount": 2539913,
+      "ledgerEntry": "docs/台账-数据源许可.md 条目 S-01"
+    },
+    "S-03": {
+      "name": "Yale Bright Star Catalogue 5th Revised (BSC5) 经 HYG v44 汇编",
+      "ledgerEntry": "docs/台账-数据源许可.md 条目 S-03"
+    }
+  },
+  "fallback": {
+    "missingShard": "缓存缺文件 / 未下载：保留上一层（L0 内置亮星），缺失天区由低层密度底图覆盖，不出空白洞（规格 §七.4、§十三.2）。",
+    "corruptShard": "校验和不符 / 解析零有效行 / 越界坐标：隔离坏片（改名 .corrupt 不覆盖好片），回落内置层，Sheet 顶部一次性 textAccent 提示（规格 §七.7、§十三.1）。",
+    "lowMemory": "合并前内存评估不足：拒绝合并该层，保持当前已加载层，不抛异常。"
+  },
+  "budget": {
+    "pyramidOnDiskMaxBytes": 62914560,
+    "note": "规格 §四.138：金字塔按需 <60MB 可删可重建；60 MiB = 60×1024×1024 = 62,914,560 字节。"
+  }
+}
