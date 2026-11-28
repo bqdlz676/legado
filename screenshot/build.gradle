@@ -66,8 +66,9 @@ tasks.register("syncAstroAssets", Copy) {
     into(layout.buildDirectory.dir("astro-assets/astro"))
 }
 
-// Paparazzi 准备任务写资产目录清单前先完成同步；单测任务已 dependsOn prepare 任务，传递保序。
-tasks.matching { it.name == "preparePaparazziDebugResources" }
+// 资产合并任务消费 build/astro-assets 目录（本任务产物），必须显式声明依赖，否则 Gradle
+// 隐式依赖校验报 WorkValidationException（run 46116633099 红因）。Paparazzi 准备任务同链路保序。
+tasks.matching { it.name in ["mergeDebugAssets", "mergeDebugUnitTestAssets", "preparePaparazziDebugResources"] }
     .configureEach { dependsOn(tasks.named("syncAstroAssets")) }
 
 dependencies {
