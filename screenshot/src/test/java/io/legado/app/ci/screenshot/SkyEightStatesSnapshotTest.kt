@@ -64,9 +64,11 @@ class SkyEightStatesSnapshotTest {
     /**
      * 态 2 · 悬停：压住星点外扩 1.3×；真实跑 120ms 回弹计时。
      *
-     * [SkyInputHandler.markHover] 是 internal（跨 Gradle 模块编译期不可见），这里反射调用其
-     * 真实方法体；回弹节拍 [SkyInputHandler.tickHover] 是公开入口，直接传推进后的时钟。
-     * 两条时序断言：100ms 内保持悬停不回落；121ms 越过阈值必须回弹无残留。
+     * [SkyInputHandler.markHover] 是 internal：跨 Gradle 模块编译期不可见，字节码名又经
+     * Kotlin 内部修饰符处理，反射按原名取不到方法（run 46117917979 NoSuchMethodException）。
+     * 这里改为直接种子私有时刻字段（字段名不做内部修饰混淆）；回弹节拍仍走公开入口
+     * [SkyInputHandler.tickHover] 的真实 120ms 分支。两条时序断言：100ms 内保持悬停
+     * 不回落；121ms 越过阈值必须回弹无残留。
      */
     @Test
     fun `态2 悬停星点外扩一点三倍`() {
@@ -83,11 +85,17 @@ class SkyEightStatesSnapshotTest {
             renderer = SkyCanvasRenderer,
             clock = { nowMs },
         )
-        val markHover = SkyInputHandler::class.java
-            .getDeclaredMethod("markHover", Long::class.javaPrimitiveType)
-        markHover.isAccessible = true
-        markHover.invoke(handler, target)
+        val trackIdField = SkyInputHandler::class.java.getDeclaredField("hoverTrackId")
+        trackIdField.isAccessible = true
+        val startField = SkyInputHandler::class.java.getDeclaredField("hoverTrackStartMs")
+        startField.isAccessible = true
+        fun seedHover(id: Long) {
+            trackIdField.setLong(handler, id)
+            startField.setLong(handler, nowMs)
+            SkyCanvasRenderer.hoverId = id
+        }
 
+        seedHover(target)
         // 100ms 内：悬停保持，不被节拍清掉。改坏：节拍把未超时悬停也回落，下一行断言变红。
         handler.tickHover(nowMs + 100L)
         assertEquals("120ms 内悬停不得回落", target, SkyCanvasRenderer.hoverId)
@@ -96,7 +104,7 @@ class SkyEightStatesSnapshotTest {
         assertEquals("超过 120ms 悬停必须回弹无残留", -1L, SkyCanvasRenderer.hoverId)
 
         // 出帧前重新标记悬停：帧截 120ms 窗口内的 1.3× 放大态。
-        markHover.invoke(handler, target)
+        seedHover(target)
         render("sky-state-2-hover", snapshot, store) {
             SkyCanvasRenderer.hoverId = target
         }
