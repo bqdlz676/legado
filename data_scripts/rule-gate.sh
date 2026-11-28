@@ -529,6 +529,47 @@ RC69=$?
 if [ "$RC69" -eq 0 ]; then ok "69CI三同时" "$(echo "$CG69" | grep 'CI-TRIPLE: PASS' | head -1)"; elif [ "$RC69" -eq 3 ]; then skip_audit "69CI三同时(UNVERIFIED)"; else bad "69CI三同时" "$(echo "$CG69" | grep -E 'CI-TRIPLE|FAIL' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "69CI三同时"; fi
 
+# 70 空转盘点（2026-11-28 G-01/F-72 补齐）：㉗ 只扫当前会话首轮零工具调用、⑭ 只查回执
+#    证据条数；本闸补三类机判——连续零工具调用段、报告声称产物路径 ls 不到、承诺/拒答句
+#    同句无缺陷号或台账条目。边界：只判本轮改动与未推送报告；轨迹目录不可用 rc=3 不判通过。
+if gate_active g70; then
+IS70=$(python3 data_scripts/check-idle-scan.py 2>&1)
+RC70=$?
+if [ "$RC70" -eq 0 ]; then ok "70空转盘点" "$(echo "$IS70" | grep 'IDLE-SCAN: PASS')"; elif [ "$RC70" -eq 3 ]; then skip_audit "70空转盘点(UNVERIFIED)"; else bad "70空转盘点" "$(echo "$IS70" | grep -E 'IDLE-SCAN|①|②|③' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "70空转盘点"; fi
+
+# 71 CI红窗停发（2026-11-28 G-07/E5 补齐）：CI 红窗内新增 RUNNING 派单判 FAIL；网络/凭据
+#    不可用 rc=3 记 UNVERIFIED 不算通过。边界：只点红窗内新增在飞单，单型合法性归调度层人核。
+if gate_active g71; then
+CD71=$(python3 data_scripts/check-ci-gate-dispatch.py 2>&1)
+RC71=$?
+if [ "$RC71" -eq 0 ]; then ok "71CI红窗停发" "$(echo "$CD71" | grep 'CI-DISPATCH: PASS')"; elif [ "$RC71" -eq 3 ]; then skip_audit "71CI红窗停发(UNVERIFIED)"; else bad "71CI红窗停发" "$(echo "$CD71" | grep -E 'CI-DISPATCH|红窗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "71CI红窗停发"; fi
+
+# 72 计数漂移（2026-11-28 G-10/F-118 补齐）：四处计数抽数对账，权威层算术与派生 F 累计
+#    实算不符判红；只读不写，禁止自动改数修平。
+if gate_active g72; then
+CD72=$(python3 data_scripts/check-count-drift.py 2>&1)
+RC72=$?
+if [ "$RC72" -eq 0 ]; then ok "72计数漂移" "$(echo "$CD72" | grep 'COUNT-DRIFT: PASS')"; else bad "72计数漂移" "$(echo "$CD72" | grep -E 'COUNT-DRIFT|✗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "72计数漂移"; fi
+
+# 73 层属错置（2026-11-28 G-11/F-119 补齐）：按总账 §10.1/§10.3 登记清单扫消费方对草案层
+#    文件的引用；清单来源是台账条目，本闸不自拍板。
+if gate_active g73; then
+LM73=$(python3 data_scripts/check-layer-misreference.py 2>&1)
+RC73=$?
+if [ "$RC73" -eq 0 ]; then ok "73层属错置" "$(echo "$LM73" | grep 'LAYER-MISREF: PASS')"; elif [ "$RC73" -eq 3 ]; then skip_audit "73层属错置(UNVERIFIED)"; else bad "73层属错置" "$(echo "$LM73" | grep -E 'LAYER-MISREF|✗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "73层属错置"; fi
+
+# 74 锚点规范化（2026-11-28 G-12/M-32 补齐）：判裸 :NN 行号与裸基名 文件:行 未全路径化；
+#    回源有效性（死文件/越界/落点空白）归 g62，本闸只判书写形态，不重复判定。
+if gate_active g74; then
+AN74=$(python3 data_scripts/check-anchor-normalize.py 2>&1)
+RC74=$?
+if [ "$RC74" -eq 0 ]; then ok "74锚点规范化" "$(echo "$AN74" | grep 'ANCHOR-NORM: PASS')"; elif [ "$RC74" -eq 3 ]; then skip_audit "74锚点规范化(UNVERIFIED)"; else bad "74锚点规范化" "$(echo "$AN74" | grep -E 'ANCHOR-NORM|✗' | head -4 | tr '\n' ' ')"; fi
+else skip_audit "74锚点规范化"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**

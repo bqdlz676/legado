@@ -1001,7 +1001,96 @@
       "scope": "evidence",
       "level": "audit",
       "reason": "2026-11-28 G-02 补齐：台账-CI转绿登记此前靠人手动 curl 看 conclusion=success 就写转绿，但 conclusion 只证明 workflow 没崩，证明不了「BUILD SUCCESSFUL / e: 零条 / tests failed 零条」三同时；被跳过的测试任务、被取消后重跑的车道都可能给出 success 表象。判据：取 HEAD 的 Verify/Screenshot/Package 三条车道最新 run，要求结论全绿且 job 日志里编译错 0、tests failed 0、出现 BUILD SUCCESSFUL。边界：只读结论与日志关键字，不重跑不编译；网络不可达判 UNVERIFIED（退出码 3）不算通过；cancelled 不算绿；判不到 skip 口径。定 audit 理由：这条依赖远端网络与 CI 是否已触发，docs-only 提交常常没有 run，做 blocking 会把纯文档推送拦死，故降 audit，补偿走 full_gate_round 与转绿登记人核。",
-      "compensation": "full_gate_round"
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "ci_compile_contract"
+        ],
+        "note": "全量 gate 收口复跑；CI 转绿登记由人核对 job 步骤表，补判被 skip/取消口径。"
+      }
+    },
+    {
+      "id": "g70",
+      "label": "70",
+      "name": "空转盘点",
+      "script": "check-idle-scan.py",
+      "nature": "bad",
+      "scope": "evidence",
+      "level": "audit",
+      "reason": "2026-11-28 G-01/F-72 补齐：㉗ 只扫当前会话首轮零工具调用、⑭ 只查回执证据条数，承诺句/拒答句与历史回溯盘点长期靠人工。本闸机判三类：连续零工具调用段、报告声称产物路径 ls 不到、承诺/拒答句同句无缺陷号或台账条目。边界：只判本轮改动与未推送报告，历史留档不追改；轨迹目录不可用判 UNVERIFIED 不算通过；判不到调了工具但返回空转的语义空转，复合否定句有误判面。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "dispatch_realtime"
+        ],
+        "note": "全量 gate 收口复跑；在飞单由调度层实时回看子代理轨迹与回执。"
+      }
+    },
+    {
+      "id": "g71",
+      "label": "71",
+      "name": "CI红窗停发",
+      "script": "check-ci-gate-dispatch.py",
+      "nature": "bad",
+      "scope": "evidence",
+      "level": "audit",
+      "reason": "2026-11-28 G-07/E5 补齐：CI 红或没包时停发新功能单此前只写在总纲文档，脚本不读 CI 结论、不阻断红窗新单。本闸取最近 run 结论，红窗内新增 RUNNING 派单判 FAIL。边界：依赖远端网络，凭据不可用判 UNVERIFIED（退出码 3）不算通过；只点红窗内新增在飞单，单型合法性（修红/验收/新功能）仍由调度层与人核；队列仅日期同日不判先后，记 WARN。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "ci_compile_contract"
+        ],
+        "note": "全量 gate 收口复跑；CI 状态以编译契约转绿登记为准，人核红窗派出单型。"
+      }
+    },
+    {
+      "id": "g72",
+      "label": "72",
+      "name": "计数漂移",
+      "script": "check-count-drift.py",
+      "nature": "bad",
+      "scope": "docs",
+      "level": "audit",
+      "reason": "2026-11-28 G-10/F-118 补齐：规则条数在全集/治理报告/总纲计数行/总账 F 累计四处各写一套，此前无对账脚本。本闸抽数机械比对：总纲分段与全量分解算术、总账 F 实算对派生声明数；不一致逐处打印 文件:行 数值，禁止自动改数修平。边界：C-09 已裁四说是不同口径历史快照，本闸不强求四总数相等；只判权威层算术、实算对账、派生件缺快照限定词三类硬漂移。",
+      "compensation": {
+        "channels": [
+          "full_gate_round"
+        ],
+        "note": "全量 gate 收口复跑；派生件计数回写由收口轮人工按 F-118 单点口径对齐。"
+      }
+    },
+    {
+      "id": "g73",
+      "label": "73",
+      "name": "层属错置",
+      "script": "check-layer-misreference.py",
+      "nature": "bad",
+      "scope": "docs",
+      "level": "audit",
+      "reason": "2026-11-28 G-11/F-119 补齐：22 份规则文档加 3 份卡表的四层分级此前无扫描脚本，草案层卡表可能被新派单/验收报告当权威依据引用。本闸按总账 §10.1/§10.3 登记清单机械扫描消费方对草案层文件的引用，命中给引用行。边界：清单只解析总账条目不自拍板；裸词（如独立验收卡）不算文件引用，避免话术误判；层属升格须先在总账登记并补三件套。",
+      "compensation": {
+        "channels": [
+          "full_gate_round",
+          "dispatch_realtime"
+        ],
+        "note": "全量 gate 收口复跑；派单取卡前由调度层实时核对引用对象是否权威层。"
+      }
+    },
+    {
+      "id": "g74",
+      "label": "74",
+      "name": "锚点规范化",
+      "script": "check-anchor-normalize.py",
+      "nature": "bad",
+      "scope": "docs",
+      "level": "audit",
+      "reason": "2026-11-28 G-12/M-32 补齐：g62 只判锚点回源有效性（死文件/越界/落点空白），不管书写形态。本闸判裸 :NN 行号与裸基名 文件:行 未全路径化的规范缺口，与 g62 分工不重复判定。边界：只扫本轮改动与未推送报告，存量裸锚点不追改；排除代码围栏与切片/锚点/底稿目录；只认常见扩展名，新资源扩展名未收录会漏判。",
+      "compensation": {
+        "channels": [
+          "full_gate_round"
+        ],
+        "note": "全量 gate 收口复跑；存量锚点补全由收口轮按 M-32 口径分批回写。"
+      }
     }
   ],
   "compensation_channels": {
