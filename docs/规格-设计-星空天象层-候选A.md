@@ -8,9 +8,9 @@
 
 守则回执：
 - 指纹：docs/机制-总控必读.md=ed9ce6b76a04；docs/机制-子代理必读.md=ab354b280391；docs/机制-文档子代理必读.md=6dd8114a6a74
-- 逐字引用 1：「改动必须真出现在文件里」（docs/机制-总控必读.md:50）
-- 逐字引用 2：「编译只在云端 CI 发生。」（docs/机制-子代理必读.md:12）
-- 逐字引用 3：「不采信写码方的自评」（docs/机制-验收代理必读.md:6）
+- 逐字引用 1：「改动必须真出现在文件里」（docs/机制-总控必读.md第 50 行）
+- 逐字引用 2：「编译只在云端 CI 发生。」（docs/机制-子代理必读.md第 12 行）
+- 逐字引用 3：「不采信写码方的自评」（docs/机制-验收代理必读.md第 6 行）
 - 适用条款：文档子代理必读 原文切片/禁自行摘要；总控必读 §5 grep 回证；验收必读 §2 逐字对照
 
 ---
@@ -83,9 +83,9 @@
 
 改动（仅限以下，逐处写明改什么）：
 
-12. `GlobeConfig.kt:106`——`CAMERA_MAX_DISTANCE_RATIO` 6.0f → 10.0f。理由见第 9.1。
-13. `scene/GlobeScene.kt:79-80`、`:91-92`——两处 coerce 随常量自动生效，无需改代码；但 `:29` 的 `starField` 降级为兜底，新增 `sky` 状态字段。
-14. `render/FrameSnapshot.kt:30`——增 `sky: SkyFrame? = null`；`:56` 构造处补装配（全仓仅此 1 处真实构造，已 grep 实测）。
+12. ``GlobeConfig.kt` 第 106 行`——`CAMERA_MAX_DISTANCE_RATIO` 6.0f → 10.0f。理由见第 9.1。
+13. ``scene/GlobeScene.kt` 第 79-80 行`、`第 91-92 行`——两处 coerce 随常量自动生效，无需改代码；但 `第 29 行` 的 `starField` 降级为兜底，新增 `sky` 状态字段。
+14. ``render/FrameSnapshot.kt` 第 30 行`——增 `sky: SkyFrame? = null`；`第 56 行` 构造处补装配（全仓仅此 1 处真实构造，已 grep 实测）。
 15. `mesh/LodLevel.kt`、`mesh/LodSelector.kt`——三档保留为资源上限，选择器输出改为连续 `blendWeight`（见第 9.3）。
 16. `GlobeTokens.kt`——追加 3 个夜空派生色出口（见第 6.3），不新建平行 palette。
 17. `host/GlobeScreenHost.kt`——只加一行委托调用 `SkyCanvasRenderer.draw(...)`，净增 ≤5 行。理由：该文件实测 603 行，已超 600 债务阈值。
@@ -159,7 +159,7 @@ field_allocation 表（分野）：
 
 ## 五、② 尺寸 / 间距 / 圆角 / 字号
 
-**总原则：字号不随缩放变小，只随缩放显隐。** 理由：`机制-观感UX验收-回执.md:29` 的静态门槛是"最小字号 14.0sp，<14sp 即 FAIL"，`audit_ux()` 扫全 `*.kt`。若用 10sp/11sp 星名，必然扫红。所以远处只显示最重要的一层名（28 宿），近处显示全部星官名，字号恒为 14sp，靠 alpha 连续淡出控制密度。
+**总原则：字号不随缩放变小，只随缩放显隐。** 理由：`机制-观感UX验收-回执.md第 29 行` 的静态门槛是"最小字号 14.0sp，<14sp 即 FAIL"，`audit_ux()` 扫全 `*.kt`。若用 10sp/11sp 星名，必然扫红。所以远处只显示最重要的一层名（28 宿），近处显示全部星官名，字号恒为 14sp，靠 alpha 连续淡出控制密度。
 
 星点直径（**屏幕像素 px，非 dp**，随星等 Pogson 插值）：
 
@@ -190,7 +190,7 @@ field_allocation 表（分野）：
 间距与圆角（全部引既有常量，不新造）：
 
 18. 星名标签距星点 8dp（`ComponentPalette.BUBBLE_GAP_DP` 同值）。
-19. 可点标签触达 ≥48dp×48dp（`机制-观感UX验收-回执.md:44` UX-03：可点文件内 `size/minHeight/minWidth` <48dp 即 FAIL 候选）；视觉标签只有 14sp 高，热区用透明外扩到 48dp。
+19. 可点标签触达 ≥48dp×48dp（`机制-观感UX验收-回执.md第 44 行` UX-03：可点文件内 `size/minHeight/minWidth` <48dp 即 FAIL 候选）；视觉标签只有 14sp 高，热区用透明外扩到 48dp。
 20. 顶部「星官/星座」竖排切换条：宽 48dp（热区），视觉条 28dp 宽。
 21. 右上「天外/地上」同 48dp 热区。
 22. Sheet 顶部圆角 20dp（`SHEET_RADIUS_DP`）。
@@ -200,7 +200,7 @@ field_allocation 表（分野）：
 
 宿主拆分的尺寸理由：
 
-26. `GlobeScreenHost.kt` 实测 603 行 > 600（`机制-总控必读.md:157` 第 5 条：新增文件 ≤600 行是先决条件）。星空绘制落 `SkyCanvasRenderer.kt`（≤400 行，内部再拆三个私有 renderer），宿主净增 ≤5 行。
+26. `GlobeScreenHost.kt` 实测 603 行 > 600（`机制-总控必读.md第 157 行` 第 5 条：新增文件 ≤600 行是先决条件）。星空绘制落 `SkyCanvasRenderer.kt`（≤400 行，内部再拆三个私有 renderer），宿主净增 ≤5 行。
 27. 理由：不拆则 S4 lint 与 oversized 债务棘轮必红，且"为过门禁先拆再加"是项目明确允许路径。
 
 ---
@@ -209,9 +209,9 @@ field_allocation 表（分野）：
 
 **分层原则（照既有先例，不叫"例外"，叫"分类"）：**
 
-1. **UI 叠加层**（标签、连线、Sheet、按钮、网格、分野高亮）——只用 12 色 token + 石青增补。依据 `ComponentPalette.kt:16-66` 与 `落文-模块契约索引.md:63`。
-2. **天文内容色**（星点本身的颜色、银河亮度）——单独 `SkySpecColor` 声明。依据既有先例：`GlobeTokens.kt:55-62` 的 `GlobeSpecSurface` 明确"地表着色常量（地貌数据色，不是 UI 配色）……12 色 token 约束的是界面叠加层；这里的值来自规格表格本身，属于渲染数据"。星色同构：来自 B-V 物理量，是数据驱动内容色，禁用于任何 UI 控件。
-3. **派生色集中**：UI 层若需 token 之外的明度偏移，扩 `GlobeTokens`（不新建平行 palette），单测断言"派生值 = 基础 token 明度偏移可复现"。依据 `docs/落文-模块契约索引.md:77` 红线与 `GlobeTokens.kt` 既有结构。
+1. **UI 叠加层**（标签、连线、Sheet、按钮、网格、分野高亮）——只用 12 色 token + 石青增补。依据 ``ComponentPalette.kt` 第 16-66 行` 与 `落文-模块契约索引.md第 63 行`。
+2. **天文内容色**（星点本身的颜色、银河亮度）——单独 `SkySpecColor` 声明。依据既有先例：``GlobeTokens.kt` 第 55-62 行` 的 `GlobeSpecSurface` 明确"地表着色常量（地貌数据色，不是 UI 配色）……12 色 token 约束的是界面叠加层；这里的值来自规格表格本身，属于渲染数据"。星色同构：来自 B-V 物理量，是数据驱动内容色，禁用于任何 UI 控件。
+3. **派生色集中**：UI 层若需 token 之外的明度偏移，扩 `GlobeTokens`（不新建平行 palette），单测断言"派生值 = 基础 token 明度偏移可复现"。依据 `docs/落文-模块契约索引.md第 77 行` 红线与 `GlobeTokens.kt` 既有结构。
 
 ### 6.1 UI 层逐条映射（写码照此，禁写 hex）
 
@@ -220,7 +220,7 @@ field_allocation 表（分野）：
 5. 地平暖辉带（地上观）= `brandCopper` 0.10 alpha，出口 `GlobeTokens.skyHorizonGlow`。
 6. 星官连线 = `brandGold`，alpha 0.55。
 7. 星座连线 = `textTertiary`，alpha 0.45。
-   理由：星座是"辅助参考层"，云灰正是"辅助/占位"语义；且不抢星官的金。**不借石青**——石青在 `ComponentPalette.kt:54-59` 已登记为"Toast 提示态专用 + 沙盘敌方势力色块"，第三种用途会造成语义污染。
+   理由：星座是"辅助参考层"，云灰正是"辅助/占位"语义；且不抢星官的金。**不借石青**——石青在 ``ComponentPalette.kt` 第 54-59 行` 已登记为"Toast 提示态专用 + 沙盘敌方势力色块"，第三种用途会造成语义污染。
 8. 星官名标签：字 `brandGold`，底 `bgOverlay` 0.45，边 1px `brandCopper`。
    理由：古铜更沉，符合"金是沉金不是亮金"；不用朱砂边框——朱砂语义是失败/删除/强调，常驻星名下会误读为错误态。
 9. 选中星 / 分野填充 = `colorGlow`（rgba(212,165,74,.3)）；分野边 = `brandGold` 虚线。
@@ -271,12 +271,12 @@ field_allocation 表（分野）：
 
 ## 八、渲染规格（3 pass，不超 DrawBudget）
 
-预算事实：`DrawBudget.kt:9` "手机端 ≤15 draw call；LOD0 ≤10"，`GlobeConfig.kt:126` `MAX_DRAW_CALLS=15`。9 层顺序会顶破，必须合并为 3 pass。
+预算事实：``DrawBudget.kt` 第 9 行` "手机端 ≤15 draw call；LOD0 ≤10"，``GlobeConfig.kt` 第 126 行` `MAX_DRAW_CALLS=15`。9 层顺序会顶破，必须合并为 3 pass。
 
 1. **星空底 pass（1 张离屏位图）**：夜空渐变 + 银河 + 密度底图（当前层与相邻层 alpha 连续混合）+ 参考网格，合成一张，只在视角/缩放变化时重绘，静止帧复用。
 2. **线框 pass（1 条 Path）**：星座线 + 星官线 + 分野边 + 选中光环，合并为单条 Path 一次描边。
 3. **星点 pass（1 次 sprite 批绘）**：实体星 + 尘粒 + 流星，预烘焙 4 档 sprite atlas（1px/3px/5px/9px 四档，按星等取图），禁逐帧 `drawCircle`。
-   先例：`docs/落文-模块契约索引.md:23` "噪点材质契约＝单张 `paper_noise_tile.png` + 进程级缓存表，禁逐帧 `drawCircle`"，星空同构。
+   先例：`docs/落文-模块契约索引.md第 23 行` "噪点材质契约＝单张 `paper_noise_tile.png` + 进程级缓存表，禁逐帧 `drawCircle`"，星空同构。
 
 几何模型（本版修正，重要）：
 
@@ -304,7 +304,7 @@ field_allocation 表（分野）：
 
 ### 9.1 进入星空的机制（本版修正）
 
-1. 相机上限 6.0R → 10.0R（`GlobeConfig.kt:106`）。
+1. 相机上限 6.0R → 10.0R（``GlobeConfig.kt` 第 106 行`）。
 2. **为什么必须放宽**：6R 时地球角径约 18.9°，在 60° 视场、1080px 高下约 340px，远达不到"缩成星点"的 40px；只放宽相机不够，还要下面这条。
 3. 10R 之后不再推相机，改由手势驱动 `skyBlend: Float`（0→1 连续）：地球视觉半径从约 200px 连续缩到 40px，星空 alpha 连续上升；反向手势完全对称。
 4. 为什么这样才对：`skyBlend` 是连续标量，没有枚举、没有阈值档，天然满足"线性缩放不设档"；且避免"相机退到无穷远"这种物理上做不到的事。
@@ -322,7 +322,7 @@ field_allocation 表（分野）：
 ### 9.3 连续 LOD（修正：不做连续细分网格）
 
 12. 地球 LOD：三档网格（128/256/512）**全部常驻缓存**，`LodSelector` 输出从"离散 target"改为连续 `blendWeight`，渲染层按权重插值顶点位置。
-13. 为什么不做连续细分 icosphere：`LodSelector.kt:13-25` 已有 `framesLeft` / `morphProgress` / `isMorphing` 的 morph 底座，扩展成连续权重成本低；重造连续细分网格要重写 `IcosphereMesh` 生成器，成本高一个量级且回滚难。
+13. 为什么不做连续细分 icosphere：``LodSelector.kt` 第 13-25 行` 已有 `framesLeft` / `morphProgress` / `isMorphing` 的 morph 底座，扩展成连续权重成本低；重造连续细分网格要重写 `IcosphereMesh` 生成器，成本高一个量级且回滚难。
 14. **诚实边界**：这条做到的是"视觉连续"（任意缩放位置有唯一混合比例），几何仍是三档。规格里写明这句，验收不得要求"几何连续"；若用户后续要求几何连续，另立缺陷升级，不在本候选冒充。
 15. 星空侧天然无档：星点数量由 `magLimit = f(zoom)` 连续函数决定，金字塔层间 alpha 连续混合。
 16. `DrawBudget` 需增一条显式条款：blend 过渡期两档同时绘制，临时上限 +1，否则 bench 会偶发红。
@@ -342,9 +342,9 @@ field_allocation 表（分野）：
 
 1. **帧快照**：`FrameSnapshot` 增 `sky: SkyFrame? = null`。`SkyFrame` 字段：`mode`（GOD/GROUND）、`skyBlend`、`cameraYawPitch`、`observerLatLon`（地上观）、`siderealTimeDeg`、`magLimit`、`pyramidMix`、`selectedId`、`horizonDipDeg`。
 2. 为什么用标量与 id、不用星对象列表：一帧 700 颗若每帧 new 列表，软渲染 GC 抖动吃满 16ms；标量 + 索引零分配。
-3. **控制器**：`GlobeController` 只新增两个方法 `enterSky(mode)`、`setSkyBlend(v)`，既有签名不改（`app/src/main/java/io/legado/app/ui/map/globe/GlobeController.kt:173,188` 定义；宿主经 `host.controller` 门面消费，旧 `GlobeScreenHost.kt` 第 603 行口径）。
-4. **人文条目**：星官/星座/分野走 D16 通用 `EntityProvider` 的 `astronomy` 类别（`docs/落文-模块契约索引.md:155`"其余类别走通用 EntityProvider，不加新 Provider"）。**禁止新建 StarProvider**，否则 P-05 双轨。
-5. **科学数据**：星表自建 `StarStore`，与 D16 astronomy 条目按 `starId` 关联，不混表。理由同"山川坐标归 LandscapeStore、城邑归 PlaceStore"（`索引:167`）。
+3. **控制器**：`GlobeController` 只新增两个方法 `enterSky(mode)`、`setSkyBlend(v)`，既有签名不改（``app/src/main/java/io/legado/app/ui/map/globe/GlobeController.kt` 第 173 行,188` 定义；宿主经 `host.controller` 门面消费，旧 `GlobeScreenHost.kt` 第 603 行口径）。
+4. **人文条目**：星官/星座/分野走 D16 通用 `EntityProvider` 的 `astronomy` 类别（`docs/落文-模块契约索引.md第 155 行`"其余类别走通用 EntityProvider，不加新 Provider"）。**禁止新建 StarProvider**，否则 P-05 双轨。
+5. **科学数据**：星表自建 `StarStore`，与 D16 astronomy 条目按 `starId` 关联，不混表。理由同"山川坐标归 LandscapeStore、城邑归 PlaceStore"（`索引第 167 行`）。
 6. **视图归属**：星空是 D17 壳体第四种视图（2D / 3D 沙盘 / 3D 地球 / 天球星空），走同一 `PlaceMapActivity` 单壳，不新立模块、不加第五顶层入口。
 7. **搜索**：星名进既有搜索源 D1~D7，不新建搜索页（P-11/D25 已定"禁独立搜索页"）。
 8. **离线**：复用 `AssetStatus / TextureCache / DegradationLevel`，不新建下载器；星空资产与地球资产**分两个独立 fallback 域**（见第 11.3）。
@@ -391,7 +391,7 @@ bench 四项（并入既有 `ui/map/globe` bench 测试类，不新建 CI job，
 
 ## 十三、⑧ 与全 App 既有资产一致性对照
 
-对照 12 类卡片（`规格登记册.md:40` S-25：全部走 `CardBase`、圆角 16dp、五态、空态三变体）：
+对照 12 类卡片（`规格登记册.md第 40 行` S-25：全部走 `CardBase`、圆角 16dp、五态、空态三变体）：
 
 1. 星点 Sheet = 复用既有半屏 Sheet 容器与三段高度，不自造 Sheet；Sheet 内列表行走 `CardBase` 系列，不新造容器。
 2. 星名标签方框**不套** 16dp 卡片圆角，用 2dp 印式硬边——已在第 5.23 显式声明差异，理由：标签是"星图注记"不是内容卡片。
