@@ -11,42 +11,44 @@ enum class TextureKind(
     val sourceLabel: String,
     /** 无网 / 未缓存时的兜底策略。 */
     val fallback: FallbackKind,
+    /** 所属离线兜底域：地球仪态 pass 或星空 pass（分域算档，§十三.8）。 */
+    val domain: FallbackDomain,
 ) {
     /** Blue Marble 白天卫星纹理，多级金字塔 2K/4K/8K。 */
-    DAY_SATELLITE("NASA Blue Marble", FallbackKind.PROCEDURAL_TERRAIN),
+    DAY_SATELLITE("NASA Blue Marble", FallbackKind.PROCEDURAL_TERRAIN, FallbackDomain.EARTH),
 
     /** NASA Black Marble 城市夜景，只在暗半球叠加。 */
-    NIGHT_CITY("NASA Black Marble", FallbackKind.PROCEDURAL_NIGHT_LIGHTS),
+    NIGHT_CITY("NASA Black Marble", FallbackKind.PROCEDURAL_NIGHT_LIGHTS, FallbackDomain.EARTH),
 
     /** NASA Blue Marble 云层图，4K，独立 0.9 倍速旋转。 */
-    CLOUDS("NASA 云层图", FallbackKind.PROCEDURAL_CLOUD_LAYER),
+    CLOUDS("NASA 云层图", FallbackKind.PROCEDURAL_CLOUD_LAYER, FallbackDomain.EARTH),
 
     /** Natural Earth / ESA WorldCover 土地覆盖 PNG，7 种覆盖类型。 */
-    LANDCOVER("Natural Earth / ESA WorldCover", FallbackKind.PROCEDURAL_COVER_BAND),
+    LANDCOVER("Natural Earth / ESA WorldCover", FallbackKind.PROCEDURAL_COVER_BAND, FallbackDomain.EARTH),
 
     /** SRTM30 全球高程 PNG。 */
-    ELEVATION("SRTM30 全球高程", FallbackKind.PROCEDURAL_HEIGHTMAP),
+    ELEVATION("SRTM30 全球高程", FallbackKind.PROCEDURAL_HEIGHTMAP, FallbackDomain.EARTH),
 
     /** 星空纹理（程序化生成或 Stellarium 星图，2K）。 */
-    STAR_SKY("Stellarium 星图 / 程序化", FallbackKind.PROCEDURAL_STAR_FIELD),
+    STAR_SKY("Stellarium 星图 / 程序化", FallbackKind.PROCEDURAL_STAR_FIELD, FallbackDomain.SKY),
 
     /** Tycho-2 密度层 9 等（按需下载，不入库）；未缓存走程序化星场兜底。 */
-    SKY_DENSITY_L9("Tycho-2 密度层 9 等（按需下载，不入库）", FallbackKind.PROCEDURAL_STAR_FIELD),
+    SKY_DENSITY_L9("Tycho-2 密度层 9 等（按需下载，不入库）", FallbackKind.PROCEDURAL_STAR_FIELD, FallbackDomain.SKY),
 
     /** Tycho-2 密度层 11.5 等（按需下载，不入库）；未缓存走程序化星场兜底。 */
-    SKY_DENSITY_L11("Tycho-2 密度层 11.5 等（按需下载，不入库）", FallbackKind.PROCEDURAL_STAR_FIELD),
+    SKY_DENSITY_L11("Tycho-2 密度层 11.5 等（按需下载，不入库）", FallbackKind.PROCEDURAL_STAR_FIELD, FallbackDomain.SKY),
 
     /** 地名 atlas 纹理（中国 500 + 世界 500）。 */
-    LABEL_ATLAS("CHGIS + Pleiades + Wikidata", FallbackKind.SEED_PLACE_ATLAS),
+    LABEL_ATLAS("CHGIS + Pleiades + Wikidata", FallbackKind.SEED_PLACE_ATLAS, FallbackDomain.EARTH),
 
     /** Natural Earth 河流矢量，转球面 CatmullRom 弧。 */
-    RIVER_VECTOR("Natural Earth 河流矢量", FallbackKind.SEED_VECTOR_NONE),
+    RIVER_VECTOR("Natural Earth 河流矢量", FallbackKind.SEED_VECTOR_NONE, FallbackDomain.EARTH),
 
     /** 历史疆界 GeoJSON（中国 18 + 世界 12）。 */
-    POWER_VECTOR("CHGIS + Natural Earth 疆界", FallbackKind.SEED_POWER_SEED),
+    POWER_VECTOR("CHGIS + Natural Earth 疆界", FallbackKind.SEED_POWER_SEED, FallbackDomain.EARTH),
 
     /** 战役路线 / 推演战役 JSON。 */
-    CAMPAIGN_ROUTES("Wikidata + Wikipedia / campaign.json", FallbackKind.SEED_CAMPAIGN_SEED);
+    CAMPAIGN_ROUTES("Wikidata + Wikipedia / campaign.json", FallbackKind.SEED_CAMPAIGN_SEED, FallbackDomain.EARTH);
 }
 
 /**

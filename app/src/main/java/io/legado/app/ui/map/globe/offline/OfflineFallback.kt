@@ -43,12 +43,23 @@ class OfflineFallback(private val cache: TextureCache = TextureCache()) {
         return Resolution(kind, status, kind.fallback)
     }
 
-    /** 全量素材解析（场景装配 / 自检用）。 */
+    /** 全量素材解析（只读自检视图：快照装配的就位计数 / PENDING 扫描用）。 */
     fun resolveAll(): List<Resolution> = TextureKind.entries.map { resolve(it) }
 
-    /** 整体退化档位。 */
-    fun degradation(): DegradationLevel {
-        val resolutions = resolveAll()
+    /** 指定域内全部素材解析（分域算档 / 域内自检用）。 */
+    fun resolveAll(domain: FallbackDomain): List<Resolution> =
+        TextureKind.entries.filter { it.domain == domain }.map { resolve(it) }
+
+    /** 分域退化档位：只在本域种类内按 全真实 / 部分真实 / 无真实 三档算。 */
+    fun degradation(domain: FallbackDomain): DegradationLevel =
+        levelFor(resolveAll(domain))
+
+    /**
+     * 纯档位归纳：供分域算档与单测复用。域内种类集为空（未来裁剪枚举导致）时宁可降层
+     * 出兜底，不返回 FULL_TEXTURES 空真（§十三.8 边界口径）。
+     */
+    internal fun levelFor(resolutions: List<Resolution>): DegradationLevel {
+        if (resolutions.isEmpty()) return DegradationLevel.PROCEDURAL_ONLY
         val realCount = resolutions.count { it.status.hasRealTexture }
         return when {
             realCount == resolutions.size -> DegradationLevel.FULL_TEXTURES
@@ -56,12 +67,6 @@ class OfflineFallback(private val cache: TextureCache = TextureCache()) {
             else -> DegradationLevel.PROCEDURAL_ONLY
         }
     }
-
-    /** 真实纹理种类数（性能 / 自检报告用）。 */
-    fun realTextureCount(): Int = resolveAll().count { it.status.hasRealTexture }
-
-    /** 兜底种类数。 */
-    fun fallbackCount(): Int = resolveAll().count { it.useFallback }
 }
 
 /**

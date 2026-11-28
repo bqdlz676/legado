@@ -23,6 +23,7 @@ class SceneSnapshotTest {
         assertTrue(snapshot.markers.isNotEmpty())
         assertTrue(snapshot.visibleLabels.isNotEmpty())
         assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.degradation)
+        assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.skyDegradation)
         assertEquals(12, snapshot.powerLayer.powers.size)
         assertTrue(snapshot.fallbackResolutions.size == io.legado.app.ui.map.globe.offline.TextureKind.entries.size)
     }
@@ -55,10 +56,14 @@ class SceneSnapshotTest {
     }
 
     @Test
-    fun `缓存核心纹理后档位升到混合`() {
+    fun `缓存地球纹理后地球域升混合星空域仍兜底`() {
         val controller = GlobeController()
-        controller.markAssetCached(io.legado.app.ui.map.globe.offline.TextureKind.STAR_SKY, null)
+        controller.markAssetCached(io.legado.app.ui.map.globe.offline.TextureKind.DAY_SATELLITE, null)
         val snapshot = controller.nextFrame(0.016, System.currentTimeMillis())
+        // 改坏推演：若装配仍把聚合 degradation() 写进 skyDegradation，
+        // 下一行 skyDegradation 断言红；漏加字段则构造点 FrameSnapshot 先编译红。
         assertEquals(DegradationLevel.CACHED_MIX, snapshot.degradation)
+        assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.skyDegradation)
+        assertEquals(12, snapshot.fallbackResolutions.size)
     }
 }

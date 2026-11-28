@@ -5,6 +5,7 @@ import io.legado.app.ui.map.globe.astro.contract.SkyFrame
 import io.legado.app.ui.map.globe.math.Vec3
 import io.legado.app.ui.map.globe.mesh.LodLevel
 import io.legado.app.ui.map.globe.offline.DegradationLevel
+import io.legado.app.ui.map.globe.offline.FallbackDomain
 import io.legado.app.ui.map.globe.offline.OfflineFallback
 import io.legado.app.ui.map.globe.replay.marker.GlobeMarker
 import io.legado.app.ui.map.globe.replay.marker.GlobePlace
@@ -35,6 +36,8 @@ data class FrameSnapshot(
     val sunDir: Vec3,
     val cloudRotationDeg: Double,
     val degradation: DegradationLevel,
+    /** 星空域独立档位：只由 SKY 种类集合算档，不被地球域缺档拉低（§十三.8）。 */
+    val skyDegradation: DegradationLevel,
     val atmosphere: AtmosphereSpec,
     val clouds: CloudSpec,
     val ocean: OceanSpec,
@@ -61,7 +64,8 @@ data class FrameSnapshot(
                 distanceRatio = scene.distanceRatio,
                 sunDir = scene.sunDir,
                 cloudRotationDeg = scene.cloudRotationDeg,
-                degradation = scene.fallback.degradation(),
+                degradation = scene.fallback.degradation(FallbackDomain.EARTH),
+                skyDegradation = scene.fallback.degradation(FallbackDomain.SKY),
                 atmosphere = scene.atmosphere,
                 clouds = scene.clouds,
                 ocean = scene.ocean,

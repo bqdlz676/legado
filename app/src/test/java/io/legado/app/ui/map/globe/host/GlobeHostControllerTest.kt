@@ -33,6 +33,7 @@ class GlobeHostControllerTest {
         assertTrue("离线兜底光针不能为空", snapshot.markers.isNotEmpty())
         assertTrue("离线兜底地名标签不能为空", snapshot.visibleLabels.isNotEmpty())
         assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.degradation)
+        assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.skyDegradation)
         assertEquals(
             TextureKind.entries.size,
             snapshot.fallbackResolutions.size,
@@ -47,16 +48,20 @@ class GlobeHostControllerTest {
 
         // 在线未缓存 = PENDING_DOWNLOAD，门面仍返回兜底快照，不等待下载。
         assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.degradation)
+        assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.skyDegradation)
         assertNotNull(snapshot.route)
         assertTrue(snapshot.markers.isNotEmpty())
     }
 
     @Test
-    fun `登记核心素材缓存后档位升到混合`() {
+    fun `登记地球素材缓存后地球域升混合星空域仍兜底`() {
         val host = newHost(online = true)
-        host.markAssetCached(TextureKind.STAR_SKY, null)
+        host.markAssetCached(TextureKind.DAY_SATELLITE, null)
         val snapshot = host.frame(0.016, System.currentTimeMillis())
+        // 改坏推演：若分域未接线、仍按聚合算档，星空域缺档会把地球域拉低，
+        // 下面 degradation 断言先红；skyDegradation 跟随聚合则第二条红。
         assertEquals(DegradationLevel.CACHED_MIX, snapshot.degradation)
+        assertEquals(DegradationLevel.PROCEDURAL_ONLY, snapshot.skyDegradation)
     }
 
     @Test

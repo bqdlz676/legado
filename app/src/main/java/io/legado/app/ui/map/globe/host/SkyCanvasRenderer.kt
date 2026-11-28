@@ -23,6 +23,7 @@ import io.legado.app.ui.map.globe.astro.pick.StarPicker
 import io.legado.app.ui.map.globe.astro.proj.StarProjector
 import io.legado.app.ui.map.globe.offline.AssetStatus
 import io.legado.app.ui.map.globe.offline.DegradationLevel
+import io.legado.app.ui.map.globe.offline.FallbackDomain
 import io.legado.app.ui.map.globe.render.FrameSnapshot
 import kotlin.math.PI
 import kotlin.math.min
@@ -60,8 +61,11 @@ object SkyCanvasRenderer {
         val sky = snapshot.sky ?: return
         if (widthPx <= 0f || heightPx <= 0f) return
         // 低配档位 / 下载进度由快照派生，宿主壳不逐帧回写（D9 收口）。
-        lowPower = snapshot.degradation == DegradationLevel.PROCEDURAL_ONLY
-        loadingProgress = if (snapshot.fallbackResolutions.any { it.status == AssetStatus.PENDING_DOWNLOAD }) 0.5f else -1f
+        // 低配档由星空域档位驱动：地球离线兜底不再压低星空星等上限 / 银河尘粒流星开关。
+        lowPower = snapshot.skyDegradation == DegradationLevel.PROCEDURAL_ONLY
+        loadingProgress = if (snapshot.fallbackResolutions.any {
+                it.status == AssetStatus.PENDING_DOWNLOAD && it.kind.domain == FallbackDomain.SKY
+            }) 0.5f else -1f
         var magLimit = sky.magLimit
         if (lowPower) magLimit = min(magLimit, SkyParams.MAG_BRIGHT_ENTITY)
         val placeholder = store == null || store.isPlaceholder
