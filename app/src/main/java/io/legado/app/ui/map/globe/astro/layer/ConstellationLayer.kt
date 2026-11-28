@@ -1,6 +1,7 @@
 package io.legado.app.ui.map.globe.astro.layer
 
 import io.legado.app.data.entities.ConstellationLineEntity
+import io.legado.app.ui.map.globe.astro.data.SkyNameIndex
 
 /**
  * 西方 88 星座连线段（§四.12 `constellation_line`）。
@@ -41,6 +42,9 @@ class ConstellationLayer {
     private val segments = ArrayList<ConstellationSegment>()
     private val labels = ArrayList<ConstellationLabel>()
 
+    /** 星点 ↔ 星座 code 双向反查索引（判据 3 · N1；装载期随线段重建）。 */
+    private var nameIndex: SkyNameIndex = SkyNameIndex.empty()
+
     /** 当前选中星座三字母缩写；null = 未选中，全量参考线常显。 */
     var selectedConstellation: String? = null
         private set
@@ -55,6 +59,7 @@ class ConstellationLayer {
                 constellationId = line.constellationId,
             )
         }
+        rebuildNameIndex()
     }
 
     fun loadLabels(labels: List<ConstellationLabel>) {
@@ -76,4 +81,21 @@ class ConstellationLayer {
     fun allSegments(): List<ConstellationSegment> = segments
 
     fun allLabels(): List<ConstellationLabel> = labels
+
+    /** 由线段端点重建 code ↔ starId 双向索引；同一星座端点去重归集。 */
+    private fun rebuildNameIndex() {
+        val byCode = HashMap<String, MutableList<Long>>()
+        segments.forEach { seg ->
+            byCode.getOrPut(seg.constellationId) { ArrayList() }
+                .add(seg.fromStarId)
+                .add(seg.toStarId)
+        }
+        nameIndex = SkyNameIndex.build(byCode.mapValues { it.value.distinct() })
+    }
+
+    /** 星表主键 → 所属 IAU 星座三字母缩写；未收录返回 null（N1 反查入口）。 */
+    fun constellationOfStar(starId: Long): String? = nameIndex.codeOf(starId)
+
+    /** 星座 code → 成员星主键去重列表；未收录返回空列表。 */
+    fun starsOfConstellation(code: String): List<Long> = nameIndex.membersOf(code)
 }

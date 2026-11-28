@@ -1,5 +1,7 @@
 package io.legado.app.ui.map.globe.astro.layer
 
+import io.legado.app.ui.map.globe.astro.data.SkyNameIndex
+
 /**
  * 星官成员（§四.12 `asterism_member`）。
  *
@@ -38,6 +40,9 @@ class AsterismLayer {
 
     private val groups = ArrayList<AsterismGroup>()
 
+    /** 星点 ↔ 星官 code 双向反查索引（判据 3 · N1；装载期随 groups 重建）。 */
+    private var nameIndex: SkyNameIndex = SkyNameIndex.empty()
+
     /** 当前选中星官内码；null = 未选中。 */
     var selectedCode: String? = null
         private set
@@ -46,6 +51,10 @@ class AsterismLayer {
     fun loadGroups(groups: List<AsterismGroup>) {
         this.groups.clear()
         this.groups += groups
+        // N1 正向链第一跳：由成员表补建 starId → code 反查，点星后可解析所属星官。
+        nameIndex = SkyNameIndex.build(
+            groups.associate { group -> group.code to group.members.map { it.starId } },
+        )
     }
 
     /** 点星宿 → 天球高亮该宿成员星 + 连线（§十一.1）。 */
@@ -58,4 +67,10 @@ class AsterismLayer {
     fun groupByCode(code: String): AsterismGroup? = groups.firstOrNull { it.code == code }
 
     fun allGroups(): List<AsterismGroup> = groups
+
+    /** 星表主键 → 所属星官 code；未收录返回 null（N1 反查入口）。 */
+    fun codeOfStar(starId: Long): String? = nameIndex.codeOf(starId)
+
+    /** 星官 code → 成员星主键去重列表；未收录返回空列表。 */
+    fun membersOfCode(code: String): List<Long> = nameIndex.membersOf(code)
 }

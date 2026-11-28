@@ -75,6 +75,69 @@ interface SkyNameProvider {
 }
 
 /**
+ * 距离哨兵（光年）：内置 CSV 未测距条目以 `100000.00` 占位（验收-星空天象层.md:85：
+ * 205 行距离取该值）。它是有限值，既有 `isFinite()` 守卫拦不住；规格 §十四.4
+ * 「无距离不显示距离行」，命中哨兵即不渲染距离行（不显示「100000.0 光年」），
+ * 也不另造「距离未知」行。集中为具名常量：魔法数只此一处，DAO 就位后复用同一判据。
+ */
+internal const val DISTANCE_SENTINEL_LY: Double = 100_000.0
+
+/** 距离行是否可渲染：null / 非有限 / 哨兵值一律不渲染（§十四.4 无距离不显示距离行）。 */
+internal fun isValidDistanceLy(distanceLy: Double?): Boolean {
+    if (distanceLy == null) return false
+    if (!distanceLy.isFinite()) return false
+    return distanceLy != DISTANCE_SENTINEL_LY
+}
+
+/** 去空白并剔除字面 "null" 串；无可读内容返回 null。 */
+private fun readableOrNull(raw: String?): String? =
+    raw?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+
+/**
+ * Sheet 标题回退链（判据 4 · ①；§七.6 绝不空白、绝不显示 "null"）。
+ *
+ * 回退顺序：① 星名索引命中（今名 → 星官名 → 西名，取首个可读字段）；② 实体星表编号
+ * （HD → HIP → TYC → 拜耳 / 弗兰斯蒂德 → 星表 #主键）；③ 极简坐标串兜底（RA/Dec 度）；
+ * ④ 连目录坐标都取不到时用主键编号末路。任一路都返回可读非空串，不返回 null / 空白。
+ */
+internal fun resolveSheetTitle(
+    names: SkyStarNames?,
+    entity: StarEntity?,
+    store: StarStore?,
+    selectedId: Long?,
+): String {
+    names?.let { n ->
+        readableOrNull(n.zhModern) ?: readableOrNull(n.zhXingguan) ?: readableOrNull(n.enIau)
+    }?.let { return it }
+
+    entity?.let { catalogDesignation(it) }?.let { return it }
+
+    val catalogIndex = selectedId?.let { id -> store?.byId(id) } ?: -1
+    if (catalogIndex >= 0 && store != null) {
+        val ra = store.catalog.raAt(catalogIndex)
+        val dec = store.catalog.decAt(catalogIndex)
+        return "RA %.2f° Dec %+.2f°".format(ra, dec)
+    }
+
+    return selectedId?.let { "星表 #$it" } ?: "未选中星体"
+}
+
+/** 实体可读编号：优先跨表主键，其次拜耳 / 弗兰斯蒂德；都缺回落星表主键。 */
+private fun catalogDesignation(e: StarEntity): String? {
+    e.hd?.let { return "HD $it" }
+    e.hip?.let { return "HIP $it" }
+    readableOrNull(e.tychoId)?.let { return it }
+    val bayer = readableOrNull(e.bayer)
+    val flamsteed = readableOrNull(e.flamsteed)
+    when {
+        bayer != null && flamsteed != null -> return "$bayer $flamsteed"
+        bayer != null -> return bayer
+        flamsteed != null -> return flamsteed
+    }
+    return "星表 #${e.id}"
+}
+
+/**
  * 内置 `assets/astro/star_names.csv` 的纯 JVM 适配实现。
  *
  * 组件本身不碰 `AssetManager`：宿主把 CSV 文本行读入后传入 [CsvSkyNameProvider]，
@@ -132,8 +195,8 @@ fun SkySheet(
     val entity: StarEntity? = selectedId?.let { store?.entityById(it) }
     val names: SkyStarNames? = selectedId?.let { nameProvider?.nameOf(it) }
 
-    // 标题优先级：今名 > 星官名 > 西名；三者皆无且实体缺失时回落空态文案。
-    val title = names?.zhModern ?: names?.zhXingguan ?: names?.enIau
+    // 标题走三级回退链：星名 → 星表编号 → 坐标串；任何一路都不留空白 / "null"（判据 4 · ①）。
+    val title = resolveSheetTitle(names, entity, store, selectedId)
     val noRecord = selectedId != null && (store == null || entity == null)
 
     Column(
@@ -155,7 +218,7 @@ fun SkySheet(
         // 标题 16sp / brandGold（§五.5）。
         Box {
             BasicText(
-                text = title ?: if (selectedId == null) "未选中星体" else "星名未录入",
+                text = title,
                 style = TextStyle(
                     color = Color(GlobeTokens.brandGold),
                     fontSize = 16.sp,
@@ -169,11 +232,11 @@ fun SkySheet(
         names?.zhModern?.let { BodyRow(label = "今名", value = it) }
         names?.enIau?.let { BodyRow(label = "西名", value = it) }
 
-        // 实体派生行：无实体记录时不渲染；距离空 / 非有限不渲染距离行。
+        // 实体派生行：无实体记录时不渲染；距离空 / 非有限 / 哨兵值不渲染距离行。
         entity?.magVt?.takeIf { it.isFinite() }?.let {
             BodyRow(label = "星等", value = String.format("%.2f", it))
         }
-        entity?.distanceLy?.takeIf { it.isFinite() }?.let {
+        entity?.distanceLy?.takeIf { isValidDistanceLy(it) }?.let {
             BodyRow(label = "距离", value = String.format("%.1f 光年", it))
         }
 
