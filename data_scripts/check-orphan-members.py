@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import pathlib
 import re
 import sys
@@ -40,6 +41,7 @@ MAIN = ROOT / "app/src/main"
 GLOBE = MAIN / "java/io/legado/app/ui/map/globe"
 MEMBER_RE = re.compile(r"^\s{4}(?:suspend\s+)?fun\s+[`]?([A-Za-z_][A-Za-z0-9_]*)")
 ALLOW_REL = pathlib.Path(__file__).with_name("orphan-members-allow.txt")
+ALLOW_DIGEST = ""
 SKIP_WORDS = ("private", "internal", "override")
 
 
@@ -68,10 +70,14 @@ def collect(paths: list[pathlib.Path]) -> list[tuple[pathlib.Path, str]]:
 
 
 def load_allow() -> dict[str, str]:
+    """白名单按内容哈希取身份（㊼）：改名/换内容即失效，位置型豁免不许蒙过门禁。"""
     allow: dict[str, str] = {}
     if not ALLOW_REL.exists():
         return allow
-    for line in ALLOW_REL.read_text(encoding="utf-8").splitlines():
+    content = ALLOW_REL.read_text(encoding="utf-8")
+    global ALLOW_DIGEST
+    ALLOW_DIGEST = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
+    for line in content.splitlines():
         if line.startswith("#") or not line.strip():
             continue
         cells = line.split("\t")
@@ -115,6 +121,9 @@ def run(listing: bool) -> int:
         print("ORPHAN-MEMBERS: UNVERIFIED（扫描根不存在）")
         return 3
     items = collect(paths)
+    if not items:
+        print("ORPHAN-MEMBERS: UNVERIFIED（扫描根下零个公开成员，空集不可判定）")
+        return 3
     allow = load_allow()
     dead = []
     fake_green = []
@@ -129,7 +138,7 @@ def run(listing: bool) -> int:
             tag = "（仅测试调用→假绿）" if (rel, sym) in fake_green else ""
             print(f"  · {rel}::{sym}{tag}")
     if not dead:
-        print(f"ORPHAN-MEMBERS: PASS（公开成员 {len(items)} 个，孤儿 0）")
+        print(f"ORPHAN-MEMBERS: PASS（公开成员 {len(items)} 个，孤儿 0；白名单 {len(allow)} 条 sha256:{ALLOW_DIGEST}）")
         return 0
     for rel, sym in dead:
         print(f"  ✗ 孤儿公开成员 {rel}::{sym}（全仓 app/src/main 零调用）")

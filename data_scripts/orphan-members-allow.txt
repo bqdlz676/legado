@@ -1,0 +1,32 @@
+# 成员级孤儿白名单（四列制表符：相对路径::符号名 / 理由 / 单号）
+# 身份绑定：本文件内容 sha256 前 12 位随每次运行打印，改名或换内容即失效（门禁 ㊼）。
+# 现全部 28 条为 2026-11-28 存量：已在 docs/台账-死链清单.md 登记、归 Q-503 接线；
+# 本文件只许删不许加，Q-503 落库后逐条划掉并把 g76 升 blocking。
+app/src/main/java/io/legado/app/ui/map/globe/astro/Sun.kt::worldNormal	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/Sun.kt::dayFactor	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/Sun.kt::nightBrightness	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/Sun.kt::terminatorSide	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/contract/SkyParams.kt::skyBlendFromDiameter	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/SkyNameIndex.kt::codes	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarCatalog.kt::constellationAt	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarCatalog.kt::pyramidConstellationAt	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarStore.kt::isPyramidIndex	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarStore.kt::pyramidSlot	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarStore.kt::byAsterism	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarStore.kt::byRegion	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/data/StarStoreProvider.kt::hasAttempted	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/AsterismLayer.kt::loadGroups	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/AsterismLayer.kt::groupByCode	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/AsterismLayer.kt::codeOfStar	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/AsterismLayer.kt::membersOfCode	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/ConstellationLayer.kt::loadLines	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/ConstellationLayer.kt::loadLabels	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/ConstellationLayer.kt::allSegments	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/ConstellationLayer.kt::allLabels	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/ConstellationLayer.kt::constellationOfStar	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/ConstellationLayer.kt::starsOfConstellation	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/FieldAllocationLayer.kt::entriesForRegion	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/layer/FieldAllocationLayer.kt::regionForCodes	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/pick/StarPicker.kt::hitRadiusPx	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/astro/pick/StarPicker.kt::pick	存量死链，已在台账登记，待 Q-503 接线	Q-503
+app/src/main/java/io/legado/app/ui/map/globe/host/SkyInputHandler.kt::evaluatePyramidDemand	存量死链，已在台账登记，待 Q-503 接线	Q-503
