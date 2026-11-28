@@ -5,15 +5,12 @@ import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import io.legado.app.ui.map.globe.GlobeTokens
 import io.legado.app.ui.map.globe.astro.contract.SkyFrame
 import io.legado.app.ui.map.globe.astro.contract.SkyParams
-import io.legado.app.ui.map.globe.astro.contract.SkySpecColor
 import io.legado.app.ui.map.globe.astro.contract.SkyViewMode
 import io.legado.app.ui.map.globe.astro.data.StarStore
 import io.legado.app.ui.map.globe.astro.layer.AsterismLayer
@@ -28,7 +25,7 @@ import io.legado.app.ui.map.globe.render.FrameSnapshot
 import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
-/** 星空三 pass（§八）：pass1 [SkyBackdropRenderer] 离屏位图；pass2 [SkyLineRenderer] 线框；pass3 [SkyStarSpriteRenderer] sprite 批绘（4 档 atlas 1/3/5/9px）。跟随相机的 2D 投影背景，不做球壳网格；`SKY_PROJECTION_FAR=900` 只是深度常量。 */
+/** 星空三 pass（§八）：pass1 [SkyBackdropRenderer] 离屏位图；pass2 [SkyLineRenderer] 线框；pass3 [SkyStarSpritePainter] sprite 批绘（4 档 atlas 1/3/5/9px）。跟随相机的 2D 投影背景，不做球壳网格；`SKY_PROJECTION_FAR=900` 只是深度常量。 */
 object SkyCanvasRenderer {
     // 跨态状态面：默认值保证未接线 / 地球仪态行为不变，接线单按帧回填（§七）。
     @JvmField var lowPower: Boolean = false // 禁用：magLimit 封顶 6.5，银河/尘粒/流星关闭（§七.5）
@@ -61,7 +58,7 @@ object SkyCanvasRenderer {
     private val atlas = arrayOfNulls<Bitmap>(4)
     private val backdropRenderer = SkyBackdropRenderer()
     private val lineRenderer = SkyLineRenderer()
-    private val starRenderer = SkyStarSpriteRenderer()
+    private val starRenderer = SkyStarSpritePainter()
     /** 帧绘制入口；store 为 null / 占位态时回落种子口径程序化散点 + 示意横幅（§七.6）。 */
     fun draw(canvas: Canvas, snapshot: FrameSnapshot, widthPx: Float, heightPx: Float, labelPaint: Paint, store: StarStore? = null, density: Float = 1f, nowMs: Long = System.currentTimeMillis()) {
         val sky = snapshot.sky ?: return
@@ -297,74 +294,6 @@ private class SkyLineRenderer {
         return lower + upper
     }
 }
-/** pass3：星点 sprite 批绘——4 档 atlas，星点禁逐帧圆斑（§八.3）。 */
-private class SkyStarSpriteRenderer {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val rect = RectF()
-    private lateinit var atlas: Array<Bitmap>
-    fun render(canvas: Canvas, stars: ProjectedStars, atlas: Array<Bitmap>, w: Float, h: Float, nowMs: Long, lowPower: Boolean, hoverId: Long, pressId: Long, pressStartMs: Long) {
-        this.atlas = atlas
-        for (i in 0 until stars.count) {
-            val mag = stars.mag[i]; var d = SkyParams.starDiameterPx(mag)
-            val held = stars.id[i] == pressId
-            if (held && nowMs - pressStartMs >= PRESS_GATE_MS) { // 按下 60ms 门槛 → 1.6× + 1200ms 呼吸（§七.3）
-                d *= 1.6f
-                d *= (1f + 0.12f * sin(nowMs * 2.0 * PI / SkyParams.FIELD_PULSE_MS)).toFloat()
-            } else if (stars.id[i] == hoverId) {
-                d *= 1.3f // 触屏无 hover：按下前 120ms 预压（§七.2）
-            }
-            val bv = stars.bv[i]
-            val rgb = if (bv.isNaN()) SkySpecColor.starColorFromMag(mag) else SkySpecColor.starColorFromBV(bv)
-            var alpha = 1f
-            if (mag < SkyParams.TWINKLE_MAG) { // 闪烁只给 mag<2.5：独立相位 0.6–1.4Hz ±8%（§八.8）
-                val phase = skyHash(i, 11) * 2.0 * PI; val freq = 0.6 + skyHash(i, 12) * 0.8
-                alpha *= 1f + 0.08f * sin(2.0 * PI * freq * nowMs / 1000.0 + phase).toFloat()
-            }
-            paint.colorFilter = PorterDuffColorFilter((0xFF shl 24) or rgb, PorterDuff.Mode.SRC_IN)
-            paint.alpha = (alpha * 255f).toInt().coerceIn(0, 255)
-            val half = d / 2f; rect.set(stars.x[i] - half, stars.y[i] - half, stars.x[i] + half, stars.y[i] + half)
-            canvas.drawBitmap(atlas[tierOf(d)], null, rect, paint)
-            if (mag < SkyParams.STAR_SPIKE_MAG) { // 四芒只给 mag<0.5（§八.8），同 pass 补短芒线
-                paint.colorFilter = null; paint.color = (0xFF shl 24) or rgb
-                val r = d * 1.4f
-                canvas.drawLine(stars.x[i] - r, stars.y[i], stars.x[i] + r, stars.y[i], paint)
-                canvas.drawLine(stars.x[i], stars.y[i] - r, stars.x[i], stars.y[i] + r, paint)
-            }
-        }
-        paint.colorFilter = null; paint.alpha = 255
-        if (!lowPower) { drawDust(canvas, w, h); drawMeteor(canvas, w, h, nowMs) }
-    }
-    /** 尘粒 32 颗 1px alpha 0.15 缓慢漂移（§八.9）；位置速度全哈希确定，无随机态泄漏。 */
-    private fun drawDust(canvas: Canvas, w: Float, h: Float) {
-        paint.color = skyArgb(GlobeTokens.textTertiary, SkySpecColor.DUST_ALPHA_RATIO)
-        repeat(32) { i ->
-            val drift = (System.currentTimeMillis() / 1000.0) * 0.004 * (1 + skyHash(i, 23))
-            val dx = ((skyHash(i, 21) + drift) % 1.0 * w).toFloat(); val dy = (skyHash(i, 22) % 1.0 * h).toFloat()
-            rect.set(dx - 0.5f, dy - 0.5f, dx + 0.5f, dy + 0.5f)
-            canvas.drawBitmap(atlas[0], null, rect, paint)
-        }
-    }
-    /** 流星 90–240s 间隔、1.2s 划 8–14°、尾迹 0.4s（§八.9）；确定性周期，便于测试注入。 */
-    private fun drawMeteor(canvas: Canvas, w: Float, h: Float, nowMs: Long) {
-        val interval = SkyParams.METEOR_INTERVAL_MIN_MS + (skyHash(3, 31) * (SkyParams.METEOR_INTERVAL_MAX_MS - SkyParams.METEOR_INTERVAL_MIN_MS)).toLong()
-        val t = nowMs % interval
-        if (t > 1200L) return
-        val progress = t / 1200.0
-        val hx = (0.2 + 0.6 * skyHash(5, 33) * w).toFloat(); val hy = (0.25 + 0.3 * skyHash(6, 34) * h).toFloat()
-        paint.color = (0xFF shl 24) or SkySpecColor.METEOR_HEAD_RGB
-        paint.alpha = ((1.0 - progress) * 255).toInt()
-        canvas.drawLine(hx - 0.12f * w * progress.toFloat(), hy + 0.06f * h * progress.toFloat(), hx, hy, paint)
-        paint.alpha = 255
-        rect.set(hx - 1.5f, hy - 1.5f, hx + 1.5f, hy + 1.5f)
-        canvas.drawBitmap(atlas[1], null, rect, paint)
-    }
-    private fun tierOf(diameterPx: Float): Int = when {
-        diameterPx <= 1.2f -> 0
-        diameterPx <= 2.4f -> 1
-        diameterPx <= 4f -> 2
-        else -> 3
-    }
-}
 // 文件级共享工具：token Long ARGB → Int；可选 alpha 比率覆盖（UI 色只走 token，不写裸 hex）。
 internal fun skyArgb(token: Long, alphaRatio: Float? = null): Int {
     val base = (token and 0xFFFFFFFFL).toInt()
@@ -375,8 +304,6 @@ internal fun skyArgb(token: Long, alphaRatio: Float? = null): Int {
 /** 局部星图请求中的占位进度（0..1）；真实金字塔下载进度由后续接线单回填（§七.4、§九.3）。 */
 private const val LOCAL_CHART_PROGRESS: Float = 0.2f
 
-/** 按下放大门槛 60ms：低于门槛只记预压，不进 1.6× 两阶段（§七.3）。 */
-private const val PRESS_GATE_MS: Long = 60L
 /** 观测金针长度 dp（§八.11）。 */
 private const val NEEDLE_LEN_DP: Float = 12f
 /** 观测金针方点边长 px（§八.11）。 */
