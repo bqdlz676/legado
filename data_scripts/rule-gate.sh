@@ -518,6 +518,17 @@ RC68=$?
 if [ "$RC68" -eq 0 ]; then ok "68孤儿公开入口" "$(echo "$OE68" | grep 'ORPHAN-ENTRIES: PASS')"; else bad "68孤儿公开入口" "$(echo "$OE68" | grep -E 'FAIL|ORPHAN-ENTRIES' | head -3 | tr '\n' ' ')"; fi
 else skip_audit "68孤儿公开入口"; fi
 
+# 69 CI三同时（2026-11-28 G-02 补齐）：conclusion=success 只说明 workflow 没崩，说明不了
+# 「BUILD SUCCESSFUL / e: 零条 / tests failed 零条」三件事同时成立；一次被跳过或被取消的测试
+# 任务仍可给 success，L2 验收会拿错证据。故对 HEAD 所在 CI 机械判三同时。
+# 边界：只读 Actions 结论与日志关键字，不重跑不编译；网络/凭据不可用判 UNVERIFIED（退出码 3，
+# 不是通过）；cancelled 一律不算绿；判不到「测试被 skip 但没打印失败」，那仍需人看 job 步骤表。
+if gate_active g69; then
+CG69=$(python3 data_scripts/check-ci-green.py --commit "$(git rev-parse HEAD)" 2>&1)
+RC69=$?
+if [ "$RC69" -eq 0 ]; then ok "69CI三同时" "$(echo "$CG69" | grep 'CI-TRIPLE: PASS' | head -1)"; elif [ "$RC69" -eq 3 ]; then skip_audit "69CI三同时(UNVERIFIED)"; else bad "69CI三同时" "$(echo "$CG69" | grep -E 'CI-TRIPLE|FAIL' | head -3 | tr '\n' ' ')"; fi
+else skip_audit "69CI三同时"; fi
+
 # ⑭ 回执证据守卫（2026-11-24 事故复盘）：子代理零工具调用、四句空话当回执，旧结构检查拦不住；
 #    由 check-evidence.py 机械判 E1 命令证据 / E2 文件:行 定位 / E3 实测结论标记，三条同时成立才 PASS。
 #    边界：历史报告必然有缺证据的（体检留档 39 PASS / 68 FAIL），故门禁只校验**本次改动**

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-26",
+  "updated": "2026-11-28",
   "owner": "Q-271 门禁分级降噪",
   "policy": {
     "blocking": "阻断 push：只保留影响代码能否编译/运行、改动能否回源、清单与 CI 能否执行、门禁机制自身是否会假绿的门禁。--blocking-only 模式下只跑本集。",
@@ -936,7 +936,8 @@
       "level": "blocking",
       "reason": "仓内无该重载却按多参调用（87c7e0d matchesB3Query 一参扩展被四参调用）是 kotlinc Argument count mismatch ERROR，文本层合法、回执闸只数调用名不核定义配平；沙箱无编译链无法本地复现，与 ⑫/⑬/㉜/61 同属代码能否编译的硬判据，必须 push 前拦住。PACKAGE 形态：名字仓内有但包不对——import 指向别的包同名声明，或通配符 import 的目标包在仓内无任何 package 声明，kotlinc 报 Unresolved reference ERROR；旧判据只查名字有无，包不对照样放行。2026-11-27 加固：宽松兜底 fun 分支限定到行首/缩进后声明位且名字紧接左括号，不跨函数体匹配后续提及；自有 `包.*` 通配符 import 纳入 PACKAGE 判定；自测坏样本断言类别标签（NODEF/ARITY/PACKAGE）与被判文件行；补扩展跨包错引、嵌套/伴生外层放行、泛型接收者扩展放行、通配符包存在/不存在通路夹具。",
       "compensation": null
-    }    ,{
+    },
+    {
       "id": "g64",
       "label": "64",
       "name": "单测判据真值",
@@ -990,6 +991,17 @@
       "level": "blocking",
       "reason": "2026-11-28 §14 事故七：星空天象层 enterSky/setSkyBlend/draw(store) 编译与单测全绿、CI 三绿，但全仓零生产调用方，scene.sky 恒 null、渲染器首行 return，8920 颗星一颗不显示；编译/单测/CI 都只证明代码能跑、证明不了有人调它，死链路只有静态引用计数能在 push 前抓住（沙箱无编译链、真机后置）。判据：扫指定根 globe/astro/、host/Sky*、render/Field* 下的 .kt 顶层 fun/class/object/interface 声明（不收集 private/internal），在 app/src/main 全量文本数外部引用，引用数 0 且不在白名单即 FAIL。边界：只扫新层指定根、不扫全仓 UI（反射/序列化/Compose 预览入口会误判红）；val/var 默认不查（噪声大）；只证存在外部引用、不证链路可达，可达性归验收单；白名单键 相对路径::符号名 必须写清谁在用/为什么静态扫不到，自报无条目仍判 FAIL。定 blocking 理由：死链路是运行期静默失效——功能在编译面与 CI 全绿下完全不生效，与 g63/g65/g66 同属 push 前必须拦的代码硬判据；扫描根窄、白名单身份化，误判面可控。",
       "compensation": null
+    },
+    {
+      "id": "g69",
+      "label": "69",
+      "name": "CI三同时",
+      "script": "check-ci-green.py",
+      "nature": "bad",
+      "scope": "evidence",
+      "level": "audit",
+      "reason": "2026-11-28 G-02 补齐：台账-CI转绿登记此前靠人手动 curl 看 conclusion=success 就写转绿，但 conclusion 只证明 workflow 没崩，证明不了「BUILD SUCCESSFUL / e: 零条 / tests failed 零条」三同时；被跳过的测试任务、被取消后重跑的车道都可能给出 success 表象。判据：取 HEAD 的 Verify/Screenshot/Package 三条车道最新 run，要求结论全绿且 job 日志里编译错 0、tests failed 0、出现 BUILD SUCCESSFUL。边界：只读结论与日志关键字，不重跑不编译；网络不可达判 UNVERIFIED（退出码 3）不算通过；cancelled 不算绿；判不到 skip 口径。定 audit 理由：这条依赖远端网络与 CI 是否已触发，docs-only 提交常常没有 run，做 blocking 会把纯文档推送拦死，故降 audit，补偿走 full_gate_round 与转绿登记人核。",
+      "compensation": "full_gate_round"
     }
   ],
   "compensation_channels": {
