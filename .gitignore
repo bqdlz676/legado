@@ -27,3 +27,6 @@ docs/契约-设计token.emit.json
 
 # RAG 检索层缓存（可删可重建，不得当事实源，不进库）
 data_scripts/_cache/
+
+# 代理产物与证据资产（帧/JSON/交付包）：不进库以免 git status 噪声与 add -A 误扫，且禁删（可回源证据）
+artifacts/
