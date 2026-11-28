@@ -57,25 +57,25 @@
 
 ## 四、两条样例的实际命中推演（复核后结论，不照抄线索）
 
-- `resolve("魑魅魍魉", 0)`：safePos=0，tokenFallback=`魑`。date 正则不命中；allusion 2~4 字窗在 79 条典故种子内无整词；person 清洗后无档案；place 无地名；artifact 空实现；word 多字词窗（4→2 字）在 WORD_TSV 内无命中；char 槽 `魑` 不在 CHAR_TSV。dispatch 返回 null → `missing("魑")`：kind=`MISSING`，token=`魑`（夹位首字），不是四字整串。旧用例 :136 的 kind 断言能过，:137 的 token 断言期望 `魑魅魍魉`、实际 `魑`，`ComparisonFailure` 红。
-- `resolve("春秋", 99)`：safePos 夹到末位下标 1，tokenFallback=`秋`。date 无纪年 / 干支 / 朔望形状；allusion 无 `春秋` 词条；person / place 无档案；artifact 空实现；word 槽 `ChineseDict.wordAt("春秋", 1)` 命中 WORD_TSV:533 的 `春秋`，kind=`WORD`，token=`春秋`（整词，长词优先于单字槽）。旧用例 :155 期望 kind=`MISSING`、实际 `WORD`，`ComparisonFailure` 红；:156 期望 token=`秋`、实际 `春秋`，同样不成立。
+- `resolve("魑魅魍魉", 0)`：safePos=0，tokenFallback=`魑`。date 正则不命中；allusion 2~4 字窗在 79 条典故种子内无整词；person 清洗后无档案；place 无地名；artifact 空实现；word 多字词窗（4→2 字）在 WORD_TSV 内无命中；char 槽 `魑` 不在 CHAR_TSV。dispatch 返回 null → `missing("魑")`：kind=`MISSING`，token=`魑`（夹位首字），不是四字整串。旧用例 第 136 行 的 kind 断言能过，第 137 行 的 token 断言期望 `魑魅魍魉`、实际 `魑`，`ComparisonFailure` 红。
+- `resolve("春秋", 99)`：safePos 夹到末位下标 1，tokenFallback=`秋`。date 无纪年 / 干支 / 朔望形状；allusion 无 `春秋` 词条；person / place 无档案；artifact 空实现；word 槽 `ChineseDict.wordAt("春秋", 1)` 命中 WORD_TSV:533 的 `春秋`，kind=`WORD`，token=`春秋`（整词，长词优先于单字槽）。旧用例 第 155 行 期望 kind=`MISSING`、实际 `WORD`，`ComparisonFailure` 红；第 156 行 期望 token=`秋`、实际 `春秋`，同样不成立。
 - 根因定性：这两条断言把「本地词库恰好未收录 / 整词未被词槽截胡」这个会随种子数据漂移的事实，当成了代码层固定事实；代码层真正稳定的不变量只有「不崩、不空白、结构完整」，以及「越界先夹末位再按正常链解析」。
 
 ## 五、改动 diff 要点（before / after + grep 回证）
 
 改动文件仅一件：`app/src/test/java/io/legado/app/ui/book/read/ink/InkBubbleRouteResolverTest.kt`。
 
-- 类 KDoc（旧 :24-25 → 新 :24-27）：旧述「Provider 全空 / 未知符号 / 空段落 / 越界字位一律落 Missing 兜底」；改为「全空 / 未知符号 / 空段落落 Missing；越界字位先夹取末位下标，再按正常优先级链解析，末位整词被词槽命中时出词气泡，未收录才回落单字 / Missing」。
-- 用例 1（旧 :132-140 → 新 :134-150）：
+- 类 KDoc（旧 第 24 - 25 行 → 新 第 24 - 27 行）：旧述「Provider 全空 / 未知符号 / 空段落 / 越界字位一律落 Missing 兜底」；改为「全空 / 未知符号 / 空段落落 Missing；越界字位先夹取末位下标，再按正常优先级链解析，末位整词被词槽命中时出词气泡，未收录才回落单字 / Missing」。
+- 用例 1（旧 第 132 - 140 行 → 新 第 134 - 150 行）：
   - before：`resolve("魑魅魍魉", 0)`，断言 kind=`MISSING`、token=`魑魅魍魉`、body / source 非空。
   - after：样例换非汉字符号 `※`（U+203B，不在 `isHan` 区间 0x4E00..0x9FFF / 0x3400..0x4DBF，也不是拉丁 / 数字；纪年正则、称谓清洗、词槽与单字槽入口均先判汉字或清洗成空串，机制上不可能命中种子，不依赖「某词恰好未收录」）。断言：非 null；kind=`MISSING`；token 回守 `※`；body / detail / source 非空；`allowWebSearch` / `allowNotebook` 为 true；actions / candidates 为空。
-- 用例 2（旧 :151-158 → 新 :161-178，方法名改为 `越界字位夹取末位不崩，结果与末位原位解析一致`）：
+- 用例 2（旧 第 151 - 158 行 → 新 第 161 - 178 行，方法名改为 `越界字位夹取末位不崩，结果与末位原位解析一致`）：
   - before：`resolve("春秋", 99)`，断言 kind=`MISSING`、token=`秋`、body 非空。
   - after：并行取 `resolve(paragraph, 99)` 与 `resolve(paragraph, paragraph.lastIndex)`；断言两者均非 null，kind 相同、token 相同（夹取后走的槽位与原位点末位完全一致）；token 非空且包含末位字；body / detail / source 非空。槽位归属不锁定：词槽命中出整词、未收录回落单字或 Missing，两种形态都允许。
 - grep 回证（新文件真实行号）：
-  - `grep -n "※" InkBubbleRouteResolverTest.kt` → :136 注释、:139 `resolve("※", 0)`、:142 `assertEquals("※", bubble.token)`。
-  - `grep -n "clamped\|atLast" InkBubbleRouteResolverTest.kt` → :167 `val clamped = …(paragraph, 99)`、:168 `val atLast = …(paragraph, paragraph.lastIndex)`、:169-172 两条 assertNotNull 与两条 assertEquals。
-  - 旧符号清零：`grep -n "魑魅魍魉\|越界字位落 Missing" InkBubbleRouteResolverTest.kt` 在本测试件内零命中（`魑魅魍魉` 仅保留在 :182 的 `queryToken` 未收录用例，属任务书禁止改动的其余用例，未动）。
+  - `grep -n "※" InkBubbleRouteResolverTest.kt` → 第 136 行 注释、第 139 行 `resolve("※", 0)`、第 142 行 `assertEquals("※", bubble.token)`。
+  - `grep -n "clamped\|atLast" InkBubbleRouteResolverTest.kt` → 第 167 行 `val clamped = …(paragraph, 99)`、第 168 行 `val atLast = …(paragraph, paragraph.lastIndex)`、第 169 - 172 行 两条 assertNotNull 与两条 assertEquals。
+  - 旧符号清零：`grep -n "魑魅魍魉\|越界字位落 Missing" InkBubbleRouteResolverTest.kt` 在本测试件内零命中（`魑魅魍魉` 仅保留在 第 182 行 的 `queryToken` 未收录用例，属任务书禁止改动的其余用例，未动）。
 
 ## 六、覆盖不降说明
 
@@ -102,7 +102,7 @@
 
 ## 九、待裁项与新发现问题（状态词 + 归属）
 
-- 【观察项 · 归属：词库种子维护单】`:181-184` `候选整词未收录返回 null` 仍用 `魑魅魍魉` 断言 queryToken 返回 null；当前内存种子确实未收录，用例 PASS，但同旧用例一样带「恰好未收录」的漂移风险。本单按约束未动该用例；后续可换成非汉字串或多源交叉口径。
+- 【观察项 · 归属：词库种子维护单】`第 181 - 184 行` `候选整词未收录返回 null` 仍用 `魑魅魍魉` 断言 queryToken 返回 null；当前内存种子确实未收录，用例 PASS，但同旧用例一样带「恰好未收录」的漂移风险。本单按约束未动该用例；后续可换成非汉字串或多源交叉口径。
 - 【文档偏差 · 归属：B4-08 文档回订单】`docs/修复-B4-08-Resolver接线.md:12,56`、`docs/锚点/B4-08-Resolver接线.md:5`、`docs/验收-复核-B4-08Resolver接线.md:82,101` 仍写「越界字位落 Missing、token 为末字秋」「未知符号落 Missing」的旧口径，与现行实现（词槽可截胡整词）不符；历史报告留档不改，后续文档回订单一并修正。
 - 【存量债务 · 归属：测试治理单】全量 `check-test-assert-truth.py` 扫描出的其余测试件 RAWSOURCE / REFLECT 命中为历史债务，本单不扩大战场；清单以脚本输出为准。
 - 【待续核 · 归属：本单 CI 回查节】push 后新 run 的 Verify / Screenshot 各 job conclusion 以 GitHub API 回源为准，结论回填到下节；API 未查到 `conclusion=success` 之前，本报告不写「已绿」。
